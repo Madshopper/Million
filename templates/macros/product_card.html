@@ -59,7 +59,11 @@
   data-rema-image="{{ product.rema_image }}"
   data-is-organic="{{ 'true' if product.is_organic else 'false' }}"
   data-is-lactose-free="{{ 'true' if product.is_lactose_free else 'false' }}"
-  onclick="openOverlay(this)">
+  role="button"
+  tabindex="0"
+  aria-label="Se {{ product.name }}"
+  onclick="openOverlay(this)"
+  onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault();openOverlay(this);}">
   <div class="product-image-container">
     {% if product.is_sale or product.is_any_sale %}
     {%- set discount_pct = ((1 - (product.sale_price / product.price)) * 100) | round(0, 'floor') if (product.is_sale and product.price and product.sale_price and product.sale_price < product.price) else None -%}

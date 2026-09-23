@@ -92,6 +92,7 @@
 </head>
 
 <body>
+  <a href="#main-content" class="skip-link">Spring til indhold</a>
   <!-- Mørk tilstand sættes før første maling. script.js indlæses med defer og
        ville ellers først nå det i initSettings() - altså efter CSS er anvendt -
        hvilket gav et hvidt glimt ved hver sideindlæsning. Skal blive stående
@@ -227,6 +228,7 @@
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg></span>
         <input type="text" id="searchInputMobile" placeholder="Søg..." autocomplete="off"
+          aria-label="Søg efter produkter"
           style="width:100%;padding:10px 16px 10px 40px;background:var(--gray-100);border:2px solid transparent;border-radius:999px;font-family:'Plus Jakarta Sans','Inter',sans-serif;font-size:0.9rem;outline:none;"
           oninput="document.getElementById('searchInput').value=this.value;"
           onkeydown="if(event.key==='Enter'){document.getElementById('searchInput').value=this.value;closeAutocomplete();if(document.getElementById('nav-menu').classList.contains('active')){toggleMenu();}performSearch();this.blur();}">
@@ -743,7 +745,7 @@
      desuden inline background:white og arvet tekstfarve, dvs. hvid-paa-hvid
      i moerkt tema, hvis nogen havde genoplivet den. #}
 
-  <main>
+  <main id="main-content">
     <div id="searchResults">
       <div class="container-search">
         <div class="search-results-header">

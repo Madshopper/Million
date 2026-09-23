@@ -14,7 +14,7 @@
   --gray-100: #F3F4F6;
   --gray-200: #E5E7EB;
   --gray-300: #D1D5DB;
-  --gray-400: #9CA3AF;
+  --gray-400: #6A7382;
   --gray-500: #6B7280;
   --gray-600: #4B5563;
   --gray-700: #374151;
@@ -41,6 +41,24 @@
 
 html {
   scroll-behavior: smooth;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 12px;
+  z-index: 10000;
+  background: var(--green);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 12px;
 }
 
 body {
@@ -2987,7 +3005,7 @@ main {
   color: var(--gray-800, #1f2937);
 }
 .sco-store-item-qty {
-  color: var(--gray-400, #9ca3af);
+  color: var(--gray-400, #6a7382);
   font-size: 0.78rem;
 }
 .sco-store-item-price {
@@ -3655,6 +3673,14 @@ footer {
   font-weight: 500;
   min-height: 1.25rem;
 }
+
+.feedback-consent {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+.feedback-consent a { color: var(--green-dark); }
 
 .feedback-status.success {
   color: var(--green-dark);
