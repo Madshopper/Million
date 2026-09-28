@@ -19,7 +19,7 @@ CACHE_REFRESH_SECRET="$(cat "$SECRET_FILE")"
 echo "==> Deploy Worker med secret som [vars]"
 CACHE_REFRESH_SECRET="$CACHE_REFRESH_SECRET" bash scripts/deploy-worker.sh >/dev/null
 
-echo "==> GitHub secrets (SammyIsse/Million)"
+echo "==> GitHub secrets (Madshopper/Million)"
 gh secret set APP_URL --body "$APP_URL"
 gh secret set CACHE_REFRESH_SECRET --body "$CACHE_REFRESH_SECRET"
 gh secret set CLOUDFLARE_ACCOUNT_ID --body "$ACCOUNT_ID"
