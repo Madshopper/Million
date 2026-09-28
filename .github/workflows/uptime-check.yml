@@ -31,11 +31,22 @@ name: Uptime Check
 # der beviseligt kørte stabilt (25/26 grønne kørsler før tredje side kom
 # på). Tilføj ikke flere sider til dette tjek uden at teste over flere
 # timer først.
+#
+# 2026-09-28: search-check.yml er lagt ind her som et ekstra TRIN (egen
+# node-proces og dermed egen browser-instans, ligesom hver url allerede får
+# sin egen i scripts/playwright-uptime-check.mjs). Sparer én Playwright-
+# installation og en hel runner pr. søgetjek - repoet skal være privat og
+# holde sig under de 2.000 gratis Actions-minutter. Søgningen er en kold
+# D1-tabelscanning (~19k rows_read), derfor kører workflowet hver 3. time
+# og ikke hvert 5. min: 8 x 19k = ~152k rows_read/døgn mod budgettet på 5M.
+# I praksis kørte */5 alligevel kun ~6 gange i døgnet (GitHub-cron).
+# Søgetrinnet har `if: always()`, så begge tjek måles, selv om det første
+# fejler.
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '23 */3 * * *'
 
 jobs:
   check:
@@ -56,3 +67,10 @@ jobs:
 
       - name: Tjek forsiden og en kategoriside
         run: node scripts/playwright-uptime-check.mjs https://madshopper.dk/ https://madshopper.dk/Mejeri
+
+      # Tidligere search-check.yml. Forsiden og /Mejeri ligger i edge-cachen og
+      # rammer aldrig render-vejen, hvor søgningen kan fejle - denne url
+      # renderes frisk hver gang (unik max_price, se scriptet).
+      - name: Tjek at en søgning giver varer
+        if: always()
+        run: node scripts/playwright-uptime-check.mjs "https://madshopper.dk/search/results?q=m%C3%A6lk"
