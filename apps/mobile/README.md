@@ -2,7 +2,7 @@
 
 Expo (React Native) klient med fuld feature-paritet mål — se [`docs/native-app.md`](../../docs/native-app.md).
 
-Ligger i monorepoet: `apps/mobile/` i [SammyIsse/Million](https://github.com/SammyIsse/Million).
+Ligger i monorepoet: `apps/mobile/` i [Madshopper/Million](https://github.com/Madshopper/Million).
 
 **SDK:** Expo **54** (matcher App Store Expo Go; SDK 55+ kræver pt. TestFlight/`eas go` pga. Apple-review).
 
