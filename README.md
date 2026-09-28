@@ -1,8 +1,10 @@
 # MadShopper - Danish Grocery Price Comparison
 
-A web application that aggregates and compares grocery prices across major Danish supermarkets, helping users find the cheapest options and plan their shopping.
+A web application and native iOS/Android app that aggregate and compare grocery prices across major Danish supermarkets, helping users find the cheapest options and plan their shopping.
 
-Live site: [madshopper.dk](https://madshopper.dk)
+Live site: [madshopper.dk](https://madshopper.dk) · Staging: [dev.madshopper.dk](https://dev.madshopper.dk) (access-gated)
+
+**One product → one backend → one database → two clients.** The website and the native app call the same `/api/*` endpoints and the same Supabase RPCs; all business logic that can live in the backend does. Feature parity between the two is tracked in `docs/paritet.md`.
 
 ## Features
 
@@ -12,9 +14,14 @@ Live site: [madshopper.dk](https://madshopper.dk)
 - **Product search** with fuzzy matching and abbreviation normalization
 - **Nutrition data** per product card (Rema API → Salling Algolia → Open Food Facts fallback), built offline by `scripts/build-nutrition.py`
 - **Cart popularity** ("Populære varer" on the front page) - ranked by two weighted intent signals, written by a single Supabase RPC (`record_cart_activity`): adding an item to the cart (weight 1) and clicking "Sammenlign priser" (weight 3, the whole cart in one batched call). The same call also aggregates activity into `cart_events` - one row per product per **hour** per signal type, with summed quantity, pruned to 30 days by `updater.py::prune_cart_events`. Anonymous by construction: only product ids and counters are stored, with no identifier, no raw timestamp and no client-side storage, so the data falls outside GDPR rather than merely complying with it. The RPC is `SECURITY DEFINER` and re-validates weight, item count, id length and quantity itself, since PostgREST exposes it to the public key directly - `cart_events` is closed to `anon` entirely (RLS on, service_role policy only), so the function is the only write path
-- **Price alerts** - users can set a target price per product (`POST /api/create-alert`); persisted to `price_alerts`, notification delivery not yet built (see `docs/Features.md` / `docs/prisovervaagning.md`)
-- **User accounts & saved cart** - client-side via `supabase-js` (`static/js/auth.js`), with Google sign-in (Identity Services ID-token flow) and email/password incl. password reset. The cart is stored compactly in the `carts` table, protected by RLS (`auth.uid() = user_id`) so a user can only ever read/write their own row; the browser only ever holds the public publishable key. Comparison prices are re-fetched live from `/api/products` on display, so no stale prices are persisted. Branded transactional mail still needs a one-time SMTP setup - see `docs/email-bekraeftelse.md`
-- User feedback - buffered in Cloudflare D1 (`pending_feedback`) and relayed to a Google Sheet every 20 min by `scripts/relay-feedback-to-sheet.py`
+- **Price alerts** - users set a target price per product via the `create_price_alert` RPC (`scripts/supabase-price-alerts-v2.sql`; requires sign-in, e-mail taken from the JWT). Every night `updater.py::check_price_alerts()` checks all open alerts against the fresh prices and sends an e-mail through Resend when the target is hit. Users can list and delete their alerts under "Mine prisalarmer". See `docs/prisovervaagning.md`
+- **User accounts & saved cart** - client-side via `supabase-js` (`static/js/auth.js`), with Google sign-in (Identity Services ID-token flow), Apple sign-in (app), and email/password incl. password reset. Sign-up is bot-protected by Cloudflare Turnstile, enforced server-side by a Supabase Auth Hook (`scripts/supabase-signup-turnstile-hook.sql`). The cart is stored compactly in the `carts` table, protected by RLS (`auth.uid() = user_id`) so a user can only ever read/write their own row; the browser only ever holds the public publishable key. Comparison prices are re-fetched live from `/api/products` on display, so no stale prices are persisted. Users can delete their own account (`delete_own_account` RPC). Branded transactional mail needs a one-time SMTP setup - see `docs/email-bekraeftelse.md`
+- **Saved lists & shared cart** - up to 10 saved lists per user, and a live shared cart for up to 6 members via invitation link (`scripts/supabase-shared-carts.sql`, RPC-only)
+- **Cheapest-store optimisation** - "Find billigste" computes the cheapest store or store combination for the whole basket, suggests alternatives for items a store doesn't carry (`POST /api/alternatives`) and shows a multi-store route
+- **Personal savings** - a monthly "you saved X kr" figure per user, recorded and read only via RPC (`record_compare_savings` / `get_personal_savings`, `scripts/supabase-user-savings.sql`)
+- **Recipes** (gated to staging) - recipe pages priced against the current cart prices (`/opskrifter`, `/api/recipes`, `recipe_importer.py` / `recipe_matching.py` / `recipe_pricing.py`); the front-page teaser is live
+- **Native app** - Expo/React Native app in `apps/mobile/` with full feature parity (not a WebView wrapper). See `docs/native-app.md` and `docs/udgivelse.md`
+- User feedback - buffered in Cloudflare D1 (`pending_feedback`) and relayed to a Google Sheet once a day by `scripts/relay-feedback-to-sheet.py`
 
 ## Tech Stack
 
@@ -23,10 +30,12 @@ Live site: [madshopper.dk](https://madshopper.dk)
 | Backend | Python 3, Flask |
 | Production | Cloudflare Workers (EdgeKit/Pyodide), D1 (product cache mirror, `pending_feedback`, `security_events`), KV (`cache_version`, `home_data_v1`, edge response cache) |
 | Scrapers | Selenium, Requests |
-| Database | Supabase (`app_cache`, `produkter`, `price_history`, `nutrition_data`, `cart_popularity`, `cart_events`, `price_alerts`, `carts`) |
-| Auth | Supabase Auth via `supabase-js` (Google Identity Services + email/password), client-side only |
+| Database | Supabase (`app_cache`, `produkter`, `price_history`, `nutrition_data`, `cart_popularity`, `cart_events`, `price_alerts`, `carts`, `user_monthly_savings`, shared carts, recipes) |
+| Auth | Supabase Auth via `supabase-js` (Google Identity Services, Apple, email/password), client-side only; Turnstile on sign-up |
 | Fuzzy search | RapidFuzz |
 | Frontend | Jinja2 templates, vanilla JS |
+| Native app | Expo 54 / React Native 0.81 (`apps/mobile/`), built and submitted with EAS |
+| E-mail | Resend (price-alert mails) |
 | Product classifier | Keyword allow/blocklist (`scraper/keywords.py`), no AI |
 | CI/CD | GitHub Actions (per-store scrapers, cache updater, edge deploy, smoke tests, uptime check) |
 | Deploy/smoke tests | Playwright (Node) - `scripts/smoke-test.mjs`, `scripts/playwright-uptime-check.mjs` |
@@ -61,8 +70,8 @@ Meny, Spar og Min Købmand kører på samme Dagrofa-webshopplatform, så al scra
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/million.git
-cd million
+git clone https://github.com/Madshopper/Million.git
+cd Million
 
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
@@ -85,7 +94,7 @@ cp .env.example .env
 | `ENABLE_PRICE_DB` | `1` to force-enable Supabase features, `0` to disable |
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Your Supabase publishable key |
-| `TABLE_SUFFIX` | Suffix for write tables (`cart_popularity`, `price_alerts`). Empty in production, `_dev` locally/staging so tests never touch prod data (see `scripts/supabase-dev-tables.sql`) |
+| `TABLE_SUFFIX` | Suffix for write tables (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `user_monthly_savings`). Empty in production, `_dev` locally/staging so tests never touch prod data (see `scripts/supabase-dev-tables.sql` / `scripts/supabase-user-savings.sql`) |
 | `DEPLOY_KEY` | Supabase service key (scrapers/updater only - not needed for local app) |
 | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ZONE_ID` | Only needed locally so `scripts/deploy-worker.sh` can purge the Cloudflare CDN cache after a manual deploy |
 | `GOOGLE_SHEET_WEBHOOK_URL` | Apps Script webhook that forwards feedback to a Google Sheet (production instead buffers feedback in D1 and relays it via `feedback-relay.yml`) |
@@ -123,8 +132,14 @@ Production runs behind Cloudflare's edge, not against Supabase directly:
 - **KV** holds `cache_version` (bumped on every seed; the cache key is versioned with it, so the daily refresh instantly invalidates all edge caches - no staleness window) and `home_data_v1`, a precomputed JSON blob of the front page's three candidate pools (Ugens Tilbud, Køl, Populære varer). `app.py::home()` reads it on edge instead of issuing ~4 live D1/Supabase calls per render - store filtering stays per-request since it depends on the visitor's cookie/query param. If the key is missing, `home()` fails open to the old live calls.
 - **Cache API** (`src/worker.py`) stores full rendered GET responses per versioned key with a 24h TTL, skipped entirely for AJAX fragment requests (which lack `<head>`/CSS and would otherwise get served as a full page to the next visitor).
 - **Degraded responses are never shared.** The D1 helpers and Supabase calls cannot tell "no rows" from "the lookup failed" - both return empty with status 200. Since the status code was the only cache criterion, one transient bridge or D1 collision used to be frozen as "there are no products" for every visitor on that URL for up to 24h. Failure paths now call `_mark_data_degraded()` and the header layer refuses to set `CDN-Cache-Control` on a marked response. Any new path that can return empty on failure must mark itself; `scripts/test-degraded-cache.py` fault-injects every known one and asserts the header is absent.
+- **One render at a time per isolate.** EdgeKit runs the whole Flask render synchronously and every D1/KV call suspends through a JS↔Python bridge. A second request entering Flask meanwhile saw its D1 calls fail softly and returned zero products (measured 14-09-2026: 11 of 20 concurrent searches). `_render_exclusive()` in `src/worker.py` makes the second request wait asynchronously, with a ceiling so a CPU-killed render can't lock the isolate. Nothing may call `super().fetch()` around it - `scripts/test-render-exclusive.py` enforces that on every deploy.
+- **CPU is the real limit, not concurrency.** A render costs 250-1,100 ms CPU on edge, and the isolate is killed (1102, followed by a 1-2 min cascade of 1101) by *sustained* use - even strictly sequential traffic. The worker therefore answers "busy" (`503` + `X-MadShopper-Busy` + `Retry-After`) instead of rendering when a per-isolate CPU estimate is spent, the render queue is full, or the wait times out. The web client (`fetchWithDegradedRetry` in `static/js/script.js`) and the app's API client retry on their own, and page views reload themselves (at most 4 times). On Workers Paid the budget is switched off with `RENDER_CPU_BUDGET = "off"`.
+- **Heavy responses are built in D1** where possible (e.g. `/api/products` via `_API_PRODUCTS_SQL`) - D1's CPU doesn't count against the worker's. Jinja templates and the routing table are compiled at import (`_prewarm_for_snapshot`) so they live in Cloudflare's snapshot instead of being paid for in every new isolate.
+- **HTML is sent with `Cache-Control: no-store`**, so browsers never keep old pages (and old `?v=` asset links); `scripts/deploy-worker.sh` sets the zone's Browser Cache TTL to *Respect Existing Headers* on each deploy.
 
-This design traces back to the 2026-07-19 outage where concurrent cold renders (all visitors hitting an unversioned cache at once after a nightly reseed) triggered Cloudflare's 1101/1102 CPU-limit errors; see `docs/Dev.md` and the commit history around `scripts/seed-d1.py` for the full incident trail.
+This design traces back to the 2026-07-19 outage where concurrent cold renders (all visitors hitting an unversioned cache at once after a nightly reseed) triggered Cloudflare's 1101/1102 CPU-limit errors; see `docs/Dev.md` and the commit history around `scripts/seed-d1.py` for the full incident trail. **Never add anything that logs per request** - Workers observability is permanently off in both environments for that reason.
+
+**D1 write budget.** The free plan's 100k `rows_written` per UTC day is account-wide (production + staging). A full reseed writes ~4.3 rows per product, so the nightly run uses most of the day's budget on its own. A push to `main` or `dev` touching `updater.py`, `app_support.py` or `scraper/**` triggers an extra full reseed and blows the budget - so matching/scraper changes are merged to `main` with `[skip ci]` and tested locally with `scripts/eval-matching.py`. When the budget is exhausted all D1 writes fail until 00:00 UTC, and `/api/feedback` answers 503 rather than faking success.
 
 ### Deployment & CI
 
@@ -132,15 +147,22 @@ All deploys and data refreshes run via GitHub Actions (`.github/workflows/`):
 
 | Workflow | Purpose |
 |---|---|
-| `scraper-*.yml` | One workflow per store, dispatched nightly by `nightly-dispatcher.yml` |
+| `scraper-*.yml` | One workflow per store (`scraper-Katalog.yml` = Netto + Føtex catalogue), dispatched nightly by `nightly-dispatcher.yml` |
 | `nightly-dispatcher.yml` | DST-aware trigger for every nightly job (GitHub cron is UTC-only): scrapers 00:01, cache updater 01:00, nutrition 02:00 |
-| `cache-updater.yml` | Runs `updater.py`, then `scripts/seed-d1.py` (D1 reseed, `home_data_v1`, `cache_version`) |
+| `nightly-health-check.yml` | Verifies that every bot-dispatched nightly run actually ran and succeeded (failures of bot-triggered runs don't e-mail anyone) |
+| `cache-updater.yml` | Runs `updater.py` (incl. price-alert mails), then `scripts/seed-d1.py` (D1 reseed, `home_data_v1`, `cache_version`) |
 | `build-nutrition.yml` | Incrementally fills `nutrition_data` via `scripts/build-nutrition.py`, streaming results to Supabase as it goes |
-| `deploy-edge.yml` / `deploy-edge-dev.yml` | Builds and deploys the Worker to production / staging, then runs the Playwright smoke test |
-| `uptime-check.yml` | Playwright-based uptime probe every 5 minutes, e-mails on failure |
-| `feedback-relay.yml` | Every 20 min, relays feedback buffered in D1 to the Google Sheet |
-| `security-monitor.yml` | Every 15 min, relays security events from D1 to Supabase and **fails (→ e-mail) on attack thresholds** |
+| `recipe-import.yml` | Recipe import from URL + re-matching of user-submitted recipes (`recipe_importer.py`) |
+| `deploy-edge.yml` / `deploy-edge-dev.yml` | Builds and deploys the Worker to production / staging, then runs a functional check in a real browser (a fresh search render must return products) |
+| `canary-upload.yml` | Uploads a new Worker version to Cloudflare **without** moving traffic to it |
+| `uptime-check.yml` | Every 3 h: Playwright uptime probe (front page + category), a fresh search render (cached pages never exercise the render path), and the security-event relay - one job, e-mails on failure |
+| `feedback-relay.yml` | Daily (05:17 UTC), relays feedback buffered in D1 to the Google Sheet |
+| `security-monitor.yml` | Manual only (the scheduled run is a step in `uptime-check.yml`). `scripts/relay-security-events.py` relays security events from D1 to Supabase and **fails (→ e-mail) on attack thresholds, degraded responses, busy responses and Cloudflare 1101/1102 errors** (read from GraphQL analytics). A manual run with `cpu_detail_from`/`cpu_detail_to` reports CPU per minute - the only way to measure CPU on edge |
+| `mobile-tests.yml` | Network-free checks of the native app (multi-deal/SCO port, listing-API contract) on every PR |
+| `parity-tests.yml` | Tests for the contracts web and app share without sharing code (e.g. the theme setting) |
 | `dependency-audit.yml` | Scheduled dependency vulnerability check |
+
+GitHub cron is delayed by hours in practice, so alert windows are sized to tolerate that. The CI smoke test and warm-up requests from GitHub Actions get 403 from Cloudflare's Bot Fight Mode, so they prove nothing on their own - the real-browser functional check, the search step in `uptime-check.yml` and the monitor's alarms on real traffic are what actually measure the site.
 
 ### Security model
 
@@ -352,11 +374,19 @@ python scripts/verify-integrations.py
 # (data/app_cache_local.json or Supabase access), so it is a local gate, not CI.
 python scripts/test-degraded-cache.py
 
+# Deploy gates (run automatically by deploy-edge.yml)
+python scripts/test-security-logging.py   # logging stays aggregated, observability stays off
+python scripts/test-render-exclusive.py   # every render goes through _render_exclusive()
+python scripts/test-cache-bust.py         # changed CSS/JS must bump ?v= in templates/base.html
+
+# Listing-API contract shared with the native app (run by mobile-tests.yml)
+uv run python scripts/test-listing-api.py
+
 # Concurrent-request smoke test against a deployed site (run automatically
 # after deploy-edge.yml / deploy-edge-dev.yml)
 node scripts/smoke-test.mjs https://madshopper.dk
 
-# Uptime probe used by uptime-check.yml (every 5 min, real headless browser -
+# Uptime probe used by uptime-check.yml (every 3 h, real headless browser -
 # curl can't pass Cloudflare's free Bot Fight Mode JS challenge)
 node scripts/playwright-uptime-check.mjs https://madshopper.dk/
 ```
@@ -364,11 +394,13 @@ node scripts/playwright-uptime-check.mjs https://madshopper.dk/
 ## Project Structure
 
 ```
-Million-main/
+Million/
 ├── app.py               # Flask application and API routes
 ├── app_support.py       # Logging, caching, search index helpers
-├── updater.py           # Rebuilds product cache + price history
-├── src/worker.py        # Cloudflare Workers entry point
+├── updater.py           # Rebuilds product cache + price history, sends price-alert mails
+├── recipe_importer.py / recipe_matching.py / recipe_pricing.py  # Recipes
+├── src/worker.py        # Cloudflare Workers entry point (edge cache, render lock, CPU budget, rate limiting)
+├── apps/mobile/         # Native iOS/Android app (Expo/React Native)
 ├── scraper/
 │   ├── ai_classifier.py     # Keyword-based food/non-food classifier (no AI)
 │   ├── keywords.py          # Keyword lists for classification
@@ -387,10 +419,13 @@ Million-main/
 │   ├── build-pages.sh       # Edge deploy bundle
 │   ├── deploy-worker.sh     # Deploy + purge Cloudflare CDN cache
 │   ├── smoke-test.mjs               # Post-deploy concurrent-request smoke test (Playwright)
-│   ├── playwright-uptime-check.mjs  # 5-min uptime probe (Playwright, real headless browser)
+│   ├── playwright-uptime-check.mjs  # uptime/search probe (Playwright, real headless browser)
 │   ├── setup-domain.sh / setup-edge-secrets.sh / setup-feedback-sheet.sh
 │   ├── relay-feedback-to-sheet.py # D1 feedback → Google Sheet
+│   ├── relay-security-events.py   # D1 security events → Supabase + alarms (security-monitor.yml)
 │   ├── cf-analytics.py      # Aggregated Workers/zone metrics (error rate, CPU, 5xx) via GraphQL
+│   ├── test-matching.py / eval-matching.py  # Match-engine regression test + segmented precision/recall
+│   ├── test-*.py / test-theme-parity.mjs    # Deploy gates and contract tests (see above)
 │   └── supabase-*.sql       # Supabase schema/grants/swap/lockdown scripts
 ├── data/
 │   ├── *_normal_prices.json # Cached store price data
@@ -406,8 +441,9 @@ Million-main/
 │   ├── js/supabase.min.js   # Vendored supabase-js (self-hosted, no CDN)
 │   └── images/              # Store logos
 ├── docs/                # Dev.md (dev/staging workflow), Features.md (roadmap),
-│                        # prisovervaagning.md, email-bekraeftelse.md, Github_fifs.md
-├── .github/workflows/   # Scrapers, cache updater, edge deploy, smoke/uptime tests, feedback relay
+│                        # paritet.md (web/app feature matrix), native-app.md, udgivelse.md,
+│                        # env-setup.md, prisovervaagning.md, email-bekraeftelse.md, Github_fifs.md
+├── .github/workflows/   # Scrapers, cache updater, edge deploy, monitoring, app tests (see table above)
 ├── requirements.txt     # CI/scraper dependencies
 └── pyproject.toml       # EdgeKit / uv (Cloudflare deploy)
 ```
