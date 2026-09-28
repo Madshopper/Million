@@ -137,9 +137,9 @@ All deploys and data refreshes run via GitHub Actions (`.github/workflows/`):
 | `cache-updater.yml` | Runs `updater.py`, then `scripts/seed-d1.py` (D1 reseed, `home_data_v1`, `cache_version`) |
 | `build-nutrition.yml` | Incrementally fills `nutrition_data` via `scripts/build-nutrition.py`, streaming results to Supabase as it goes |
 | `deploy-edge.yml` / `deploy-edge-dev.yml` | Builds and deploys the Worker to production / staging, then runs the Playwright smoke test |
-| `uptime-check.yml` | Playwright-based uptime probe every 5 minutes, e-mails on failure |
+| `uptime-check.yml` | Every 3 h: Playwright uptime probe (front page + category), a fresh search render, and the security-event relay - one job, e-mails on failure |
 | `feedback-relay.yml` | Daily (05:17 UTC), relays feedback buffered in D1 to the Google Sheet |
-| `security-monitor.yml` | Every 15 min, relays security events from D1 to Supabase and **fails (→ e-mail) on attack thresholds** |
+| `security-monitor.yml` | Manual only (scheduled run lives in `uptime-check.yml`); relays security events from D1 to Supabase and **fails (→ e-mail) on attack thresholds** |
 | `dependency-audit.yml` | Scheduled dependency vulnerability check |
 
 ### Security model
@@ -356,7 +356,7 @@ python scripts/test-degraded-cache.py
 # after deploy-edge.yml / deploy-edge-dev.yml)
 node scripts/smoke-test.mjs https://madshopper.dk
 
-# Uptime probe used by uptime-check.yml (every 5 min, real headless browser -
+# Uptime probe used by uptime-check.yml (every 3 h, real headless browser -
 # curl can't pass Cloudflare's free Bot Fight Mode JS challenge)
 node scripts/playwright-uptime-check.mjs https://madshopper.dk/
 ```
@@ -387,7 +387,7 @@ Million-main/
 │   ├── build-pages.sh       # Edge deploy bundle
 │   ├── deploy-worker.sh     # Deploy + purge Cloudflare CDN cache
 │   ├── smoke-test.mjs               # Post-deploy concurrent-request smoke test (Playwright)
-│   ├── playwright-uptime-check.mjs  # 5-min uptime probe (Playwright, real headless browser)
+│   ├── playwright-uptime-check.mjs  # uptime/search probe (Playwright, real headless browser)
 │   ├── setup-domain.sh / setup-edge-secrets.sh / setup-feedback-sheet.sh
 │   ├── relay-feedback-to-sheet.py # D1 feedback → Google Sheet
 │   ├── cf-analytics.py      # Aggregated Workers/zone metrics (error rate, CPU, 5xx) via GraphQL
