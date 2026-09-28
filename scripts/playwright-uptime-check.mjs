@@ -119,7 +119,11 @@ async function check(page, url) {
 // hver url får sin egen browser-instans og kontekst, så hvert tjek ligner
 // et uafhængigt førstegangsbesøg i stedet for flere sider i samme session.
 async function checkUrl(url) {
+  // PW_CHANNEL=chrome (sat i uptime-check.yml) bruger den Chrome, der er
+  // forudinstalleret paa GitHubs ubuntu-runner, i stedet for at downloade
+  // Playwrights egen Chromium (~25 s pr. koersel). Uden variablen: som foer.
   const browser = await chromium.launch({
+    ...(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {}),
     args: ["--disable-blink-features=AutomationControlled"],
   });
   try {
