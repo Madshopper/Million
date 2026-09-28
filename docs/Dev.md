@@ -7,7 +7,7 @@ Egen Worker (madshopper-dev), egen KV-namespace og egen D1-database - helt adski
 NÅR DU ÅBNER EN ANDEN COMPUTER (første gang)
 
 1. Klon repoet, hvis det ikke allerede ligger der:
-   git clone https://github.com/SammyIsse/Million.git
+   git clone https://github.com/Madshopper/Million.git
    cd Million
 
 2. Hent dev-branchen:

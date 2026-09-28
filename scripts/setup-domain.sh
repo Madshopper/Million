@@ -35,7 +35,7 @@ fi
 echo ""
 echo "==> Opdater GitHub secrets"
 if command -v gh >/dev/null 2>&1; then
-  gh secret set APP_URL --body "$APP_URL" -R SammyIsse/Million 2>/dev/null || \
+  gh secret set APP_URL --body "$APP_URL" -R Madshopper/Million 2>/dev/null || \
     gh secret set APP_URL --body "$APP_URL"
   echo "APP_URL sat til ${APP_URL}"
 else
