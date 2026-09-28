@@ -2,7 +2,11 @@ name: Relay Feedback to Sheet
 
 on:
   schedule:
-    - cron: '*/20 * * * *'
+    # Én gang dagligt kl. 05:17 UTC (07:17 dansk sommertid / 06:17 vintertid).
+    # Var */20 - skruet ned 28-09-2026 for at spare Actions-minutter, da
+    # repoet skal være privat. Feedback venter i D1 (pending_feedback) til
+    # næste kørsel, og relay-scriptet tager op til 200 rækker pr. kørsel.
+    - cron: '17 5 * * *'
   workflow_dispatch:
   push:
     branches: [main]
