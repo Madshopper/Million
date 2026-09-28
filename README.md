@@ -14,7 +14,7 @@ Live site: [madshopper.dk](https://madshopper.dk)
 - **Cart popularity** ("Populære varer" on the front page) - ranked by two weighted intent signals, written by a single Supabase RPC (`record_cart_activity`): adding an item to the cart (weight 1) and clicking "Sammenlign priser" (weight 3, the whole cart in one batched call). The same call also aggregates activity into `cart_events` - one row per product per **hour** per signal type, with summed quantity, pruned to 30 days by `updater.py::prune_cart_events`. Anonymous by construction: only product ids and counters are stored, with no identifier, no raw timestamp and no client-side storage, so the data falls outside GDPR rather than merely complying with it. The RPC is `SECURITY DEFINER` and re-validates weight, item count, id length and quantity itself, since PostgREST exposes it to the public key directly - `cart_events` is closed to `anon` entirely (RLS on, service_role policy only), so the function is the only write path
 - **Price alerts** - users can set a target price per product (`POST /api/create-alert`); persisted to `price_alerts`, notification delivery not yet built (see `docs/Features.md` / `docs/prisovervaagning.md`)
 - **User accounts & saved cart** - client-side via `supabase-js` (`static/js/auth.js`), with Google sign-in (Identity Services ID-token flow) and email/password incl. password reset. The cart is stored compactly in the `carts` table, protected by RLS (`auth.uid() = user_id`) so a user can only ever read/write their own row; the browser only ever holds the public publishable key. Comparison prices are re-fetched live from `/api/products` on display, so no stale prices are persisted. Branded transactional mail still needs a one-time SMTP setup - see `docs/email-bekraeftelse.md`
-- User feedback - buffered in Cloudflare D1 (`pending_feedback`) and relayed to a Google Sheet every 20 min by `scripts/relay-feedback-to-sheet.py`
+- User feedback - buffered in Cloudflare D1 (`pending_feedback`) and relayed to a Google Sheet once a day by `scripts/relay-feedback-to-sheet.py`
 
 ## Tech Stack
 
@@ -138,7 +138,7 @@ All deploys and data refreshes run via GitHub Actions (`.github/workflows/`):
 | `build-nutrition.yml` | Incrementally fills `nutrition_data` via `scripts/build-nutrition.py`, streaming results to Supabase as it goes |
 | `deploy-edge.yml` / `deploy-edge-dev.yml` | Builds and deploys the Worker to production / staging, then runs the Playwright smoke test |
 | `uptime-check.yml` | Playwright-based uptime probe every 5 minutes, e-mails on failure |
-| `feedback-relay.yml` | Every 20 min, relays feedback buffered in D1 to the Google Sheet |
+| `feedback-relay.yml` | Daily (05:17 UTC), relays feedback buffered in D1 to the Google Sheet |
 | `security-monitor.yml` | Every 15 min, relays security events from D1 to Supabase and **fails (→ e-mail) on attack thresholds** |
 | `dependency-audit.yml` | Scheduled dependency vulnerability check |
 
