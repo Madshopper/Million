@@ -27,8 +27,8 @@ on:
         description: 'Valgfrit: CPU pr. minut til (ISO)'
         required: false
         default: ''
-  schedule:
-    - cron: '*/15 * * * *'
+  # Ingen schedule længere (28-09-2026): den planlagte kørsel er et trin i
+  # uptime-check.yml. Dette workflow bruges kun manuelt, fx til CPU-detaljer.
 
 concurrency:
   group: security-monitor

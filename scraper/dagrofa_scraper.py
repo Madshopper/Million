@@ -32,18 +32,28 @@ STORES = {
         'base_url': 'https://glostrup.spar.dk/produkter',
         'db_key': 'Spar',
         'normal_prices_file': 'spar_normal_prices.json',
+        'api_origin': 'https://longjohnapi.azurewebsites.net',
+        'merchant_id': 1222,
     },
     'meny': {
         'base_url': 'https://roenne.meny.dk/produkter',
         'db_key': 'Meny',
         'normal_prices_file': 'meny_normal_prices.json',
+        'api_origin': 'https://longjohnapi-meny.azurewebsites.net',
+        'merchant_id': 558155,
     },
     'mk': {
         'base_url': 'https://hollufpile.minkobmand.dk/produkter',
         'db_key': 'minkøbmand',
         'normal_prices_file': 'mk_normal_prices.json',
+        'api_origin': 'https://longjohnapi.azurewebsites.net',
+        'merchant_id': 769,
     },
 }
+
+# Sættes af run() - bruges af API-vejen (scrape_via_api)
+API_ORIGIN = ""
+MERCHANT_ID = 0
 
 # Sættes af run() - én butik pr. proces, præcis som de gamle enkeltstående scripts
 BASE_URL = ""
@@ -167,7 +177,8 @@ def handle_cookies(driver):
 CATEGORIES_TO_SCRAPE = {
     "kolonial": None,
     "mejeri": None,
-    "pålæg og kølede middagsretter": None,
+    "pålæg og kølede middagsretter": None,   # Meny
+    "pålæg og middagsretter": None,           # Spar / Min Købmand
     "frost": None,
     "kød": None,
     "fisk og skaldyr": None,
@@ -581,6 +592,165 @@ def collect_products_in_category(driver, kategori_navn):
 
 
 # ---------------------------------------------------------------------------
+# API-vej (primær). Webshoppen er en Angular-app oven på Dagrofas "LongJohn"-
+# API, som frontenden selv kalder uden login:
+#   GET {api}/Category?merchantId=N          -> kategoritræ
+#   GET {api}/Product/query?merchantId=N&pageNumber=P&pageSize=500
+#                          &displayedInStore=true -> {total, products[]}
+# Målt 28-09-2026: Meny 4.443 varer på ~5 s mod ~12 min med Selenium, og
+# `total` fra API'et gør fuldstændigheden målbar (vi henter til vi har
+# `total`, og fejler hvis ikke). Selenium-vejen nedenfor er fallback.
+#
+# Fundet samtidig: Spar og Min Købmand kalder kategorien "Pålæg og
+# middagsretter" (Meny: "... og kølede ..."), så Selenium-vejen fandt den
+# aldrig for de to butikker og returnerede [] (ikke None) - pålæg manglede
+# stille. Kategori-filteret her matcher derfor på begge navne.
+# ---------------------------------------------------------------------------
+
+_API_PAGE_SIZE = 500
+# Samme sortiment som Selenium-vejen: ingen pleje/husholdning/baby/dyr/diverse,
+# og kun tre underkategorier af kiosk (tobak m.m. udelades).
+_API_EXCLUDED_TOP = {"personlig pleje", "baby og børn", "husholdning",
+                     "dyrenes verden", "diverse"}
+_API_KIOSK_TOP = "kiosk - slik og snack"
+_API_KIOSK_SUBS = {"chips og snacks", "chokolade", "slik"}
+
+
+def _api_get(path, params):
+    headers = {
+        "Accept": "application/json",
+        "Origin": BASE_ORIGIN,
+        "Referer": BASE_URL,
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/124.0.0.0 Safari/537.36"),
+    }
+    last = None
+    for attempt in range(4):
+        try:
+            r = requests.get(f"{API_ORIGIN}{path}", params=params,
+                             headers=headers, timeout=30)
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            last = e
+            time.sleep(2 * (attempt + 1))
+    raise RuntimeError(f"API-kald fejlede: {path} {params}: {last}")
+
+
+def _fmt_kr(v):
+    return f"{v:.2f}".replace(".", ",")
+
+
+def scrape_via_api():
+    """Hent hele butikkens sortiment via API'et. Returnerer rækker i
+    'bilka'-formatet (11 kolonner + multikøb). Fejler hvis vi ikke når
+    API'ets egen `total`, så et ufuldstændigt sæt aldrig gemmes."""
+    cats = _api_get("/Category", {"merchantId": MERCHANT_ID})
+    top_of, sub_of = {}, {}
+
+    def walk(c, top, sub):
+        top_of[c["id"]] = top
+        sub_of[c["id"]] = sub
+        for s in c.get("subCategories") or []:
+            walk(s, top, sub or s["name"])
+
+    for c in cats:
+        walk(c, c["name"], None)
+
+    products, total = [], None
+    for page in range(200):
+        j = _api_get("/Product/query", {
+            "merchantId": MERCHANT_ID, "pageNumber": page,
+            "pageSize": _API_PAGE_SIZE, "displayedInStore": "true",
+        })
+        total = j.get("total", 0)
+        batch = j.get("products") or []
+        products.extend(batch)
+        if not batch or len(products) >= total:
+            break
+
+    unique = {p.get("id"): p for p in products}
+    if total is None or len(unique) < total:
+        raise RuntimeError(
+            f"API gav {len(unique)} unikke varer, men total er {total} - ufuldstændigt")
+    print(f"  ✓ API: {len(unique)}/{total} varer hentet")
+
+    parsed, skipped = [], {}
+    for p in unique.values():
+        if p.get("isTobacco"):
+            skipped["tobak"] = skipped.get("tobak", 0) + 1
+            continue
+        top = (top_of.get(p.get("categoryId")) or "").strip()
+        sub = (sub_of.get(p.get("categoryId")) or "").strip()
+        tl = top.lower()
+        if tl in _API_EXCLUDED_TOP:
+            skipped[tl] = skipped.get(tl, 0) + 1
+            continue
+        if tl == _API_KIOSK_TOP and sub.lower() not in _API_KIOSK_SUBS:
+            skipped["kiosk (andet)"] = skipped.get("kiosk (andet)", 0) + 1
+            continue
+        # Varer i et kategori-id der ikke findes i træet (~20-30 pr. butik)
+        # tages med - updaterens klassifikation frasorterer ikke-mad.
+        kategori = top.title() if top else "Andet"
+        if tl == _API_KIOSK_TOP:
+            kategori = f"{top.title()} - {sub.title()}"
+
+        name = (p.get("productDisplayName") or "").strip()
+        summary = (p.get("summary") or "").strip()
+        netto_vaegt = parse_netto_vaegt(summary)
+        normal = float(p.get("price") or 0)
+        disc = float(p.get("discountPrice") or 0)
+        amount = int(p.get("discountAmount") or 0)
+
+        multikob = ""
+        if disc > 0 and amount > 1:
+            # "2 for 35 kr": prisen pr. stk er uændret, tilbuddet er multikøb
+            price, normal_price, is_sale = normal, "", True
+            multikob = f"{amount} for {_fmt_kr(disc)} kr"
+        elif 0 < disc < normal:
+            price, normal_price, is_sale = disc, normal, True
+        else:
+            price, normal_price, is_sale = normal, "", False
+
+        varenummer = str(p.get("sku") or "").strip()
+        if not re.fullmatch(r"\d{8,}", varenummer):
+            varenummer = ""
+        uid = varenummer or f"{name}_{netto_vaegt}"
+        if not is_sale:
+            _normal_prices[uid] = price
+
+        parsed.append({
+            "kategori": kategori, "name": name,
+            "producer": extract_producer(name), "netto_vaegt": netto_vaegt,
+            "kg_price": calculate_kg_price(price, netto_vaegt) or parse_kg_price(summary),
+            "price": price, "normal_price": normal_price,
+            "varenummer": varenummer,
+            "img_url": p.get("medResImg") or p.get("highResImg") or "",
+            "is_sale": is_sale, "multikob": multikob,
+        })
+
+    if skipped:
+        print(f"  → Udeladt: {skipped}")
+
+    def img_hash_for(item):
+        cached = _product_cache.get(item["varenummer"]) if item["varenummer"] else None
+        if cached and cached.get("billede_url") == item["img_url"] and cached.get("billede_hash"):
+            return cached["billede_hash"]
+        return compute_image_hash(item["img_url"])
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as ex:
+        hashes = list(ex.map(img_hash_for, parsed))
+
+    return [
+        [it["kategori"], it["name"], it["producer"], it["netto_vaegt"],
+         it["kg_price"], it["price"], it["normal_price"], it["varenummer"],
+         it["img_url"], h, "Ja" if it["is_sale"] else "Nej", it["multikob"] or None]
+        for it, h in zip(parsed, hashes)
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Excel-opsætning
 # ---------------------------------------------------------------------------
 
@@ -681,6 +851,24 @@ def main():
     _product_cache = fetch_existing_products(DB_KEY)
     load_normal_prices()
 
+    # Primær vej: API'et. Fejler det (nede, ændret format, ufuldstændigt),
+    # falder vi tilbage på Selenium, så natten aldrig står helt uden data.
+    if not os.environ.get("DAGROFA_FORCE_SELENIUM"):
+        try:
+            api_rows = scrape_via_api()
+        except Exception as e:
+            print(f"  ⚠ API-vejen fejlede ({e}) - falder tilbage på Selenium")
+            api_rows = None
+        if api_rows:
+            save_normal_prices()
+            if not os.environ.get("DAGROFA_ALLOW_SHRINK") and not shrink_guard_ok(
+                    get_client(), DB_KEY, len(api_rows), min_ratio=0.6):
+                raise RuntimeError(
+                    f"{DB_KEY}: for faa varer mod butikkens eksisterende antal - gemmer IKKE.")
+            # 'bilka'-formatet = 'full' + multikøb-kolonnen
+            save_to_supabase(api_rows, DB_KEY, row_type="bilka")
+            return
+
     # Forbered opgaver (flad liste af kategorier og underkategorier)
     tasks = []
     for main_cat, subs in CATEGORIES_TO_SCRAPE.items():
@@ -766,7 +954,9 @@ def main():
 def run(store: str) -> None:
     """Konfigurér modulet for én butik og kør scrapingen."""
     cfg = STORES[store]
-    global BASE_URL, BASE_ORIGIN, DB_KEY, NORMAL_PRICES_FILE
+    global BASE_URL, BASE_ORIGIN, DB_KEY, NORMAL_PRICES_FILE, API_ORIGIN, MERCHANT_ID
+    API_ORIGIN = cfg['api_origin']
+    MERCHANT_ID = cfg['merchant_id']
     BASE_URL = cfg['base_url']
     BASE_ORIGIN = BASE_URL.rsplit('/produkter', 1)[0]
     DB_KEY = cfg['db_key']

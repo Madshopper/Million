@@ -31,11 +31,37 @@ name: Uptime Check
 # der beviseligt kørte stabilt (25/26 grønne kørsler før tredje side kom
 # på). Tilføj ikke flere sider til dette tjek uden at teste over flere
 # timer først.
+#
+# 2026-09-28: search-check.yml er lagt ind her som et ekstra TRIN (egen
+# node-proces og dermed egen browser-instans, ligesom hver url allerede får
+# sin egen i scripts/playwright-uptime-check.mjs). Sparer én Playwright-
+# installation og en hel runner pr. søgetjek - repoet skal være privat og
+# holde sig under de 2.000 gratis Actions-minutter. Søgningen er en kold
+# D1-tabelscanning (~19k rows_read), derfor kører workflowet hver 3. time
+# og ikke hvert 5. min: 8 x 19k = ~152k rows_read/døgn mod budgettet på 5M.
+# I praksis kørte */5 alligevel kun ~6 gange i døgnet (GitHub-cron).
+# Søgetrinnet har `if: always()`, så begge tjek måles, selv om det første
+# fejler.
+#
+# 2026-09-28 (samme dag): security-monitor.yml's planlagte kørsel er også lagt
+# ind her som et trin - ét runner-opstart i stedet for tre. security-monitor.yml
+# findes stadig til manuelle kørsler med cpu_detail_from/-to. Scriptets
+# LOOKBACK_HOURS er 24 t, så hver 3. time er rigeligt. Playwright bruger nu
+# runnerens forudinstallerede Chrome (PW_CHANNEL=chrome) i stedet for at
+# downloade Chromium (~25 s), så hele jobbet holder sig under ét afregnet minut.
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '23 */3 * * *'
+
+
+concurrency:
+  group: security-monitor
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   check:
@@ -47,12 +73,41 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '24'
 
-      - name: Install Playwright (Chromium)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Playwright + httpx
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         run: |
-          npm install playwright@1.61.1
-          npx playwright install --with-deps chromium
+          npm install --no-save playwright@1.61.1
+          pip install httpx
 
       - name: Tjek forsiden og en kategoriside
+        env:
+          PW_CHANNEL: chrome
         run: node scripts/playwright-uptime-check.mjs https://madshopper.dk/ https://madshopper.dk/Mejeri
+
+      # Tidligere search-check.yml. Forsiden og /Mejeri ligger i edge-cachen og
+      # rammer aldrig render-vejen, hvor søgningen kan fejle - denne url
+      # renderes frisk hver gang (unik max_price, se scriptet).
+      - name: Tjek at en søgning giver varer
+        if: always()
+        env:
+          PW_CHANNEL: chrome
+        run: node scripts/playwright-uptime-check.mjs "https://madshopper.dk/search/results?q=m%C3%A6lk"
+
+      # Tidligere den planlagte del af security-monitor.yml. Exit-kode 1 ved
+      # alarm er bevidst - det er den, der udløser GitHubs mail.
+      - name: Sikkerhedshaendelser (security-monitor)
+        if: always()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: python scripts/relay-security-events.py
