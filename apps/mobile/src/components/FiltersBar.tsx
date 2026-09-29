@@ -87,7 +87,7 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
         >
           <Text
             style={{
-              color: activeCount > 0 ? '#fff' : colors.text,
+              color: activeCount > 0 ? colors.onPrimary : colors.text,
               fontWeight: '700',
               fontSize: 14,
             }}
@@ -138,7 +138,7 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
                   >
                     <Text
                       style={{
-                        color: active ? '#fff' : colors.text,
+                        color: active ? colors.onPrimary : colors.text,
                         fontWeight: '600',
                         fontSize: 13,
                       }}
@@ -250,7 +250,7 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
                 onPress={() => setOpen(false)}
                 style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
               >
-                <Text style={{ color: '#fff', fontWeight: '700' }}>Vis resultater</Text>
+                <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Vis resultater</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -283,7 +283,7 @@ function ToggleChip({
         },
       ]}
     >
-      <Text style={{ color: active ? '#fff' : colors.text, fontWeight: '600', fontSize: 13 }}>
+      <Text style={{ color: active ? colors.onPrimary : colors.text, fontWeight: '600', fontSize: 13 }}>
         {label}
       </Text>
     </Pressable>

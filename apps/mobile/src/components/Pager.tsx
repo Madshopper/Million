@@ -67,7 +67,7 @@ export function Pager({
     >
       <Text
         style={{
-          color: active ? '#fff' : colors.text,
+          color: active ? colors.onPrimary : colors.text,
           fontWeight: active ? '700' : '500',
         }}
       >

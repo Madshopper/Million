@@ -6,6 +6,10 @@ export const lightColors = {
   border: '#E2E6DE',
   primary: '#1B5E20',
   primaryMuted: '#E8F5E9',
+  // Tekst/ikoner OVEN PÅ en udfyldt primary-, badge- eller sale-flade. Hvid
+  // virker kun i light mode: i dark mode er de flader lyse (#81C784 m.fl.), og
+  // hvid tekst gav 2,0:1 (HIG/WCAG kræver 4,5:1). Brug aldrig '#fff' direkte.
+  onPrimary: '#FFFFFF',
   sale: '#C62828',
   badge: '#2E7D32',
   tabInactive: '#8A9184',
@@ -24,6 +28,7 @@ export const darkColors = {
   border: '#2C312B',
   primary: '#81C784',
   primaryMuted: '#1B3A1D',
+  onPrimary: '#0B1F0C',
   sale: '#EF9A9A',
   badge: '#66BB6A',
   tabInactive: '#6B7268',

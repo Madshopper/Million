@@ -134,7 +134,7 @@ export function FeedbackScreen() {
                   },
                 ]}
               >
-                <Text style={{ color: active ? '#fff' : colors.text, fontWeight: '600' }}>
+                <Text style={{ color: active ? colors.onPrimary : colors.text, fontWeight: '600' }}>
                   {opt.label}
                 </Text>
               </Pressable>
@@ -189,7 +189,7 @@ export function FeedbackScreen() {
           disabled={busy}
           style={[styles.btn, { backgroundColor: colors.primary, opacity: busy ? 0.7 : 1 }]}
         >
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Send feedback</Text>}
+          {busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={[styles.btnText, { color: colors.onPrimary }]}>Send feedback</Text>}
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -212,6 +212,6 @@ const styles = StyleSheet.create({
   textarea: { minHeight: 120, textAlignVertical: 'top' },
   error: { marginBottom: 12 },
   btn: { padding: 14, borderRadius: 12, alignItems: 'center' },
-  btnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  btnText: { fontWeight: '700', fontSize: 16 },
   btnOutline: { padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1 },
 });

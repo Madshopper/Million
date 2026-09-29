@@ -40,11 +40,64 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
       ? Math.round((1 - product.price / product.normal_price) * 100)
       : null;
 
+  const addToCart = () => {
+    const { storePrices, storeMultiDeals } = buildStorePrices(product, catalog);
+    addItem({
+      id: `product${product.id}`,
+      name: product.name,
+      description: product.description || '',
+      store: product.store,
+      price: product.price,
+      storePrices,
+      storeMultiDeals,
+      image: product.image,
+      category: product.category || 'Andre varer',
+      unitMeasure: product.unit_measure,
+      kgPrice: product.kg_price != null ? `${product.kg_price.toFixed(2)} kr/kg` : '',
+      multiDeal: product.multi_deal || undefined,
+    });
+    setAdded(true);
+    addScale.setValue(0.8);
+    Animated.spring(addScale, {
+      toValue: 1,
+      friction: 4,
+      tension: 140,
+      useNativeDriver: true,
+    }).start();
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setAdded(false), 900);
+  };
+
+  // VoiceOver: kortet er ét element med en samlet etiket (ellers læses brand,
+  // navn, pris og badges som separate elementer). Et tilgængeligt forældre-
+  // element skjuler den indlejrede "+"-knap, så den tilbydes som handling.
+  const a11yLabel = [
+    product.name,
+    product.brand,
+    product.description,
+    product.store,
+    product.is_sale
+      ? `tilbud ${product.price.toFixed(2)} kr, før ${product.normal_price.toFixed(2)} kr`
+      : `${product.price.toFixed(2)} kr`,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
     <TouchableOpacity
       activeOpacity={0.9}
       delayPressIn={80}
       onPress={() => onPress(product)}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityActions={[
+        { name: 'activate' },
+        { name: 'add', label: 'Tilføj til kurv' },
+      ]}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'add') addToCart();
+        else onPress(product);
+      }}
       style={[
         styles.card,
         variant === 'rail' ? styles.cardRail : styles.cardGrid,
@@ -139,37 +192,13 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
         accessibilityRole="button"
         accessibilityLabel={`Tilføj ${product.name} til kurv`}
         activeOpacity={0.8}
-        onPress={() => {
-          const { storePrices, storeMultiDeals } = buildStorePrices(product, catalog);
-          addItem({
-            id: `product${product.id}`,
-            name: product.name,
-            description: product.description || '',
-            store: product.store,
-            price: product.price,
-            storePrices,
-            storeMultiDeals,
-            image: product.image,
-            category: product.category || 'Andre varer',
-            unitMeasure: product.unit_measure,
-            kgPrice: product.kg_price != null ? `${product.kg_price.toFixed(2)} kr/kg` : '',
-            multiDeal: product.multi_deal || undefined,
-          });
-          setAdded(true);
-          addScale.setValue(0.8);
-          Animated.spring(addScale, {
-            toValue: 1,
-            friction: 4,
-            tension: 140,
-            useNativeDriver: true,
-          }).start();
-          if (addedTimer.current) clearTimeout(addedTimer.current);
-          addedTimer.current = setTimeout(() => setAdded(false), 900);
-        }}
+        onPress={addToCart}
+        // 36 pt synligt + 4 pt hitSlop = 44 pt tap target (HIG-minimum).
+        hitSlop={4}
         style={[styles.addBtn, { backgroundColor: colors.primary }]}
       >
         <Animated.Text
-          style={[styles.addBtnText, { transform: [{ scale: addScale }] }]}
+          style={[styles.addBtnText, { color: colors.onPrimary, transform: [{ scale: addScale }] }]}
         >
           {added ? '✓' : '+'}
         </Animated.Text>
@@ -270,5 +299,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addBtnText: { color: '#fff', fontSize: 22, fontWeight: '600', marginTop: -2 },
+  addBtnText: { fontSize: 22, fontWeight: '600', marginTop: -2 },
 });

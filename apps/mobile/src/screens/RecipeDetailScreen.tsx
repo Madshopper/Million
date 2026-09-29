@@ -240,7 +240,7 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
             onPress={onAddAll}
             style={[styles.btn, { backgroundColor: colors.primary, marginTop: 12 }]}
           >
-            <Text style={styles.btnText}>
+            <Text style={[styles.btnText, { color: colors.onPrimary }]}>
               {addedLabel || 'Læg fundne varer i kurv'}
             </Text>
           </Pressable>
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   ctaCard: { borderWidth: 1, borderRadius: 14, padding: 16, marginBottom: 8 },
   ctaAmount: { fontSize: 22, fontWeight: '800' },
   btn: { padding: 14, borderRadius: 12, alignItems: 'center' },
-  btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  btnText: { fontWeight: '700', fontSize: 15 },
   h: { fontSize: 17, fontWeight: '700', marginTop: 22, marginBottom: 8 },
   ingredientRow: {
     flexDirection: 'row',

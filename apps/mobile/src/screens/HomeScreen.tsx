@@ -275,7 +275,11 @@ export function HomeScreen() {
                 <View style={styles.sectionHead}>
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>Lækre opskrifter</Text>
                   {recipesClickable ? (
-                    <Pressable onPress={() => navigation.navigate('Tabs', { screen: 'Recipes' })}>
+                    <Pressable
+                      onPress={() => navigation.navigate('Tabs', { screen: 'Recipes' })}
+                      hitSlop={12}
+                      accessibilityRole="link"
+                    >
                       <Text style={{ color: colors.primary }}>Vis alle</Text>
                     </Pressable>
                   ) : null}
@@ -301,11 +305,17 @@ export function HomeScreen() {
               <View style={styles.sectionHead}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>{section.title}</Text>
                 {section.href === '/ugens_tilbud' ? (
-                  <Pressable onPress={() => navigation.navigate('Sale')}>
+                  <Pressable
+                    onPress={() => navigation.navigate('Sale')}
+                    hitSlop={12}
+                    accessibilityRole="link"
+                  >
                     <Text style={{ color: colors.primary }}>Vis alle</Text>
                   </Pressable>
                 ) : section.href ? (
                   <Pressable
+                    hitSlop={12}
+                    accessibilityRole="link"
                     onPress={() =>
                       navigation.navigate('Category', {
                         slug: section.href!.replace(/^\//, ''),

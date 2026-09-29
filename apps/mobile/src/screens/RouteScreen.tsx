@@ -4,9 +4,11 @@ import { calculateButiksrute, type RouteResult } from '../cart/butiksrute';
 import { useCart } from '../cart/CartContext';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function RouteScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { items } = useCart();
   const { catalog, selectedLabels, ready } = useStoreCatalog();
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,7 @@ export function RouteScreen() {
   const groups = [...route.groups].sort((a, b) => b.subtotal - a.subtotal);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 16 + insets.bottom }}>
       <Text style={[styles.h1, { color: colors.text }]}>Butiksrute</Text>
       <Text style={{ color: colors.textMuted, marginBottom: 12 }}>
         Billigste butik pr. vare, splittet på tværs af butikker

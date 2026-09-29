@@ -29,6 +29,7 @@ import {
 } from '../savings/personalSavings';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /** Dedup pr. app-session — spejler web's `_comparedProductIds`. */
 const comparedProductIds = new Set<string>();
@@ -55,6 +56,7 @@ type AlternativesResponse = {
 
 export function ScoScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const { items, replaceItem } = useCart();
@@ -247,7 +249,7 @@ export function ScoScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 16 + insets.bottom }}>
       <Text style={[styles.h1, { color: colors.text }]}>Find billigste butik</Text>
       <Text style={{ color: colors.textMuted, marginBottom: 12 }}>
         Sammenligning af {topStores.length} butikker for din kurv
@@ -287,7 +289,7 @@ export function ScoScreen() {
             >
               {i === 0 ? (
                 <View style={[styles.winnerBadge, { backgroundColor: colors.badge }]}>
-                  <Text style={styles.winnerText}>Billigst</Text>
+                  <Text style={[styles.winnerText, { color: colors.onPrimary }]}>Billigst</Text>
                 </View>
               ) : null}
               <Text style={[styles.storeName, { color: colors.text }]} numberOfLines={1}>
@@ -338,7 +340,7 @@ export function ScoScreen() {
                         onPress={() => acceptAlternative(alt)}
                         style={[styles.acceptBtn, { backgroundColor: colors.primary }]}
                       >
-                        <Text style={styles.acceptBtnText}>Vælg alt.</Text>
+                        <Text style={[styles.acceptBtnText, { color: colors.onPrimary }]}>Vælg alt.</Text>
                       </Pressable>
                     ) : null}
                   </View>
@@ -414,7 +416,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  winnerText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  winnerText: { fontSize: 10, fontWeight: '700' },
   storeName: { fontSize: 14, fontWeight: '700' },
   storePrice: { fontSize: 18, fontWeight: '800', marginTop: 6 },
   itemRow: {
@@ -428,6 +430,6 @@ const styles = StyleSheet.create({
   },
   itemImg: { width: 40, height: 40 },
   acceptBtn: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 },
-  acceptBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  acceptBtnText: { fontWeight: '700', fontSize: 12 },
   totalBox: { padding: 16, borderRadius: 12, marginTop: 8, marginBottom: 24 },
 });

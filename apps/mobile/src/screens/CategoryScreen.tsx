@@ -15,6 +15,7 @@ import { ProductCard } from '../components/ProductCard';
 import { StackScreenBody } from '../components/ScreenBody';
 import { useStoreCatalog, storesParam } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pager } from '../components/Pager';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -51,6 +52,7 @@ function ListingBody({
   onRetry?: () => void;
 }) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <StackScreenBody style={{ backgroundColor: colors.bg }}>
@@ -75,7 +77,7 @@ function ListingBody({
                   },
                 ]}
               >
-                <Text style={{ color: active ? '#fff' : colors.text, fontWeight: '600' }}>
+                <Text style={{ color: active ? colors.onPrimary : colors.text, fontWeight: '600' }}>
                   {item.label}
                 </Text>
               </Pressable>
@@ -112,7 +114,7 @@ function ListingBody({
           keyExtractor={(p) => p.id}
           numColumns={2}
           columnWrapperStyle={{ paddingHorizontal: 2 }}
-          contentContainerStyle={{ padding: 4 }}
+          contentContainerStyle={{ padding: 4, paddingBottom: 4 + insets.bottom }}
           showsVerticalScrollIndicator
           renderItem={({ item }) => <ProductCard product={item} onPress={onProduct} />}
           ListEmptyComponent={

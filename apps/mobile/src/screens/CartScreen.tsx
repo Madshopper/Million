@@ -19,6 +19,7 @@ import { useSharedCart } from '../cart/SharedCartContext';
 import type { CartItem } from '../cart/types';
 import { cartItemTitle } from '../cart/stripStoreBrand';
 import { useTheme } from '../theme/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StackScreenBody } from '../components/ScreenBody';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -60,6 +61,7 @@ function memberInitial(name: string): string {
 
 export function CartScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { items, updateQuantity, removeItem, clearCart, count } = useCart();
   const { user } = useAuth();
@@ -212,17 +214,22 @@ export function CartScreen() {
                   },
                 ]}
               >
-                <Text style={styles.avatarText}>{memberInitial(m.name)}</Text>
+                <Text style={[styles.avatarText, { color: colors.onPrimary }]}>{memberInitial(m.name)}</Text>
               </View>
             ))}
           </View>
           <Text style={{ color: colors.textMuted, fontSize: 12, flex: 1 }}>
             {members.length}/{maxMembers} medlemmer
           </Text>
-          <Pressable onPress={onInvite} hitSlop={8}>
+          <Pressable onPress={onInvite} hitSlop={12} accessibilityRole="button">
             <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>Inviter</Text>
           </Pressable>
-          <Pressable onPress={confirmLeaveShared} hitSlop={8} style={{ marginLeft: 12 }}>
+          <Pressable
+            onPress={confirmLeaveShared}
+            hitSlop={12}
+            accessibilityRole="button"
+            style={{ marginLeft: 12 }}
+          >
             <Text style={{ color: colors.sale, fontWeight: '600', fontSize: 13 }}>Forlad</Text>
           </Pressable>
         </View>
@@ -297,7 +304,11 @@ export function CartScreen() {
             <Pressable
               onPress={() => {
                 setMenuOpen(false);
-                clearCart();
+                // Destruktiv og uden fortryd: bekræft som "Forlad listen" gør.
+                Alert.alert('Ryd kurven?', 'Alle varer fjernes fra kurven.', [
+                  { text: 'Annullér', style: 'cancel' },
+                  { text: 'Ryd kurv', style: 'destructive', onPress: () => clearCart() },
+                ]);
               }}
               style={styles.menuItem}
             >
@@ -329,7 +340,7 @@ export function CartScreen() {
             <View style={[styles.thumb, { backgroundColor: colors.border }]} />
           )}
           <View style={[styles.qtyBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.qtyBadgeText}>{item.quantity}</Text>
+            <Text style={[styles.qtyBadgeText, { color: colors.onPrimary }]}>{item.quantity}</Text>
           </View>
         </View>
 
@@ -365,6 +376,7 @@ export function CartScreen() {
               accessibilityLabel={`Fjern ${item.name} fra kurven`}
               onPress={() => removeItem(item.id)}
               hitSlop={8}
+              style={styles.removeBtn}
             >
               <Text style={{ color: colors.textMuted, fontSize: 12 }}>Fjern</Text>
             </Pressable>
@@ -401,7 +413,11 @@ export function CartScreen() {
             </Text>
           </View>
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          // Uden kurv-footer ligger listens bund direkte over home-indikatoren.
+          items.length ? null : { paddingBottom: 16 + insets.bottom },
+        ]}
         renderItem={({ item: [cat, catItems] }) => (
           <View style={styles.section}>
             <Text style={[styles.cat, { color: colors.textMuted }]}>{cat.toUpperCase()}</Text>
@@ -420,18 +436,25 @@ export function CartScreen() {
       />
 
       {items.length > 0 ? (
-        <View style={[styles.footerPad, { backgroundColor: colors.bg }]}>
+        <View
+          style={[
+            styles.footerPad,
+            // Skærmen går helt ned til skærmkanten: uden insetten ligger
+            // "Find billigste" under home-indikatoren på Face ID-iPhones.
+            { backgroundColor: colors.bg, paddingBottom: 12 + insets.bottom },
+          ]}
+        >
           <Pressable
             onPress={() => navigation.navigate('Sco')}
             style={[styles.cta, { backgroundColor: colors.primary }]}
           >
-            <View style={styles.ctaCount}>
+            <View style={[styles.ctaCount, { backgroundColor: colors.onPrimary }]}>
               <Text style={[styles.ctaCountText, { color: colors.primary }]}>{count}</Text>
             </View>
-            <Text style={styles.ctaLabel}>Find billigste</Text>
+            <Text style={[styles.ctaLabel, { color: colors.onPrimary }]}>Find billigste</Text>
             <View style={styles.ctaPrice}>
-              <PriceText value={footerTotal} color="#fff" size={20} />
-              <Text style={styles.ctaChevron}>›</Text>
+              <PriceText value={footerTotal} color={colors.onPrimary} size={20} />
+              <Text style={[styles.ctaChevron, { color: colors.onPrimary }]}>›</Text>
             </View>
           </Pressable>
         </View>
@@ -483,7 +506,7 @@ export function CartScreen() {
                   { backgroundColor: colors.primary, opacity: busy ? 0.7 : 1 },
                 ]}
               >
-                <Text style={{ color: '#fff', fontWeight: '700' }}>
+                <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>
                   {prompt === 'join' ? 'Tilslut' : prompt === 'share' ? 'Del' : 'Gem'}
                 </Text>
               </Pressable>
@@ -529,24 +552,33 @@ export function CartScreen() {
                       setListsOpen(false);
                     }}
                     style={[styles.savedListBtn, { borderColor: colors.border }]}
-                    hitSlop={4}
+                    hitSlop={8}
                   >
                     <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 13 }}>
                       Indlæs
                     </Text>
                   </Pressable>
                   <Pressable
-                    onPress={async () => {
-                      setListBusy(list.id);
-                      try {
-                        await deleteList(list.id);
-                      } finally {
-                        setListBusy(null);
-                      }
-                    }}
+                    onPress={() =>
+                      Alert.alert(`Slet listen "${list.name}"?`, 'Listen kan ikke gendannes.', [
+                        { text: 'Annullér', style: 'cancel' },
+                        {
+                          text: 'Slet',
+                          style: 'destructive',
+                          onPress: async () => {
+                            setListBusy(list.id);
+                            try {
+                              await deleteList(list.id);
+                            } finally {
+                              setListBusy(null);
+                            }
+                          },
+                        },
+                      ])
+                    }
                     disabled={listBusy === list.id}
                     style={[styles.savedListBtn, { borderColor: colors.border, opacity: listBusy === list.id ? 0.5 : 1 }]}
-                    hitSlop={4}
+                    hitSlop={8}
                     accessibilityLabel={`Slet listen ${list.name}`}
                   >
                     <Text style={{ color: colors.sale, fontWeight: '600', fontSize: 13 }}>Slet</Text>
@@ -609,7 +641,7 @@ export function CartScreen() {
                 }}
                 style={[styles.modalBtnPrimary, { backgroundColor: colors.primary }]}
               >
-                <Text style={{ color: '#fff', fontWeight: '700' }}>Log ind</Text>
+                <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Log ind</Text>
               </Pressable>
             </View>
           </View>
@@ -640,7 +672,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
   },
-  avatarText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  avatarText: { fontSize: 12, fontWeight: '700' },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -729,7 +761,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 6,
   },
-  qtyBadgeText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  qtyBadgeText: { fontWeight: '800', fontSize: 13 },
   itemBody: { flex: 1, minWidth: 0, gap: 2 },
   itemMeta: { fontSize: 11, fontWeight: '600', letterSpacing: 0.2 },
   itemName: { fontSize: 15, fontWeight: '800', letterSpacing: 0.2 },
@@ -739,14 +771,16 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
   },
+  // 32 + hitSlop 6 på hver side = 44 pt, HIG's minimum for tap targets.
   qtyCtrl: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     borderRadius: 14,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  removeBtn: { paddingVertical: 8, paddingHorizontal: 6 },
   itemPriceCol: { alignItems: 'flex-end', paddingTop: 2 },
   priceRow: { flexDirection: 'row', alignItems: 'flex-start' },
   footerPad: {
@@ -766,19 +800,17 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   ctaCountText: { fontWeight: '800', fontSize: 15 },
   ctaLabel: {
     flex: 1,
-    color: '#fff',
     fontWeight: '700',
     fontSize: 16,
   },
   ctaPrice: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ctaChevron: { color: '#fff', fontSize: 26, fontWeight: '300', marginTop: -2 },
+  ctaChevron: { fontSize: 26, fontWeight: '300', marginTop: -2 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

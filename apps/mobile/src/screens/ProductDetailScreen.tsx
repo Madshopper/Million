@@ -25,6 +25,7 @@ import { rpcName } from '../config/env';
 import { useCart } from '../cart/CartContext';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../navigation/types';
 import type { Product, StoreInfo } from '../api/types';
 
@@ -145,6 +146,7 @@ const NUTRITION_SOURCE_LABEL: Record<Nutrition['source'], string> = {
 export function ProductDetailScreen({ route, navigation }: Props) {
   const { product } = route.params;
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { addItem } = useCart();
   const { catalog, selectedLabels } = useStoreCatalog();
@@ -393,6 +395,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Færre"
           onPress={() => setQty((q) => Math.max(1, q - 1))}
+          style={styles.qtyHit}
         >
           <Text style={[styles.qtyBtn, { color: colors.primary }]}>−</Text>
         </Pressable>
@@ -406,13 +409,14 @@ export function ProductDetailScreen({ route, navigation }: Props) {
           accessibilityRole="button"
           accessibilityLabel="Flere"
           onPress={() => setQty((q) => q + 1)}
+          style={styles.qtyHit}
         >
           <Text style={[styles.qtyBtn, { color: colors.primary }]}>+</Text>
         </Pressable>
       </View>
 
       <Pressable onPress={onAddToCart} style={[styles.btn, { backgroundColor: colors.primary }]}>
-        <Animated.Text style={[styles.btnText, { transform: [{ scale: addScale }] }]}>
+        <Animated.Text style={[styles.btnText, { color: colors.onPrimary, transform: [{ scale: addScale }] }]}>
           {added ? 'Tilføjet ✓' : `Tilføj til kurv · ${product.store}`}
         </Animated.Text>
       </Pressable>
@@ -430,7 +434,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
               <Text style={{ color: colors.text, fontWeight: '600' }}>{c.label}</Text>
               {c.isSale ? (
                 <View style={[styles.miniBadge, { backgroundColor: colors.sale }]}>
-                  <Text style={styles.miniBadgeText}>Tilbud</Text>
+                  <Text style={[styles.miniBadgeText, { color: colors.onPrimary }]}>Tilbud</Text>
                 </View>
               ) : null}
             </View>
@@ -465,7 +469,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                   },
                 ]}
               >
-                <Text style={{ color: activeHistoryKey === null ? '#fff' : colors.text, fontWeight: '600' }}>
+                <Text style={{ color: activeHistoryKey === null ? colors.onPrimary : colors.text, fontWeight: '600' }}>
                   Alle
                 </Text>
               </Pressable>
@@ -487,7 +491,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                     {activeHistoryKey === null ? (
                       <View style={[styles.histDot, { backgroundColor: colorForStoreKey(key) }]} />
                     ) : null}
-                    <Text style={{ color: active ? '#fff' : colors.text, fontWeight: '600' }}>
+                    <Text style={{ color: active ? colors.onPrimary : colors.text, fontWeight: '600' }}>
                       {labelByKey.get(key) || key}
                     </Text>
                   </Pressable>
@@ -515,7 +519,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                 style={{
                   color:
                     insight.kind === 'good'
-                      ? '#fff'
+                      ? colors.onPrimary
                       : insight.kind === 'warning'
                         ? colors.warning
                         : colors.text,
@@ -555,7 +559,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         <Text style={{ color: colors.textMuted }}>Ingen næringsinformation tilgængelig</Text>
       )}
 
-      <View style={{ height: 24 }} />
+      <View style={{ height: 24 + insets.bottom }} />
       </ScrollView>
       <Modal visible={monitorOpen} transparent animationType="fade" onRequestClose={() => setMonitorOpen(false)}>
         <View style={styles.modalBackdrop}>
@@ -588,7 +592,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                 { backgroundColor: colors.primary, marginTop: 16, opacity: alertSaving ? 0.6 : 1 },
               ]}
             >
-              <Text style={styles.btnText}>
+              <Text style={[styles.btnText, { color: colors.onPrimary }]}>
                 {alertSet ? 'Luk' : alertSaving ? 'Gemmer…' : 'Sæt alarm'}
               </Text>
             </Pressable>
@@ -627,7 +631,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                 }}
                 style={[styles.btn, { flex: 1, marginTop: 0, backgroundColor: colors.primary }]}
               >
-                <Text style={styles.btnText}>Log ind</Text>
+                <Text style={[styles.btnText, { color: colors.onPrimary }]}>Log ind</Text>
               </Pressable>
             </View>
           </View>
@@ -671,13 +675,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   qtyBtn: { fontSize: 28, fontWeight: '600', paddingHorizontal: 12 },
+  qtyHit: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   btn: {
     marginTop: 12,
     padding: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
-  btnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  btnText: { fontWeight: '700', fontSize: 16 },
   h: { fontSize: 17, fontWeight: '700', marginTop: 24, marginBottom: 8 },
   compare: {
     padding: 12,
@@ -686,7 +691,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   miniBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-  miniBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  miniBadgeText: { fontSize: 10, fontWeight: '700' },
   histTabs: {
     flexDirection: 'row',
     flexWrap: 'wrap',

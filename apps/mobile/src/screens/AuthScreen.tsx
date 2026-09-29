@@ -196,6 +196,8 @@ export function AuthScreen({ navigation }: Props) {
               value={displayName}
               onChangeText={setDisplayName}
               placeholder="Dit navn"
+              textContentType="name"
+              autoComplete="name"
               placeholderTextColor={colors.textMuted}
               style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
             />
@@ -212,7 +214,12 @@ export function AuthScreen({ navigation }: Props) {
             placeholder="Email"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
+            autoCorrect={false}
             keyboardType="email-address"
+            // Uden disse tilbyder iOS hverken AutoFill fra nøgleringen eller
+            // (ved oprettelse) et forslag til stærk adgangskode.
+            textContentType="username"
+            autoComplete="email"
             style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
           />
         ) : null}
@@ -224,6 +231,8 @@ export function AuthScreen({ navigation }: Props) {
             placeholder={mode === 'newpassword' ? 'Ny adgangskode' : 'Adgangskode'}
             placeholderTextColor={colors.textMuted}
             secureTextEntry
+            textContentType={mode === 'login' ? 'password' : 'newPassword'}
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
           />
         ) : null}
@@ -239,9 +248,9 @@ export function AuthScreen({ navigation }: Props) {
           style={[styles.btn, { backgroundColor: colors.primary, opacity: busy ? 0.7 : 1 }]}
         >
           {busy ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.btnText}>
+            <Text style={[styles.btnText, { color: colors.onPrimary }]}>
               {mode === 'login' && 'Log ind'}
               {mode === 'signup' && 'Opret konto'}
               {mode === 'reset' && 'Send link'}
@@ -320,7 +329,7 @@ const styles = StyleSheet.create({
   error: { marginBottom: 12 },
   info: { marginBottom: 12 },
   btn: { padding: 14, borderRadius: 12, alignItems: 'center' },
-  btnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  btnText: { fontWeight: '700', fontSize: 16 },
   btnOutline: { padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1 },
   appleBtn: { height: 48, marginTop: 10 },
   links: {

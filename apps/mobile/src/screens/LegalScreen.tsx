@@ -3,6 +3,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { env } from '../config/env';
 import { useTheme } from '../theme/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Legal'>;
@@ -127,9 +128,10 @@ function Paragraph({
 export function LegalScreen({ route }: Props) {
   const { kind } = route.params;
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingBottom: 20 + insets.bottom }}>
       <Text style={[styles.title, { color: colors.text }]}>{TITLES[kind]}</Text>
 
       {kind === 'terms' ? <TermsBody colors={colors} /> : null}

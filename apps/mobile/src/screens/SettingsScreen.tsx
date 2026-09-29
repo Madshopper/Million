@@ -92,7 +92,7 @@ export function SettingsScreen() {
               disabled={nameSaving}
               style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: nameSaving ? 0.6 : 1 }]}
             >
-              <Text style={{ color: '#fff', fontWeight: '700' }}>{nameSaving ? '…' : 'Gem'}</Text>
+              <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>{nameSaving ? '…' : 'Gem'}</Text>
             </Pressable>
           </View>
           {nameMsg ? (
@@ -151,7 +151,7 @@ export function SettingsScreen() {
                 { backgroundColor: active ? colors.primary : 'transparent' },
               ]}
             >
-              <Text style={{ color: active ? '#fff' : colors.text, fontWeight: '600', fontSize: 13 }}>
+              <Text style={{ color: active ? colors.onPrimary : colors.text, fontWeight: '600', fontSize: 13 }}>
                 {label}
               </Text>
             </Pressable>
