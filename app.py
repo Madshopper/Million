@@ -2141,7 +2141,11 @@ def _fetch_recipe_detail(recipe_id):
             "limit": "1",
         },
     )
-    if status != 200 or not isinstance(rows, list) or not rows:
+    if status != 200 or not isinstance(rows, list):
+        # Fejlet opslag, ikke "opskriften findes ikke" - se _mark_data_degraded.
+        _mark_data_degraded('recipe_supabase')
+        return None, [], None
+    if not rows:
         return None, [], None
     recipe = rows[0]
 
@@ -2155,12 +2159,16 @@ def _fetch_recipe_detail(recipe_id):
         },
     )
     ingredients = ing_rows if ing_status == 200 and isinstance(ing_rows, list) else []
+    if ing_status != 200:
+        _mark_data_degraded('recipe_ingredients_supabase')
 
     snap_rows, snap_status = _supabase_rest(
         "GET", "recipe_price_snapshot",
         params={"select": "*", "recipe_id": f"eq.{recipe_id}", "limit": "1"},
     )
     snapshot = snap_rows[0] if snap_status == 200 and isinstance(snap_rows, list) and snap_rows else None
+    if snap_status != 200:
+        _mark_data_degraded('recipe_snapshot_supabase')
 
     # Union af matched_product_id + candidate_product_ids (personer-skalering
     # på opskrift-siden skal kunne skifte til en anden kandidat, hvis den
@@ -2196,6 +2204,9 @@ def _fetch_recipe_detail(recipe_id):
         )
         if nstatus == 200 and isinstance(nrows, list):
             nutrition_by_key = {r.get("key"): r.get("payload") for r in nrows}
+        else:
+            # "Ingen næring på varen" er cachebart; et fejlet opslag er ikke.
+            _mark_data_degraded('recipe_nutrition_supabase')
 
     def _nutrition_for(pid):
         for key in keys_by_product_id.get(pid, []):  # prioriteret rækkefølge, som get_nutrition
@@ -2423,7 +2434,10 @@ def _recipe_pool_live(limit: int = 10) -> list:
                 "limit": "2000",
             },
         )
-        if status != 200 or not isinstance(rows, list) or not rows:
+        if status != 200 or not isinstance(rows, list):
+            _mark_data_degraded('recipe_pool_supabase')
+            return []
+        if not rows:
             return []
 
         points, p_status = _supabase_rest(
@@ -2433,6 +2447,8 @@ def _recipe_pool_live(limit: int = 10) -> list:
         by_points = {}
         if p_status == 200 and isinstance(points, list):
             by_points = {p["recipe_id"]: p for p in points}
+        else:
+            _mark_data_degraded('recipe_pool_points_supabase')
 
         snaps, s_status = _supabase_rest(
             "GET", "recipe_price_snapshot",
@@ -2442,6 +2458,8 @@ def _recipe_pool_live(limit: int = 10) -> list:
         by_snap = {}
         if s_status == 200 and isinstance(snaps, list):
             by_snap = {s["recipe_id"]: s for s in snaps}
+        else:
+            _mark_data_degraded('recipe_pool_snapshot_supabase')
 
         ranked = []
         for r in rows:
@@ -2471,6 +2489,7 @@ def _recipe_pool_live(limit: int = 10) -> list:
     except Exception as e:
         # Fejler blødt: en manglende opskrift-pulje må aldrig vælte forsiden.
         logger.warning("recipe-pool live-fallback fejlede: %s", e)
+        _mark_data_degraded('recipe_pool_exception')
         return []
 
 

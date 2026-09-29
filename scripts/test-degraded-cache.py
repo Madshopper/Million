@@ -73,6 +73,25 @@ def main() -> int:
     finally:
         A._supabase_rest = orig_rest
 
+    # Opskriften findes, men ingredienser/snapshot/næring fejler: siden har
+    # indhold at vise, men er ufuldstændig og må ikke fryses i 24 timer.
+    # Kun aktiv hvor _recipes_enabled() (lokalt/staging).
+    if A._recipes_enabled():
+        print("\nOpskrift: selve opskriften hentes, resten fejler:")
+
+        def partial(method, table, *a, **k):
+            if table == "recipes":
+                return ([{"id": 1, "title": "Test", "servings": 4}], 200)
+            return (None, 0)
+
+        orig_rest, orig_avail = A._supabase_rest, A._supabase_available
+        A._supabase_rest, A._supabase_available = partial, (lambda: True)
+        try:
+            check("opskrift-side", client.get('/opskrift/1'), cacheable=False)
+            check("opskrift-API", client.get('/api/recipes/1'), cacheable=False)
+        finally:
+            A._supabase_rest, A._supabase_available = orig_rest, orig_avail
+
     # search_display_products er fælles bund for alle tre søgeveje (både
     # _build_search_listing og autocomplete går igennem den), så et kast her
     # svarer til at D1-opslaget eller Pyodide-broen svigter.
