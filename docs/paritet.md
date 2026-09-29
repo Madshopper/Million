@@ -173,6 +173,7 @@ nuværende funktionalitet; de er efterslæb, ikke defekter.
 | Butiksvalg kun i Indstillinger | App | Butiks-chips i filter-arket (`FiltersBar`) |
 | Ét listing-kald pr. butikstryk | App | `queryLabels` - 300 ms debounce som webbens `scheduleStoreContentRefresh()` |
 | Butiksskift beholdt sidetallet → tom skærm | App | Nulstiller til side 1 i kategori/tilbud |
+| Rabatprocenten rundet til nærmeste ("SPAR 34%") mens web runder ned ("Spar 33%") | App | `Math.floor` som webbens makro, så rabatten aldrig overdrives |
 | Mærket "None" vist på ~4 % af varerne | **Begge** | `clean_display_text()` i visningslaget + `_clean_field` ved kilden i `updater.py` |
 | "Tilføj til kurv" uden varenavn for skærmlæsere | **Begge** | Varenavnet med i `aria-label` / `accessibilityLabel` |
 | Ikon-knapper uden etiket (✎, ···, −, +, Fjern) | App | `accessibilityRole` + `accessibilityLabel` |

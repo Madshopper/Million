@@ -35,9 +35,11 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
   }, []);
 
   const onSale = product.is_sale || product.is_any_sale;
+  // Rundes NED som webkortet (templates/macros/product_card.html), så samme
+  // vare viser samme "Spar X%" på web og i appen og rabatten aldrig overdrives.
   const discountPct =
     product.is_sale && product.normal_price > product.price
-      ? Math.round((1 - product.price / product.normal_price) * 100)
+      ? Math.floor((1 - product.price / product.normal_price) * 100)
       : null;
 
   return (
