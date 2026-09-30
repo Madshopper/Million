@@ -630,7 +630,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const idToken = response.data.idToken;
       if (!idToken) return 'Manglende ID-token fra Google';
       const { error } = await sb.auth.signInWithIdToken({ provider: 'google', token: idToken });
-      return error ? oversaetFejl(error) : null;
+      if (!error) return null;
+      console.warn('[auth] Google signInWithIdToken-fejl:', error.status, error.message);
+      const oversat = oversaetFejl(error);
+      // Ukendt fejl: vis Supabase' egen tekst (fx "Unacceptable audience"),
+      // ellers skjuler den generiske besked årsagen.
+      return oversat === 'Noget gik galt. Prøv igen.'
+        ? `Google-login fejlede: ${error.message}`
+        : oversat;
     } catch (err) {
       if (isErrorWithCode(err) && err.code === statusCodes.IN_PROGRESS) {
         return 'Google-login er allerede i gang';
