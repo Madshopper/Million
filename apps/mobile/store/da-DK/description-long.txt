@@ -1,19 +1,23 @@
-MadShopper hjælper dig med at finde de billigste dagligvarer i Danmark.
+Har du også stået i Netto og tænkt, om smøret mon er billigere i Rema?
 
-Sammenlign priser på tværs af 14 butikker (Rema 1000, Bilka, Netto, Føtex, Min Købmand, Meny, Spar, SuperBrugsen, Brugsen, Kvickly, 365 Discount, Lidl, Løvbjerg, ABC Lavpris) og se med det samme hvor det bedst kan betale sig at handle.
+Det var præcis derfor, vi lavede MadShopper. Appen samler priserne fra 14 danske butikker ét sted, så du kan se, hvor det bedst kan betale sig at handle. Det gælder Rema 1000, Netto, Føtex, Bilka, Lidl, Meny, Spar, Min Købmand, SuperBrugsen, Brugsen, Kvickly, 365discount, Løvbjerg og ABC Lavpris.
 
-Funktioner:
-- Søg og gennemse tilbud og varer fra alle butikker på ét sted
-- Læg varer i kurv og se automatisk hvilken butik der er billigst for hele indkøbet ("Find billigste")
-- Butiksrute: split din indkøbsliste optimalt mellem butikker for at spare mest muligt
-- Prishistorik 30 dage tilbage, så du kan se om et "tilbud" reelt er en god pris
-- Ugens tilbud, populære varer og kategori-browsing med filtre (økologisk, laktosefri, pris, vægt)
-- Del din indkøbskurv med familie eller roommates i realtid
-- Gem indkøbslister til senere
-- Log ind med email, Google eller Apple — din kurv følger med på tværs af enheder
-- Du kan når som helst slette din konto og alle dine data inde i appen
+Sådan bruger du den
+Søg efter det, du skal have, og læg det i kurven. Tryk på "Find billigste", så viser MadShopper, hvilken butik der er billigst for hele indkøbet. Gider du godt handle to steder, kan appen også dele listen op, så du sparer mest muligt.
 
-MadShopper bruger ikke sporingsannoncer og deler ikke dine data med tredjeparter til markedsføring.
+Er tilbuddet egentlig et tilbud?
+Vi gemmer priserne 30 dage tilbage, så du kan se, om "tilbuddet" faktisk er billigere end normalt, eller om det bare er et gult skilt.
 
-Kontakt: kontakt@madshopper.dk
+Andre ting, du kan
+- Se ugens tilbud og de varer, andre kigger på lige nu
+- Filtrere på fx økologisk, laktosefri, pris og vægt
+- Dele kurven med familien eller dem, du bor med, så I kan skrive på den samme liste
+- Gemme lister, du bruger tit
+- Logge ind med e-mail, Google eller Apple, så kurven følger med på alle dine enheder
+
+Dine data er dine
+Vi viser ingen annoncer, der følger dig rundt, og vi sælger ikke dine oplysninger til nogen. Du kan slette din konto og alle dine data direkte i appen, når du vil.
+
+MadShopper er lavet af to studerende i Danmark, og vi bliver glade for alt, hvad du har at sige. Skriv til os på kontakt@madshopper.dk.
+
 Privatlivspolitik: https://madshopper.dk/privatliv
