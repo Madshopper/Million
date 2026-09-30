@@ -29,7 +29,9 @@ function prodSafe(envVar, key) {
 const config = {
   name: 'MadShopper',
   slug: 'madshopper',
-  version: '1.0.0',
+  // 1.0.0 blev udgivet i App Store 25-09-2026 - hver ny butiksudgave skal
+  // have et højere nummer, ellers afviser Apple den.
+  version: '1.0.1',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
@@ -45,6 +47,10 @@ const config = {
     associatedDomains: ['applinks:madshopper.dk'],
     infoPlist: {
       CFBundleAllowMixedLocalizations: true,
+      // Appen er på dansk. Uden disse to viste App Store sproget som
+      // "EN English" (Expo sætter udviklingsregionen til engelsk som standard).
+      CFBundleDevelopmentRegion: 'da',
+      CFBundleLocalizations: ['da'],
       // Appen bruger ingen egen kryptering ud over standard HTTPS/TLS -
       // undtaget fra USA's eksportregler, sa vi undgar det interaktive
       // spørgsmål ved hver build.
