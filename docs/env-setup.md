@@ -88,8 +88,10 @@ Til rigtig iPhone/Android skal Google have app-specifikke klienter:
    Secret hører til den). Uden iOS/Android på listen afviser Supabase native tokens
    ("Unacceptable audience"); erstatter man web-ID'et, fejler både weben og appen
    (rettet 30-09-2026: iOS-ID'et stod først, og web-ID'et var væk).
-5. **Skip nonce checks** står til, indtil appen sender en nonce i signInGoogle
-   (`AuthContext.tsx`), som weben og Apple-loginet allerede gør.
+5. **Skip nonce checks skal stå TIL.** Googles iOS-login lægger en nonce i ID-tokenet, og
+   `@react-native-google-signin` (v16) kan kun sende en egen nonce i den betalte udgave.
+   Slås den fra, fejler appens Google-login med 400 (testet 30-09-2026). Weben sender
+   selv en nonce og påvirkes ikke.
 
 Docs:
 - https://supabase.com/docs/guides/auth/social-login/auth-google
