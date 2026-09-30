@@ -28,6 +28,8 @@ export type Product = {
   store: string;
   price: number;
   normal_price: number;
+  /** Hel rabatprocent til "SPAR X%", beregnet på backend; null uden reel rabat. */
+  discount_pct?: number | null;
   is_sale: boolean;
   is_any_sale: boolean;
   sale_end_date: string | null;

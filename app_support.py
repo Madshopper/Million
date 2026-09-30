@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import logging
 import os
 import re
@@ -2006,6 +2007,26 @@ def clean_display_text(value) -> str:
     return '' if text.lower() in _JUNK_TEXT_VALUES else text
 
 
+def discount_percent(list_price, sale_price) -> int | None:
+    """Rabat i hele procent til "Spar X%"-badget - ENESTE sted den regnes.
+
+    Web-makroen og native-appen viser bare tallet (docs/paritet.md), så de
+    aldrig kan vise forskellige procenter for samme vare. Rundes NED, så
+    rabatten aldrig overdrives. round(..., 6) før floor fjerner float-støj
+    (fx 1 - 7/10 = 0.29999... -> skal give 30, ikke 29). None når der ikke er
+    en reel rabat på mindst 1 %.
+    """
+    try:
+        lp = float(list_price)
+        sp = float(sale_price)
+    except (TypeError, ValueError):
+        return None
+    if lp <= 0 or sp <= 0 or sp >= lp:
+        return None
+    pct = math.floor(round((1 - sp / lp) * 100, 6))
+    return pct if pct >= 1 else None
+
+
 def product_to_display_dict(
     product: dict,
     *,
@@ -2030,6 +2051,7 @@ def product_to_display_dict(
         'name': name_str,
         'price': float(product.get('/product/price', 0)),
         'sale_price': float(sale_price) if sale_price is not None else None,
+        'discount_pct': discount_percent(product.get('/product/price'), sale_price) if is_sale else None,
         'description': clean_display_text(product.get('/product/description', '')),
         'category': str(ptype),
         'brand': clean_display_text(product.get('/product/brand', '')),
@@ -2179,6 +2201,7 @@ def product_to_api_dict(display: dict) -> dict:
         'store': str(display.get('store') or 'Rema 1000'),
         'price': price,
         'normal_price': normal_price,
+        'discount_pct': display.get('discount_pct'),
         'is_sale': is_sale,
         'is_any_sale': bool(display.get('is_any_sale')),
         'sale_end_date': display.get('sale_end_date'),

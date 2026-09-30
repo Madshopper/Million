@@ -62,7 +62,8 @@
   onclick="openOverlay(this)">
   <div class="product-image-container">
     {% if product.is_sale or product.is_any_sale %}
-    {%- set discount_pct = ((1 - (product.sale_price / product.price)) * 100) | round(0, 'floor') if (product.is_sale and product.price and product.sale_price and product.sale_price < product.price) else None -%}
+    {#- Beregnes i app_support.discount_percent, så web og app viser samme tal. -#}
+    {%- set discount_pct = product.discount_pct -%}
     <span class="sale-badge">{% if discount_pct %}Spar {{ discount_pct|int }}%{% else %}Tilbud{% endif %}</span>
     {% endif %}
     <span class="store-badge {{ badge_class }}">{{ badge_label }}</span>

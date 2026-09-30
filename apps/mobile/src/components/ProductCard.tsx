@@ -35,12 +35,16 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
   }, []);
 
   const onSale = product.is_sale || product.is_any_sale;
-  // Rundes NED som webkortet (templates/macros/product_card.html), så samme
-  // vare viser samme "Spar X%" på web og i appen og rabatten aldrig overdrives.
-  const discountPct =
-    product.is_sale && product.normal_price > product.price
-      ? Math.floor((1 - product.price / product.normal_price) * 100)
-      : null;
+  // Backend (app_support.discount_percent) er kilden, så web og app altid
+  // viser samme "Spar X%". Fallback til samme ned-afrunding lokalt, indtil
+  // backenden med discount_pct er udgivet - kan fjernes derefter.
+  const discountPct = !product.is_sale
+    ? null
+    : product.discount_pct !== undefined
+      ? product.discount_pct
+      : product.normal_price > product.price
+        ? Math.floor((1 - product.price / product.normal_price) * 100)
+        : null;
 
   return (
     <TouchableOpacity
