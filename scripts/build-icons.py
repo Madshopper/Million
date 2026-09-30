@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generér favicon/app-ikoner ud fra static/favicon.svg.
 
-Køres MANUELT og lokalt (kræver macOS' qlmanage til at rasterisere SVG samt
-Pillow). Resultatet committes, så hverken CI eller deploy afhænger af dette
+Køres MANUELT og lokalt (rasteriserer med macOS' qlmanage, ellers cairosvg,
+samt Pillow). Resultatet committes, så hverken CI eller deploy afhænger af dette
 script - se scripts/build-pages.sh, der kun kopierer de færdige filer.
 
     python3 scripts/build-icons.py
@@ -44,16 +44,28 @@ MOBILE_ASSETS = ROOT / "apps" / "mobile" / "assets"
 PLAY_GRAPHICS = ROOT / "apps" / "mobile" / "store" / "graphics"
 GREEN = "#059669"
 
-# (translate_x, translate_y, scale) for kurv-glyffen i et 64x64-viewBox.
-# Glyffens egne grænser er x 1..23, y 1..22 (22x21 enheder), så værdierne
-# centrerer den og styrer hvor stor en del af fladen den fylder.
-_GEOM = {
-    "rounded": (13.4, 14.15, 1.55),    # ~53 % af fladen
-    "fullbleed": (11.0, 11.85, 1.75),  # ~60 % - lidt større, kanten er farvet
-    "maskable": (14.6, 15.35, 1.45),   # ~50 % - skal tåle cirkelbeskæring
+# Kurv-glyffen centreres vandret efter sit MASSEMIDTPUNKT og lodret efter sin
+# bounding box. Bbox-midte er 12,0 / 11,19, men vægten ligger i kurven til højre
+# (alpha-vægtet massemidtpunkt 13,04 / 10,53), mens venstre side kun er et tyndt
+# håndtag. Centreret helt efter bbox ser kurven derfor forskudt mod højre ud -
+# det er det, der blev meldt på splash-skærmen. Lodret står bbox-midten fast.
+_OPTICAL_CX = 13.04  # massemidtpunkt (vandret)
+_OPTICAL_CY = 11.19  # bbox-midte (lodret)
+
+# Skala pr. variant = hvor stor en del af fladen glyffen fylder.
+_SCALE = {
+    "rounded": 1.55,    # ~53 % af fladen
+    "fullbleed": 1.75,  # ~60 % - lidt større, kanten er farvet
+    "maskable": 1.45,   # ~50 % - skal tåle cirkelbeskæring
     # Androids adaptive ikon viser kun de inderste 72 af 108 dp (~66 %), og
     # samme geometri bruges til splash-ikonet. Samme tal som maskable.
-    "glyph": (14.6, 15.35, 1.45),
+    "glyph": 1.45,
+}
+
+# (translate_x, translate_y, scale) i et 64x64-viewBox.
+_GEOM = {
+    v: (round(32 - _OPTICAL_CX * k, 2), round(32 - _OPTICAL_CY * k, 2), k)
+    for v, k in _SCALE.items()
 }
 
 
@@ -108,18 +120,23 @@ _GREEN_RGB = (5, 150, 105)
 
 
 def _rasterize(variant: str) -> Image.Image:
-    """Rasterisér én variant i _MASTER_PX via Quick Look."""
+    """Rasterisér én variant i _MASTER_PX via Quick Look (macOS) eller
+    cairosvg (alle andre steder)."""
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         src = tmpdir / "icon.svg"
         src.write_text(svg_source(variant, _MASTER_PX), encoding="utf-8")
-        subprocess.run(
-            ["qlmanage", "-t", "-s", str(_MASTER_PX), "-o", str(tmpdir), str(src)],
-            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
         out = tmpdir / "icon.svg.png"
+        if shutil.which("qlmanage"):
+            subprocess.run(
+                ["qlmanage", "-t", "-s", str(_MASTER_PX), "-o", str(tmpdir), str(src)],
+                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        else:
+            import cairosvg  # pip install cairosvg (kræver libcairo)
+            cairosvg.svg2png(url=str(src), write_to=str(out))
         if not out.exists():
-            raise RuntimeError(f"qlmanage gav ingen PNG for {variant}")
+            raise RuntimeError(f"rasteriseringen gav ingen PNG for {variant}")
         im = Image.open(out).convert("RGBA").crop((0, 0, _MASTER_PX, _MASTER_PX))
 
         if variant == "glyph":
@@ -196,8 +213,11 @@ def write_ico(path: Path, frames: list[Image.Image]) -> None:
 
 def main() -> int:
     if not shutil.which("qlmanage"):
-        print("fejl: qlmanage findes kun på macOS - kør scriptet lokalt.")
-        return 1
+        try:
+            import cairosvg  # noqa: F401
+        except ImportError:
+            print("fejl: kræver qlmanage (macOS) eller `pip install cairosvg`.")
+            return 1
 
     ico_sizes = [16, 32, 48]
     ico_path = STATIC / "favicon.ico"

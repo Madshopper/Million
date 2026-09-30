@@ -37,11 +37,6 @@ const config = {
   // Brandgrøn = samme #059669 som favicon/app-ikonet (scripts/build-icons.py).
   // Appens egne UI-grønne toner ligger i src/theme/colors.ts.
   primaryColor: '#059669',
-  splash: {
-    image: './assets/splash-icon.png',
-    resizeMode: 'contain',
-    backgroundColor: '#059669',
-  },
   ios: {
     // Portrait-first iPhone-app. `true` ville kræve iPad-screenshots i App Store
     // Connect og gøre iPad til en review-flade vi ikke tester på.
@@ -132,6 +127,19 @@ const config = {
     // standardtekst, i en ellers dansk app) modsagde både LegalScreen.tsx's
     // opremsning af tilladelser og store/review-notes.md.
     ['expo-secure-store', { faceIDPermission: false }],
+    // Splash: logo med FAST bredde, låst til skærmens midte (vandret + lodret)
+    // via constraints - står derfor centralt på iPhone, iPad og alle størrelser.
+    // Den gamle top-level `splash` var et fuldskærmsbillede (aspect-fit), hvis
+    // kurve skalerede med skærmbredden og afhang af billedets indhold.
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/splash-icon.png',
+        imageWidth: 220,
+        resizeMode: 'contain',
+        backgroundColor: '#059669',
+      },
+    ],
     'expo-web-browser',
     'expo-asset',
     'expo-apple-authentication',
