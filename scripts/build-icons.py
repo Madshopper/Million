@@ -44,16 +44,13 @@ MOBILE_ASSETS = ROOT / "apps" / "mobile" / "assets"
 PLAY_GRAPHICS = ROOT / "apps" / "mobile" / "store" / "graphics"
 GREEN = "#059669"
 
-# Kurv-glyffen centreres OPTISK, ikke efter sin bounding box. Glyffens
-# stregede grænser er x -0,5..24,5, y -0,5..22,9 (midte 12,0 / 11,2), men
-# vægten ligger i kurven oppe til højre, mens venstre side kun er et tyndt
-# håndtag og bunden to små hjul: massemidtpunktet (alpha-vægtet, målt på en
-# 2048 px-rastering) er 13,04 / 10,53. Centreret efter bbox så kurven derfor
-# ud til at hænge oppe til højre (ca. 1,6 enheder ud af 64 i hver retning).
-# Vi lægger punktet midt mellem bbox-midte og massemidtpunkt i fladens midte -
-# helt ud til massemidtpunktet overkorrigerer, så håndtaget ser skubbet ud.
-_OPTICAL_CX = (12.0 + 13.04) / 2   # 12,52
-_OPTICAL_CY = (11.19 + 10.53) / 2  # 10,86
+# Kurv-glyffen centreres vandret efter sit MASSEMIDTPUNKT og lodret efter sin
+# bounding box. Bbox-midte er 12,0 / 11,19, men vægten ligger i kurven til højre
+# (alpha-vægtet massemidtpunkt 13,04 / 10,53), mens venstre side kun er et tyndt
+# håndtag. Centreret helt efter bbox ser kurven derfor forskudt mod højre ud -
+# det er det, der blev meldt på splash-skærmen. Lodret står bbox-midten fast.
+_OPTICAL_CX = 13.04  # massemidtpunkt (vandret)
+_OPTICAL_CY = 11.19  # bbox-midte (lodret)
 
 # Skala pr. variant = hvor stor en del af fladen glyffen fylder.
 _SCALE = {
