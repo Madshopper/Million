@@ -86,5 +86,8 @@ Ingen
 home.html
 s.html
 
-# Synk-dubletter af de sporede juridiske PDF-filer (fx "... 2.pdf")
-docs/juridisk/* 2.pdf
+# iCloud-synk-dubletter (fx "fil 2.pdf", "mappe 2") - aldrig commit
+* 2
+* 2.*
+* 3
+* 3.*
