@@ -85,3 +85,6 @@ Ingen
 # Debug-snapshots i roden (renderede HTML/JSON-svar, aldrig commit)
 home.html
 s.html
+
+# Synk-dubletter af de sporede juridiske PDF-filer (fx "... 2.pdf")
+docs/juridisk/* 2.pdf
