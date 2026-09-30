@@ -56,6 +56,7 @@ CREATE OR REPLACE FUNCTION public._savings_month_key(ts timestamptz DEFAULT now(
 RETURNS text
 LANGUAGE sql
 STABLE
+SET search_path = pg_catalog, pg_temp
 AS $$
   SELECT to_char(timezone('Europe/Copenhagen', ts), 'YYYY-MM');
 $$;
@@ -64,6 +65,7 @@ CREATE OR REPLACE FUNCTION public._savings_day_key(ts timestamptz DEFAULT now())
 RETURNS text
 LANGUAGE sql
 STABLE
+SET search_path = pg_catalog, pg_temp
 AS $$
   SELECT to_char(timezone('Europe/Copenhagen', ts), 'YYYY-MM-DD');
 $$;
@@ -72,6 +74,7 @@ CREATE OR REPLACE FUNCTION public._savings_day_of_month(ts timestamptz DEFAULT n
 RETURNS integer
 LANGUAGE sql
 STABLE
+SET search_path = pg_catalog, pg_temp
 AS $$
   SELECT EXTRACT(DAY FROM timezone('Europe/Copenhagen', ts))::integer;
 $$;
