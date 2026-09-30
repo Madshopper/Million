@@ -605,7 +605,8 @@ export function CartScreen() {
               <Pressable
                 onPress={() => {
                   setLoginOverlay(false);
-                  navigation.navigate('Auth');
+                  // iOS afviser present, mens RN-Modalen stadig lukker.
+                  setTimeout(() => navigation.navigate('Auth'), 400);
                 }}
                 style={[styles.modalBtnPrimary, { backgroundColor: colors.primary }]}
               >

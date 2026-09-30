@@ -79,6 +79,36 @@ function CartHeaderButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+function CloseHeaderButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable onPress={onPress} hitSlop={12} style={{ paddingVertical: 4, paddingRight: 12 }}>
+      <Text style={{ color: colors.primary, fontWeight: '600' }}>Luk</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Egen tilbage-knap i stedet for den native. Den native iOS-knap holdt op med at
+ * reagere efter at man var ind på og ud af et produkt et par gange (skærmen
+ * bliver stående, ingen fejl). En JS-Pressable med goBack() er ikke afhængig
+ * af den native header-transition.
+ */
+function BackHeaderButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 24 }}
+      accessibilityRole="button"
+      accessibilityLabel="Tilbage"
+      style={{ paddingVertical: 4, paddingRight: 16 }}
+    >
+      <Ionicons name="chevron-back" size={26} color={colors.text} />
+    </Pressable>
+  );
+}
+
 type TabIconName = React.ComponentProps<typeof Ionicons>['name'];
 
 function tabIcon(focused: boolean, active: TabIconName, inactive: TabIconName): TabIconName {
@@ -199,11 +229,14 @@ export function RootNavigator() {
   return (
     <NavigationContainer theme={navTheme} linking={recoveryLinking}>
       <Stack.Navigator
-        screenOptions={{
+        screenOptions={({ navigation }) => ({
           headerStyle: { backgroundColor: colors.surface },
           headerTintColor: colors.text,
           contentStyle: { flex: 1, backgroundColor: colors.bg },
-        }}
+          headerBackVisible: false,
+          headerLeft: ({ canGoBack }) =>
+            canGoBack ? <BackHeaderButton onPress={() => navigation.goBack()} /> : null,
+        })}
       >
         <Stack.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
         <Stack.Screen
@@ -232,7 +265,14 @@ export function RootNavigator() {
         <Stack.Screen
           name="Auth"
           component={AuthScreen}
-          options={{ title: 'Konto', presentation: 'modal' }}
+          options={({ navigation }) => ({
+            title: 'Konto',
+            presentation: 'modal',
+            // Modal har ingen automatisk tilbage-knap på iOS. Er stakken kun
+            // Tabs+Auth (recovery-link) eller Auth åbnet uden historik, falder
+            // vi tilbage til Tabs i stedet for en død knap.
+            headerLeft: () => <CloseHeaderButton onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Tabs'))} />,
+          })}
         />
         <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: 'Feedback' }} />
         <Stack.Screen
