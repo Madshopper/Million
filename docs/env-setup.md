@@ -82,6 +82,9 @@ Til rigtig iPhone/Android skal Google have app-specifikke klienter:
 2. Sørg for at **Client ID** + **Client Secret** er sat til **Web**-klienten
    (den Supabase bruger til token-udveksling).
 3. Aktiver Google hvis den er slået fra.
+4. Tilføj iOS- og Android-klient-ID'erne (fra `eas.json`) til **Authorized Client IDs**,
+   adskilt af komma. Native login giver et ID-token med den klients ID som audience;
+   uden dem afviser Supabase tokenet, og appen viser en fejl efter Google-siden.
 
 Docs:
 - https://supabase.com/docs/guides/auth/social-login/auth-google
