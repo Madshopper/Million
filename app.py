@@ -3093,11 +3093,28 @@ def submit_feedback():
     if feedback_type not in allowed_types:
         feedback_type = 'feedback'
 
+    # Kun http(s)-sider er en gyldig afsendeside. En file:///C:/...-sti (set
+    # 25-09-2026, indsat fra Windows' emoji-vælger) er ubrugelig og må ikke
+    # ende som klikbart link i arket. Ugyldig e-mail droppes frem for at afvise
+    # hele beskeden - e-mail er valgfri.
+    if page_url and not re.match(r'^https?://[^\s]+$', page_url, re.I):
+        page_url = None
+    if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$', email):
+        email = None
+
+    # Felter ender i Google Sheet: en værdi der starter med = + - @ kan blive
+    # tolket som formel (CSV/formel-injektion). Apostrof gør den til ren tekst.
+    def _sheet_safe(v):
+        return "'" + v if v and v[0] in '=+-@' else v
+    name, email, subject, page_url = (
+        _sheet_safe(v) for v in (name, email, subject, page_url))
+
     if len(message) < 10:
         return jsonify(success=False, error='Beskeden skal være mindst 10 tegn.'), 400
     if len(message) > 500:
         return jsonify(success=False, error='Beskeden er for lang (maks. 500 tegn).'), 400
 
+    message = _sheet_safe(message)
     created_at = datetime.now().isoformat(timespec='seconds')
 
     # Feedback gemmes udelukkende i Google Sheet - ingen Supabase/DB-kopi.
