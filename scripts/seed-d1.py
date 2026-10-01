@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 import subprocess
 import sys
@@ -470,7 +471,7 @@ def build_home_data(products: list[dict]) -> dict:
     1101/1102-nedbruddet under samtidig trafik.
     Butiksfiltrering (_adjust_for_stores) forbliver pr.-request i app.py,
     da den afhænger af den enkelte besøgendes cookie/query-param."""
-    sale_raw, mejeri_raw = [], []
+    sale_cands, mejeri_cands = [], []
     by_id: dict[str, dict] = {}
     for p in products:
         pid = str(p.get("/product/id", "")).strip()
@@ -478,14 +479,18 @@ def build_home_data(products: list[dict]) -> dict:
             by_id[pid] = p
         if not _home_is_allowed(p):
             continue
-        if len(sale_raw) < _HOME_SALE_LIMIT and (
-            p.get("/product/sale_price") or p.get("/product/is_any_sale")
-        ):
-            sale_raw.append(slim_product(p))
-        if len(mejeri_raw) < _HOME_MEJERI_LIMIT:
-            category = str(p.get("/product/product_type") or "Andre varer")
-            if category == CAT_MEJERI:
-                mejeri_raw.append(slim_product(p))
+        if p.get("/product/sale_price") or p.get("/product/is_any_sale"):
+            sale_cands.append(p)
+        if str(p.get("/product/product_type") or "Andre varer") == CAT_MEJERI:
+            mejeri_cands.append(p)
+
+    # Bland ALLE kandidater før afskæring. At tage de første N i cache-
+    # rækkefølgen gav en fast, butiks-skæv forside på edge (lokalt blandes
+    # puljen pr. request) - ingen butik må være prioriteret.
+    random.shuffle(sale_cands)
+    random.shuffle(mejeri_cands)
+    sale_raw = [slim_product(p) for p in sale_cands[:_HOME_SALE_LIMIT]]
+    mejeri_raw = [slim_product(p) for p in mejeri_cands[:_HOME_MEJERI_LIMIT]]
 
     pop_ids = fetch_popular_product_ids()
     fav_pool = [

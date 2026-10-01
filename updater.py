@@ -84,24 +84,18 @@ REMA_KEY       = 'rema'
 DB_STORE_KEYS = [k for k, v in _STORE_CONFIGS.items() if v.get('db_key')]
 
 
-def _cheapest_tie_break_key(store_key: str) -> int:
-    """Deterministisk sorteringsnøgle for prislige-tievalg.
+def _neutral_store_pick(store_keys, seed: str) -> str:
+    """Vælger én butik blandt lige kandidater, uden at favorisere nogen.
 
-    Erstatter `random.choice(cheapest_stores)`, som lod det viste kort
-    (titel/billede/mærke/kategori) flippe tilfældigt mellem hver
-    cache-genopbygning for enhver Rema-vare med reel prislige (målt 18,4%
-    af matchede Rema-kort i lokalt snapshot). Rema foretrækkes ved lige
-    pris (det er trods alt kildevaren), derefter butikkens position i
-    DB_STORE_KEYS - samme rækkefølge der allerede afgør klynge-anker andre
-    steder i filen, så adfærden er konsistent på tværs af pipelinen. Se
-    matchmotor-revisionen 2026-08-16, fund C5.
+    Deterministisk (hash af `seed` + butikskey), så det viste kort ikke flipper
+    mellem cache-genopbygninger, men fordelingen på tværs af varer er jævn.
+    Erstatter tidligere "Rema først, derefter DB_STORE_KEYS-position", som
+    gjorde de første butikker til fast anker/visningsbutik.
     """
-    if store_key == REMA_KEY:
-        return -1
-    try:
-        return DB_STORE_KEYS.index(store_key)
-    except ValueError:
-        return len(DB_STORE_KEYS)
+    return min(
+        store_keys,
+        key=lambda k: hashlib.md5(f"{seed}|{k}".encode("utf-8")).hexdigest(),
+    )
 
 
 # Navnegulvet i fase 2/fase 2b (bruges også af _cross_store_length_prefilter
@@ -3398,7 +3392,8 @@ def fetch_and_parse_xml():
                 elif is_price_equal(p, cheapest_price):
                     cheapest_stores.append(key)
 
-            display_store = min(cheapest_stores, key=_cheapest_tie_break_key)
+            display_store = _neutral_store_pick(
+                cheapest_stores, str(product.get('/product/title', '')))
             product['/product/cheapest_at'] = display_store
 
             if display_store != REMA_KEY:
@@ -3471,7 +3466,7 @@ def fetch_and_parse_xml():
             for key, p in group.items():
                 if p in unmatched[key]:
                     unmatched[key].remove(p)
-            main_key = next(k for k in DB_STORE_KEYS if k in group)
+            main_key = _neutral_store_pick([k for k in DB_STORE_KEYS if k in group], ean)
             built = build_store_display_products([group[main_key]], main_key)
             if not built:
                 continue
