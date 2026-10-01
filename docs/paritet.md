@@ -24,6 +24,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Forside med sektioner | ✅ | ✅ | ✅ `/api/home` | ✅ | Complete |
 | Kategorisider (9 kategorier) | ✅ | ✅ | ✅ `/api/category/<slug>` | ✅ | Complete |
 | Ugens Tilbud | ✅ | ✅ | ✅ `/api/sale` | ✅ | Complete |
+| Forsidens Ugens Tilbud: højst 2 varer pr. butik forrest | ✅ | ✅ | ✅ `_build_home_categories` | ❌ | Complete *(01-10-2026; gælder ikke Populære varer)* |
 | Underkategori-chips | ✅ | ✅ | ✅ | ✅ | Complete |
 | Paginering | ✅ | ✅ | ✅ | ✅ | Complete |
 | Produktkort: mærke/navn/pris/tilbudsbadge | ✅ | ✅ | ✅ | ✅ | Complete |
@@ -116,6 +117,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | 3 | Tyndt testdække på konto, delt kurv og prisalarmer | Høj | Kun `multiDeal`/`sco` (app) + listing-API-kontrakt (Python) + Playwright-røgtest. Ingen automatiserede tests af login, delt kurv, gemte lister eller prisalarmer på nogen af platformene. |
 | 4 | App'ens tilgængelighed er stadig ujævn | Medium | Ikon-/symbol-knapper fik etiketter 19-08-2026, men de fleste skærme har stadig ingen `accessibilityRole`/`accessibilityLabel`, og der er ingen VoiceOver-gennemgang. |
 | 5 | Ingen automatiseret web-a11y-kontrol | Medium | `scripts/audit-site.py` findes, men indgår ikke i deploy-workflowet. |
+| 6 | Kurv-ikonet der fyldes op findes kun i app'en | Lav | App-headeren fik 01-10-2026 en vogn der fyldes med de første fire varer (`CartIcon.tsx`) + antal-badge i stedet for teksten "Kurv (n)". Web har stadig det almindelige ikon med badge. Samme tal, kun tegningen er forskellig. |
 
 ---
 

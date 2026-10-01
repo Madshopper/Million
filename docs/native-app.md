@@ -382,7 +382,7 @@ Sektioner i rækkefølge:
 1. Hero / intro
 2. Filtre (sort, pris, tilbud, øko, laktose)
 3. Butiksfilter-chips (alle 14)
-4. **Ugens Tilbud** — op til 10 kort, “Vis alle” → sale-liste
+4. **Ugens Tilbud** — op til 10 kort, “Vis alle” → sale-liste. Højst 2 varer pr. butik forrest (`_HOME_SALE_MAX_PER_STORE` i `app.py`, fælles for web og app); resten af puljen følger efter og fylder kun op, når for få butikker har tilbud
 5. **Populære varer** — op til 10 (fra `cart_popularity` ≥2; fallback staples)
 6. **Køl** — op til 10, link til `/Mejeri`
 7. **Personlig besparelse** — live (login + `get_personal_savings` / `record_compare_savings`)

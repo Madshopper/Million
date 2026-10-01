@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import {
   NavigationContainer,
   DarkTheme,
@@ -12,6 +12,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { useCart } from '../cart/CartContext';
+import { CartIcon } from '../components/CartIcon';
 import { HomeScreen } from '../screens/HomeScreen';
 import { CategoryScreen, SaleScreen } from '../screens/CategoryScreen';
 import { SearchScreen } from '../screens/SearchScreen';
@@ -71,10 +72,36 @@ function CartHeaderButton({ onPress }: { onPress: () => void }) {
   const { colors } = useTheme();
   const { count } = useCart();
   return (
-    <Pressable onPress={onPress} style={{ marginRight: 16, paddingVertical: 4 }}>
-      <Text style={{ color: colors.primary, fontWeight: '600' }}>
-        Kurv{count > 0 ? ` (${count})` : ''}
-      </Text>
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={count > 0 ? `Åbn indkøbskurv, ${count} varer` : 'Åbn indkøbskurv'}
+      style={{ marginRight: 8, width: 52, height: 44, justifyContent: 'center' }}
+    >
+      <CartIcon count={count} color={colors.primary} />
+      {count > 0 && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 1,
+            // Forankret i venstre kant, så et to- eller trecifret tal vokser
+            // væk fra vognen i stedet for ind over varerne.
+            left: 28,
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+            paddingHorizontal: 4,
+            backgroundColor: colors.primary,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: colors.surface, fontSize: 11, fontWeight: '700' }}>
+            {count > 99 ? '99+' : count}
+          </Text>
+        </View>
+      )}
     </Pressable>
   );
 }
