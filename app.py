@@ -105,6 +105,9 @@ _xml_cache_lock = threading.Lock()
 
 _KV_CACHE_KEY = 'app_cache_v1'
 _HOME_KV_KEY = 'home_data_v1'
+# Forsidens Ugens Tilbud viser 10 kort (6 i appen). Uden loft fyldte Rema 7
+# af de 10 - målt 01-10-2026, hvor 39 af puljens 60 varer var Rema-varer.
+_HOME_SALE_MAX_PER_STORE = 2
 
 
 def _edge_kv():
@@ -2561,16 +2564,30 @@ def _build_home_categories(active_stores, args):
         except (ValueError, TypeError):
             return False
 
+    # Højst _HOME_SALE_MAX_PER_STORE varer pr. butik forrest i rækken. Resten
+    # lægges bagefter i stedet for at blive smidt væk: har den besøgende kun
+    # valgt én eller to butikker, skal sektionen stadig kunne fyldes. Loftet
+    # holder derfor præcis så længe der er nok butikker med tilbud til at
+    # fylde de synlige kort - og det overlever apply_product_filters nedenfor,
+    # fordi et filter kun fjerner varer og ikke bytter om på dem.
+    # Udvælgelsen sker på de rå produkter, så der stadig kun konverteres 60.
     seen_tilbud_imgs = set()
+    tilbud_per_store = {}
+    tilbud_first, tilbud_rest = [], []
     for product in sale_raw:
-        if len(products_by_category['Ugens Tilbud']) >= 60:
-            break
         _img = str(product.get('/product/imageLink', '')).strip()
         _img_valid = _img and _img not in ('nan', 'None') and _img not in _PLACEHOLDER_IMGS
         if _img_valid and _img in seen_tilbud_imgs:
             continue
         if _img_valid:
             seen_tilbud_imgs.add(_img)
+        _store = str(product.get('/product/store', 'Rema 1000'))
+        if tilbud_per_store.get(_store, 0) < _HOME_SALE_MAX_PER_STORE:
+            tilbud_per_store[_store] = tilbud_per_store.get(_store, 0) + 1
+            tilbud_first.append(product)
+        else:
+            tilbud_rest.append(product)
+    for product in (tilbud_first + tilbud_rest)[:60]:
         products_by_category['Ugens Tilbud'].append(
             product_to_display_dict(
                 product,
