@@ -11,8 +11,8 @@
 //
 // Budget: kun sider der ligger i edge-cachen (forside, kategori, /api/home,
 // /api/stores) plus staging-login-siden, så hvert tjek koster et cache-hit,
-// ikke en render. Den friske søgning er undtagelsen og kører kun én gang i
-// døgnet (se SEARCH_CHECK): en ucachet søgning er en D1-tabelscanning på ~19k
+// ikke en render. Den friske søgning er undtagelsen og kører hver 2. time
+// (se SEARCH_CHECK): en ucachet søgning er en D1-tabelscanning på ~19k
 // rows_read, og 288 af dem i døgnet sprænger gratisplanens 5M. Ventetid på
 // svar tæller ikke mod CPU-grænsen på 10 ms.
 //
@@ -83,15 +83,17 @@ const CHECKS = [
 // Frisk søgning: den eneste der går gennem render-vejen og D1 (de andre er
 // cache-hits), og dermed den der fangede søgefejlen i september. Den unikke
 // max_price gør url'en ny hver gang, så den aldrig rammer edge-cachen. Den
-// koster en D1-tabelscanning (~19k rows_read), så den kører kun én gang i
-// døgnet, og én gang i timen mens den er nede, aldrig hvert 5. minut.
+// koster en D1-tabelscanning (~19k rows_read), så den kører hver 2. time:
+// 12 x 19k = ~230k af gratisplanens 5M rows_read i døgnet. Budgettet er
+// allerede stramt (målt 30-09-2026: 6,1M; 02-10-2026: 4,7M kl. 19 UTC), så
+// sæt ikke frekvensen op uden at måle først. Aldrig hvert 5. minut
+// (288 x 19k = 5,5M alene).
 const SEARCH_CHECK = {
   name: "Frisk søgning (mælk)",
   url: "https://madshopper.dk/search/results?q=m%C3%A6lk",
   fresh: true,
   expect: (body) => body.includes("MadShopper") && productCards(body, false),
 };
-const SEARCH_HOUR_UTC = 5;
 const SEARCH_MINUTE = 40;
 
 // Sitet lukkes bag login (src/worker.py); uloggede requests får 302 til
@@ -207,8 +209,7 @@ export async function check(env, scheduledTime = Date.now()) {
   const prevDown = (state && state.down) || {};
 
   const when = new Date(scheduledTime);
-  const searchSlot = when.getUTCMinutes() === SEARCH_MINUTE;
-  const runSearch = searchSlot && (when.getUTCHours() === SEARCH_HOUR_UTC || !!prevDown[SEARCH_CHECK.name]);
+  const runSearch = when.getUTCMinutes() === SEARCH_MINUTE && when.getUTCHours() % 2 === 0;
   const checks = runSearch ? [...CHECKS, SEARCH_CHECK] : CHECKS;
   const allChecks = [...CHECKS, SEARCH_CHECK];
 

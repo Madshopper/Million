@@ -52,7 +52,7 @@ name: Uptime Check
 #
 # 2026-10-02: browsertjekkene (forside, kategori og frisk søgning) er flyttet
 # helt til Cloudflare: uptime-worker/ tjekker hvert 5. minut og den friske
-# søgning én gang i døgnet, og mailer via Resend. En worker-fetch bliver ikke
+# søgning hver 2. time, og mailer via Resend. En worker-fetch bliver ikke
 # stoppet af Bot Fight Mode, så der skal ingen rigtig browser til. Tilbage her
 # er sikkerhedsrelæet og synken af kørselshistorik til /admin, hver 3. time.
 # Navnet uptime-check.yml er beholdt, så job_runs-historikken hænger sammen.
