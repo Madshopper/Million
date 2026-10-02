@@ -96,14 +96,6 @@ const SEARCH_CHECK = {
 };
 const SEARCH_MINUTE = 40;
 
-// Sitet lukkes bag login (src/worker.py); uloggede requests får 302 til
-// /login (sider) eller 401 (/api/*). Workeren kommer forbi med headeren
-// X-MadShopper-Monitor = hex(HMAC-SHA256(CACHE_REFRESH_SECRET, "monitor-access"))
-// (site_gate.py::monitor_token). Tokenet beregnes i deploy-workflowet, så den
-// rå CACHE_REFRESH_SECRET aldrig ligger i denne worker. Sendes kun til
-// madshopper.dk-domænerne, aldrig til Resend.
-let monitorToken = "";
-
 async function runCheck(check) {
   const started = Date.now();
   try {
@@ -114,7 +106,6 @@ async function runCheck(check) {
       url = u.toString();
     }
     const headers = { "User-Agent": "MadShopper-Uptime/1.0 (+https://madshopper.dk)" };
-    if (monitorToken) headers["X-MadShopper-Monitor"] = monitorToken;
     const resp = await fetch(url, {
       headers,
       redirect: "manual",
@@ -197,7 +188,6 @@ function fmtTime(iso) {
 }
 
 export async function check(env, scheduledTime = Date.now()) {
-  monitorToken = env.MONITOR_ACCESS_TOKEN || "";
   let state = null;
   let firstRun = false;
   try {
