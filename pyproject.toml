@@ -29,6 +29,7 @@ prefer_runtime_packages = true
 files = [
     "app.py",
     "app_support.py",
+    "site_gate.py",
     "templates",
 ]
 

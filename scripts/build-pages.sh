@@ -336,6 +336,9 @@ BUILD_ID = "${BUILD_ID_VALUE}"
 # Skrive-tabeller (cart_popularity, price_alerts): "" = produktion, "_dev" =
 # dev-kopier (scripts/supabase-dev-tables.sql), så test ikke rører prod-data.
 TABLE_SUFFIX = "${TABLE_SUFFIX_VALUE}"
+# Privat site: kun indloggede brugere med app_metadata.approved ser noget
+# (src/worker.py::_site_gate, site_gate.py). Begge miljøer. "0" åbner sitet.
+SITE_PRIVATE = "1"
 ${ANALYTICS_LINES}
 ${STAGING_SECRET_LINE}
 ${STAGING_EMAIL_LINE}

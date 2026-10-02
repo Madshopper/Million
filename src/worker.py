@@ -15,6 +15,7 @@ from edgekit.bindings import KVNamespace, D1Database
 from edgekit.webapi.response import Response as EdgeResponse
 
 from app import app as flask_app
+import site_gate
 
 
 def _prewarm_for_snapshot() -> None:
@@ -556,6 +557,17 @@ class Env(Protocol):
     STAGING_ACCESS_SECRET: str
     STAGING_ACCESS_EMAIL: str
     STAGING_ACCESS_PASSWORD: str
+    SITE_PRIVATE: str
+
+
+# Privat site (site_gate.py): Supabases offentlige ES256-nøgler, importeret som
+# WebCrypto-nøgler pr. kid. Hentes én gang pr. isolate (eller når et token
+# bærer et ukendt kid efter en nøglerotation), højst hvert
+# _JWKS_REFETCH_MIN_S - så et token med et opdigtet kid ikke kan få hver
+# request til at hente nøglesættet igen.
+_jwk_keys: dict = {}
+_jwks_fetched_at = 0.0
+_JWKS_REFETCH_MIN_S = 300.0
 
 
 # Eneste sti hvor en uautentificeret besøgende ser andet end blankt 404 -
@@ -740,6 +752,108 @@ class Default(WSGI[Env]):
             pass
         return EdgeResponse.text("Not found", status=404,
                                  headers={"Cache-Control": "no-store"})
+
+    def _site_private(self) -> bool:
+        # Lukket medmindre build'et eksplicit siger "0": en manglende var må
+        # aldrig åbne sitet.
+        try:
+            return str(getattr(self.raw_env, "SITE_PRIVATE", "1") or "1") != "0"
+        except Exception:
+            return True
+
+    async def _jwk_for(self, kid: str):
+        global _jwks_fetched_at
+        key = _jwk_keys.get(kid)
+        if key is not None:
+            return key
+        now = _now_ms() / 1000.0
+        if _jwks_fetched_at and now - _jwks_fetched_at < _JWKS_REFETCH_MIN_S:
+            return None
+        _jwks_fetched_at = now
+        import json
+        from js import fetch as js_fetch, JSON, crypto
+        from pyodide.ffi import to_js
+        base = str(getattr(self.raw_env, "SUPABASE_URL", "") or "")
+        resp = await js_fetch(site_gate.jwks_url(base))
+        if int(resp.status) != 200:
+            return None
+        data = json.loads(str(await resp.text()))
+        algo = JSON.parse('{"name":"ECDSA","namedCurve":"P-256"}')
+        for jwk in data.get("keys") or []:
+            if jwk.get("kty") != "EC" or jwk.get("crv") != "P-256" or not jwk.get("kid"):
+                continue
+            pub = {k: jwk[k] for k in ("kty", "crv", "x", "y") if k in jwk}
+            _jwk_keys[jwk["kid"]] = await crypto.subtle.importKey(
+                "jwk", JSON.parse(json.dumps(pub)), algo, False, to_js(["verify"])
+            )
+        return _jwk_keys.get(kid)
+
+    async def _jwt_signature_ok(self, jwt) -> bool:
+        key = await self._jwk_for(str(jwt.header.get("kid")))
+        if key is None:
+            return False
+        from js import JSON, Uint8Array, crypto
+        sig = Uint8Array.new(len(jwt.signature))
+        sig.assign(jwt.signature)
+        msg = Uint8Array.new(len(jwt.signing_input))
+        msg.assign(jwt.signing_input)
+        algo = JSON.parse('{"name":"ECDSA","hash":"SHA-256"}')
+        return bool(await crypto.subtle.verify(algo, key, sig, msg))
+
+    async def _site_gate(self, request):
+        """Privat site: alt andet end login-siden og et par åbne stier kræver
+        et gyldigt Supabase-login med app_metadata.approved (se site_gate.py).
+
+        Kører FØR edge-cachen, så en cachet side aldrig kan nå en der ikke er
+        godkendt. Godkendte brugere deler stadig den samme cache: ingen side
+        indeholder noget personligt (login og kurv sker i browseren).
+        Returnerer et svar hvis requesten afvises, ellers None. Fejler lukket.
+        """
+        if not self._site_private():
+            return None
+        status = "invalid"
+        path = "/"
+        query = ""
+        try:
+            from urllib.parse import urlparse
+            url = urlparse(str(request.url))
+            path = url.path or "/"
+            query = url.query or ""
+            if site_gate.is_open_path(path):
+                return None
+            headers = request.headers
+            cookie = headers.get("Cookie") or ""
+            if site_gate.monitor_ok(
+                getattr(self.raw_env, "CACHE_REFRESH_SECRET", None), cookie,
+                headers.get(site_gate.MONITOR_HEADER) or "",
+                headers.get("X-Cache-Secret") or "",
+            ):
+                return None
+            jwt = site_gate.parse_jwt(
+                site_gate.bearer_token(cookie, headers.get("Authorization") or "")
+            )
+            if jwt is not None and await self._jwt_signature_ok(jwt):
+                issuer = site_gate.issuer_for(
+                    str(getattr(self.raw_env, "SUPABASE_URL", "") or ""))
+                status = site_gate.claims_status(jwt.claims, issuer)
+                if status == "approved":
+                    return None
+        except Exception:
+            status = "invalid"
+        accept = ""
+        try:
+            accept = request.headers.get("Accept") or ""
+        except Exception:
+            pass
+        if request.method in ("GET", "HEAD") and site_gate.wants_html(path, accept):
+            return EdgeResponse.text("", status=302, headers={
+                **site_gate.DENIED_HEADERS,
+                "Location": site_gate.login_redirect_location(path, query),
+            })
+        return EdgeResponse.text(site_gate.denied_json(status), status=401, headers={
+            **site_gate.DENIED_HEADERS,
+            "content-type": "application/json; charset=utf-8",
+        })
 
     async def _rate_ok(self, request) -> bool:
         """Rate limiting via Cloudflares gratis native binding. Fail-open:
@@ -947,6 +1061,11 @@ class Default(WSGI[Env]):
         try:
             from js import Request as JSRequest
             warm_request = JSRequest.new(f"{origin}{path}")
+            # Egen opvarmning skal forbi _site_gate som overvågningen gør.
+            secret = getattr(self.raw_env, "CACHE_REFRESH_SECRET", None)
+            if secret:
+                warm_request.headers.set(
+                    site_gate.MONITOR_HEADER, site_gate.monitor_token(str(secret)))
             await self.fetch(warm_request)
         except Exception:
             pass
@@ -1027,6 +1146,10 @@ class Default(WSGI[Env]):
         blocked = await self._staging_blocked(request)
         if blocked is not None:
             return blocked
+        # Privat site: kun godkendte brugere, FØR edge-cachen (se _site_gate).
+        denied = await self._site_gate(request)
+        if denied is not None:
+            return denied
 
         # Ikke-GET (POST mv.) er dyre/skrivende → rate limit før arbejde.
         # HEAD skal FOELGE GET-vejen. Foer faldt den i non-GET-grenen: ingen

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+{# Privat site: den eneste side man ser uden godkendt login (src/worker.py::
+   _site_gate sender alle andre hertil). Ens for alle besøgende, så den kan
+   ligge i edge-cachen; om man er logget ind, afgøres i browseren af
+   static/js/gate.js. Næste side står i URL-fragmentet (#next=...). #}
+<html lang="da">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Log ind - MadShopper</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <meta name="theme-color" content="#059669">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+  <script>
+    window.__SB_URL = {{ supabase_url|tojson }};
+    window.__SB_KEY = {{ supabase_anon_key|tojson }};
+    window.__SB_CARTS = {{ carts_table|tojson }};
+    window.__SB_PRICE_ALERTS = {{ price_alerts_table|tojson }};
+    window.__SB_RPC_SUFFIX = {{ rpc_suffix|tojson }};
+    window.__GOOGLE_CLIENT_ID = "683267660851-4jvo3nauv24s4g8sk5qhk1dlvuc4tjgr.apps.googleusercontent.com";
+    window.__APPLE_CLIENT_ID = "";
+  </script>
+  <script src="{{ url_for('static', filename='js/supabase.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/gate.js') }}" defer></script>
+</head>
+
+<body class="gate-body">
+  <script>
+    // Samme tema-nøgle som resten af sitet (se base.html), sat før første maling.
+    try {
+      var _t = localStorage.getItem('madshopper_darkmode');
+      if (_t === 'true' || (_t === null && window.matchMedia
+          && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.body.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) { /* localStorage kan være spærret */ }
+  </script>
+
+  <main class="gate-card">
+    <div class="gate-brand">
+      <img src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="40" height="40">
+      <span>MadShopper</span>
+    </div>
+
+    <div id="gate-loading">
+      <p class="gate-text">Henter …</p>
+    </div>
+
+    <div id="gate-login" hidden>
+      <h1>MadShopper er privat</h1>
+      <p class="gate-text">Log ind for at fortsætte. Har du ikke en konto, kan du oprette en og vente på at blive godkendt.</p>
+      <button type="button" class="gate-btn primary" id="gate-login-btn">Log ind</button>
+      <button type="button" class="gate-btn" id="gate-signup-btn">Opret konto</button>
+    </div>
+
+    <div id="gate-pending" hidden>
+      <h1>Afventer godkendelse</h1>
+      <p class="gate-text">Du er logget ind som <b id="gate-email"></b>, men kontoen er ikke godkendt endnu. Du får adgang, så snart den er godkendt.</p>
+      <button type="button" class="gate-btn primary" id="gate-recheck">Tjek igen</button>
+      <button type="button" class="gate-btn" id="gate-logout">Log ud</button>
+      <p class="gate-msg" id="gate-msg" role="status"></p>
+    </div>
+
+    <nav class="gate-links">
+      <a href="/privatliv">Privatliv</a>
+      <a href="/terms-of-service">Vilkår</a>
+    </nav>
+  </main>
+
+  {% include 'partials/auth_modal.html' %}
+</body>
+
+</html>
