@@ -190,6 +190,13 @@ mkdir -p dist
 cp -r build/edgekit/wrangler/. dist/
 cp -r templates dist/python_modules/templates
 
+# Indholds-hash pr. statisk fil til automatisk cache-busting (app.py::
+# _static_cache_bust). static/ ligger ikke i workeren, så hashene bygges her
+# og læses af app.py ved import. Samme algoritme som _static_file_hash:
+# sha256, de første 10 hex-tegn. Mangler filen, får ingen asset ?v=, og en
+# ændret fil ville sidde fast i browser-cachen i et år - derfor fejler vi.
+python3 scripts/build-static-hashes.py dist/python_modules/static_hashes.json
+
 # Statiske filer serveres direkte fra Cloudflares CDN under /static/*
 # (bypasser worker'en helt → sparer requests + CPU på free-plan). De bundtes
 # bevidst IKKE ind i selve Python-workeren (kun i dist/assets nedenfor) -

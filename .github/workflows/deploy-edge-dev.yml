@@ -98,7 +98,9 @@ jobs:
         run: python3 scripts/test-render-exclusive.py
 
       - name: Test cache-bust af statiske assets
-        run: python3 scripts/test-cache-bust.py "${{ github.event.before || 'HEAD~1' }}"
+        env:
+          REQUIRE_DIST: "1"
+        run: python3 scripts/test-cache-bust.py
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3

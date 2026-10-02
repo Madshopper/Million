@@ -116,13 +116,15 @@ jobs:
       - name: Test render-laas (isolate-kollision i D1-broen)
         run: python3 scripts/test-render-exclusive.py
 
-      # Ændres styles.css/script.js/auth.js uden at ?v= hæves i base.html,
-      # bliver den GAMLE fil ved med at køre hos alle besøgende (assets
-      # serveres immutable). Det brød login for alle én gang (c7c0efd) og er
-      # glemt to gange siden. En regel i CLAUDE.md holder tydeligvis ikke -
-      # her er den en gate.
+      # Assets serveres immutable, så en ændret fil skal have ny URL. ?v= er
+      # en automatisk indholds-hash (app.py::_static_cache_bust); gaten sikrer
+      # at ingen template skriver ?v= selv, og at static_hashes.json i dist/
+      # matcher filerne. Manuelle ?v= blev glemt igen og igen (c7c0efd,
+      # skip-linket 02-10-2026).
       - name: Test cache-bust af statiske assets
-        run: python3 scripts/test-cache-bust.py "${{ github.event.before || 'HEAD~1' }}"
+        env:
+          REQUIRE_DIST: "1"
+        run: python3 scripts/test-cache-bust.py
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3

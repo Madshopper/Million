@@ -29,18 +29,15 @@
        native 16/32/48-rammer. apple-touch-icon er bevidst FIRKANTET - iOS
        runder selv hjørnerne, og et ikon med egne runde hjørner ville få sorte
        trekanter i enderne. Filerne genereres af scripts/build-icons.py.
-       ?v= bumpes når ikonerne ændres. NB: _headers i scripts/build-pages.sh
-       foreskriver ganske vist et års immutable cache for /static/*, men den
-       fil slår ikke igennem - målt 24-07-2026 på BÅDE produktion og staging
-       svarer /static/css/styles.css med "max-age=0, must-revalidate". Målt
-       02-10-2026 svarer den nu "max-age=31536000, immutable", så ?v= SKAL
-       bumpes ved hver ændring af en statisk fil, ellers ser browsere med den
-       gamle fil i cachen aldrig ændringen. HTML sendes med Cache-Control: no-store, så
-       browseren henter frisk HTML (og nye ?v=-links) uden hard refresh. -->
-  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}?v=2" type="image/svg+xml">
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=4" sizes="16x16 32x32 48x48">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}?v=4">
-  <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}?v=2">
+       /static/* caches immutable i et år, så alle url_for('static', ...)
+       får automatisk ?v=<indholds-hash> (app.py::_static_cache_bust). Skriv
+       ALDRIG ?v= selv her - scripts/test-cache-bust.py fejler på det. HTML
+       sendes med Cache-Control: no-store, så browseren henter frisk HTML (og
+       nye hash-links) uden hard refresh. -->
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
   <meta name="theme-color" content="#059669">
   <!-- Struktureret data. Grafen bygges i _structured_data() i app.py og
        dumpes med tojson, så escaping og gyldig JSON er garanteret - også hvis
@@ -51,17 +48,16 @@
   <!-- Selvhostet siden 19-08-2026 (compliance-audit GDPR-002): Google Fonts
        blev tidligere hentet ubetinget for ALLE besøgende, før noget
        cookiesamtykke var spurgt - se static/css/fonts.css. -->
-  <link rel="preload" href="{{ url_for('static', filename='fonts/inter-latin-variable.woff2') }}?v=1" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="{{ url_for('static', filename='fonts/plus-jakarta-sans-latin-variable.woff2') }}?v=1" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}?v=1">
-  <link rel="preload" href="{{ url_for('static', filename='css/styles.css') }}?v=51" as="style">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=51">
+  <link rel="preload" href="{{ url_for('static', filename='fonts/inter-latin-variable.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ url_for('static', filename='fonts/plus-jakarta-sans-latin-variable.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
+  <link rel="preload" href="{{ url_for('static', filename='css/styles.css') }}" as="style">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   <style>
     /* Fallback hvis styles.css fejler at loade (netværk/CDN) */
     body { font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif; margin: 0; background: #F9FAFB; color: #111827; }
-    /* Skip-linket skal være skjult indtil tastaturfokus, også hvis browseren
-       har en gammel styles.css i cachen uden .skip-link-reglen (sket 02-10-2026:
-       reglen kom ind uden ?v=-bump, og /static/ caches nu immutable i et år). */
+    /* Skip-linket skal være skjult indtil tastaturfokus, også før/uden
+       styles.css (sket 02-10-2026 med en gammel styles.css i browser-cachen). */
     .skip-link { position: absolute; top: -100px; left: 12px; }
     .skip-link:focus { top: 12px; }
   </style>
@@ -93,9 +89,9 @@
        script første gang det reelt skal bruges (login/signup-modal åbnes,
        hhv. signup-visningen med Turnstile-feltet vises). Chart.js
        lazy-loades tilsvarende første gang et overlay åbnes (loadChartJs()). -->
-  <script src="{{ url_for('static', filename='js/supabase.min.js') }}?v=1" defer></script>
-  <script src="{{ url_for('static', filename='js/script.js') }}?v=73" defer></script>
-  <script src="{{ url_for('static', filename='js/auth.js') }}?v=32" defer></script>
+  <script src="{{ url_for('static', filename='js/supabase.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
 </head>
 
 <body>
