@@ -121,6 +121,15 @@ fi
 GOOGLE_SHEET_WEBHOOK_URL="$(cat "$WEBHOOK_FILE" 2>/dev/null || true)"
 GOOGLE_SHEET_WEBHOOK_URL_TOML="$(toml_escape "$GOOGLE_SHEET_WEBHOOK_URL")"
 
+# D1-budget i /admin (app.py::_admin_d1_budget): valgfri Cloudflare-token med
+# KUN "Account Analytics: Read". Uden den viser panelet "ikke sat op". Samme
+# var-mønster som ovenfor, fordi Python Workers kun ser [vars] i os.environ.
+ANALYTICS_LINES=""
+if [ -n "${CF_ANALYTICS_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+  ANALYTICS_LINES="CF_ANALYTICS_TOKEN = \"$(toml_escape "$CF_ANALYTICS_TOKEN")\"
+CLOUDFLARE_ACCOUNT_ID = \"$(toml_escape "$CLOUDFLARE_ACCOUNT_ID")\""
+fi
+
 # Staging-adgangsnøgle: madshopper-dev kører den samme kode mod *_dev-tabeller,
 # men på en offentlig workers.dev-URL og mod SAMME Supabase-projekt/auth.users
 # som produktionen. Uden en spærring er hele feature-fladen frit tilgængelig for
@@ -321,6 +330,7 @@ SITE_URL = "${SITE_URL_VALUE}"
 # dev-kopier (scripts/supabase-dev-tables.sql), så test ikke rører prod-data.
 TABLE_SUFFIX = "${TABLE_SUFFIX_VALUE}"
 GOOGLE_SHEET_WEBHOOK_URL = "${GOOGLE_SHEET_WEBHOOK_URL_TOML:-}"
+${ANALYTICS_LINES}
 ${STAGING_SECRET_LINE}
 ${STAGING_EMAIL_LINE}
 ${STAGING_PASSWORD_LINE}

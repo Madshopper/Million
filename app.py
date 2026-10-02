@@ -130,6 +130,8 @@ _EDGE_ENV_VARS = (
     'SUPABASE_KEY', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
     'CACHE_REFRESH_SECRET', 'ENABLE_PRICE_DB',
     'GOOGLE_SHEET_WEBHOOK_URL', 'TABLE_SUFFIX',
+    # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
+    'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
 )
 
 
@@ -1331,18 +1333,21 @@ def _supabase_available() -> bool:
 
 
 def _supabase_rest(method: str, path: str, params: dict | None = None,
-                   json_body=None, prefer: str | None = None, timeout: float = 15.0) -> tuple:
+                   json_body=None, prefer: str | None = None, timeout: float = 15.0,
+                   auth_token: str | None = None) -> tuple:
     """Kald Supabase PostgREST direkte - ÉN kodesti på edge (js.fetch) og lokalt (httpx).
     Erstatter supabase-py-klienten, som ikke kan køre i Cloudflares Pyodide-runtime, så
     interaktive features (feedback, prisalarm, kurv, prishistorik) også virker offentligt.
-    Returnerer (data, status). status == 0 betyder netværks-/opsætningsfejl."""
+    Returnerer (data, status). status == 0 betyder netværks-/opsætningsfejl.
+    auth_token: en indlogget brugers EGEN access-token - kaldet kører så med
+    brugerens rettigheder (auth.uid()) i stedet for anon-nøglens."""
     base, key = _supabase_rest_config()
     if not base or not key:
         return None, 0
     url = f"{base}/rest/v1/{path}"
     if params:
         url += "?" + urllib.parse.urlencode(params)
-    headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+    headers = {"apikey": key, "Authorization": f"Bearer {auth_token or key}"}
     if json_body is not None:
         headers["Content-Type"] = "application/json"
     if prefer:
@@ -2908,7 +2913,8 @@ def robots_txt():
     if host.endswith('.workers.dev'):
         body = 'User-agent: *\nDisallow: /\n'
     else:
-        body = f'User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n'
+        body = (f'User-agent: *\nAllow: /\nDisallow: /admin\n\n'
+                f'Sitemap: {SITE_URL}/sitemap.xml\n')
     return Response(body, mimetype='text/plain')
 
 
@@ -3028,6 +3034,118 @@ def about():
 @app.route('/feedback')
 def feedback_page():
     return render_template('feedback.html')
+
+
+# ---------------------------------------------------------------------------
+# Admin (/admin). Siden er en tom skal - alle tal hentes af static/js/admin.js
+# efter login. Supabase-tallene går direkte fra browseren til admin-RPC'erne
+# (scripts/supabase-admin.sql), der selv tjekker is_admin() mod brugerens egen
+# JWT. Her ligger kun det browseren ikke kan nå: D1, KV og D1-budgettet fra
+# Cloudflare-analytics. Ingen af delene skriver noget (D1-budgettet er stramt).
+# ---------------------------------------------------------------------------
+_ADMIN_HEADERS = {
+    'Cache-Control': 'private, no-store',
+    'X-Robots-Tag': 'noindex, nofollow',
+}
+_ADMIN_BEARER_RE = re.compile(r'^Bearer ([A-Za-z0-9._-]{20,4096})$')
+# Gratis-planens døgngrænser for D1 (konto-brede, prod + staging tilsammen).
+_D1_DAILY_ROWS_WRITTEN = 100_000
+_D1_DAILY_ROWS_READ = 5_000_000
+
+
+@app.route('/admin')
+def admin_page():
+    # Ikke i _CACHEABLE_ENDPOINTS: ingen CDN-header, så hverken zonen eller
+    # workerens Cache API gemmer den. Indholdet er alligevel ens for alle.
+    resp = app.make_response(render_template('admin.html'))
+    resp.headers.update(_ADMIN_HEADERS)
+    return resp
+
+
+def _admin_request_ok() -> bool:
+    """Sandt når requesten bærer en gyldig Supabase-session for en admin.
+    PostgREST verificerer JWT'ens signatur, og is_admin() slår auth.uid() op i
+    admin_users - ét kald gør begge dele, og adminlisten bor kun i Supabase."""
+    m = _ADMIN_BEARER_RE.match(request.headers.get('Authorization', ''))
+    if not m:
+        return False
+    data, status = _supabase_rest('POST', 'rpc/is_admin', json_body={},
+                                  timeout=8.0, auth_token=m.group(1))
+    return status == 200 and data is True
+
+
+def _admin_d1_budget() -> dict:
+    """Dagens rows_written/rows_read for hele kontoen (UTC-døgn) fra Cloudflares
+    GraphQL-analytics. Kræver en læsetoken som secret CF_ANALYTICS_TOKEN."""
+    token = os.environ.get('CF_ANALYTICS_TOKEN')
+    account = os.environ.get('CLOUDFLARE_ACCOUNT_ID')
+    if not token or not account:
+        return {'configured': False}
+    day = datetime.utcnow().date().isoformat()
+    query = (
+        'query($a:String!,$d:Date!){viewer{accounts(filter:{accountTag:$a}){'
+        'd1AnalyticsAdaptiveGroups(limit:100,filter:{date_geq:$d,date_leq:$d}){'
+        'sum{rowsWritten rowsRead}dimensions{databaseId}}}}}'
+    )
+    url = 'https://api.cloudflare.com/client/v4/graphql'
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+    body = json.dumps({'query': query, 'variables': {'a': account, 'd': day}})
+    try:
+        if _IS_EDGE:
+            data, status = _edge_fetch(url, method='POST', headers=headers, body=body)
+        else:
+            import httpx
+            resp = httpx.post(url, headers=headers, content=body, timeout=8.0)
+            data, status = resp.json(), resp.status_code
+        groups = data['data']['viewer']['accounts'][0]['d1AnalyticsAdaptiveGroups']
+    except Exception as e:
+        logger.warning('Admin: D1-analytics fejlede: %s', type(e).__name__)
+        return {'configured': True, 'error': True}
+    databases = [{
+        'id': (g.get('dimensions') or {}).get('databaseId', ''),
+        'rows_written': int((g.get('sum') or {}).get('rowsWritten') or 0),
+        'rows_read': int((g.get('sum') or {}).get('rowsRead') or 0),
+    } for g in groups]
+    return {
+        'configured': True,
+        'day': day,
+        'rows_written': sum(d['rows_written'] for d in databases),
+        'rows_read': sum(d['rows_read'] for d in databases),
+        'limit_written': _D1_DAILY_ROWS_WRITTEN,
+        'limit_read': _D1_DAILY_ROWS_READ,
+        'databases': databases,
+    }
+
+
+@app.route('/api/admin/edge', methods=['POST'])
+@rate_limit(api_limiter)
+def admin_edge():
+    """POST (ikke GET), så workeren aldrig lægger svaret i edge-cachen."""
+    if not _admin_request_ok():
+        resp = jsonify(success=False, error='Ingen adgang')
+        resp.status_code = 403
+        resp.headers.update(_ADMIN_HEADERS)
+        return resp
+
+    out = {'success': True, 'edge': _IS_EDGE, 'd1_budget': _admin_d1_budget()}
+    if _IS_EDGE:
+        # Feedback der endnu ikke er relayet (relay-feedback-to-sheet.py kører
+        # dagligt og flytter den til public.feedback). Kun læsning.
+        out['pending_feedback'] = _d1_rows(
+            'SELECT id, feedback_type, name, email, subject, message, page_url, created_at '
+            'FROM pending_feedback ORDER BY id DESC LIMIT 100'
+        )
+        row = _d1_scalar('SELECT COUNT(*) AS c FROM products')
+        out['d1_products'] = int(row.get('c', 0)) if isinstance(row, dict) else None
+        kv = _edge_kv()
+        try:
+            version = _sync_bridge_call(kv.get_text('cache_version')) if kv else None
+        except Exception:
+            version = None
+        out['cache_version'] = str(version) if version else None
+    resp = jsonify(out)
+    resp.headers.update(_ADMIN_HEADERS)
+    return resp
 
 
 # Kun madshopper://-linket appen selv registrerer må modtage tokenet -

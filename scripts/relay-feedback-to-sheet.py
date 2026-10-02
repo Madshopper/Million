@@ -15,6 +15,11 @@ import httpx
 DB_NAME = "madshopper"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEBHOOK_URL = os.environ.get("GOOGLE_SHEET_WEBHOOK_URL")
+# Arkiv til /admin (public.feedback, scripts/supabase-admin.sql). service_role,
+# fordi tabellen er lukket for anon/authenticated. Mangler en af dem, springes
+# arkivet over og relayen opfoerer sig som foer.
+SUPABASE_URL = (os.environ.get("SUPABASE_URL") or "").rstrip("/")
+SUPABASE_SERVICE_KEY = os.environ.get("DEPLOY_KEY") or ""
 
 
 def run_wrangler_sql(sql: str) -> list[dict]:
@@ -72,6 +77,78 @@ def _row_payload(row: dict) -> dict:
     }
 
 
+def _created_at_iso(raw: str) -> str | None:
+    """D1's created_at er app.py's datetime.now() uden tidszone - UTC paa edge."""
+    from datetime import datetime, timezone
+    try:
+        dt = datetime.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
+
+def _service_headers() -> dict:
+    return {"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+
+
+def archive_ready() -> bool:
+    """Sandt naar arkivtabellen findes. Er scripts/supabase-admin.sql endnu ikke
+    koert, maa arkivet ikke blokere relayen - saa ville al feedback hobe sig op
+    i D1 og aldrig naa sheet'et."""
+    if not (SUPABASE_URL and SUPABASE_SERVICE_KEY):
+        print("advarsel: SUPABASE_URL/DEPLOY_KEY ikke sat - feedback arkiveres ikke til /admin.")
+        return False
+    try:
+        resp = httpx.get(
+            f"{SUPABASE_URL}/rest/v1/feedback?select=id&limit=1",
+            headers=_service_headers(), timeout=15.0,
+        )
+    except Exception as e:
+        print(f"advarsel: arkivtjek fejlede ({type(e).__name__}) - arkiverer ikke denne gang.")
+        return False
+    if resp.status_code != 200:
+        print(f"advarsel: public.feedback svarer {resp.status_code} - koer scripts/supabase-admin.sql. Arkiverer ikke.")
+        return False
+    return True
+
+
+def archive_to_supabase(row: dict) -> bool:
+    """Gem en kopi i public.feedback, saa svaret kan laeses i /admin. Upsert paa
+    d1_id: fejler sheet-afsendelsen, ligger raekken i D1 til naeste koersel og
+    arkiveres igen uden dublet."""
+    payload = _row_payload(row)
+    record = {
+        "d1_id": int(row["id"]),
+        "feedback_type": payload["type"],
+        "name": payload["name"],
+        "email": payload["email"],
+        "subject": payload["subject"],
+        "message": payload["message"],
+        "page_url": payload["page_url"],
+    }
+    created = _created_at_iso(payload["created_at"])
+    if created:
+        record["created_at"] = created
+    try:
+        resp = httpx.post(
+            f"{SUPABASE_URL}/rest/v1/feedback?on_conflict=d1_id",
+            json=record,
+            headers={**_service_headers(),
+                     "Prefer": "resolution=ignore-duplicates,return=minimal"},
+            timeout=15.0,
+        )
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        # Samme regel som webhook-fejlen nedenfor: kun type + status, aldrig
+        # svaret (det kan indeholde raekkens indhold i et offentligt Actions-log).
+        status = getattr(getattr(e, "response", None), "status_code", "?")
+        print(f"  arkiv fejlede for id={row.get('id')}: {type(e).__name__} (status {status})")
+        return False
+
+
 def main() -> int:
     if not WEBHOOK_URL:
         print("GOOGLE_SHEET_WEBHOOK_URL ikke sat - afbryder.")
@@ -89,10 +166,15 @@ def main() -> int:
         return 0
 
     print(f"{len(valid)} ventende feedback-række(r) fundet.")
+    archive = archive_ready()
     sent_ids: list[int] = []
     for row in valid:
         rid = int(row["id"])
         payload = _row_payload(row)
+        # Arkivet FOER sheet'et: en raekke slettes kun fra D1, naar den findes
+        # begge steder. Fejler arkivet, bliver den liggende til naeste koersel.
+        if archive and not archive_to_supabase(row):
+            continue
         try:
             resp = httpx.post(WEBHOOK_URL, json=payload, timeout=15.0, follow_redirects=True)
             resp.raise_for_status()
