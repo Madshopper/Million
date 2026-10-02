@@ -262,7 +262,7 @@ def sql_str(value: str) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
 
-def build_row_values(p: dict) -> str | None:
+def build_row_values(p: dict, stats: dict | None = None) -> str | None:
     pid = str(p.get("/product/id", "")).strip()
     if not pid or pid in ("None", "nan"):
         return None
@@ -323,6 +323,8 @@ def build_row_values(p: dict) -> str | None:
     p["/product/is_organic"] = bool(organic)
     p["/product/is_lactose_free"] = bool(lactose)
     data = json.dumps(slim_product(p), separators=(",", ":"), ensure_ascii=False)
+    if stats is not None:
+        _count_row(stats, category, subcategory, is_sale)
     return (
         "("
         + sql_str(pid) + ","
@@ -347,6 +349,49 @@ def build_row_values(p: dict) -> str | None:
 # (CI: root wrangler.toml har D1-bindingen + CLOUDFLARE_API_TOKEN/ACCOUNT_ID).
 _DIST = os.path.join(ROOT, "dist")
 WRANGLER_CWD = _DIST if os.path.isdir(_DIST) else ROOT
+
+
+def _count_row(stats: dict, category: str, subcategory: str, is_sale: int) -> None:
+    """Tæller én indsat række med i d1_stats_v1 (se write_d1_stats)."""
+    stats["products"] = stats.get("products", 0) + 1
+    stats["sale"] = stats.get("sale", 0) + is_sale
+    cat = stats.setdefault("cats", {}).setdefault(category, {"n": 0, "subs": set()})
+    cat["n"] += 1
+    cat["subs"].add(subcategory)
+
+
+_D1_STATS_KV_KEY = "d1_stats_v1"
+
+
+def write_d1_stats(stats: dict) -> None:
+    """Optællinger for den netop seedede tabel til KV, så app.py::_d1_stats
+    kan svare på kategori-/tilbuds-COUNT, DISTINCT subcategory og admin-
+    sidens varetal uden at scanne D1 (gratis-planens 5 mio. rows_read/døgn
+    blev sprængt 30-09-2026). Tælles i samme løkke som INSERT'erne, så tallene
+    altid svarer præcis til tabellen. Fejler blødt: uden nøglen falder app.py
+    tilbage til D1-forespørgslerne."""
+    payload = {
+        "products": stats.get("products", 0),
+        "sale": stats.get("sale", 0),
+        "cats": {
+            c: {"n": v["n"], "subs": sorted(v["subs"])}
+            for c, v in stats.get("cats", {}).items()
+        },
+    }
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+        json.dump(payload, f, separators=(",", ":"), ensure_ascii=False)
+        path = f.name
+    try:
+        subprocess.run(
+            ["npx", "wrangler", "kv", "key", "put", _D1_STATS_KV_KEY, f"--path={path}",
+             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
+            cwd=WRANGLER_CWD,
+            check=True,
+        )
+    except Exception as e:
+        print(f"  advarsel: kunne ikke skrive {_D1_STATS_KV_KEY}: {e}")
+    finally:
+        os.unlink(path)
 
 
 def run_wrangler_sql(sql: str) -> None:
@@ -688,6 +733,7 @@ def main() -> int:
         batch_bytes = 0
 
     seen_ids: set[str] = set()
+    stats: dict = {}
     dupes = 0
     placeholders = 0
 
@@ -707,7 +753,7 @@ def main() -> int:
             placeholders += 1
             continue
         seen_ids.add(pid)
-        values = build_row_values(p)
+        values = build_row_values(p, stats)
         if not values:
             continue
         # Én meget stor vare kan alene overstige grænsen - send den solo.
@@ -729,6 +775,9 @@ def main() -> int:
 
     print("Skifter til ny tabel (swap) ...")
     run_wrangler_sql(FINALIZE)
+
+    print("Skriver D1-optællinger til KV (d1_stats_v1) ...")
+    write_d1_stats(stats)
 
     print("Forudberegner forside-data (sale/køl/favoritter) ...")
     write_home_data(build_home_data(products))

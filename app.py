@@ -1140,9 +1140,21 @@ def _d1_listing(base_where: list, base_params: list, args, page: int,
             " eff_price / weight_g ASC"
         )
 
-    row = _d1_scalar(
-        f"SELECT COUNT(*) AS c FROM products WHERE {where_sql}", tuple(params)
-    )
+    # Uden filtre er antallet kendt fra seedet (_d1_stats) - sparer en
+    # COUNT-scanning pr. kold kategori-/tilbudsside.
+    row = None
+    if where == ["category = ?"] and len(params) == 1:
+        entry = _d1_stats_category(params[0])
+        if entry is not None and isinstance(entry.get('n'), int):
+            row = {'c': entry['n']}
+    elif where == ["is_sale = 1"] and not params:
+        stats = _d1_stats()
+        if stats and isinstance(stats.get('sale'), int):
+            row = {'c': stats['sale']}
+    if row is None:
+        row = _d1_scalar(
+            f"SELECT COUNT(*) AS c FROM products WHERE {where_sql}", tuple(params)
+        )
     total = int((row or {}).get('c', 0)) if isinstance(row, dict) else 0
     # Fejler COUNT-kaldet (transient), men SELECT'en lykkes, ville svaret
     # indeholde produkter OG total_pages=0 - inkonsistent for enhver klient der
@@ -1161,7 +1173,50 @@ def _d1_listing(base_where: list, base_params: list, args, page: int,
     return products, total_pages, page
 
 
+_D1_STATS_KV_KEY = 'd1_stats_v1'
+_NO_STATS = object()
+
+
+def _d1_stats() -> dict | None:
+    """Optællinger skrevet af scripts/seed-d1.py i samme kørsel som D1-tabellen:
+    {"products": n, "sale": n, "cats": {kategori: {"n": n, "subs": [...]}}}.
+
+    D1's gratis-plan tillader 5 mio. rows_read pr. døgn, og et COUNT eller
+    DISTINCT læser hver række det rører: 840 for en kategori-optælling, 1.500
+    for underkategorierne, 3.500 for tilbuddene og 20.747 for hele tabellen.
+    Ét KV-opslag pr. request erstatter dem. None (mangler eller ugyldig) får
+    kalderne til at falde tilbage til D1, så en manglende nøgle aldrig bryder
+    en side. Ingen hukommelse på tværs af requests: efter nattens seed skal
+    tallene følge den nye tabel med det samme."""
+    if not _IS_EDGE:
+        return None
+    try:
+        cached = g.get('_d1_stats', _NO_STATS)
+    except RuntimeError:
+        cached = _NO_STATS
+        in_request = False
+    else:
+        in_request = True
+    if cached is not _NO_STATS:
+        return cached
+    stats = _kv_get_json(_D1_STATS_KV_KEY)
+    if not (isinstance(stats, dict) and isinstance(stats.get('cats'), dict)):
+        stats = None
+    if in_request:
+        g._d1_stats = stats
+    return stats
+
+
+def _d1_stats_category(category: str) -> dict | None:
+    stats = _d1_stats()
+    entry = stats['cats'].get(category) if stats else None
+    return entry if isinstance(entry, dict) else None
+
+
 def _d1_subcategories(category: str) -> set:
+    entry = _d1_stats_category(category)
+    if entry is not None and isinstance(entry.get('subs'), list):
+        return set(entry['subs'])
     rows = _d1_rows(
         "SELECT DISTINCT subcategory FROM products WHERE category = ?", (category,)
     )
@@ -3205,8 +3260,10 @@ def admin_edge():
             'SELECT id, feedback_type, name, email, subject, message, page_url, created_at '
             'FROM pending_feedback ORDER BY id DESC LIMIT 100'
         )
-        row = _d1_scalar('SELECT COUNT(*) AS c FROM products')
-        out['d1_products'] = int(row.get('c', 0)) if isinstance(row, dict) else None
+        # Fra seedets KV-statistik: COUNT(*) læste alle ~20k rækker pr.
+        # visning (0,9 mio. rows_read på én dag, 02-10-2026).
+        stats = _d1_stats()
+        out['d1_products'] = stats.get('products') if stats else None
         kv = _edge_kv()
         try:
             version = _sync_bridge_call(kv.get_text('cache_version')) if kv else None
