@@ -13,6 +13,7 @@
 // Brug: node scripts/warm-edge-cache.mjs <base-url> [staging-access-key]
 
 import { chromium } from "playwright";
+import { addMonitorAccess } from "./monitor-access.mjs";
 
 const base = process.argv[2];
 if (!base) {
@@ -70,6 +71,7 @@ try {
   await context.addInitScript(() => {
     Object.defineProperty(navigator, "webdriver", { get: () => undefined });
   });
+  await addMonitorAccess(context, BASE);
 
   const page = await context.newPage();
   const gateUrl = ACCESS_KEY

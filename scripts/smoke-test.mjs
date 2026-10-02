@@ -49,6 +49,7 @@
 // Tolerance på 2 ikke-200 i alt, så et enkelt netværksblip ikke fejler et
 // ellers sundt deploy.
 import { chromium } from "playwright";
+import { addMonitorAccess } from "./monitor-access.mjs";
 
 const base = process.argv[2];
 if (!base) {
@@ -137,6 +138,7 @@ try {
   await context.addInitScript(() => {
     Object.defineProperty(navigator, "webdriver", { get: () => undefined });
   });
+  await addMonitorAccess(context, BASE);
   // Løs en evt. JS-udfordring én gang, så konteksten får en gyldig
   // cf_clearance-cookie, som de øvrige sider i samme kontekst genbruger.
   // "networkidle" frarådes af Playwright selv og hang her i praksis til

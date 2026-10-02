@@ -47,6 +47,7 @@ sys.modules["edgekit.webapi.response"].Response = types.SimpleNamespace(
 sys.modules["app"].app = object()
 
 sys.path.insert(0, os.path.join(ROOT, "src"))
+sys.path.insert(1, ROOT)  # site_gate.py (bundtes ved siden af app.py)
 import worker as W
 
 # --- fakes ----------------------------------------------------------------

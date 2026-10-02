@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { env } from '../config/env';
+import { setAccessTokenProvider } from '../api/client';
 
 /**
  * Secure session-storage: Keychain / EncryptedSharedPreferences via
@@ -127,6 +128,14 @@ const ExpoSecureStoreAdapter = {
 };
 
 let client: SupabaseClient | null = null;
+
+// Privat site: API-kaldene skal bære brugerens token (se api/client.ts).
+setAccessTokenProvider(async () => {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data } = await sb.auth.getSession();
+  return data.session?.access_token ?? null;
+});
 
 export function getSupabase(): SupabaseClient | null {
   if (!env.supabaseUrl || !env.supabaseAnonKey) return null;

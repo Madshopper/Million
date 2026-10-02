@@ -21,8 +21,9 @@ import hmac
 import json
 import time
 
-# Cookien auth.js skriver ved hvert login/token-fornyelse (se _syncGateCookie).
-AUTH_COOKIE = "ms_auth"
+# HttpOnly-cookien app.py::api_session sætter ud fra browserens Supabase-token
+# (auth.js::syncServerSession, ved hvert login og hver fornyelse).
+AUTH_COOKIE = "ms_session"
 # Overvågning (uptime-tjek, røgtest, opvarmning) sender HMAC(CACHE_REFRESH_SECRET,
 # MONITOR_CONTEXT) i denne cookie eller header. Afledt værdi, så den rå hemmelighed
 # (som også styrer /api/refresh-cache) aldrig skal ud i en browser-cookie.
@@ -37,6 +38,10 @@ LOGIN_PATH = "/login"
 # sider, som Google-login og app-butikkerne kræver offentligt tilgængelige.
 _OPEN_PATHS = frozenset({
     LOGIN_PATH,
+    # Sætter/sletter kun session-cookien ud fra den token klienten selv sender.
+    # Skal være åben: en udløbet cookie skal kunne fornyes, og log ud skal
+    # kunne slette den.
+    "/api/session",
     "/robots.txt",
     "/favicon.ico",
     "/security.txt",

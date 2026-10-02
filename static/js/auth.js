@@ -1311,6 +1311,9 @@
       syncServerSession(session);
       if (session && session.user) handleSignedIn(session.user);
       else handleSignedOut(event === 'SIGNED_OUT');
+      // Privat site (src/worker.py::_site_gate): udlogget = kun login-siden.
+      // Den rydder selv session-cookien, hvis kaldet ovenfor ikke nåede frem.
+      if (event === 'SIGNED_OUT' && location.pathname !== '/login') location.href = '/login';
     });
     // Luk modal på Escape.
     document.addEventListener('keydown', function (ev) {

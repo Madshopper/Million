@@ -8,6 +8,7 @@
 // normal besøgende, så den slipper igennem uden at vi behøver ændre
 // sitets bot-beskyttelse for andre besøgende.
 import { chromium } from "playwright";
+import { addMonitorAccess } from "./monitor-access.mjs";
 
 const urls = process.argv.slice(2);
 if (urls.length === 0) {
@@ -134,6 +135,7 @@ async function checkUrl(url) {
     await context.addInitScript(() => {
       Object.defineProperty(navigator, "webdriver", { get: () => undefined });
     });
+    await addMonitorAccess(context, url);
     const page = await context.newPage();
     return await check(page, url);
   } finally {

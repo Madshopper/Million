@@ -157,6 +157,7 @@ def _release_stale_sync_bridge():
 sys.modules["app"].release_stale_sync_bridge = _release_stale_sync_bridge
 
 sys.path.insert(0, os.path.join(ROOT, "src"))
+sys.path.insert(1, ROOT)  # site_gate.py (bundtes ved siden af app.py)
 import worker as W
 
 fails = []

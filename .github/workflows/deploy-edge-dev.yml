@@ -16,6 +16,8 @@ on:
     paths:
       - 'app.py'
       - 'app_support.py'
+      - 'site_gate.py'
+      - 'scripts/monitor-access.mjs'
       - 'src/**'
       - 'templates/**'
       - 'static/**'
@@ -151,6 +153,8 @@ jobs:
         # Samme Bot Fight-begrænsning som produktion - må ikke fejle hele deployet.
         continue-on-error: true
         env:
+          # Privat site: forbi login-gaten (scripts/monitor-access.mjs).
+          MONITOR_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
           STAGING_ACCESS_SECRET: ${{ secrets.STAGING_ACCESS_SECRET }}
         # Nøglen sendes IKKE længere som et argument (compliance-audit
         # 19-08-2026, GDPR-036): et argument står i procestabellen (/proc) for
@@ -178,6 +182,8 @@ jobs:
         # varme og deler free-planens CPU med warmup lige før. 2 runder med
         # længere pause fanger stadig samtidige 500'ere uden selv at vælte.
         env:
+          # Privat site: forbi login-gaten (scripts/monitor-access.mjs).
+          MONITOR_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
           STAGING_ACCESS_SECRET: ${{ secrets.STAGING_ACCESS_SECRET }}
           SMOKE_ROUNDS: "2"
           SMOKE_PER_ROUND: "8"

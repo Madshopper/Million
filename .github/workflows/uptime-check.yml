@@ -93,6 +93,8 @@ jobs:
 
       - name: Tjek forsiden og en kategoriside
         env:
+          # Privat site: forbi login-gaten (scripts/monitor-access.mjs).
+          MONITOR_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
           PW_CHANNEL: chrome
         run: node scripts/playwright-uptime-check.mjs https://madshopper.dk/ https://madshopper.dk/Mejeri
 
@@ -102,6 +104,8 @@ jobs:
       - name: Tjek at en søgning giver varer
         if: always()
         env:
+          # Privat site: forbi login-gaten (scripts/monitor-access.mjs).
+          MONITOR_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
           PW_CHANNEL: chrome
         run: node scripts/playwright-uptime-check.mjs "https://madshopper.dk/search/results?q=m%C3%A6lk"
 

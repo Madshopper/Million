@@ -7,6 +7,8 @@ on:
     paths:
       - 'app.py'
       - 'app_support.py'
+      - 'site_gate.py'
+      - 'scripts/monitor-access.mjs'
       - 'src/**'
       - 'templates/**'
       - 'static/**'
@@ -241,6 +243,9 @@ jobs:
       # roedt. Samtidige soegninger gav 0 varer i over en maaned (rettet
       # 14-09-2026), mens hvert deploy stod groent.
       - name: Funktionstjek - soegning giver varer (rigtig browser)
+        env:
+          # Privat site: forbi login-gaten (scripts/monitor-access.mjs).
+          MONITOR_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
         run: node scripts/playwright-uptime-check.mjs "https://madshopper.dk/search/results?q=m%C3%A6lk"
 
       # Fanger 2026-07-19-fejlklassen (1101/1102 under samtidig trafik, straks
@@ -265,4 +270,7 @@ jobs:
       # trin er derfor INGEN garanti for noget - funktionstjekket ovenfor er.
       - name: Roegtest af produktionen (samtidige requests)
         continue-on-error: true
+        env:
+          # Privat site: forbi login-gaten (scripts/monitor-access.mjs).
+          MONITOR_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
         run: node scripts/smoke-test.mjs https://madshopper.dk

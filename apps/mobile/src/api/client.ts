@@ -22,6 +22,7 @@ export class ApiError extends Error {
  */
 function friendlyMessage(status: number): string {
   if (status === 0) return 'Ingen forbindelse. Tjek dit netværk, og prøv igen.';
+  if (status === 401) return 'Log ind med en godkendt konto for at bruge MadShopper.';
   if (status === 404) return 'Vi kunne ikke finde det, du søgte efter.';
   if (status === 429) return 'Lidt for mange forespørgsler. Prøv igen om et øjeblik.';
   if (status >= 500) return 'MadShopper svarer ikke lige nu. Prøv igen om lidt.';
@@ -66,10 +67,35 @@ export function busyRetryDelayMs(res: Pick<Response, 'headers'>, random: () => n
   return (Number.isFinite(seconds) && seconds > 0 ? seconds : 2) * 1000 + random() * 1000;
 }
 
+/**
+ * madshopper.dk er privat: workeren (src/worker.py::_site_gate) svarer 401 på
+ * alt uden et Supabase-login, som en admin har godkendt. Appen sender derfor
+ * brugerens access-token med på hvert kald. Udbyderen sættes af
+ * auth/supabase.ts, så denne fil ikke afhænger af React Native (testes i Node).
+ */
+let accessTokenProvider: (() => Promise<string | null>) | null = null;
+
+export function setAccessTokenProvider(provider: (() => Promise<string | null>) | null): void {
+  accessTokenProvider = provider;
+}
+
+async function withAuth(init: RequestInit | undefined): Promise<RequestInit | undefined> {
+  let token: string | null = null;
+  try {
+    token = accessTokenProvider ? await accessTokenProvider() : null;
+  } catch {
+    token = null;
+  }
+  if (!token) return init;
+  const headers = new Headers(init?.headers);
+  headers.set('Authorization', `Bearer ${token}`);
+  return { ...init, headers };
+}
+
 async function fetchWithTimeout(url: string, init: RequestInit | undefined, controller: AbortController): Promise<Response> {
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await fetch(url, { ...(await withAuth(init)), signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }

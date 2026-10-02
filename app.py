@@ -227,6 +227,9 @@ _CACHEABLE_ENDPOINTS = {
     'home', 'category', 'ugens_tilbud', 'search_page', 'search',
     'autocomplete', 'get_stores', 'get_separate_products', 'get_product_info',
     'terms_of_service', 'privacy_policy', 'about', 'feedback_page',
+    # Login-siden for det private site er ens for alle (login afgøres i
+    # browseren af static/js/gate.js), så bots og udloggede rammer cachen.
+    'login_page',
     # Native listing-API'er (docs/native-app.md Fase 0) - samme cache-semantik
     # som HTML-listerne (24t CDN via cache_version).
     'api_home', 'api_category', 'api_sale', 'api_search',
@@ -384,6 +387,8 @@ _SECURITY_HEADERS = {
     # aabner sit login i et popup-vindue og skal kunne tale med sin opener.
     'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     'X-Permitted-Cross-Domain-Policies': 'none',
+    # Privat site: ingen side må i søgemaskinerne (robots.txt siger det samme).
+    'X-Robots-Tag': 'noindex, nofollow',
 }
 # HSTS kun paa edge: lokalt er der ingen TLS, og headeren er meningsloes der.
 if _IS_EDGE:
@@ -2925,13 +2930,8 @@ def _build_search_listing(query: str, active_stores, args, page: int):
 
 @app.route('/robots.txt')
 def robots_txt():
-    host = (request.host or '').split(':')[0].lower()
-    if host.endswith('.workers.dev'):
-        body = 'User-agent: *\nDisallow: /\n'
-    else:
-        body = (f'User-agent: *\nAllow: /\n\n'
-                f'Sitemap: {SITE_URL}/sitemap.xml\n')
-    return Response(body, mimetype='text/plain')
+    # Privat site (src/worker.py::_site_gate): intet skal indekseres.
+    return Response('User-agent: *\nDisallow: /\n', mimetype='text/plain')
 
 
 @app.route('/sitemap.xml')
@@ -3126,6 +3126,13 @@ def api_session():
         resp.delete_cookie(_SESSION_COOKIE, path='/', secure=True,
                            httponly=True, samesite='Lax')
     return resp
+
+
+@app.route('/login')
+def login_page():
+    """Eneste side man ser uden godkendt login. src/worker.py::_site_gate
+    sender alle andre hertil (lokalt er der ingen gate)."""
+    return render_template('login.html')
 
 
 @app.route('/admin')
