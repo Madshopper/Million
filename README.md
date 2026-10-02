@@ -152,7 +152,7 @@ All deploys and data refreshes run via GitHub Actions (`.github/workflows/`):
 | `nightly-health-check.yml` | Verifies that every bot-dispatched nightly run actually ran and succeeded (failures of bot-triggered runs don't e-mail anyone) |
 | `cache-updater.yml` | Runs `updater.py` (incl. price-alert mails), then `scripts/seed-d1.py` (D1 reseed, `home_data_v1`, `cache_version`) |
 | `build-nutrition.yml` | Incrementally fills `nutrition_data` via `scripts/build-nutrition.py`, streaming results to Supabase as it goes |
-| `recipe-import.yml` | Recipe import from URL + re-matching of user-submitted recipes (`recipe_importer.py`) |
+| `recipe-import.yml` | Recipe import from URL + re-matching of user-submitted recipes (`recipe_importer.py`); manual only while recipes are hidden |
 | `deploy-edge.yml` / `deploy-edge-dev.yml` | Builds and deploys the Worker to production / staging, then runs a functional check in a real browser (a fresh search render must return products) |
 | `canary-upload.yml` | Uploads a new Worker version to Cloudflare **without** moving traffic to it |
 | `uptime-check.yml` | Every 3 h: Playwright uptime probe (front page + category), a fresh search render (cached pages never exercise the render path), and the security-event relay - one job, e-mails on failure |
