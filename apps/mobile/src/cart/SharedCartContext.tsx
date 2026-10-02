@@ -62,6 +62,12 @@ const MAX_SAVED_LISTS = 10;
 
 export type SharedMember = { id: string; name: string; me: boolean };
 
+/** Forbogstavet i et medlems avatar (kurven og Profil → "Deler kurv med"). */
+export function memberInitial(name: string): string {
+  const t = (name || '?').trim();
+  return (t[0] || '?').toUpperCase();
+}
+
 export type SavedList = {
   id: string;
   name: string;

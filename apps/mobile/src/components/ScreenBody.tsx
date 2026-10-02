@@ -9,7 +9,7 @@ import { useHeaderHeight } from '@react-navigation/elements';
  * så indholdet klippes af parent uden at der kan scrolls.
  */
 
-/** Tab-skærme (Home, Cart, Settings). */
+/** Tab-skærme (Home, Cart, Profile). */
 export function TabScreenBody({
   children,
   style,

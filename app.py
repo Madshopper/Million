@@ -1531,7 +1531,7 @@ def _recipes_enabled() -> bool:
 
     Webforsidens "Lækre opskrifter" vises dog i alle miljøer som en
     ikke-klikbar teaser ("Kommer snart"); denne funktion styrer kun om
-    kortene kan trykkes på. Appens forside viser ingen opskrifter uden den."""
+    kortene kan trykkes på. Det samme gælder appens forside (api_home)."""
     return os.environ.get("RECIPES_ENABLED") == "1"
 
 
@@ -2762,7 +2762,7 @@ def _build_home_categories(active_stores, args):
     # ikke-klikbar teaser med "Kommer snart" i alle miljøer (se home() -
     # recipes_clickable/recipe_card(clickable=...)). Selve featuren
     # (detaljesider, /api/recipes, /opskrifter) forbliver bag
-    # _recipes_enabled(). Appens forside (api_home()) tømmer selv puljen.
+    # _recipes_enabled(). Appens forside (api_home()) viser samme teaser.
 
     if not _IS_EDGE:
         random.shuffle(sale_raw)
@@ -3866,9 +3866,9 @@ def api_home():
             # Samme forudberegnede top-10-pulje (home_data_v1-KV, klik-pointsum)
             # som web-forsidens "Lækre opskrifter" - se apps/mobile/src/screens/
             # HomeScreen.tsx. Ikke en 'section' (recipes er ikke Product[]-formet).
-            # Appen viser ingen opskrifter, før featuren er slået til
-            # (beslutning 02-10-2026; teaseren er kun på webforsiden).
-            'recipes': recipe_pool if _recipes_enabled() else [],
+            # Uden _recipes_enabled() viser appen puljen som ikke-klikbar
+            # teaser ("Kommer snart"), præcis som webforsiden (02-10-2026).
+            'recipes': recipe_pool,
             'recipes_clickable': _recipes_enabled(),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {

@@ -15,7 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
 import { useCart } from '../cart/CartContext';
-import { useSharedCart } from '../cart/SharedCartContext';
+import { memberInitial, useSharedCart } from '../cart/SharedCartContext';
 import type { CartItem } from '../cart/types';
 import { cartItemTitle } from '../cart/stripStoreBrand';
 import { useTheme } from '../theme/ThemeContext';
@@ -51,11 +51,6 @@ function PriceText({
       </Text>
     </View>
   );
-}
-
-function memberInitial(name: string): string {
-  const t = (name || '?').trim();
-  return (t[0] || '?').toUpperCase();
 }
 
 export function CartScreen() {
