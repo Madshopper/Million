@@ -7,7 +7,7 @@
  *  - POST /api/admin/edge (app.py) til D1, KV og D1-budgettet, med samme
  *    access-token som Bearer.
  * Kørselshistorikken (admin_job_runs) er GitHub Actions-kørsler, som
- * uptime-check.yml gemmer i Supabase via scripts/sync-job-runs.py.
+ * et planlagt workflow gemmer i Supabase via scripts/sync-job-runs.py.
  *
  * Feedback og opskrifter er brugerinput: alt skrives med textContent, aldrig
  * innerHTML.
@@ -390,7 +390,7 @@
     sub.textContent = '';
     if (!info) { fill('admin-runs', empty('Kørslerne kunne ikke hentes.')); return; }
     if (!info.synced_at) {
-      fill('admin-runs', empty('Ingen kørsler gemt endnu. De hentes af uptime-check.yml hver ~3. time.'));
+      fill('admin-runs', empty('Ingen kørsler gemt endnu. De hentes af scripts/sync-job-runs.py hver ~3. time.'));
       return;
     }
     var failing = failingWorkflows();
