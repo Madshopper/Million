@@ -150,7 +150,7 @@ deploy (`scripts/build-pages.sh`). Tokenen er en Cloudflare API-token med kun
 *Account Analytics: Read*. Uden den viser D1-kortet "kræver CF_ANALYTICS_TOKEN";
 resten af panelet virker.
 
-Kørselshistorikken under *Kørsler* kræver ingen token: `uptime-check.yml`
+Kørselshistorikken under *Kørsler* kræver ingen token: `security-monitor.yml`
 gemmer kørslerne i Supabase (`public.job_runs`) med workflowets egen
 `GITHUB_TOKEN` via `scripts/sync-job-runs.py`.
 

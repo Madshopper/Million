@@ -99,7 +99,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | "Følg system"-tema | ✅ | ✅ | – | ✅ | Complete *(web fik det 19-08-2026)* |
 | Standardbutikker | ✅ | ✅ | – | – | Complete |
 | Feedback / meld fejl | ✅ | ✅ | ✅ `/api/feedback` | ❌ | Complete |
-| Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren). Eget layout med sidemenu (`admin.css`), ikke base.html. Kørselshistorik fra GitHub Actions gemt i Supabase `job_runs` (`scripts/sync-job-runs.py` i uptime-check) |
+| Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren). Eget layout med sidemenu (`admin.css`), ikke base.html. Kørselshistorik fra GitHub Actions gemt i Supabase `job_runs` (`scripts/sync-job-runs.py` i security-monitor) |
 | Vilkår / privatliv / om os | ✅ | ✅ | – | – | Complete |
 | Opskrifter (bag gate) | ✅ flag | ✅ flag | ✅ | ❌ | Gated - kun med `RECIPES_ENABLED=1` / `EXPO_PUBLIC_RECIPES_ENABLED=1` *(fra som standard i alle miljøer, 02-10-2026)* |
 | Forsidens opskrift-teaser | ✅ flag | ✅ flag | ✅ `recipes_clickable` | ❌ | Gated - samme flag *(skjult 02-10-2026: opskrifter må ikke udgives)* |

@@ -19,7 +19,7 @@ name: Nightly Pipeline Health Check
 # konklusionen af hver af de bot-dispatchede workflows' seneste koersel. Fordi
 # DETTE workflow selv er schedule-trigget (en menneskelig "aktoer" i GitHubs
 # oejne), bruger dets EGEN fejl den alarmkanal der er verificeret at virke
-# (samme som security-monitor.yml og uptime-check.yml).
+# (samme som security-monitor.yml).
 #
 # 30-timers-graensen er bevidst rummelig: build-nutrition.yml kan tage op til
 # ca. 6 timer ved et stort efterslaeb, og sommer-/vintertidsskiftet i

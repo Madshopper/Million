@@ -1,5 +1,5 @@
 // MadShopper uptime-tjek: en lille, selvstændig JS-worker med en cron trigger
-// hvert 5. minut (gratis plan). Erstatter browsertjekkene i uptime-check.yml,
+// hvert 5. minut (gratis plan). Erstatter det slettede uptime-check.yml,
 // som i praksis kun kørte hver 2.-6. time (GitHub-cron), så et nedbrud kunne
 // gå uopdaget i timer. En worker-fetch bliver ikke stoppet af Bot Fight Mode
 // (målt 02-10-2026), så der skal ingen rigtig browser til.

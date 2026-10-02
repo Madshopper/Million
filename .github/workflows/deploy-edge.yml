@@ -230,7 +230,7 @@ jobs:
         run: bash scripts/install-playwright-ci.sh
 
       # Den eneste maaling efter deploy der beviseligt kommer igennem Bot Fight
-      # Mode: én frisk browser, én side - samme moenster som uptime-check.yml.
+      # Mode: én frisk browser, én side - samme moenster som det tidligere uptime-check.yml.
       # Soegningen renderes frisk (unik max_price) og skal give varer.
       # Staar FOER roegtesten nedenfor, hvis 60 afviste requests ellers kan
       # goere runnerens IP mistaenkelig inden denne maaling.
