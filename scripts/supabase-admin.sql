@@ -358,7 +358,7 @@ GRANT EXECUTE ON FUNCTION public.admin_set_feedback_handled(bigint, boolean) TO 
 -- ---------------------------------------------------------------------------
 -- Kørselshistorik (GitHub Actions) til admin-panelets "Kørsler"
 -- ---------------------------------------------------------------------------
--- Skrives af scripts/sync-job-runs.py, et trin i uptime-check.yml, der henter
+-- Skrives af scripts/sync-job-runs.py, et trin i security-monitor.yml, der henter
 -- de seneste kørsler med workflowets egen GITHUB_TOKEN og upserter dem her med
 -- service_role. Ingen klient kan skrive; admins læser via admin_job_runs().
 -- En række pr. GitHub-kørsel (id = run id), så en kørsel der stod "i gang" ved

@@ -8,7 +8,7 @@ request- eller fejllog i produktion. src/worker.py taeller i stedet de
 interessante haendelser (429 fra rate limiteren, 5xx fra appen), aggregeret pr.
 minut, og skriver dem til D1. Dette script loefter dem videre og faar
 GitHub til at sende mail, naar en taerskel overskrides - praecis samme
-alarmkanal som uptime-check.yml bruger (et fejlende scheduled workflow).
+alarmkanal: et fejlende scheduled workflow (security-monitor.yml).
 
 Exit-kode 1 = alarm. Det er DEN der udloeser mailen; skriv derfor aldrig
 scriptet om til at sluge fejl.

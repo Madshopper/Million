@@ -43,7 +43,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Sortering (5 typer, inkl. kg-pris) | ✅ | ✅ | ✅ | ✅ | Complete |
 | Prisinterval min/max | ✅ | ✅ | ✅ | ✅ | Complete |
 | Filtre: tilbud / øko / laktosefri | ✅ | ✅ | ✅ | ✅ | Complete |
-| Butiksvalg (14 butikker) | ✅ | ✅ | ✅ `/api/stores` | ⚠️ | Complete *(app fik det i filter-arket 19-08-2026)* |
+| Butiksvalg (14 butikker) | ✅ | ✅ | ✅ `/api/stores` | ⚠️ | Complete *(app: kun i Indstillinger; fjernet fra filter-arket 02-10-2026)* |
 | Butiksvalg debounced 300 ms | ✅ | ✅ | – | ❌ | Complete *(app 19-08-2026)* |
 | Butiksskift nulstiller til side 1 | ✅ | ✅ | – | ❌ | Complete *(app-kategori/tilbud 19-08-2026)* |
 
@@ -100,10 +100,10 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | "Følg system"-tema | ✅ | ✅ | – | ✅ | Complete *(web fik det 19-08-2026)* |
 | Standardbutikker | ✅ | ✅ | – | – | Complete |
 | Feedback / meld fejl | ✅ | ✅ | ✅ `/api/feedback` | ❌ | Complete |
-| Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren). Eget layout med sidemenu (`admin.css`), ikke base.html. Kørselshistorik fra GitHub Actions gemt i Supabase `job_runs` (`scripts/sync-job-runs.py` i uptime-check) |
+| Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren). Usynlig for alle andre end admins (almindelig 404; adgang tjekkes på serveren via HttpOnly-cookien `ms_session` fra `/api/session`). Eget layout med sidemenu; CSS/JS ligger i `templates/admin/` og indlejres, så intet admin-indhold er en offentlig fil. Brugere-sektionen godkender/fjerner adgang til det private site via `admin_list_users`/`admin_set_approved` (falder tilbage til nyeste brugere, hvis RPC'erne mangler). Kørselshistorik fra GitHub Actions gemt i Supabase `job_runs` (`scripts/sync-job-runs.py` i security-monitor) |
 | Vilkår / privatliv / om os | ✅ | ✅ | – | – | Complete |
 | Opskrifter (bag gate) | ✅ flag | ✅ flag | ✅ | ❌ | Gated - kun med `RECIPES_ENABLED=1` / `EXPO_PUBLIC_RECIPES_ENABLED=1` *(fra som standard i alle miljøer, 02-10-2026)* |
-| Forsidens opskrift-teaser | ✅ flag | ✅ flag | ✅ `recipes_clickable` | ❌ | Gated - samme flag *(skjult 02-10-2026: opskrifter må ikke udgives)* |
+| Forsidens opskrift-teaser | ✅ ikke-klikbar "Kommer snart" | ✅ flag | ✅ `recipes_clickable` | ❌ | Web viser teaseren altid (kortene er ikke klikbare uden `RECIPES_ENABLED=1`); appen kun med flaget *(teaser tilbage på web 02-10-2026)* |
 | Cookie-samtykke (Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Analytics (GA4 via Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Push-beskeder / nyhedsbrev | ❌ | ❌ | ❌ | – | **Findes ikke** (se §2) |
@@ -138,9 +138,9 @@ som gaps igen.
   (`auth.js::ensureAppleSdk`); den mangler kun `window.__APPLE_CLIENT_ID` og
   Apple-provideren i Supabase. Begge kræver et Apple Developer-medlemskab,
   som ikke findes. Knappen er skjult indtil da - ingen død knap.
-- **Butiksfiltrenes placering.** Web: en knaprække på hver liste-side.
-  App: chips i filter-arket + kontakter i Indstillinger. Samme tilstand,
-  samme spærre, samme persistens - kun placeringen følger platformen.
+- **Butiksvalgets placering.** Kun i Indstillinger, på begge platforme.
+  Filter-arket i app'en viste også butikkerne indtil 02-10-2026; de blev
+  fjernet efter ønske (Kalle), så filteret kun handler om varerne.
 - **Serverrendering vs. JSON.** Web renderer lister server-side (SEO, hurtig
   first paint), app'en henter de samme data som JSON fra `/api/*`. Samme
   `product_to_display_dict` → samme felter.

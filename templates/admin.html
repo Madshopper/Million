@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 {# Admin har sit eget layout - ikke base.html. Ingen offentlig header/footer,
-   søgning, kurv eller script.js; kun login (auth.js + auth-modalen) og
-   static/js/admin.js. Siden er en tom skal, alle tal hentes efter login. #}
+   søgning, kurv eller script.js; kun login (auth.js + auth-modalen).
+   Renderes KUN for en verificeret admin (app.py::admin_page) - alle andre får
+   sitets almindelige 404. Derfor ligger admin.css/admin.js under templates/
+   og indlejres her i stedet for at være offentlige filer i static/.
+   De to filer må derfor ikke indeholde Jinja-syntaks. #}
 <html lang="da">
 
 <head>
@@ -14,7 +17,9 @@
   <meta name="theme-color" content="#059669">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <style>
+{% include 'admin/admin.css' %}
+  </style>
   <script>
     window.__SB_URL = {{ supabase_url|tojson }};
     window.__SB_KEY = {{ supabase_anon_key|tojson }};
@@ -26,7 +31,6 @@
   </script>
   <script src="{{ url_for('static', filename='js/supabase.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
 </head>
 
 <body class="adm-body">
@@ -53,7 +57,7 @@
         <a href="#scraping" data-section="scraping">Scraping <span class="adm-badge" id="badge-scraping" hidden></span></a>
         <a href="#korsler" data-section="korsler">Kørsler <span class="adm-badge" id="badge-korsler" hidden></span></a>
         <a href="#opskrifter" data-section="opskrifter">Opskrifter <span class="adm-badge" id="badge-opskrifter" hidden></span></a>
-        <a href="#brugere" data-section="brugere">Brugere</a>
+        <a href="#brugere" data-section="brugere">Brugere <span class="adm-badge" id="badge-brugere" hidden></span></a>
         <a href="#drift" data-section="drift">Drift</a>
       </nav>
       <div class="adm-side-foot">
@@ -112,7 +116,16 @@
         <section data-section="brugere" hidden>
           <div class="adm-head"><h1>Brugere</h1></div>
           <div class="adm-tiles" id="admin-user-tiles"></div>
-          <div class="adm-card"><h2>Nyeste brugere</h2><div id="admin-users"></div></div>
+          <div class="adm-card">
+            <div class="adm-head" style="margin-bottom:8px">
+              <h2 style="margin:0" id="admin-users-title">Nyeste brugere</h2>
+              <span class="adm-seg" id="users-filter" hidden>
+                <button type="button" class="adm-btn" id="users-pending" aria-pressed="true">Venter</button>
+                <button type="button" class="adm-btn" id="users-all" aria-pressed="false">Alle</button>
+              </span>
+            </div>
+            <div id="admin-users"></div>
+          </div>
         </section>
 
         <section data-section="drift" hidden>
@@ -128,6 +141,9 @@
   </div>
 
   {% include 'partials/auth_modal.html' %}
+  <script>
+{% include 'admin/admin.js' %}
+  </script>
 </body>
 
 </html>

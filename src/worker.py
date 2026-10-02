@@ -994,6 +994,21 @@ class Default(WSGI[Env]):
                 _render_waiting[token] = _now_ms()
                 try:
                     winner = await Promise.race(to_js([prev, Promise.new(_timeout)]))
+                except BaseException as exc:
+                    if isinstance(exc, Exception):
+                        raise  # almindelig fejl: fail-open nedenfor
+                    # Afbrudt MENS vi venter (klienten lukkede forbindelsen:
+                    # CancelledError/GeneratorExit, ikke Exception). Vi når
+                    # aldrig til finally om super().fetch() nedenfor, så uden
+                    # dette blev vores plads i køen aldrig frigivet, og den
+                    # bag os ventede hele _RENDER_WAIT_MAX_MS for intet -
+                    # målt 02-10-2026 mod produktion: 10,4 s efter tre
+                    # afbrudte parallelle søgninger. Giv pladsen videre, når
+                    # forgængerens bliver fri, præcis som "travlt"-vejen.
+                    if release is not None:
+                        prev.then(release)
+                        release = None
+                    raise
                 finally:
                     _render_waiting.pop(token, None)
                 if winner == "timeout" and not _render_holder_gone(_now_ms()):
@@ -1005,7 +1020,21 @@ class Default(WSGI[Env]):
                     return _busy_response(request)
         except Exception:
             # Låsen er en optimering, aldrig en betingelse: fejler den, render
-            # vi som før i stedet for at afvise requesten.
+            # vi som før i stedet for at afvise requesten. Tælles (aggregeret),
+            # for i den vej er broen ubeskyttet.
+            _sec_note("lock_failopen", request)
+        # Ingen render i gang = ingen kan lovligt eje D1/KV-broen. Står
+        # app.py's optaget-flag alligevel, er det efterladt af en request der
+        # blev afbrudt midt i et D1-kald (se app.release_stale_sync_bridge);
+        # uden nulstilling blev ALT i isolaten degraderet indtil den døde.
+        # Ikke i fail-open-vejen ovenfor med en levende holder - dér kan
+        # broen reelt være i brug.
+        try:
+            if _render_holder_gone(_now_ms()):
+                import app as _app_module
+                if _app_module.release_stale_sync_bridge():
+                    _sec_note("bridge_reset", request)
+        except Exception:
             pass
         mark = (token, _now_ms())
         _render_active = mark

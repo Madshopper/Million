@@ -152,16 +152,16 @@ All deploys and data refreshes run via GitHub Actions (`.github/workflows/`):
 | `nightly-health-check.yml` | Verifies that every bot-dispatched nightly run actually ran and succeeded (failures of bot-triggered runs don't e-mail anyone) |
 | `cache-updater.yml` | Runs `updater.py` (incl. price-alert mails), then `scripts/seed-d1.py` (D1 reseed, `home_data_v1`, `cache_version`) |
 | `build-nutrition.yml` | Incrementally fills `nutrition_data` via `scripts/build-nutrition.py`, streaming results to Supabase as it goes |
-| `recipe-import.yml` | Recipe import from URL + re-matching of user-submitted recipes (`recipe_importer.py`) |
+| `recipe-import.yml` | Recipe import from URL + re-matching of user-submitted recipes (`recipe_importer.py`); manual only while recipes are hidden |
 | `deploy-edge.yml` / `deploy-edge-dev.yml` | Builds and deploys the Worker to production / staging, then runs a functional check in a real browser (a fresh search render must return products) |
 | `canary-upload.yml` | Uploads a new Worker version to Cloudflare **without** moving traffic to it |
-| `uptime-check.yml` | Every 3 h: Playwright uptime probe (front page + category), a fresh search render (cached pages never exercise the render path), and the security-event relay - one job, e-mails on failure |
-| `security-monitor.yml` | Manual only (the scheduled run is a step in `uptime-check.yml`). `scripts/relay-security-events.py` relays security events from D1 to Supabase and **fails (→ e-mail) on attack thresholds, degraded responses, busy responses and Cloudflare 1101/1102 errors** (read from GraphQL analytics). A manual run with `cpu_detail_from`/`cpu_detail_to` reports CPU per minute - the only way to measure CPU on edge |
+| `deploy-uptime-worker.yml` | Deploys `uptime-worker/` (`madshopper-uptime`): a Cloudflare cron every 5 min that checks the front page, a category page (product cards and match ratio), `/api/home`, `/api/stores` and the staging login, plus a fresh search render every 2 hours (cached pages never exercise the render path). E-mails via Resend when something goes down and when it recovers. Needs the `RESEND_API_KEY` secret; the recipient is the worker secret `ALERT_EMAIL` (set in Cloudflare, or from the optional `UPTIME_ALERT_EMAIL` GitHub secret) |
+| `security-monitor.yml` | Every 3 h (plus manual runs): `scripts/relay-security-events.py` relays security events from D1 to Supabase and **fails (→ e-mail) on attack thresholds, degraded responses, busy responses and Cloudflare 1101/1102 errors** (read from GraphQL analytics), then syncs recent GitHub Actions runs to Supabase for `/admin` (`scripts/sync-job-runs.py`). A manual run with `cpu_detail_from`/`cpu_detail_to` reports CPU per minute - the only way to measure CPU on edge |
 | `mobile-tests.yml` | Network-free checks of the native app (multi-deal/SCO port, listing-API contract) on every PR |
 | `parity-tests.yml` | Tests for the contracts web and app share without sharing code (e.g. the theme setting) |
 | `dependency-audit.yml` | Scheduled dependency vulnerability check |
 
-GitHub cron is delayed by hours in practice, so alert windows are sized to tolerate that. The CI smoke test and warm-up requests from GitHub Actions get 403 from Cloudflare's Bot Fight Mode, so they prove nothing on their own - the real-browser functional check, the search step in `uptime-check.yml` and the monitor's alarms on real traffic are what actually measure the site.
+GitHub cron is delayed by hours in practice, so alert windows are sized to tolerate that. The CI smoke test and warm-up requests from GitHub Actions get 403 from Cloudflare's Bot Fight Mode, so they prove nothing on their own - the real-browser functional check, the fresh search in `uptime-worker/` and the monitor's alarms on real traffic are what actually measure the site.
 
 ### Security model
 
@@ -385,7 +385,7 @@ uv run python scripts/test-listing-api.py
 # after deploy-edge.yml / deploy-edge-dev.yml)
 node scripts/smoke-test.mjs https://madshopper.dk
 
-# Uptime probe used by uptime-check.yml (every 3 h, real headless browser -
+# Uptime probe used after deploy-edge.yml (real headless browser -
 # curl can't pass Cloudflare's free Bot Fight Mode JS challenge)
 node scripts/playwright-uptime-check.mjs https://madshopper.dk/
 ```

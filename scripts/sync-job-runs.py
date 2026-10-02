@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Gem GitHub Actions-kørsler i Supabase (public.job_runs) til /admin.
 
-Køres som et trin i uptime-check.yml (hver ~3. time) med workflowets egen
+Køres som et trin i security-monitor.yml (hver ~3. time) med workflowets egen
 GITHUB_TOKEN (permissions: actions: read), så der ikke skal oprettes nogen
 personlig token. Henter de seneste 200 kørsler, sorterer pull request-tjek fra
 (de er CI, ikke drift) og upserter på kørslens id: en kørsel der var i gang ved
