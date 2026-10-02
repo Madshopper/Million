@@ -31,7 +31,7 @@ const config = {
   slug: 'madshopper',
   // 1.0.0 blev udgivet i App Store 25-09-2026 - hver ny butiksudgave skal
   // have et højere nummer, ellers afviser Apple den.
-  version: '1.0.1',
+  version: '1.0.2',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
