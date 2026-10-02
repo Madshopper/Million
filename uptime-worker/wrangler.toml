@@ -1,0 +1,30 @@
+# Selvstændig uptime-worker, se worker.js. Deployes af
+# .github/workflows/deploy-uptime-worker.yml (ikke af build-pages.sh).
+name = "madshopper-uptime"
+main = "worker.js"
+compatibility_date = "2026-07-03"
+
+# Ingen route og ingen workers.dev-url: workeren har ingen fetch-handler og
+# skal ikke kunne kaldes udefra, kun af cron'en.
+workers_dev = false
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Logs er slået TIL her, modsat madshopper/madshopper-dev. Nedbruddet
+# 2026-07-19 skyldtes observability-introspektionen i Pyodide-workeren under
+# samtidig brugertrafik; denne worker er ren JS, har ingen brugertrafik og
+# kører 288 gange i døgnet (langt under gratisplanens 200k log-hændelser).
+[observability]
+enabled = true
+
+# Tilstanden (hvilke tjek er nede og siden hvornår) ligger under én nøgle,
+# uptime_state_v1, i produktionens KV-namespace. Den skrives kun ved et skift
+# mellem OK og nede.
+[[kv_namespaces]]
+binding = "STATE"
+id = "0e60bdf03ed4490cbfac5fa72c8adca5"
+
+# Secrets (sættes af deploy-workflowet fra GitHub Actions-secrets):
+#   RESEND_API_KEY  samme nøgle som prisalarmerne i cache-updater.yml
+#   ALERT_EMAIL     modtager(e) af alarmen, kommasepareret
