@@ -281,7 +281,7 @@ BEGIN
 
   IF (SELECT count(*) FROM public.feedback WHERE created_at > now() - interval '1 hour') >= 30
      OR (SELECT count(*) FROM public.feedback WHERE created_at > now() - interval '1 day') >= 200 THEN
-    RAISE EXCEPTION 'feedback-loft nået' USING ERRCODE = '54000';
+    RAISE EXCEPTION 'feedback-loft naaet' USING ERRCODE = '54000';
   END IF;
 
   INSERT INTO public.feedback (env, feedback_type, name, email, subject, message, page_url)
