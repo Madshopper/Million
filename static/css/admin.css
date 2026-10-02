@@ -89,6 +89,14 @@
 .adm-fb-msg { white-space: pre-wrap; word-break: break-word; margin-top: 4px; }
 .adm-fb-meta { font-size: .8rem; color: var(--gray-500); margin-top: 6px; word-break: break-all; }
 
+.adm-runs { display: inline-flex; gap: 3px; vertical-align: middle; }
+.adm-runs > * { display: block; width: 10px; height: 18px; border-radius: 2px; background: var(--gray-200); }
+.adm-runs .ok { background: var(--green); }
+.adm-runs .bad { background: var(--red); }
+.adm-runs .warn { background: var(--yellow); }
+.adm-runs .info { background: var(--blue, #3B82F6); }
+.adm-wf-file { color: var(--gray-500); font-size: .75rem; }
+
 .adm-empty { color: var(--gray-500); font-size: .9rem; margin: 0; }
 .adm-gate { text-align: center; padding: 64px 16px; }
 .adm-gate p { color: var(--gray-500); }
@@ -108,6 +116,6 @@
   .adm-nav { order: 3; flex-direction: row; width: 100%; overflow-x: auto; gap: 4px; }
   .adm-nav a { flex: 0 0 auto; gap: 6px; padding: 7px 10px; }
   .adm-side-foot { margin: 0 0 0 auto; flex-direction: row; align-items: center; }
-  .adm-who, .adm-backlink { display: none; }
+  .adm-who, .adm-backlink, .adm-wf-file { display: none; }
   .adm { padding: 20px 16px 48px; }
 }

@@ -74,6 +74,7 @@ jobs:
           STAGING_ACCESS_SECRET: ${{ secrets.STAGING_ACCESS_SECRET }}
           # Valgfri: D1-budget i /admin (kun Account Analytics: Read).
           CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
+          ADMIN_GITHUB_TOKEN: ${{ secrets.ADMIN_GITHUB_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           # Mail+adgangskode-login paa /staging-login (se src/worker.py) -
           # venligere for et menneske end nøglen ovenfor. Samme fail-closed

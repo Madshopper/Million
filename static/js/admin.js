@@ -4,7 +4,8 @@
  *  - Supabase-RPC'erne i scripts/supabase-admin.sql (admin_overview,
  *    admin_feedback, ...); feedback-formularen skriver direkte i public.feedback, kaldt med brugerens egen session. De tjekker selv
  *    is_admin() i SQL, så en ikke-admin får 403 uanset hvad denne fil gør.
- *  - POST /api/admin/edge (app.py) til D1, KV og D1-budgettet, med samme
+ *  - POST /api/admin/edge (app.py) til D1, KV og D1-budgettet, og
+ *    POST /api/admin/runs til GitHub Actions-kørslerne, begge med samme
  *    access-token som Bearer.
  *
  * Feedback og opskrifter er brugerinput: alt skrives med textContent, aldrig
@@ -14,7 +15,7 @@
   'use strict';
 
   var STALE_HOURS = 30;          // butik uden nye data i over 30 t = rød
-  var state = { feedback: [], pending: [], showAll: false };
+  var state = { feedback: [], pending: [], showAll: false, runs: null };
 
   function $(id) { return document.getElementById(id); }
 
@@ -116,8 +117,8 @@
     });
   }
 
-  function edge(token) {
-    return fetch('/api/admin/edge', {
+  function post(path, token) {
+    return fetch(path, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: '{}',
@@ -129,6 +130,9 @@
       });
     });
   }
+
+  function edge(token) { return post('/api/admin/edge', token); }
+  function jobRuns(token) { return post('/api/admin/runs', token); }
 
   /* ---------------------------------------------------------------- render */
   function renderTiles(ov, ed) {
@@ -184,6 +188,7 @@
     badge('badge-feedback', openFeedbackCount());
     badge('badge-scraping', staleStores(ov).length);
     badge('badge-opskrifter', (ov.pending_recipes || []).length);
+    badge('badge-korsler', failingWorkflows().length);
   }
 
   // Overblikkets "kræver opmærksomhed": hvert punkt linker til sin sektion.
@@ -193,6 +198,9 @@
     if (open) items.push(['warn', open + ' ubehandlet feedback', '#feedback']);
     staleStores(ov).forEach(function (s) {
       items.push(['bad', s.butik + ': ingen nye data i ' + agoText(ago(s.last_scraped)).replace(' siden', ''), '#scraping']);
+    });
+    failingWorkflows().forEach(function (g) {
+      items.push(['bad', g.name + ': seneste kørsel fejlede', '#korsler']);
     });
     var pr = (ov.pending_recipes || []).length;
     if (pr) items.push(['info', pr + ' opskrift' + (pr === 1 ? '' : 'er') + ' venter på godkendelse', '#opskrifter']);
@@ -212,7 +220,7 @@
   }
 
   /* ----------------------------------------------------------- navigation */
-  var SECTIONS = ['oversigt', 'feedback', 'scraping', 'opskrifter', 'brugere', 'drift'];
+  var SECTIONS = ['oversigt', 'feedback', 'scraping', 'korsler', 'opskrifter', 'brugere', 'drift'];
 
   function showSection() {
     var name = (location.hash || '').replace('#', '');
@@ -221,7 +229,11 @@
       sec.hidden = sec.getAttribute('data-section') !== name;
     });
     document.querySelectorAll('#admin-nav a').forEach(function (a) {
-      if (a.getAttribute('data-section') === name) a.setAttribute('aria-current', 'page');
+      if (a.getAttribute('data-section') === name) {
+        a.setAttribute('aria-current', 'page');
+        // På mobil er menuen en vandret bjælke - hold det valgte punkt synligt.
+        if (a.scrollIntoView) a.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
       else a.removeAttribute('aria-current');
     });
     window.scrollTo(0, 0);
@@ -301,6 +313,103 @@
       text: 'Priser senest tjekket: ' + (ov.prices_last_checked || '-') +
             ' · næringsdata opdateret: ' + when(ov.nutrition_updated) }));
     fill('admin-stores', box);
+  }
+
+  /* ------------------------------------------------- GitHub Actions-kørsler */
+  var EVENTS = { schedule: 'Planlagt', workflow_dispatch: 'Manuel', push: 'Push',
+                 workflow_run: 'Efter andet job', repository_dispatch: 'Dispatch' };
+  var FAILED = ['failure', 'timed_out', 'startup_failure'];
+
+  function runOutcome(r) {
+    if (r.status !== 'completed') return ['info', r.status === 'in_progress' ? 'Kører' : 'I kø'];
+    if (r.conclusion === 'success') return ['ok', 'OK'];
+    if (FAILED.indexOf(r.conclusion) >= 0) return ['bad', 'Fejlede'];
+    if (r.conclusion === 'cancelled') return ['warn', 'Annulleret'];
+    if (r.conclusion === 'skipped') return ['', 'Sprunget over'];
+    return ['warn', String(r.conclusion || r.status)];
+  }
+
+  // Kørslerne kommer nyeste først; grupperes pr. workflow-fil i den rækkefølge.
+  function runGroups() {
+    var runs = (state.runs && state.runs.runs) || [];
+    var byKey = {}, groups = [];
+    runs.forEach(function (r) {
+      var key = r.path || r.name;
+      if (!byKey[key]) { byKey[key] = { name: r.name || key, path: r.path || '', runs: [] }; groups.push(byKey[key]); }
+      byKey[key].runs.push(r);
+    });
+    return groups;
+  }
+
+  // Et workflow "fejler", når dets seneste afgjorte kørsel (lykkedes/fejlede)
+  // fejlede. Annullerede og overspringede kørsler tæller ikke som svar.
+  function lastVerdict(g) {
+    for (var i = 0; i < g.runs.length; i++) {
+      var r = g.runs[i];
+      if (r.status === 'completed' && (r.conclusion === 'success' || FAILED.indexOf(r.conclusion) >= 0)) return r;
+    }
+    return null;
+  }
+
+  function failingWorkflows() {
+    return runGroups().filter(function (g) {
+      var v = lastVerdict(g);
+      return v && v.conclusion !== 'success';
+    });
+  }
+
+  function ghUrl(u) { return /^https:\/\/github\.com\//.test(u || '') ? u : null; }
+
+  function duration(r) {
+    if (r.status !== 'completed' || !r.run_started_at || !r.updated_at) return '-';
+    var s = Math.max(0, Math.round((Date.parse(r.updated_at) - Date.parse(r.run_started_at)) / 1000));
+    return s < 60 ? s + ' s' : s < 3600 ? Math.round(s / 60) + ' min' : (s / 3600).toFixed(1).replace('.', ',') + ' t';
+  }
+
+  function runStrip(runs) {
+    // Ældste til venstre, nyeste til højre - som en tidslinje.
+    return el('span', { class: 'adm-runs' }, runs.slice(0, 12).reverse().map(function (r) {
+      var o = runOutcome(r);
+      return el(ghUrl(r.html_url) ? 'a' : 'span', { class: o[0], href: ghUrl(r.html_url) || '', target: '_blank', rel: 'noopener',
+        title: when(r.created_at) + ' · ' + o[1] + (r.head_branch && r.head_branch !== 'main' ? ' · ' + r.head_branch : ''),
+        'aria-label': when(r.created_at) + ': ' + o[1] });
+    }));
+  }
+
+  function renderRuns() {
+    var info = state.runs;
+    var sub = $('runs-sub');
+    sub.textContent = '';
+    if (!info) { fill('admin-runs', empty('Kørslerne kunne ikke hentes.')); return; }
+    if (!info.configured) {
+      fill('admin-runs', empty('Ikke sat op. Opret en fine-grained GitHub-token med kun "Actions: Read" på repoet, ' +
+        'gem den som repo-secret ADMIN_GITHUB_TOKEN og deploy igen. Se docs/env-setup.md.'));
+      return;
+    }
+    if (info.error) { fill('admin-runs', empty(info.error)); return; }
+    var failing = failingWorkflows();
+    var groups = runGroups().sort(function (a, b) {
+      var fa = failing.indexOf(a) >= 0, fb = failing.indexOf(b) >= 0;
+      if (fa !== fb) return fa ? -1 : 1;
+      return String(b.runs[0].created_at).localeCompare(String(a.runs[0].created_at));
+    });
+    sub.textContent = (info.runs || []).length + ' seneste kørsler i ' + info.repo + ', uden PR-tjek';
+    if (!groups.length) { fill('admin-runs', empty('Ingen kørsler fundet.')); return; }
+    var rows = groups.map(function (g) {
+      var r = g.runs[0];
+      var o = runOutcome(r);
+      var v = lastVerdict(g);
+      var name = el('span', {}, [ghUrl(r.html_url)
+          ? el('a', { href: r.html_url, target: '_blank', rel: 'noopener', text: g.name })
+          : el('span', { text: g.name }),
+        el('br'), el('span', { class: 'adm-wf-file', text: g.path.replace('.github/workflows/', '') })]);
+      var status = el('span', {}, [pill(o[0] || 'info', o[1]),
+        v && v !== r && v.conclusion !== 'success' ? el('span', { class: 'adm-wf-file', text: ' sidst afgjort: fejlede' }) : null]);
+      var started = el('span', { title: when(r.created_at), style: 'white-space:nowrap', text: agoText(ago(r.created_at)) });
+      return [name, status, started,
+              EVENTS[r.event] || r.event, duration(r), runStrip(g.runs)];
+    });
+    fill('admin-runs', table(['Workflow', 'Seneste', 'Startet', 'Udløst af', 'Varighed', 'Historik'], rows, [4]));
   }
 
   function renderRecipes(ov) {
@@ -418,10 +527,14 @@
           }),
           edge(session.access_token).catch(function (e) {
             showError('Edge-data kunne ikke hentes: ' + (e.message || e)); return null;
+          }),
+          jobRuns(session.access_token).catch(function (e) {
+            showError('Kørselshistorikken kunne ikke hentes: ' + (e.message || e)); return null;
           })
         ]).then(function (r) {
           var ov = r[0] || {};
           var ed = r[2];
+          state.runs = r[3];
           state.feedback = r[1] || [];
           state.pending = (ed && ed.pending_feedback) || [];
           renderTiles(ov, ed);
@@ -429,6 +542,7 @@
           renderAttention(ov, ed);
           renderFeedback();
           renderStores(ov);
+          renderRuns();
           renderRecipes(ov);
           renderSecurity(ov);
           renderEdge(ed);

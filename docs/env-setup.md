@@ -142,6 +142,26 @@ Kan springes over til daglig lokal udvikling.
 
 ---
 
+## 4b) Valgfrit: tokens til admin-panelet (`/admin`)
+
+Begge er GitHub repo-secrets, som `deploy-edge.yml` og `deploy-edge-dev.yml`
+lægger ind i workerens vars ved deploy (`scripts/build-pages.sh`). Uden dem
+viser panelet "ikke sat op" på det kort; resten virker.
+
+| Secret | Hvad | Rettigheder |
+|---|---|---|
+| `CF_ANALYTICS_TOKEN` (+ `CLOUDFLARE_ACCOUNT_ID`) | D1-budgettet (rows_written i dag) | Cloudflare API-token med kun *Account Analytics: Read* |
+| `ADMIN_GITHUB_TOKEN` | Kørselshistorik (GitHub Actions) under *Kørsler* | Fine-grained GitHub-token, kun repoet `Madshopper/Million`, kun *Actions: Read-only* |
+
+`ADMIN_GITHUB_TOKEN`: GitHub → Settings → Developer settings → Fine-grained
+tokens → Generate new token. Resource owner `Madshopper`, *Only select
+repositories* → `Million`, Permissions → Repository → *Actions: Read-only*.
+Gem den under repoets Settings → Secrets and variables → Actions, og kør
+`deploy-edge.yml` (eller merg noget til `main`). Lokalt kan den sættes i rod-`.env`.
+Repoet læses fra `ADMIN_GITHUB_REPO` (standard `Madshopper/Million`).
+
+---
+
 ## 5) Fase 9 — store-konti (ikke env-nøgler, men “sidste opsætning”)
 
 > Skal du **udføre** udgivelsen, så følg [`udgivelse.md`](udgivelse.md) i stedet —
