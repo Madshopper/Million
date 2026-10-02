@@ -12,6 +12,7 @@ import random
 import time
 import threading
 import urllib.parse
+import bisect
 
 from app_support import (
     configure_logging, is_price_db_enabled, set_db_available, db_available,
@@ -33,6 +34,7 @@ from app_support import (
     stores_auto_enable_since,
     STORES_ADDED_IN_VERSION,
     nutrition_candidate_keys,
+    _fold,
 )
 
 configure_logging()
@@ -934,6 +936,164 @@ def _term_like_patterns(term: str) -> list[str]:
     return seen
 
 
+# --- Søgeindeks i KV (bygget af scripts/seed-d1.py::build_search_shards) ----
+#
+# Erstatter search_text LIKE '%…%', der læste 12-20k D1-rækker pr. søgning og
+# stod for 76 % af gratis-planens 5 mio. rows_read/døgn. Kandidaterne findes
+# her uden D1 og hentes derefter via rowid (én læst række pr. vare).
+# Matchreglerne er app_support._token_matches_term på foldede tokens:
+# præfiks, sammensætnings-endelse med >= 3 tegns stamme og omvendt præfiks
+# ("hyldeblomst" -> "hyldebl"). Kandidatmængden er dermed et overmængde af det
+# product_matches_query godkender, som stadig er den endelige dommer.
+#
+# Alt fejler åbent: mangler versionen eller en shard, eller er indekset fra en
+# anden seed end tabellen, bruges den gamle LIKE-vej.
+_SIDX_VER_KEY = 'sidx_ver'
+_SIDX_ROW_SPAN = 100_000          # skal matche scripts/seed-d1.py
+_SIDX_SUFFIX_MIN_LEN = 5          # skal matche scripts/seed-d1.py
+_SIDX_VER_TTL_S = 60.0
+_SIDX_MAX_SHARDS = 16             # parsede shards pr. isolate (~30-90 KB JSON hver)
+_sidx_manifest: dict | None = None
+_sidx_manifest_at = 0.0
+_sidx_shards: dict = {}           # (version, kind, shard-id) -> (tokens, postings)
+
+
+class _SidxUnavailable(Exception):
+    pass
+
+
+def _sidx_current() -> dict | None:
+    """Manifestet {"v": version, "p": [...], "s": [...]} - højst ét KV-opslag
+    pr. minut pr. isolate."""
+    global _sidx_manifest, _sidx_manifest_at
+    now = time.monotonic()
+    if _sidx_manifest_at and now - _sidx_manifest_at < _SIDX_VER_TTL_S:
+        return _sidx_manifest
+    m = _kv_get_json(_SIDX_VER_KEY)
+    if not (isinstance(m, dict) and isinstance(m.get('v'), int)):
+        # Ikke husket: _kv_get_json giver også None ved en forbigående
+        # bro-fejl, og et minut med LIKE-søgninger er netop det dyre.
+        return None
+    m = {'v': m['v'], 'p': set(m.get('p') or ()), 's': set(m.get('s') or ())}
+    _sidx_manifest, _sidx_manifest_at = m, now
+    return m
+
+
+def _sidx_forget_version() -> None:
+    global _sidx_manifest_at
+    _sidx_manifest_at = 0.0
+
+
+def _sidx_shard(manifest: dict, kind: str, ch: str):
+    sid = format(ord(ch), 'x')
+    if sid not in manifest[kind]:
+        return None  # intet token starter/slutter med det tegn
+    key = (manifest['v'], kind, sid)
+    hit = _sidx_shards.get(key)
+    if hit is not None:
+        return hit
+    raw = _kv_get_json(f"sidx:{manifest['v']}:{kind}:{sid}")
+    if not (isinstance(raw, dict) and isinstance(raw.get('t'), list)
+            and isinstance(raw.get('p'), list) and len(raw['t']) == len(raw['p'])):
+        raise _SidxUnavailable(f"shard {kind}:{sid}")
+    if len(_sidx_shards) >= _SIDX_MAX_SHARDS:
+        _sidx_shards.pop(next(iter(_sidx_shards)))
+    shard = (raw['t'], raw['p'])
+    _sidx_shards[key] = shard
+    return shard
+
+
+def _sidx_prefix_ids(shard, prefix: str, min_len: int, out: set) -> None:
+    """Tilføjer postings for alle tokens i shard'en der starter med prefix."""
+    toks, posts = shard
+    i = bisect.bisect_left(toks, prefix)
+    while i < len(toks) and toks[i].startswith(prefix):
+        if len(toks[i]) >= min_len:
+            out.update(posts[i])
+        i += 1
+
+
+def _sidx_term_ids(get_shard, term: str) -> set:
+    """Rowid'er for varer med et token der matcher term (_token_matches_term)."""
+    out: set = set()
+    pre = get_shard('p', term[0])
+    if pre is not None:
+        _sidx_prefix_ids(pre, term, 0, out)
+        # Omvendt præfiks: søgeordet udvider et trunkeret token (>= 4 tegn).
+        toks, posts = pre
+        for n in range(4, len(term)):
+            i = bisect.bisect_left(toks, term[:n])
+            if i < len(toks) and toks[i] == term[:n]:
+                out.update(posts[i])
+    min_len = max(len(term) + 3, _SIDX_SUFFIX_MIN_LEN)
+    suf = get_shard('s', term[-1])
+    if suf is not None:
+        _sidx_prefix_ids(suf, term[::-1], min_len, out)
+    return out
+
+
+def _sidx_candidates(get_shard, terms: list, typo_prefixes: list) -> list:
+    """Sorterede rowid'er (= tabellens rækkefølge, som LIKE ... LIMIT gav)."""
+    result = None
+    for term in terms:
+        ids = _sidx_term_ids(get_shard, term)
+        result = ids if result is None else result & ids
+        if not result:
+            break
+    if not result and typo_prefixes:
+        # Samme typo-udvidelse som LIKE-vejen ('%' + 3 første tegn + '%'),
+        # men som token-præfiks: tastefejl rammer sjældent de første bogstaver.
+        result = set()
+        for prefix in typo_prefixes:
+            shard = get_shard('p', prefix[0])
+            if shard is not None:
+                _sidx_prefix_ids(shard, prefix, 0, result)
+    return sorted(result or ())
+
+
+def _sidx_search(tokens: list, limit: int) -> list | None:
+    """Rå produkter via KV-indekset, eller None = brug LIKE-vejen."""
+    manifest = _sidx_current()
+    if not manifest:
+        return None
+    terms = [_fold(t) for t in tokens if t]
+    typo = sorted({_fold(t)[:3] for t in tokens if len(t) >= 5})
+    try:
+        ids = _sidx_candidates(
+            lambda kind, ch: _sidx_shard(manifest, kind, ch), terms, typo,
+        )[:limit]
+    except _SidxUnavailable as e:
+        logger.warning("søgeindeks utilgængeligt (%s) - bruger LIKE", e)
+        return None
+    if not ids:
+        return []
+    ver = manifest['v']
+    if not all(ver == i // _SIDX_ROW_SPAN for i in ids):
+        return None
+    # Heltal vi selv har bygget - indsat direkte, fordi D1 højst tillader
+    # 100 bundne parametre pr. forespørgsel.
+    rows = _d1_rows(
+        "SELECT rowid AS r, data FROM products WHERE rowid IN ("
+        + ",".join(str(int(i)) for i in ids) + ")"
+    )
+    if len(rows) != len(ids):
+        # Tabellen er fra en anden seed (eller opslaget fejlede): indekset
+        # passer ikke. Slå versionen op igen næste gang.
+        _sidx_forget_version()
+        return None
+    rows.sort(key=lambda r: r.get('r', 0) if isinstance(r, dict) else 0)
+    out = []
+    for row in rows:
+        raw = row.get('data') if isinstance(row, dict) else None
+        if not raw:
+            continue
+        try:
+            out.append(json.loads(raw))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
 def load_search_raw(query: str, limit: int = 800) -> list | None:
     """Rå produkter der matcher en søgning. None = brug in-memory index-vej.
 
@@ -953,6 +1113,9 @@ def load_search_raw(query: str, limit: int = 800) -> list | None:
     tokens = [t for t in tokens[:8] if t]
     if not tokens:
         return []
+    indexed = _sidx_search(tokens, limit)
+    if indexed is not None:
+        return indexed
     # Per term: OR af word-boundary-mønstre; på tværs af termer: AND.
     clauses = []
     params: list[str] = []

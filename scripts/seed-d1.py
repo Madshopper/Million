@@ -38,7 +38,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from app_support import (  # noqa: E402
-    _get_subcategory, _STORE_CONFIGS, CAT_MEJERI,
+    _fold, _get_subcategory, _STORE_CONFIGS, CAT_MEJERI,
     is_organic, is_lactose_free, parse_weight_to_grams,
     normalize_name, _PLACEHOLDER_IMGS,
     is_non_food_name, is_age_restricted, is_rema_tobacco_id,
@@ -262,7 +262,8 @@ def sql_str(value: str) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
 
-def build_row_values(p: dict, stats: dict | None = None) -> str | None:
+def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = None,
+                     postings: dict | None = None) -> str | None:
     pid = str(p.get("/product/id", "")).strip()
     if not pid or pid in ("None", "nan"):
         return None
@@ -325,8 +326,11 @@ def build_row_values(p: dict, stats: dict | None = None) -> str | None:
     data = json.dumps(slim_product(p), separators=(",", ":"), ensure_ascii=False)
     if stats is not None:
         _count_row(stats, category, subcategory, is_sale)
+    if postings is not None and rowid is not None:
+        _add_postings(postings, search_text, rowid)
     return (
         "("
+        + ("" if rowid is None else f"{int(rowid)},")
         + sql_str(pid) + ","
         + sql_str(category) + ","
         + sql_str(subcategory) + ","
@@ -361,6 +365,106 @@ def _count_row(stats: dict, category: str, subcategory: str, is_sale: int) -> No
 
 
 _D1_STATS_KV_KEY = "d1_stats_v1"
+
+# --- Søgeindeks i KV (læses af app.py::_sidx_search) -----------------------
+#
+# En D1-søgning med search_text LIKE '%…%' kan ikke bruge et indeks og læser
+# 12-20k rækker - 76 % af gratis-planens 5 mio. rows_read/døgn (målt
+# 30-09/02-10-2026). I stedet bygges her et ordindeks: foldet token
+# (app_support._fold, samme som søgningen) -> rowid'er. Opslaget i app.py
+# finder kandidaterne uden D1 og henter derefter kun de rækker der matcher
+# via rowid (PK-opslag, én læst række pr. vare).
+#
+# rowid = version * _SIDX_ROW_SPAN + løbenummer. Versionen står dermed i selve
+# rækken: er indekset fra en anden seed end tabellen, returnerer D1 færre
+# rækker end bedt om, og app.py falder tilbage til LIKE-søgningen. Det
+# lukker vinduet mellem tabel-swap og KV-skrivning (og KV's ~60 s
+# propagering) uden en ekstra D1-tabel eller ekstra rows_written.
+#
+# Opdelt i shards efter første tegn (præfiks-opslag) og efter sidste tegn af
+# token baglæns (sammensætninger som "letmælk" for "mælk"), så en søgning kun
+# skal hente og parse 1-2 små nøgler pr. ord i stedet for hele indekset.
+# ~90 nøgler pr. seed - langt under KV's 1.000 skrivninger/døgn.
+_SIDX_ROW_SPAN = 100_000
+_SIDX_VER_KEY = "sidx_ver"
+_SIDX_TTL_S = 7 * 86400  # gamle versioner rydder sig selv op
+# Kortere tokens kan aldrig være en sammensætnings-endelse med >= 3 tegns
+# stamme for et søgeord på >= 2 tegn (app_support._token_matches_term).
+_SIDX_SUFFIX_MIN_LEN = 5
+
+
+def _add_postings(postings: dict, search_text: str, rowid: int) -> None:
+    for tok in set(_fold(search_text).split()):
+        if len(tok) >= 2:
+            postings.setdefault(tok, []).append(rowid)
+
+
+def _sidx_shard_id(ch: str) -> str:
+    return format(ord(ch), "x")
+
+
+def build_search_shards(postings: dict, version: int) -> tuple[list[dict], dict]:
+    """KV-poster (til wrangler kv bulk put) + manifestet til _SIDX_VER_KEY."""
+    pre: dict[str, dict] = {}
+    suf: dict[str, dict] = {}
+    for tok, ids in postings.items():
+        pre.setdefault(tok[0], {})[tok] = ids
+        if len(tok) >= _SIDX_SUFFIX_MIN_LEN:
+            rev = tok[::-1]
+            suf.setdefault(rev[0], {})[rev] = ids
+    entries = []
+    manifest = {"v": version, "p": [], "s": []}
+    for kind, shards in (("p", pre), ("s", suf)):
+        for ch, d in shards.items():
+            toks = sorted(d)
+            sid = _sidx_shard_id(ch)
+            manifest[kind].append(sid)
+            entries.append({
+                "key": f"sidx:{version}:{kind}:{sid}",
+                "value": json.dumps(
+                    {"t": toks, "p": [d[t] for t in toks]},
+                    separators=(",", ":"), ensure_ascii=False,
+                ),
+                "expiration_ttl": _SIDX_TTL_S,
+            })
+    return entries, manifest
+
+
+def write_search_shards(entries: list[dict]) -> bool:
+    """Skriver shards FØR tabel-swappen: de er uvirksomme, indtil
+    _SIDX_VER_KEY peger på deres version."""
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+        json.dump(entries, f, separators=(",", ":"), ensure_ascii=False)
+        path = f.name
+    try:
+        subprocess.run(
+            ["npx", "wrangler", "kv", "bulk", "put", path,
+             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
+            cwd=WRANGLER_CWD,
+            check=True,
+        )
+        return True
+    except Exception as e:
+        print(f"  advarsel: kunne ikke skrive søgeindeks: {e}")
+        return False
+    finally:
+        os.unlink(path)
+
+
+def write_search_version(manifest: dict) -> None:
+    """Peger app.py på den nye indeksversion - EFTER tabel-swappen."""
+    payload = json.dumps(manifest, separators=(",", ":"))
+    try:
+        subprocess.run(
+            ["npx", "wrangler", "kv", "key", "put", _SIDX_VER_KEY, payload,
+             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
+            cwd=WRANGLER_CWD,
+            check=True,
+        )
+    except Exception as e:
+        # Den gamle version bliver stående: dens rowid'er findes ikke i den
+        # nye tabel, så app.py opdager det og bruger LIKE-søgningen.
+        print(f"  advarsel: kunne ikke skrive {_SIDX_VER_KEY}: {e}")
 
 
 def write_d1_stats(stats: dict) -> None:
@@ -700,9 +804,12 @@ def main() -> int:
     print("Opretter schema ...")
     run_wrangler_sql(SCHEMA)
 
+    sidx_version = int(time.time() // 60)
+    postings: dict = {}
+
     insert_prefix = (
         "INSERT INTO products_new "
-        "(id,category,subcategory,title,price,eff_price,is_sale,organic,lactose,weight_g,store,stores,search_text,data) VALUES "
+        "(rowid,id,category,subcategory,title,price,eff_price,is_sale,organic,lactose,weight_g,store,stores,search_text,data) VALUES "
     )
 
     file_sql: list[str] = []
@@ -753,7 +860,12 @@ def main() -> int:
             placeholders += 1
             continue
         seen_ids.add(pid)
-        values = build_row_values(p, stats)
+        if total >= _SIDX_ROW_SPAN:
+            print(f"Over {_SIDX_ROW_SPAN} produkter - rowid-versionering holder ikke. Afbryder.")
+            return 1
+        values = build_row_values(
+            p, stats, rowid=sidx_version * _SIDX_ROW_SPAN + total, postings=postings,
+        )
         if not values:
             continue
         # Én meget stor vare kan alene overstige grænsen - send den solo.
@@ -773,8 +885,15 @@ def main() -> int:
     if dupes:
         print(f"  advarsel: sprang {dupes} duplikerede produkt-id'er over")
 
+    print(f"Skriver søgeindeks til KV (version {sidx_version}) ...")
+    sidx_entries, sidx_manifest = build_search_shards(postings, sidx_version)
+    sidx_ok = write_search_shards(sidx_entries)
+
     print("Skifter til ny tabel (swap) ...")
     run_wrangler_sql(FINALIZE)
+
+    if sidx_ok:
+        write_search_version(sidx_manifest)
 
     print("Skriver D1-optællinger til KV (d1_stats_v1) ...")
     write_d1_stats(stats)
