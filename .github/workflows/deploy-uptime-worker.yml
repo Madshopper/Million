@@ -1,0 +1,72 @@
+name: Deploy uptime-worker
+
+# Deployer uptime-worker/ (madshopper-uptime: Cloudflare cron hvert 5. minut,
+# mail via Resend ved nedbrud og ved OK igen). Rører hverken madshopper,
+# madshopper-dev, D1 eller cache_version, så den må køre uafhængigt af
+# deploy-edge.yml.
+#
+# Secrets i GitHub Actions:
+#   CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID  (findes allerede)
+#   RESEND_API_KEY                                (findes allerede, prisalarmer)
+#   UPTIME_ALERT_EMAIL                            valgfri; modtager(e),
+#     kommasepareret. Uden den beholder workeren den ALERT_EMAIL, der allerede
+#     er sat direkte i Cloudflare (wrangler secret put ALERT_EMAIL)
+# Workflowet fejler hvis RESEND_API_KEY mangler: en uptime-worker der ikke kan
+# sende mail, alarmerer ingen.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'uptime-worker/**'
+      - '.github/workflows/deploy-uptime-worker.yml'
+
+concurrency:
+  group: deploy-uptime-worker
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tjek at alarm-secrets er sat
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "::error::Mangler GitHub Actions-secret RESEND_API_KEY"
+            exit 1
+          fi
+
+      - name: Deploy madshopper-uptime
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.114.0"
+          command: deploy
+          workingDirectory: uptime-worker
+
+      # Sættes efter deploy, fordi `secret put` kræver at workeren findes.
+      # Indtil secrets er sat, logger workeren blot at den ikke kan sende mail.
+      - name: Sæt alarm-secrets
+        working-directory: uptime-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          UPTIME_ALERT_EMAIL: ${{ secrets.UPTIME_ALERT_EMAIL }}
+        run: |
+          printf '%s' "$RESEND_API_KEY" | npx --yes wrangler@4.114.0 secret put RESEND_API_KEY
+          if [ -n "$UPTIME_ALERT_EMAIL" ]; then
+            printf '%s' "$UPTIME_ALERT_EMAIL" | npx --yes wrangler@4.114.0 secret put ALERT_EMAIL
+          fi

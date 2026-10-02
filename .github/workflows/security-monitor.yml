@@ -6,12 +6,17 @@ name: Security Monitor
 # 429'ere og 5xx'ere aggregeret pr. minut ned i D1, og dette workflow loefter
 # dem til Supabase og FEJLER hvis en taerskel er overskredet.
 #
-# Alarmkanalen er den samme som uptime-check.yml bruger: GitHub sender mail til
-# vedligeholderen, naar et scheduled workflow fejler. Derfor er det bevidst, at
-# scriptet returnerer exit-kode 1 ved alarm - fjern aldrig det.
+# Alarmkanalen: GitHub sender mail til vedligeholderen, naar et scheduled
+# workflow fejler. Derfor er det bevidst, at scriptet returnerer exit-kode 1
+# ved alarm - fjern aldrig det.
 #
-# Uptime-check svarer paa "er sitet nede?". Dette svarer paa "er nogen ved at
-# goere det nede?" - de to daekker hver sin halvdel.
+# uptime-worker/ (Cloudflare cron hvert 5. minut) svarer paa "er sitet nede?".
+# Dette svarer paa "er nogen ved at goere det nede?" og fanger Cloudflares
+# egne 1101/1102 fra GraphQL-analytics - de to daekker hver sin halvdel.
+#
+# 02-10-2026: uptime-check.yml er slettet (browsertjekkene er flyttet til
+# uptime-worker/). Dens to resterende trin, dette relae og synken af
+# koerselshistorik til /admin, koerer nu her hver 3. time.
 #
 # Bemaerk: GitHub deaktiverer scheduled workflows efter 60 dages inaktivitet i
 # repoet - et push/commit nulstiller uret.
@@ -27,8 +32,10 @@ on:
         description: 'Valgfrit: CPU pr. minut til (ISO)'
         required: false
         default: ''
-  # Ingen schedule længere (28-09-2026): den planlagte kørsel er et trin i
-  # uptime-check.yml. Dette workflow bruges kun manuelt, fx til CPU-detaljer.
+  # LOOKBACK_HOURS i scriptet er 24 t, så hver 3. time er rigeligt, også når
+  # GitHub-cron i praksis kommer timer for sent.
+  schedule:
+    - cron: '23 */3 * * *'
 
 concurrency:
   group: security-monitor
@@ -41,6 +48,10 @@ jobs:
   monitor:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # actions: read til kørselshistorik-trinnet (scripts/sync-job-runs.py).
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
 
@@ -66,3 +77,16 @@ jobs:
           CPU_DETAIL_FROM: ${{ inputs.cpu_detail_from }}
           CPU_DETAIL_TO: ${{ inputs.cpu_detail_to }}
         run: python scripts/relay-security-events.py
+
+      # Kørselshistorik til /admin ("Kørsler"): gemmer de seneste GitHub
+      # Actions-kørsler i Supabase (public.job_runs) med workflowets egen token.
+      # Ikke et måletrin og ikke en alarm, så det må ikke gøre tjekket rødt;
+      # stopper synken, viser admin-panelet hvor længe siden den sidst kørte.
+      - name: Gem kørselshistorik (admin)
+        if: always()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: python scripts/sync-job-runs.py
