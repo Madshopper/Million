@@ -1,0 +1,18 @@
+name: Konfliktmarkører
+
+# Fanger en uløst merge (<<<<<<< / ======= / >>>>>>>) i PR'en, før den når
+# main og bliver deployet. 02-10-2026 stod markørerne som synlig tekst øverst
+# på madshopper.dk. Samme test kører også i deploy-workflows.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test for git-konfliktmarkører
+        run: python3 scripts/test-conflict-markers.py
