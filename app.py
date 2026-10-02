@@ -1,4 +1,6 @@
-from flask import Flask, render_template, send_from_directory, jsonify, request, redirect, url_for, Response, g
+from flask import Flask, render_template, send_from_directory, jsonify, request, redirect, url_for, Response, g, abort
+import base64
+import hashlib
 import hmac
 import re
 from datetime import datetime, timedelta
@@ -90,6 +92,62 @@ app = Flask(
     static_folder=os.path.join(_APP_ROOT, 'static'),
 )
 app.config['JSON_SORT_KEYS'] = False
+
+# Automatisk cache-busting af /static/. /static/* serveres med et års
+# "immutable" cache, så en ændret fil skal have en ny URL - ellers ser
+# browsere med den gamle i cachen aldrig ændringen (sket igen og igen med
+# manuelle ?v=-tal, senest skip-linket 02-10-2026). url_for('static', ...)
+# får derfor selv ?v=<indholds-hash>, og templates skriver ALDRIG ?v= selv
+# (scripts/test-cache-bust.py håndhæver det). På edge findes static/ ikke i
+# workeren, så scripts/build-pages.sh lægger hashene i static_hashes.json
+# ved bygning; lokalt hashes filen direkte (genberegnes når den ændres).
+# fonts/ er undtaget: de hentes via url() i fonts.css uden ?v=, og preloaden
+# i base.html skal have præcis samme URL, ellers hentes fonten to gange.
+_STATIC_HASH_LEN = 10
+_STATIC_NO_HASH_PREFIXES = ('fonts/',)
+
+
+def _static_file_hash(path: str) -> str:
+    with open(path, 'rb') as fh:
+        return hashlib.sha256(fh.read()).hexdigest()[:_STATIC_HASH_LEN]
+
+
+def _load_static_hashes() -> dict | None:
+    try:
+        with open(os.path.join(_APP_ROOT, 'static_hashes.json'), encoding='utf-8') as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+_STATIC_HASHES = _load_static_hashes()
+_local_static_hashes: dict = {}
+
+
+def _static_version(filename: str) -> str | None:
+    if filename.startswith(_STATIC_NO_HASH_PREFIXES):
+        return None
+    if _STATIC_HASHES is not None:
+        return _STATIC_HASHES.get(filename)
+    full = os.path.join(app.static_folder, filename)
+    try:
+        st = os.stat(full)
+    except OSError:
+        return None
+    key = (filename, st.st_mtime_ns, st.st_size)
+    version = _local_static_hashes.get(key)
+    if version is None:
+        version = _local_static_hashes[key] = _static_file_hash(full)
+    return version
+
+
+@app.url_defaults
+def _static_cache_bust(endpoint, values):
+    if endpoint == 'static' and 'v' not in values:
+        version = _static_version(values.get('filename') or '')
+        if version:
+            values['v'] = version
+
 
 # Produkt-cache: alle butikker opdateres én gang dagligt (se cache-updater.yml)
 cached_data = {
@@ -423,7 +481,7 @@ def _inject_site_meta():
         # tom-resultat-tilstand, som script.js's healDegradedContent() saa kan
         # selv-helbrede med ét nyt kald - se kommentaren ved _mark_data_degraded
         # for hvorfor et retry INDE i denne request aldrig kan virke.
-        'data_degraded': _is_data_degraded(),
+        'data_degraded': bool(_is_data_degraded()),
     }
 
 
@@ -450,9 +508,10 @@ def _mark_data_degraded(reason: str) -> None:
         pass
 
 
-def _is_data_degraded() -> bool:
+def _is_data_degraded():
+    """Fejlvejens navn (sandt) hvis svaret er degraderet, ellers None."""
     try:
-        return bool(getattr(g, '_data_degraded', None))
+        return getattr(g, '_data_degraded', None) or None
     except RuntimeError:
         return False
 
@@ -492,6 +551,10 @@ def _set_response_headers(response):
             # overvågning: status er stadig 200, og "MadShopper" står der
             # stadig i title/logo - se scripts/playwright-uptime-check.mjs.
             response.headers['X-Data-Degraded'] = '1'
+            # Hvilken fejlvej (fast, lille ordliste + undtagelsesklasse) - så
+            # en måling mod produktion kan skelne bro-kollision fra D1-fejl
+            # uden logning pr. request. Klienterne kigger kun på '1' ovenfor.
+            response.headers['X-Data-Degraded-Reason'] = str(degraded)[:60]
         cacheable = (
             request.method == 'GET'
             and response.status_code == 200
@@ -700,6 +763,26 @@ def _sync_bridge_call(awaitable):
         _sync_bridge_busy = False
 
 
+def release_stale_sync_bridge() -> bool:
+    """Nulstil et optaget-flag som ingen længere ejer. Returnerer True hvis
+    flaget stod (hang).
+
+    Kaldes KUN af src/worker.py::_render_exclusive, når den har eneret på
+    Flask-stakken og ingen anden render er i gang - så kan intet lovligt eje
+    broen. Flaget hænger, når en request afbrydes (klienten lukker
+    forbindelsen) mens den er suspenderet i await_sync: Cloudflare kasserer
+    den synkrone Python-stak, så finally i _sync_bridge_call kører aldrig,
+    mens worker-lagets finally gør. Uden denne nulstilling svarede HVER
+    efterfølgende request i isolaten tomt + degraderet uden at spørge D1,
+    indtil isolaten døde - målt 02-10-2026 (16 degraderede svar 15:33-15:37
+    UTC efter 3 clientDisconnected, 0 D1-læsninger) og reproduceret mod
+    produktion med tre afbrudte parallelle søgninger."""
+    global _sync_bridge_busy
+    was_busy = _sync_bridge_busy
+    _sync_bridge_busy = False
+    return was_busy
+
+
 def _await_sync_retry(make_awaitable):
     """Kør await_sync(make_awaitable()) med retry ved forbigående kollision.
 
@@ -731,10 +814,10 @@ def _d1_rows(sql: str, params: tuple = ()):
         stmt = stmt.bind(*params)
     try:
         return _await_sync_retry(stmt.all)
-    except Exception:
+    except Exception as exc:
         logger.exception("D1 _d1_rows fejlede efter retries: %s", sql[:80])
         # Tom liste er her en FEJL, ikke et resultat - se _mark_data_degraded.
-        _mark_data_degraded('d1_rows')
+        _mark_data_degraded('d1_rows:' + type(exc).__name__)
         return []
 
 
@@ -760,9 +843,9 @@ def _d1_scalar(sql: str, params: tuple = ()):
         stmt = stmt.bind(*params)
     try:
         return _await_sync_retry(stmt.first)
-    except Exception:
+    except Exception as exc:
         logger.exception("D1 _d1_scalar fejlede efter retries: %s", sql[:80])
-        _mark_data_degraded('d1_scalar')
+        _mark_data_degraded('d1_scalar:' + type(exc).__name__)
         return None
 
 
@@ -2851,7 +2934,7 @@ def robots_txt():
     if host.endswith('.workers.dev'):
         body = 'User-agent: *\nDisallow: /\n'
     else:
-        body = (f'User-agent: *\nAllow: /\nDisallow: /admin\n\n'
+        body = (f'User-agent: *\nAllow: /\n\n'
                 f'Sitemap: {SITE_URL}/sitemap.xml\n')
     return Response(body, mimetype='text/plain')
 
@@ -2975,8 +3058,11 @@ def feedback_page():
 
 
 # ---------------------------------------------------------------------------
-# Admin (/admin). Siden er en tom skal - alle tal hentes af static/js/admin.js
-# efter login. Supabase-tallene går direkte fra browseren til admin-RPC'erne
+# Admin (/admin). Kun en verificeret admin får siden; alle andre (også logget
+# ind) får sitets almindelige 404, så panelet ikke kan ses eller opdages.
+# Browseren har sessionen i localStorage, som serveren ikke kan se, så auth.js
+# lægger access-tokenen i en HttpOnly-cookie via /api/session. Siden er en tom
+# skal - alle tal hentes af templates/admin/admin.js efter login. Supabase-tallene går direkte fra browseren til admin-RPC'erne
 # (scripts/supabase-admin.sql), der selv tjekker is_admin() mod brugerens egen
 # JWT. Her ligger kun det browseren ikke kan nå: D1, KV og D1-budgettet fra
 # Cloudflare-analytics. Ingen af delene skriver noget (D1-budgettet er stramt).
@@ -2991,25 +3077,77 @@ _D1_DAILY_ROWS_WRITTEN = 100_000
 _D1_DAILY_ROWS_READ = 5_000_000
 
 
+_SESSION_COOKIE = 'ms_session'
+_JWT_RE = re.compile(r'^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$')
+
+
+def _jwt_exp(token: str):
+    """exp fra en JWT's payload - UVERIFICERET, kun til cookiens levetid.
+    Signaturen tjekkes af PostgREST, hver gang tokenen bruges."""
+    try:
+        part = token.split('.')[1]
+        payload = json.loads(base64.urlsafe_b64decode(part + '=' * (-len(part) % 4)))
+        return int(payload['exp'])
+    except Exception:
+        return None
+
+
+def _is_admin_token(token: str) -> bool:
+    """PostgREST verificerer JWT'ens signatur, og is_admin() slår auth.uid()
+    op i admin_users - ét kald gør begge dele, og adminlisten bor kun i Supabase."""
+    if not token or len(token) > 4096 or not _JWT_RE.match(token):
+        return False
+    data, status = _supabase_rest('POST', 'rpc/is_admin', json_body={},
+                                  timeout=8.0, auth_token=token)
+    return status == 200 and data is True
+
+
+def _not_found_page():
+    """Byte-for-byte samme svar som en ukendt sti (category()'s catch-all)."""
+    return render_template('not_found.html'), 404
+
+
+@app.route('/api/session', methods=['POST'])
+@rate_limit(api_limiter)
+def api_session():
+    """Spejler browserens Supabase-access-token til en HttpOnly-cookie, så
+    serveren kan se hvem der er logget ind på sider der kræver det (i dag kun
+    /admin). Ingen Supabase-kald her: tokenen verificeres først, når den bruges.
+    Uden gyldig Bearer slettes cookien (log ud). Cookien lever kun til tokenens
+    exp; auth.js kalder igen ved hver fornyelse."""
+    origin = request.headers.get('Origin')
+    if origin and urllib.parse.urlparse(origin).netloc != request.host:
+        return jsonify(success=False), 403
+    resp = app.make_response(('', 204))
+    resp.headers['Cache-Control'] = 'no-store'
+    m = _ADMIN_BEARER_RE.match(request.headers.get('Authorization', ''))
+    token = m.group(1) if m and _JWT_RE.match(m.group(1)) else None
+    exp = _jwt_exp(token) if token else None
+    max_age = min(exp - int(time.time()), 86400) if exp else 0
+    if token and max_age > 0:
+        resp.set_cookie(_SESSION_COOKIE, token, max_age=max_age, path='/',
+                        secure=True, httponly=True, samesite='Lax')
+    else:
+        resp.delete_cookie(_SESSION_COOKIE, path='/', secure=True,
+                           httponly=True, samesite='Lax')
+    return resp
+
+
 @app.route('/admin')
 def admin_page():
     # Ikke i _CACHEABLE_ENDPOINTS: ingen CDN-header, så hverken zonen eller
-    # workerens Cache API gemmer den. Indholdet er alligevel ens for alle.
+    # workerens Cache API gemmer den - heller ikke 404'en.
+    if not _is_admin_token(request.cookies.get(_SESSION_COOKIE, '')):
+        return _not_found_page()
     resp = app.make_response(render_template('admin.html'))
     resp.headers.update(_ADMIN_HEADERS)
     return resp
 
 
 def _admin_request_ok() -> bool:
-    """Sandt når requesten bærer en gyldig Supabase-session for en admin.
-    PostgREST verificerer JWT'ens signatur, og is_admin() slår auth.uid() op i
-    admin_users - ét kald gør begge dele, og adminlisten bor kun i Supabase."""
+    """Sandt når requesten bærer en gyldig Supabase-session for en admin."""
     m = _ADMIN_BEARER_RE.match(request.headers.get('Authorization', ''))
-    if not m:
-        return False
-    data, status = _supabase_rest('POST', 'rpc/is_admin', json_body={},
-                                  timeout=8.0, auth_token=m.group(1))
-    return status == 200 and data is True
+    return bool(m) and _is_admin_token(m.group(1))
 
 
 def _admin_d1_budget() -> dict:
@@ -3055,15 +3193,14 @@ def _admin_d1_budget() -> dict:
     }
 
 
-@app.route('/api/admin/edge', methods=['POST'])
+@app.route('/api/admin/edge', methods=['GET', 'POST'])
 @rate_limit(api_limiter)
 def admin_edge():
-    """POST (ikke GET), så workeren aldrig lægger svaret i edge-cachen."""
-    if not _admin_request_ok():
-        resp = jsonify(success=False, error='Ingen adgang')
-        resp.status_code = 403
-        resp.headers.update(_ADMIN_HEADERS)
-        return resp
+    """POST (ikke GET), så workeren aldrig lægger svaret i edge-cachen. GET
+    er registreret alene for at give 404 som en ukendt sti i stedet for 405,
+    der ville afsløre at ruten findes. Ikke-admins får samme 404."""
+    if request.method != 'POST' or not _admin_request_ok():
+        abort(404)
 
     out = {'success': True, 'edge': _IS_EDGE, 'd1_budget': _admin_d1_budget()}
     if _IS_EDGE:

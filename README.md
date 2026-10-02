@@ -376,7 +376,7 @@ python scripts/test-degraded-cache.py
 # Deploy gates (run automatically by deploy-edge.yml)
 python scripts/test-security-logging.py   # logging stays aggregated, observability stays off
 python scripts/test-render-exclusive.py   # every render goes through _render_exclusive()
-python scripts/test-cache-bust.py         # changed CSS/JS must bump ?v= in templates/base.html
+python scripts/test-cache-bust.py         # no manual ?v= in templates; ?v= is an automatic content hash
 
 # Listing-API contract shared with the native app (run by mobile-tests.yml)
 uv run python scripts/test-listing-api.py
