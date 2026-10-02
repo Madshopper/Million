@@ -101,8 +101,8 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Feedback / meld fejl | ✅ | ✅ | ✅ `/api/feedback` | ❌ | Complete |
 | Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren) |
 | Vilkår / privatliv / om os | ✅ | ✅ | – | – | Complete |
-| Opskrifter (bag gate) | ✅ dev | ✅ dev | ✅ | ❌ | Gated - kun `dev` |
-| Forsidens opskrift-teaser | ✅ | ✅ | ✅ `recipes_clickable` | ❌ | Complete *(app fik den 19-08-2026)* |
+| Opskrifter (bag gate) | ✅ flag | ✅ flag | ✅ | ❌ | Gated - kun med `RECIPES_ENABLED=1` / `EXPO_PUBLIC_RECIPES_ENABLED=1` *(fra som standard i alle miljøer, 02-10-2026)* |
+| Forsidens opskrift-teaser | ✅ flag | ✅ flag | ✅ `recipes_clickable` | ❌ | Gated - samme flag *(skjult 02-10-2026: opskrifter må ikke udgives)* |
 | Cookie-samtykke (Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Analytics (GA4 via Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Push-beskeder / nyhedsbrev | ❌ | ❌ | ❌ | – | **Findes ikke** (se §2) |
