@@ -152,7 +152,7 @@ All deploys and data refreshes run via GitHub Actions (`.github/workflows/`):
 | `nightly-health-check.yml` | Verifies that every bot-dispatched nightly run actually ran and succeeded (failures of bot-triggered runs don't e-mail anyone) |
 | `cache-updater.yml` | Runs `updater.py` (incl. price-alert mails), then `scripts/seed-d1.py` (D1 reseed, `home_data_v1`, `cache_version`) |
 | `build-nutrition.yml` | Incrementally fills `nutrition_data` via `scripts/build-nutrition.py`, streaming results to Supabase as it goes |
-| `recipe-import.yml` | Recipe import from URL + re-matching of user-submitted recipes (`recipe_importer.py`) |
+| `recipe-import.yml` | Recipe import from URL + re-matching of user-submitted recipes (`recipe_importer.py`); manual only while recipes are hidden |
 | `deploy-edge.yml` / `deploy-edge-dev.yml` | Builds and deploys the Worker to production / staging, then runs a functional check in a real browser (a fresh search render must return products) |
 | `canary-upload.yml` | Uploads a new Worker version to Cloudflare **without** moving traffic to it |
 | `deploy-uptime-worker.yml` | Deploys `uptime-worker/` (`madshopper-uptime`): a Cloudflare cron every 5 min that checks the front page, a category page (product cards and match ratio), `/api/home`, `/api/stores` and the staging login, plus a fresh search render every 2 hours (cached pages never exercise the render path). E-mails via Resend when something goes down and when it recovers. Needs the `RESEND_API_KEY` secret; the recipient is the worker secret `ALERT_EMAIL` (set in Cloudflare, or from the optional `UPTIME_ALERT_EMAIL` GitHub secret) |

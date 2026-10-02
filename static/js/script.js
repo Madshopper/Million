@@ -2572,6 +2572,11 @@ document.addEventListener('DOMContentLoaded', () => {
 let _acTimeout = null;
 let _acIndex = -1;   // current keyboard-focused row index
 let _acController = null; // aborter for the in-flight autocomplete fetch
+// Seneste soegeord der gav nul forslag (+ butiksvalget det gjaldt for). Hvert
+// tastetryk er en ny URL og dermed en frisk D1-scanning af hele kataloget
+// (12-20k raekker af gratis-planens 5 mio. pr. doegn). Gav "kyllingx" intet,
+// giver "kyllingxy" det heller ikke, saa den forespoergsel springes over.
+let _acEmpty = null;
 
 function initAutocomplete() {
     const input = document.getElementById('searchInput');
@@ -2584,7 +2589,7 @@ function initAutocomplete() {
         _acIndex = -1;
         const q = input.value.trim();
         if (q.length < 2) { closeAutocomplete(); return; }
-        _acTimeout = setTimeout(() => fetchAutocomplete(q), 200);
+        _acTimeout = setTimeout(() => fetchAutocomplete(q), 300);
     });
 
     // Keyboard navigation inside the dropdown
@@ -2646,12 +2651,24 @@ async function fetchAutocomplete(query) {
         // altid at /api/stores fejlede, og maa ikke sendes som ?stores=
         // (tolkes som "nul butikker valgt" -> nul resultater).
         const storesParam = getStoresQueryParam();
+        // Kun for ord paa 4+ tegn og kun naar der blot er tastet videre paa
+        // samme ord (intet nyt mellemrum): et nyt ord kan aendre resultatet.
+        if (_acEmpty && _acEmpty.stores === storesParam &&
+                query.startsWith(_acEmpty.q) && !/\s/.test(query.slice(_acEmpty.q.length))) {
+            if (_acController === controller) renderAutocomplete([], query, query);
+            return;
+        }
         const url = `/api/autocomplete?q=${encodeURIComponent(query)}` +
             (storesParam ? `&stores=${encodeURIComponent(storesParam)}` : '');
         const res = await fetchWithDegradedRetry(url, { signal: controller.signal });
         const data = await res.json();
         if (_acController === controller) {
-            renderAutocomplete(data.suggestions || [], query, data.query_suggestion || query);
+            const suggestions = data.suggestions || [];
+            if (res.ok && suggestions.length === 0 && query.length >= 4 &&
+                    res.headers.get('X-Data-Degraded') !== '1') {
+                _acEmpty = { q: query, stores: storesParam };
+            }
+            renderAutocomplete(suggestions, query, data.query_suggestion || query);
         }
     } catch (err) {
         if (err.name !== 'AbortError') console.error('Autocomplete fetch error:', err);

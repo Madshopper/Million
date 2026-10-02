@@ -5,12 +5,9 @@ name: Recipe Import & Moderation
 # se recipe_importer.py's moduldokumentation for hvorfor.
 
 on:
-  schedule:
-    # Kl. ~05:00 dansk tid (UTC+1/+2) - efter nattens cache-updater (01:00),
-    # så matching kører mod frisk produktdata. Ingen sommer-/vintertids-
-    # præcision nødvendig her (modsat nightly-dispatcher.yml) - en times
-    # forskydning to gange om året er ligegyldigt for en moderations-kø.
-    - cron: '0 4 * * *'
+  # Ingen daglig kørsel (02-10-2026): opskrifterne er skjult for brugerne
+  # (RECIPES_ENABLED), så der er intet at moderere. Kan stadig startes manuelt.
+  # Tænd igen med en cron, fx '0 4 * * *', når opskrifterne skal ud.
   workflow_dispatch:
     inputs:
       url:
