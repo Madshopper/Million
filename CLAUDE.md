@@ -134,7 +134,10 @@ Regler når du rører de her ting:
 - Tilføj **aldrig** direkte tabelskrivning fra browseren eller fra `app.py` med anon-nøglen. Ny skrivning = ny RPC med validering i SQL.
 - Ny butik med ny billed-CDN? Tilføj hosten i `_IMG_HOSTS` i `app.py`, ellers blokerer CSP'en billederne.
 - Sikkerhedslogningen i `src/worker.py` skal blive ved med at være **aggregeret**. Logning der skalerer med trafikken var årsagen til nedbruddet 19-07-2026. `scripts/test-security-logging.py` håndhæver det og kører ved hvert produktions-deploy.
+<<<<<<< HEAD
 - **Sitet er privat** (`src/worker.py::_site_gate`, `site_gate.py`): kun et Supabase-login med `app_metadata.approved = true` ser noget; alle andre sendes til `/login` (sider) eller får 401 (`/api/*`). Gaten kører FØR edge-cachen, læser token fra `ms_session`-cookien (web) eller `Authorization: Bearer` (appen) og tjekker ES256-signaturen lokalt med WebCrypto mod Supabases JWKS - intet D1-/Supabase-kald pr. request. Åbne stier står i `site_gate._OPEN_PATHS`; tilføj aldrig en sti med produktdata dér. Overvågning/opvarmning kommer forbi med `HMAC(CACHE_REFRESH_SECRET, "monitor-access")` i cookien `ms_monitor` eller headeren `X-MadShopper-Monitor` (`scripts/monitor-access.mjs`, env `MONITOR_SECRET`). `SITE_PRIVATE = "0"` i `build-pages.sh` åbner sitet igen. Godkend brugere i `/admin`. `scripts/test-site-gate.py` tester logikken
+=======
+>>>>>>> origin/main
 - `/admin` skal være usynlig for alle andre end admins: `admin_page()` svarer sitets almindelige 404 (`not_found.html`), medmindre HttpOnly-cookien `ms_session` (sat af auth.js via `/api/session`) tilhører en admin, og `/api/admin/*` svarer 404 til ikke-admins. Admin-CSS/JS ligger i `templates/admin/` og indlejres - læg dem aldrig i `static/`, og nævn ikke `/admin` i robots.txt, sitemap eller offentlige filer.
 - Workers-observability skal blive ved med at være slået fra - i **begge** miljøer (se § Miljøer & deploy). Angrebs-synligheden kommer fra D1 + `security-monitor.yml`, ikke fra platformens logs. `scripts/test-security-logging.py` håndhæver både dette og at ingen ny logningssti omgår aggregatoren.
 

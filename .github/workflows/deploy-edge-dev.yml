@@ -99,6 +99,11 @@ jobs:
       - name: Test render-laas (isolate-kollision i D1-broen)
         run: python3 scripts/test-render-exclusive.py
 
+      # Konfliktmarkører i en template blev vist som tekst på forsiden
+      # 02-10-2026. Blokerer deploy hvis en merge er committet uløst.
+      - name: Test for git-konfliktmarkører
+        run: python3 scripts/test-conflict-markers.py
+
       - name: Test cache-bust af statiske assets
         env:
           REQUIRE_DIST: "1"

@@ -2930,8 +2930,18 @@ def _build_search_listing(query: str, active_stores, args, page: int):
 
 @app.route('/robots.txt')
 def robots_txt():
+<<<<<<< HEAD
     # Privat site (src/worker.py::_site_gate): intet skal indekseres.
     return Response('User-agent: *\nDisallow: /\n', mimetype='text/plain')
+=======
+    host = (request.host or '').split(':')[0].lower()
+    if host.endswith('.workers.dev'):
+        body = 'User-agent: *\nDisallow: /\n'
+    else:
+        body = (f'User-agent: *\nAllow: /\n\n'
+                f'Sitemap: {SITE_URL}/sitemap.xml\n')
+    return Response(body, mimetype='text/plain')
+>>>>>>> origin/main
 
 
 @app.route('/sitemap.xml')
@@ -3128,6 +3138,7 @@ def api_session():
     return resp
 
 
+<<<<<<< HEAD
 @app.route('/login')
 def login_page():
     """Eneste side man ser uden godkendt login. src/worker.py::_site_gate
@@ -3135,6 +3146,8 @@ def login_page():
     return render_template('login.html')
 
 
+=======
+>>>>>>> origin/main
 @app.route('/admin')
 def admin_page():
     # Ikke i _CACHEABLE_ENDPOINTS: ingen CDN-header, så hverken zonen eller
