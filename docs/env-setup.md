@@ -224,6 +224,15 @@ Til `eas build` skal de samme `EXPO_PUBLIC_*`-værdier findes som **EAS secrets*
 fordi CI-build-serveren ikke har din lokale `.env`. Værdierne er de samme som i
 `apps/mobile/.env` (publishable/anon — aldrig service_role).
 
+**Lokale release-builds (Xcode Archive, `expo run:* --configuration/--variant release`,
+`./gradlew bundleRelease`) må ikke pege på staging.** Står `apps/mobile/.env` på
+`EXPO_PUBLIC_FLAVOR=staging`, fejler et Xcode-arkiv allerede i build-fasen
+(`app.config.js`), og en Android-release crasher ved opstart (`src/config/env.ts`).
+Et Xcode-arkiv fejler også, hvis `ios/*/Info.plist` stadig har
+`NSAllowsLocalNetworking` fra en prebuild med staging-env. EAS-profiler er
+undtaget (miljøet er valgt eksplicit i `eas.json`). En bevidst lokal
+release-build mod staging kræver `MADSHOPPER_ALLOW_NONPROD_RELEASE=1`.
+
 Kør fra `apps/mobile/`, én gang pr. scope (`preview` = staging-profilen i
 `eas.json`, `production` = prod-profilen):
 
