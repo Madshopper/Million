@@ -1,8 +1,8 @@
 // MadShopper uptime-tjek: en lille, selvstændig JS-worker med en cron trigger
-// hvert 5. minut (gratis plan). Erstatter den hyppige del af uptime-check.yml,
+// hvert 5. minut (gratis plan). Erstatter browsertjekkene i uptime-check.yml,
 // som i praksis kun kørte hver 2.-6. time (GitHub-cron), så et nedbrud kunne
-// gå uopdaget i timer. Browsertjekket (frisk søgning i rigtig browser) bliver
-// i GitHub Actions én gang i døgnet.
+// gå uopdaget i timer. En worker-fetch bliver ikke stoppet af Bot Fight Mode
+// (målt 02-10-2026), så der skal ingen rigtig browser til.
 //
 // Bevidst IKKE en del af src/worker.py: hovedworkeren er Python/Pyodide, og
 // enhver ekstra kode dér deler CPU og den skrøbelige JS/Python-bro med
@@ -11,9 +11,10 @@
 //
 // Budget: kun sider der ligger i edge-cachen (forside, kategori, /api/home,
 // /api/stores) plus staging-login-siden, så hvert tjek koster et cache-hit,
-// ikke en render. Søgning må IKKE tilføjes her: en ucachet søgning er en
-// D1-tabelscanning på ~19k rows_read, og 288 af dem i døgnet sprænger
-// gratisplanens 5M. Ventetid på svar tæller ikke mod CPU-grænsen på 10 ms.
+// ikke en render. Den friske søgning er undtagelsen og kører kun én gang i
+// døgnet (se SEARCH_CHECK): en ucachet søgning er en D1-tabelscanning på ~19k
+// rows_read, og 288 af dem i døgnet sprænger gratisplanens 5M. Ventetid på
+// svar tæller ikke mod CPU-grænsen på 10 ms.
 //
 // Alarm: én mail via Resend (samme konto og afsender som prisalarmerne) når et
 // tjek går fra OK til fejl, og én når det er OK igen. Tilstanden ligger i KV
@@ -27,6 +28,25 @@ const TIMEOUT_MS = 15000;
 // mail; to i træk med 20 sekunders mellemrum er et reelt problem.
 const RETRY_DELAY_MS = 20000;
 
+// Produktkort i HTML'en. Samme tærskler som scripts/playwright-uptime-check.mjs:
+// under 10 kort er en tom/degraderet side, og under 20 % med butiksmatch er
+// en Rema-only-cache (sund baseline er ~50 %+).
+const MIN_PRODUCTS = 10;
+const MIN_MATCH_RATIO = 0.2;
+
+function productCards(body, needMatches) {
+  const total = (body.match(/data-has-match="(?:true|false)"/g) || []).length;
+  if (total < MIN_PRODUCTS) return `kun ${total} produktkort`;
+  if (needMatches) {
+    const matched = (body.match(/data-has-match="true"/g) || []).length;
+    if (matched / total < MIN_MATCH_RATIO) {
+      return `kun ${Math.round((matched / total) * 100)} % af ${total} kort har en butiksmatch`;
+    }
+  }
+  return true;
+}
+
+// expect() returnerer true, false eller en fejltekst.
 const CHECKS = [
   {
     name: "Forside",
@@ -36,7 +56,7 @@ const CHECKS = [
   {
     name: "Kategoriside (/Mejeri)",
     url: "https://madshopper.dk/Mejeri",
-    expect: (body) => body.includes("<title>") && body.includes("MadShopper"),
+    expect: (body) => body.includes("MadShopper") && productCards(body, true),
   },
   {
     // Appens forside-API. En tom liste er præcis den fejl, statuskoden ikke
@@ -60,10 +80,30 @@ const CHECKS = [
   },
 ];
 
+// Frisk søgning: den eneste der går gennem render-vejen og D1 (de andre er
+// cache-hits), og dermed den der fangede søgefejlen i september. Den unikke
+// max_price gør url'en ny hver gang, så den aldrig rammer edge-cachen. Den
+// koster en D1-tabelscanning (~19k rows_read), så den kører kun én gang i
+// døgnet, og én gang i timen mens den er nede, aldrig hvert 5. minut.
+const SEARCH_CHECK = {
+  name: "Frisk søgning (mælk)",
+  url: "https://madshopper.dk/search/results?q=m%C3%A6lk",
+  fresh: true,
+  expect: (body) => body.includes("MadShopper") && productCards(body, false),
+};
+const SEARCH_HOUR_UTC = 5;
+const SEARCH_MINUTE = 40;
+
 async function runCheck(check) {
   const started = Date.now();
   try {
-    const resp = await fetch(check.url, {
+    let url = check.url;
+    if (check.fresh) {
+      const u = new URL(url);
+      u.searchParams.set("max_price", String(1000000 + (Date.now() % 1000000)));
+      url = u.toString();
+    }
+    const resp = await fetch(url, {
       headers: { "User-Agent": "MadShopper-Uptime/1.0 (+https://madshopper.dk)" },
       redirect: "manual",
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -77,8 +117,10 @@ async function runCheck(check) {
     if (resp.headers.get("X-Data-Degraded")) {
       return { ok: false, detail: `200 men degraderet (X-Data-Degraded) efter ${ms} ms` };
     }
-    if (!check.expect(body)) {
-      return { ok: false, detail: `200 men forventet indhold mangler (${body.length} bytes) efter ${ms} ms` };
+    const verdict = check.expect(body);
+    if (verdict !== true) {
+      const why = typeof verdict === "string" ? verdict : "forventet indhold mangler";
+      return { ok: false, detail: `200 men ${why} (${body.length} bytes) efter ${ms} ms` };
     }
     return { ok: true, detail: `200 på ${ms} ms` };
   } catch (err) {
@@ -88,10 +130,10 @@ async function runCheck(check) {
   }
 }
 
-async function runAll() {
+async function runAll(checks) {
   const results = new Map();
-  await Promise.all(CHECKS.map(async (c) => results.set(c.name, await runCheck(c))));
-  const failing = CHECKS.filter((c) => !results.get(c.name).ok);
+  await Promise.all(checks.map(async (c) => results.set(c.name, await runCheck(c))));
+  const failing = checks.filter((c) => !results.get(c.name).ok);
   if (failing.length) {
     await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
     await Promise.all(failing.map(async (c) => {
@@ -142,9 +184,7 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleString("da-DK", { timeZone: "Europe/Copenhagen" });
 }
 
-export async function check(env) {
-  const results = await runAll();
-  const now = new Date().toISOString();
+export async function check(env, scheduledTime = Date.now()) {
   let state = null;
   let firstRun = false;
   try {
@@ -155,9 +195,22 @@ export async function check(env) {
   }
   const prevDown = (state && state.down) || {};
 
+  const when = new Date(scheduledTime);
+  const searchSlot = when.getUTCMinutes() === SEARCH_MINUTE;
+  const runSearch = searchSlot && (when.getUTCHours() === SEARCH_HOUR_UTC || !!prevDown[SEARCH_CHECK.name]);
+  const checks = runSearch ? [...CHECKS, SEARCH_CHECK] : CHECKS;
+  const allChecks = [...CHECKS, SEARCH_CHECK];
+
+  const results = await runAll(checks);
+  const now = new Date().toISOString();
+
+  // Et tjek der ikke kørte denne gang (søgningen), beholder sin tilstand.
   const down = {};
+  for (const [name, since] of Object.entries(prevDown)) {
+    if (!checks.some((c) => c.name === name) && allChecks.some((c) => c.name === name)) down[name] = since;
+  }
   const newlyDown = [];
-  for (const c of CHECKS) {
+  for (const c of checks) {
     if (results.get(c.name).ok) continue;
     down[c.name] = prevDown[c.name] || now;
     if (!prevDown[c.name]) newlyDown.push(c);
@@ -167,7 +220,7 @@ export async function check(env) {
   // Første kørsel efter deploy: én kvitteringsmail, så det er bevist at hele
   // vejen til indbakken virker, før der er brug for den.
   if (firstRun && !newlyDown.length) {
-    const lines = CHECKS.map((c) => `${c.name}: ${results.get(c.name).detail}`);
+    const lines = checks.map((c) => `${c.name}: ${results.get(c.name).detail}`);
     if (await sendMail(env, "MadShopper uptime-overvågning er aktiv", lines)) {
       await env.STATE.put(STATE_KEY, JSON.stringify({ down, changed_at: now }));
     }
@@ -175,8 +228,8 @@ export async function check(env) {
     const lines = [];
     for (const c of newlyDown) lines.push(`NEDE: ${c.name} (${c.url}): ${results.get(c.name).detail}`);
     for (const name of recovered) {
-      const c = CHECKS.find((x) => x.name === name);
-      const detail = c ? results.get(name).detail : "tjekket findes ikke længere";
+      const r = results.get(name);
+      const detail = r ? r.detail : "tjekket findes ikke længere";
       lines.push(`OK igen: ${name}, nede siden ${fmtTime(prevDown[name])}: ${detail}`);
     }
     const stillDown = Object.keys(down).filter((n) => !newlyDown.some((c) => c.name === n));
@@ -197,8 +250,8 @@ export async function check(env) {
 }
 
 export default {
-  async scheduled(_event, env, ctx) {
-    ctx.waitUntil(check(env).then((r) => {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(check(env, event.scheduledTime).then((r) => {
       const failing = Object.keys(r.down);
       if (failing.length) console.error("uptime: nede:", JSON.stringify(r.results));
     }));

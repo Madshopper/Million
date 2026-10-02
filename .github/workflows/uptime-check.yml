@@ -50,19 +50,17 @@ name: Uptime Check
 # runnerens forudinstallerede Chrome (PW_CHANNEL=chrome) i stedet for at
 # downloade Chromium (~25 s), så hele jobbet holder sig under ét afregnet minut.
 #
-# 2026-10-02: den hyppige overvågning er flyttet til Cloudflare
-# (uptime-worker/, cron hvert 5. minut, mail via Resend). Her kører
-# browsertjekkene (forside, kategori og en frisk søgning) nu kun én gang i
-# døgnet (05:41 UTC) og ved manuel kørsel. Sikkerhedsrelæet og synken af
-# kørselshistorik til /admin kører stadig hver 3. time, uden Playwright.
-# BROWSER_CRON nedenfor skal være præcis samme streng som den daglige
-# cron-linje, ellers springes browsertrinnene altid over.
+# 2026-10-02: browsertjekkene (forside, kategori og frisk søgning) er flyttet
+# helt til Cloudflare: uptime-worker/ tjekker hvert 5. minut og den friske
+# søgning én gang i døgnet, og mailer via Resend. En worker-fetch bliver ikke
+# stoppet af Bot Fight Mode, så der skal ingen rigtig browser til. Tilbage her
+# er sikkerhedsrelæet og synken af kørselshistorik til /admin, hver 3. time.
+# Navnet uptime-check.yml er beholdt, så job_runs-historikken hænger sammen.
 
 on:
   workflow_dispatch:
   schedule:
     - cron: '23 */3 * * *'
-    - cron: '41 5 * * *'
 
 
 concurrency:
@@ -71,7 +69,6 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  BROWSER_CRON: '41 5 * * *'
 
 jobs:
   check:
@@ -84,8 +81,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Sikkerhedsrelæet kalder `npx wrangler d1 execute`.
       - name: Setup Node
-        if: github.event_name != 'schedule' || github.event.schedule == env.BROWSER_CRON
         uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -95,29 +92,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Playwright
-        if: github.event_name != 'schedule' || github.event.schedule == env.BROWSER_CRON
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-        run: npm install --no-save playwright@1.61.1
-
       - name: Install httpx
         run: pip install httpx
-
-      - name: Tjek forsiden og en kategoriside
-        if: github.event_name != 'schedule' || github.event.schedule == env.BROWSER_CRON
-        env:
-          PW_CHANNEL: chrome
-        run: node scripts/playwright-uptime-check.mjs https://madshopper.dk/ https://madshopper.dk/Mejeri
-
-      # Tidligere search-check.yml. Forsiden og /Mejeri ligger i edge-cachen og
-      # rammer aldrig render-vejen, hvor søgningen kan fejle - denne url
-      # renderes frisk hver gang (unik max_price, se scriptet).
-      - name: Tjek at en søgning giver varer
-        if: always() && (github.event_name != 'schedule' || github.event.schedule == env.BROWSER_CRON)
-        env:
-          PW_CHANNEL: chrome
-        run: node scripts/playwright-uptime-check.mjs "https://madshopper.dk/search/results?q=m%C3%A6lk"
 
       # Tidligere den planlagte del af security-monitor.yml. Exit-kode 1 ved
       # alarm er bevidst - det er den, der udløser GitHubs mail.

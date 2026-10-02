@@ -155,8 +155,8 @@ All deploys and data refreshes run via GitHub Actions (`.github/workflows/`):
 | `recipe-import.yml` | Recipe import from URL + re-matching of user-submitted recipes (`recipe_importer.py`) |
 | `deploy-edge.yml` / `deploy-edge-dev.yml` | Builds and deploys the Worker to production / staging, then runs a functional check in a real browser (a fresh search render must return products) |
 | `canary-upload.yml` | Uploads a new Worker version to Cloudflare **without** moving traffic to it |
-| `uptime-check.yml` | Daily: Playwright uptime probe (front page + category) and a fresh search render (cached pages never exercise the render path). Every 3 h: the security-event relay and the job-run sync for `/admin`. E-mails on failure |
-| `deploy-uptime-worker.yml` | Deploys `uptime-worker/` (`madshopper-uptime`): a Cloudflare cron every 5 min that checks cached pages, `/api/home`, `/api/stores` and the staging login, and e-mails via Resend when something goes down and when it recovers. Needs the `RESEND_API_KEY` and `UPTIME_ALERT_EMAIL` secrets |
+| `uptime-check.yml` | Every 3 h: the security-event relay and the job-run sync for `/admin`. E-mails on failure. The uptime probes moved to `uptime-worker/` |
+| `deploy-uptime-worker.yml` | Deploys `uptime-worker/` (`madshopper-uptime`): a Cloudflare cron every 5 min that checks the front page, a category page (product cards and match ratio), `/api/home`, `/api/stores` and the staging login, plus a fresh search render once a day (cached pages never exercise the render path). E-mails via Resend when something goes down and when it recovers. Needs the `RESEND_API_KEY` and `UPTIME_ALERT_EMAIL` secrets |
 | `security-monitor.yml` | Manual only (the scheduled run is a step in `uptime-check.yml`). `scripts/relay-security-events.py` relays security events from D1 to Supabase and **fails (→ e-mail) on attack thresholds, degraded responses, busy responses and Cloudflare 1101/1102 errors** (read from GraphQL analytics). A manual run with `cpu_detail_from`/`cpu_detail_to` reports CPU per minute - the only way to measure CPU on edge |
 | `mobile-tests.yml` | Network-free checks of the native app (multi-deal/SCO port, listing-API contract) on every PR |
 | `parity-tests.yml` | Tests for the contracts web and app share without sharing code (e.g. the theme setting) |
@@ -386,7 +386,7 @@ uv run python scripts/test-listing-api.py
 # after deploy-edge.yml / deploy-edge-dev.yml)
 node scripts/smoke-test.mjs https://madshopper.dk
 
-# Uptime probe used by uptime-check.yml (daily, real headless browser -
+# Uptime probe used after deploy-edge.yml (real headless browser -
 # curl can't pass Cloudflare's free Bot Fight Mode JS challenge)
 node scripts/playwright-uptime-check.mjs https://madshopper.dk/
 ```
