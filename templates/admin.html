@@ -9,12 +9,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <title>Admin - MadShopper</title>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}?v=2" type="image/svg+xml">
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=4" sizes="16x16 32x32 48x48">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
   <meta name="theme-color" content="#059669">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}?v=1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=50">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}?v=3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
   <script>
     window.__SB_URL = {{ supabase_url|tojson }};
     window.__SB_KEY = {{ supabase_anon_key|tojson }};
@@ -24,9 +24,9 @@
     window.__GOOGLE_CLIENT_ID = "683267660851-4jvo3nauv24s4g8sk5qhk1dlvuc4tjgr.apps.googleusercontent.com";
     window.__APPLE_CLIENT_ID = "";
   </script>
-  <script src="{{ url_for('static', filename='js/supabase.min.js') }}?v=1" defer></script>
-  <script src="{{ url_for('static', filename='js/auth.js') }}?v=33" defer></script>
-  <script src="{{ url_for('static', filename='js/admin.js') }}?v=5" defer></script>
+  <script src="{{ url_for('static', filename='js/supabase.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
 </head>
 
 <body class="adm-body">
@@ -44,7 +44,7 @@
   <div class="adm-shell">
     <aside class="adm-side" aria-label="Admin-menu">
       <div class="adm-brand">
-        <img src="{{ url_for('static', filename='favicon.svg') }}?v=2" alt="" width="28" height="28">
+        <img src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="28" height="28">
         <span><span class="adm-brand-name">MadShopper </span><b>Admin</b></span>
       </div>
       <nav class="adm-nav" id="admin-nav">

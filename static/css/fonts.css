@@ -14,8 +14,9 @@
  * (cyrillic, greek, vietnamese osv.) er droppet, så kun 2 filer skal
  * selvhostes i stedet for 22.
  *
- * ?v= i base.html bumpes hvis disse filer nogensinde udskiftes - se
- * [[static-asset-cache-bump]]-reglen (samme princip som styles.css/script.js).
+ * Fontene har bevidst INGEN ?v= (app.py undtager fonts/ fra den automatiske
+ * cache-busting), så preloaden i base.html rammer præcis samme URL som url()
+ * herunder. Udskiftes en font, skal den have et nyt filnavn.
  */
 
 @font-face {

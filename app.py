@@ -1,4 +1,5 @@
 from flask import Flask, render_template, send_from_directory, jsonify, request, redirect, url_for, Response, g
+import hashlib
 import hmac
 import re
 from datetime import datetime, timedelta
@@ -90,6 +91,62 @@ app = Flask(
     static_folder=os.path.join(_APP_ROOT, 'static'),
 )
 app.config['JSON_SORT_KEYS'] = False
+
+# Automatisk cache-busting af /static/. /static/* serveres med et års
+# "immutable" cache, så en ændret fil skal have en ny URL - ellers ser
+# browsere med den gamle i cachen aldrig ændringen (sket igen og igen med
+# manuelle ?v=-tal, senest skip-linket 02-10-2026). url_for('static', ...)
+# får derfor selv ?v=<indholds-hash>, og templates skriver ALDRIG ?v= selv
+# (scripts/test-cache-bust.py håndhæver det). På edge findes static/ ikke i
+# workeren, så scripts/build-pages.sh lægger hashene i static_hashes.json
+# ved bygning; lokalt hashes filen direkte (genberegnes når den ændres).
+# fonts/ er undtaget: de hentes via url() i fonts.css uden ?v=, og preloaden
+# i base.html skal have præcis samme URL, ellers hentes fonten to gange.
+_STATIC_HASH_LEN = 10
+_STATIC_NO_HASH_PREFIXES = ('fonts/',)
+
+
+def _static_file_hash(path: str) -> str:
+    with open(path, 'rb') as fh:
+        return hashlib.sha256(fh.read()).hexdigest()[:_STATIC_HASH_LEN]
+
+
+def _load_static_hashes() -> dict | None:
+    try:
+        with open(os.path.join(_APP_ROOT, 'static_hashes.json'), encoding='utf-8') as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+_STATIC_HASHES = _load_static_hashes()
+_local_static_hashes: dict = {}
+
+
+def _static_version(filename: str) -> str | None:
+    if filename.startswith(_STATIC_NO_HASH_PREFIXES):
+        return None
+    if _STATIC_HASHES is not None:
+        return _STATIC_HASHES.get(filename)
+    full = os.path.join(app.static_folder, filename)
+    try:
+        st = os.stat(full)
+    except OSError:
+        return None
+    key = (filename, st.st_mtime_ns, st.st_size)
+    version = _local_static_hashes.get(key)
+    if version is None:
+        version = _local_static_hashes[key] = _static_file_hash(full)
+    return version
+
+
+@app.url_defaults
+def _static_cache_bust(endpoint, values):
+    if endpoint == 'static' and 'v' not in values:
+        version = _static_version(values.get('filename') or '')
+        if version:
+            values['v'] = version
+
 
 # Produkt-cache: alle butikker opdateres én gang dagligt (se cache-updater.yml)
 cached_data = {

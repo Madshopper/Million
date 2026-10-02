@@ -137,21 +137,10 @@ def extract_subcategories(html: str) -> list[str]:
 
 
 def _asset_urls() -> list[str]:
-    """Statiske assets med det ?v= der FAKTISK står i templates/base.html.
-
-    Læses ved kørsel, så tallene ikke kan drive fra virkeligheden - hvilket de
-    havde gjort med 34 og 48 versioner, dengang de stod hardkodet her.
-    """
-    fallback = ["/static/css/styles.css", "/static/js/script.js"]
-    try:
-        html = (ROOT / "templates" / "base.html").read_text(encoding="utf-8")
-    except OSError:
-        return fallback
-    urls = []
-    for path in ("css/styles.css", "js/script.js", "js/auth.js"):
-        m = re.search(re.escape(path) + r"'\s*\)\s*\}\}\?v=(\d+)", html)
-        urls.append(f"/static/{path}?v={m.group(1)}" if m else f"/static/{path}")
-    return urls
+    """Statiske assets. ?v= sættes automatisk ud fra filens indhold
+    (app.py::_static_cache_bust), og CDN'et ignorerer forespørgselsstrengen,
+    så de rå stier tester den samme fil."""
+    return ["/static/css/styles.css", "/static/js/script.js", "/static/js/auth.js"]
 
 
 def section(title: str) -> None:
@@ -310,10 +299,6 @@ def main() -> None:
         check_page(f"/product/{sample_id}", expect_products=False)
 
     section("7. Statiske assets")
-    # ?v= læses ud af templates/base.html i stedet for at stå hardkodet her.
-    # Tallene stod fast på 11, mens de rigtige var 45 og 60 - Flask ignorerer
-    # forespørgselsstrengen, så filen blev hentet alligevel, men rapportens
-    # output løj om hvilken version der blev testet.
     for asset in _asset_urls():
         status, body, hdrs = req(f"{BASE}{asset}")
         ct = hdrs.get("Content-Type", "")
