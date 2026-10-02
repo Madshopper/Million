@@ -67,6 +67,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # actions: read til kørselshistorik-trinnet (scripts/sync-job-runs.py).
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
 
@@ -111,3 +115,16 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: python scripts/relay-security-events.py
+
+      # Kørselshistorik til /admin ("Kørsler"): gemmer de seneste GitHub
+      # Actions-kørsler i Supabase (public.job_runs) med workflowets egen token.
+      # Ikke et måletrin og ikke en alarm, så det må ikke gøre tjekket rødt;
+      # stopper synken, viser admin-panelet hvor længe siden den sidst kørte.
+      - name: Gem kørselshistorik (admin)
+        if: always()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: python scripts/sync-job-runs.py

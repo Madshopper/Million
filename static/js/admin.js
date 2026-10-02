@@ -4,9 +4,10 @@
  *  - Supabase-RPC'erne i scripts/supabase-admin.sql (admin_overview,
  *    admin_feedback, ...); feedback-formularen skriver direkte i public.feedback, kaldt med brugerens egen session. De tjekker selv
  *    is_admin() i SQL, så en ikke-admin får 403 uanset hvad denne fil gør.
- *  - POST /api/admin/edge (app.py) til D1, KV og D1-budgettet, og
- *    POST /api/admin/runs til GitHub Actions-kørslerne, begge med samme
+ *  - POST /api/admin/edge (app.py) til D1, KV og D1-budgettet, med samme
  *    access-token som Bearer.
+ * Kørselshistorikken (admin_job_runs) er GitHub Actions-kørsler, som
+ * uptime-check.yml gemmer i Supabase via scripts/sync-job-runs.py.
  *
  * Feedback og opskrifter er brugerinput: alt skrives med textContent, aldrig
  * innerHTML.
@@ -132,7 +133,6 @@
   }
 
   function edge(token) { return post('/api/admin/edge', token); }
-  function jobRuns(token) { return post('/api/admin/runs', token); }
 
   /* ---------------------------------------------------------------- render */
   function renderTiles(ov, ed) {
@@ -202,6 +202,10 @@
     failingWorkflows().forEach(function (g) {
       items.push(['bad', g.name + ': seneste kørsel fejlede', '#korsler']);
     });
+    var synced = state.runs && state.runs.synced_at ? ago(state.runs.synced_at) : null;
+    if (synced != null && synced > SYNC_STALE_HOURS) {
+      items.push(['warn', 'Kørselshistorikken er ikke synket i ' + agoText(synced).replace(' siden', ''), '#korsler']);
+    }
     var pr = (ov.pending_recipes || []).length;
     if (pr) items.push(['info', pr + ' opskrift' + (pr === 1 ? '' : 'er') + ' venter på godkendelse', '#opskrifter']);
     var db = ov.database || {};
@@ -319,6 +323,7 @@
   var EVENTS = { schedule: 'Planlagt', workflow_dispatch: 'Manuel', push: 'Push',
                  workflow_run: 'Efter andet job', repository_dispatch: 'Dispatch' };
   var FAILED = ['failure', 'timed_out', 'startup_failure'];
+  var SYNC_STALE_HOURS = 8;      // synken kører hver ~3. time (GitHub-cron: 2-6 t)
 
   function runOutcome(r) {
     if (r.status !== 'completed') return ['info', r.status === 'in_progress' ? 'Kører' : 'I kø'];
@@ -334,8 +339,8 @@
     var runs = (state.runs && state.runs.runs) || [];
     var byKey = {}, groups = [];
     runs.forEach(function (r) {
-      var key = r.path || r.name;
-      if (!byKey[key]) { byKey[key] = { name: r.name || key, path: r.path || '', runs: [] }; groups.push(byKey[key]); }
+      var key = r.path || r.workflow;
+      if (!byKey[key]) { byKey[key] = { name: r.workflow || key, path: r.path || '', runs: [] }; groups.push(byKey[key]); }
       byKey[key].runs.push(r);
     });
     return groups;
@@ -361,8 +366,8 @@
   function ghUrl(u) { return /^https:\/\/github\.com\//.test(u || '') ? u : null; }
 
   function duration(r) {
-    if (r.status !== 'completed' || !r.run_started_at || !r.updated_at) return '-';
-    var s = Math.max(0, Math.round((Date.parse(r.updated_at) - Date.parse(r.run_started_at)) / 1000));
+    if (r.status !== 'completed' || !r.started_at || !r.updated_at) return '-';
+    var s = Math.max(0, Math.round((Date.parse(r.updated_at) - Date.parse(r.started_at)) / 1000));
     return s < 60 ? s + ' s' : s < 3600 ? Math.round(s / 60) + ' min' : (s / 3600).toFixed(1).replace('.', ',') + ' t';
   }
 
@@ -370,8 +375,8 @@
     // Ældste til venstre, nyeste til højre - som en tidslinje.
     return el('span', { class: 'adm-runs' }, runs.slice(0, 12).reverse().map(function (r) {
       var o = runOutcome(r);
-      return el(ghUrl(r.html_url) ? 'a' : 'span', { class: o[0], href: ghUrl(r.html_url) || '', target: '_blank', rel: 'noopener',
-        title: when(r.created_at) + ' · ' + o[1] + (r.head_branch && r.head_branch !== 'main' ? ' · ' + r.head_branch : ''),
+      return el(ghUrl(r.url) ? 'a' : 'span', { class: o[0], href: ghUrl(r.url) || '', target: '_blank', rel: 'noopener',
+        title: when(r.created_at) + ' · ' + o[1] + (r.branch && r.branch !== 'main' ? ' · ' + r.branch : ''),
         'aria-label': when(r.created_at) + ': ' + o[1] });
     }));
   }
@@ -381,26 +386,24 @@
     var sub = $('runs-sub');
     sub.textContent = '';
     if (!info) { fill('admin-runs', empty('Kørslerne kunne ikke hentes.')); return; }
-    if (!info.configured) {
-      fill('admin-runs', empty('Ikke sat op. Opret en fine-grained GitHub-token med kun "Actions: Read" på repoet, ' +
-        'gem den som repo-secret ADMIN_GITHUB_TOKEN og deploy igen. Se docs/env-setup.md.'));
+    if (!info.synced_at) {
+      fill('admin-runs', empty('Ingen kørsler gemt endnu. De hentes af uptime-check.yml hver ~3. time.'));
       return;
     }
-    if (info.error) { fill('admin-runs', empty(info.error)); return; }
     var failing = failingWorkflows();
     var groups = runGroups().sort(function (a, b) {
       var fa = failing.indexOf(a) >= 0, fb = failing.indexOf(b) >= 0;
       if (fa !== fb) return fa ? -1 : 1;
       return String(b.runs[0].created_at).localeCompare(String(a.runs[0].created_at));
     });
-    sub.textContent = (info.runs || []).length + ' seneste kørsler i ' + info.repo + ', uden PR-tjek';
+    sub.textContent = 'Seneste 14 dage, uden PR-tjek · synket ' + agoText(ago(info.synced_at));
     if (!groups.length) { fill('admin-runs', empty('Ingen kørsler fundet.')); return; }
     var rows = groups.map(function (g) {
       var r = g.runs[0];
       var o = runOutcome(r);
       var v = lastVerdict(g);
-      var name = el('span', {}, [ghUrl(r.html_url)
-          ? el('a', { href: r.html_url, target: '_blank', rel: 'noopener', text: g.name })
+      var name = el('span', {}, [ghUrl(r.url)
+          ? el('a', { href: r.url, target: '_blank', rel: 'noopener', text: g.name })
           : el('span', { text: g.name }),
         el('br'), el('span', { class: 'adm-wf-file', text: g.path.replace('.github/workflows/', '') })]);
       var status = el('span', {}, [pill(o[0] || 'info', o[1]),
@@ -528,7 +531,7 @@
           edge(session.access_token).catch(function (e) {
             showError('Edge-data kunne ikke hentes: ' + (e.message || e)); return null;
           }),
-          jobRuns(session.access_token).catch(function (e) {
+          rpc('admin_job_runs', { p_days: 14 }).catch(function (e) {
             showError('Kørselshistorikken kunne ikke hentes: ' + (e.message || e)); return null;
           })
         ]).then(function (r) {

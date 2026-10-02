@@ -132,8 +132,6 @@ _EDGE_ENV_VARS = (
     'TABLE_SUFFIX',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
-    # Valgfri GitHub-token (kun "Actions: Read") til kørselshistorik i /admin.
-    'ADMIN_GITHUB_TOKEN', 'ADMIN_GITHUB_REPO',
 )
 
 
@@ -3084,61 +3082,6 @@ def admin_edge():
             version = None
         out['cache_version'] = str(version) if version else None
     resp = jsonify(out)
-    resp.headers.update(_ADMIN_HEADERS)
-    return resp
-
-
-_ADMIN_RUN_FIELDS = ('name', 'path', 'event', 'status', 'conclusion', 'head_branch',
-                     'run_number', 'run_attempt', 'created_at', 'run_started_at',
-                     'updated_at', 'html_url')
-
-
-def _admin_job_runs() -> dict:
-    """De seneste GitHub Actions-kørsler (scrapere, cache-updater, deploys ...)
-    til /admin. Repoet er privat, så det kræver en token med KUN "Actions: Read"
-    som ADMIN_GITHUB_TOKEN. Pull request-kørsler sorteres fra: de er CI, ikke drift.
-    Svaret skæres ned til de felter panelet bruger, så klienten ikke får ~1 MB."""
-    token = os.environ.get('ADMIN_GITHUB_TOKEN')
-    if not token:
-        return {'configured': False}
-    repo = os.environ.get('ADMIN_GITHUB_REPO') or 'Madshopper/Million'
-    url = f'https://api.github.com/repos/{repo}/actions/runs?per_page=100&exclude_pull_requests=true'
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'madshopper-admin',
-    }
-    try:
-        if _IS_EDGE:
-            data, status = _edge_fetch(url, headers=headers)
-        else:
-            import httpx
-            resp = httpx.get(url, headers=headers, timeout=8.0)
-            data, status = resp.json(), resp.status_code
-    except Exception as e:
-        logger.warning('Admin: GitHub-kørsler fejlede: %s', type(e).__name__)
-        return {'configured': True, 'error': 'GitHub svarede ikke'}
-    if status in (401, 403, 404):
-        return {'configured': True, 'error': f'GitHub afviste tokenen (HTTP {status})'}
-    if status != 200 or not isinstance(data, dict):
-        return {'configured': True, 'error': f'GitHub svarede HTTP {status}'}
-    runs = [{k: r.get(k) for k in _ADMIN_RUN_FIELDS}
-            for r in data.get('workflow_runs') or []
-            if r.get('event') != 'pull_request']
-    return {'configured': True, 'repo': repo, 'runs': runs}
-
-
-@app.route('/api/admin/runs', methods=['POST'])
-@rate_limit(api_limiter)
-def admin_runs():
-    """Separat fra /api/admin/edge, så et langsomt GitHub-svar ikke forsinker
-    resten af panelet. POST af samme grund som edge-ruten: aldrig cachet."""
-    if not _admin_request_ok():
-        resp = jsonify(success=False, error='Ingen adgang')
-        resp.status_code = 403
-    else:
-        resp = jsonify(success=True, **_admin_job_runs())
     resp.headers.update(_ADMIN_HEADERS)
     return resp
 

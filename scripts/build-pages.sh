@@ -121,13 +121,6 @@ if [ -n "${CF_ANALYTICS_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
 CLOUDFLARE_ACCOUNT_ID = \"$(toml_escape "$CLOUDFLARE_ACCOUNT_ID")\""
 fi
 
-# Kørselshistorik i /admin (app.py::_admin_job_runs): valgfri GitHub-token med
-# KUN "Actions: Read" på repoet. Uden den viser panelet "ikke sat op".
-if [ -n "${ADMIN_GITHUB_TOKEN:-}" ]; then
-  ANALYTICS_LINES="${ANALYTICS_LINES:+$ANALYTICS_LINES
-}ADMIN_GITHUB_TOKEN = \"$(toml_escape "$ADMIN_GITHUB_TOKEN")\""
-fi
-
 # Staging-adgangsnøgle: madshopper-dev kører den samme kode mod *_dev-tabeller,
 # men på en offentlig workers.dev-URL og mod SAMME Supabase-projekt/auth.users
 # som produktionen. Uden en spærring er hele feature-fladen frit tilgængelig for
