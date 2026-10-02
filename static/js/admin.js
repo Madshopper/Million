@@ -6,6 +6,8 @@
  *    is_admin() i SQL, så en ikke-admin får 403 uanset hvad denne fil gør.
  *  - POST /api/admin/edge (app.py) til D1, KV og D1-budgettet, med samme
  *    access-token som Bearer.
+ * Kørselshistorikken (admin_job_runs) er GitHub Actions-kørsler, som
+ * uptime-check.yml gemmer i Supabase via scripts/sync-job-runs.py.
  *
  * Feedback og opskrifter er brugerinput: alt skrives med textContent, aldrig
  * innerHTML.
@@ -14,7 +16,7 @@
   'use strict';
 
   var STALE_HOURS = 30;          // butik uden nye data i over 30 t = rød
-  var state = { feedback: [], pending: [], showAll: false };
+  var state = { feedback: [], pending: [], showAll: false, runs: null };
 
   function $(id) { return document.getElementById(id); }
 
@@ -116,8 +118,8 @@
     });
   }
 
-  function edge(token) {
-    return fetch('/api/admin/edge', {
+  function post(path, token) {
+    return fetch(path, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: '{}',
@@ -130,14 +132,14 @@
     });
   }
 
+  function edge(token) { return post('/api/admin/edge', token); }
+
   /* ---------------------------------------------------------------- render */
   function renderTiles(ov, ed) {
     var box = $('admin-tiles');
     box.textContent = '';
     var u = ov.users || {};
-    box.appendChild(tile('Brugere', nf(u.total), nf(u.confirmed) + ' bekræftede'));
-    box.appendChild(tile('Nye brugere', nf(u.new_7d), 'seneste 7 dage, ' + nf(u.new_30d) + ' på 30'));
-    box.appendChild(tile('Aktive brugere', nf(u.active_7d), 'logget ind seneste 7 dage'));
+    box.appendChild(tile('Brugere', nf(u.total), nf(u.new_7d) + ' nye seneste 7 dage'));
 
     var db = ov.database || {};
     var dbRatio = db.limit_bytes ? db.size_bytes / db.limit_bytes : null;
@@ -155,9 +157,90 @@
     var open = state.feedback.filter(function (f) { return !f.handled_at; }).length + state.pending.length;
     box.appendChild(tile('Ubehandlet feedback', nf(open), state.pending.length ? nf(state.pending.length) + ' i gammel D1-kø' : 'fra feedback-formularen'));
 
+    var ub = $('admin-user-tiles');
+    ub.textContent = '';
     var e = ov.engagement || {};
-    box.appendChild(tile('Prisalarmer', nf(e.price_alerts_active), 'aktive'));
-    box.appendChild(tile('Kurve', nf(e.carts), nf(e.shared_carts) + ' delte, ' + nf(e.cart_events_7d) + ' kurv-hændelser/7 d'));
+    ub.appendChild(tile('Brugere', nf(u.total), nf(u.confirmed) + ' bekræftede'));
+    ub.appendChild(tile('Nye brugere', nf(u.new_7d), 'seneste 7 dage, ' + nf(u.new_30d) + ' på 30'));
+    ub.appendChild(tile('Aktive brugere', nf(u.active_7d), 'logget ind seneste 7 dage'));
+    ub.appendChild(tile('Prisalarmer', nf(e.price_alerts_active), 'aktive'));
+    ub.appendChild(tile('Kurve', nf(e.carts), nf(e.shared_carts) + ' delte, ' + nf(e.cart_events_7d) + ' kurv-hændelser/7 d'));
+  }
+
+  function openFeedbackCount() {
+    return state.feedback.filter(function (f) { return !f.handled_at; }).length + state.pending.length;
+  }
+
+  function staleStores(ov) {
+    return (ov.stores || []).filter(function (s) {
+      var h = ago(s.last_scraped);
+      return h == null || h > STALE_HOURS;
+    });
+  }
+
+  function badge(id, n) {
+    var b = $(id);
+    b.hidden = !n;
+    b.textContent = n ? String(n) : '';
+  }
+
+  function renderBadges(ov) {
+    badge('badge-feedback', openFeedbackCount());
+    badge('badge-scraping', staleStores(ov).length);
+    badge('badge-opskrifter', (ov.pending_recipes || []).length);
+    badge('badge-korsler', failingWorkflows().length);
+  }
+
+  // Overblikkets "kræver opmærksomhed": hvert punkt linker til sin sektion.
+  function renderAttention(ov, ed) {
+    var items = [];
+    var open = openFeedbackCount();
+    if (open) items.push(['warn', open + ' ubehandlet feedback', '#feedback']);
+    staleStores(ov).forEach(function (s) {
+      items.push(['bad', s.butik + ': ingen nye data i ' + agoText(ago(s.last_scraped)).replace(' siden', ''), '#scraping']);
+    });
+    failingWorkflows().forEach(function (g) {
+      items.push(['bad', g.name + ': seneste kørsel fejlede', '#korsler']);
+    });
+    var synced = state.runs && state.runs.synced_at ? ago(state.runs.synced_at) : null;
+    if (synced != null && synced > SYNC_STALE_HOURS) {
+      items.push(['warn', 'Kørselshistorikken er ikke synket i ' + agoText(synced).replace(' siden', ''), '#korsler']);
+    }
+    var pr = (ov.pending_recipes || []).length;
+    if (pr) items.push(['info', pr + ' opskrift' + (pr === 1 ? '' : 'er') + ' venter på godkendelse', '#opskrifter']);
+    var db = ov.database || {};
+    if (db.limit_bytes && db.size_bytes / db.limit_bytes >= 0.8) {
+      items.push(['bad', 'Supabase-databasen er ' + Math.round(db.size_bytes / db.limit_bytes * 100) + ' % fuld', '#drift']);
+    }
+    var b = (ed && ed.d1_budget) || {};
+    if (b.configured && !b.error && b.rows_written / b.limit_written >= 0.9) {
+      items.push(['warn', 'D1 rows_written er ' + Math.round(b.rows_written / b.limit_written * 100) + ' % af dagens budget', '#drift']);
+    }
+    if (!items.length) { fill('admin-attention', empty('Intet kræver opmærksomhed lige nu.')); return; }
+    fill('admin-attention', el('ul', { class: 'adm-attn' }, items.map(function (it) {
+      return el('li', {}, [pill(it[0], it[0] === 'bad' ? 'Problem' : it[0] === 'warn' ? 'Tjek' : 'Info'),
+                           el('a', { href: it[2], text: it[1] })]);
+    })));
+  }
+
+  /* ----------------------------------------------------------- navigation */
+  var SECTIONS = ['oversigt', 'feedback', 'scraping', 'korsler', 'opskrifter', 'brugere', 'drift'];
+
+  function showSection() {
+    var name = (location.hash || '').replace('#', '');
+    if (SECTIONS.indexOf(name) < 0) name = 'oversigt';
+    document.querySelectorAll('#admin-main section[data-section]').forEach(function (sec) {
+      sec.hidden = sec.getAttribute('data-section') !== name;
+    });
+    document.querySelectorAll('#admin-nav a').forEach(function (a) {
+      if (a.getAttribute('data-section') === name) {
+        a.setAttribute('aria-current', 'page');
+        // På mobil er menuen en vandret bjælke - hold det valgte punkt synligt.
+        if (a.scrollIntoView) a.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+      else a.removeAttribute('aria-current');
+    });
+    window.scrollTo(0, 0);
   }
 
   function renderFeedback() {
@@ -213,6 +296,7 @@
     rpc('admin_set_feedback_handled', { p_id: f.id, p_handled: handled }).then(function () {
       f.handled_at = handled ? new Date().toISOString() : null;
       renderFeedback();
+      badge('badge-feedback', openFeedbackCount());
     }).catch(function (e) {
       btn.disabled = false;
       showError('Kunne ikke opdatere feedback: ' + (e.message || e));
@@ -233,6 +317,102 @@
       text: 'Priser senest tjekket: ' + (ov.prices_last_checked || '-') +
             ' · næringsdata opdateret: ' + when(ov.nutrition_updated) }));
     fill('admin-stores', box);
+  }
+
+  /* ------------------------------------------------- GitHub Actions-kørsler */
+  var EVENTS = { schedule: 'Planlagt', workflow_dispatch: 'Manuel', push: 'Push',
+                 workflow_run: 'Efter andet job', repository_dispatch: 'Dispatch' };
+  var FAILED = ['failure', 'timed_out', 'startup_failure'];
+  var SYNC_STALE_HOURS = 8;      // synken kører hver ~3. time (GitHub-cron: 2-6 t)
+
+  function runOutcome(r) {
+    if (r.status !== 'completed') return ['info', r.status === 'in_progress' ? 'Kører' : 'I kø'];
+    if (r.conclusion === 'success') return ['ok', 'OK'];
+    if (FAILED.indexOf(r.conclusion) >= 0) return ['bad', 'Fejlede'];
+    if (r.conclusion === 'cancelled') return ['warn', 'Annulleret'];
+    if (r.conclusion === 'skipped') return ['', 'Sprunget over'];
+    return ['warn', String(r.conclusion || r.status)];
+  }
+
+  // Kørslerne kommer nyeste først; grupperes pr. workflow-fil i den rækkefølge.
+  function runGroups() {
+    var runs = (state.runs && state.runs.runs) || [];
+    var byKey = {}, groups = [];
+    runs.forEach(function (r) {
+      var key = r.path || r.workflow;
+      if (!byKey[key]) { byKey[key] = { name: r.workflow || key, path: r.path || '', runs: [] }; groups.push(byKey[key]); }
+      byKey[key].runs.push(r);
+    });
+    return groups;
+  }
+
+  // Et workflow "fejler", når dets seneste afgjorte kørsel (lykkedes/fejlede)
+  // fejlede. Annullerede og overspringede kørsler tæller ikke som svar.
+  function lastVerdict(g) {
+    for (var i = 0; i < g.runs.length; i++) {
+      var r = g.runs[i];
+      if (r.status === 'completed' && (r.conclusion === 'success' || FAILED.indexOf(r.conclusion) >= 0)) return r;
+    }
+    return null;
+  }
+
+  function failingWorkflows() {
+    return runGroups().filter(function (g) {
+      var v = lastVerdict(g);
+      return v && v.conclusion !== 'success';
+    });
+  }
+
+  function ghUrl(u) { return /^https:\/\/github\.com\//.test(u || '') ? u : null; }
+
+  function duration(r) {
+    if (r.status !== 'completed' || !r.started_at || !r.updated_at) return '-';
+    var s = Math.max(0, Math.round((Date.parse(r.updated_at) - Date.parse(r.started_at)) / 1000));
+    return s < 60 ? s + ' s' : s < 3600 ? Math.round(s / 60) + ' min' : (s / 3600).toFixed(1).replace('.', ',') + ' t';
+  }
+
+  function runStrip(runs) {
+    // Ældste til venstre, nyeste til højre - som en tidslinje.
+    return el('span', { class: 'adm-runs' }, runs.slice(0, 12).reverse().map(function (r) {
+      var o = runOutcome(r);
+      return el(ghUrl(r.url) ? 'a' : 'span', { class: o[0], href: ghUrl(r.url) || '', target: '_blank', rel: 'noopener',
+        title: when(r.created_at) + ' · ' + o[1] + (r.branch && r.branch !== 'main' ? ' · ' + r.branch : ''),
+        'aria-label': when(r.created_at) + ': ' + o[1] });
+    }));
+  }
+
+  function renderRuns() {
+    var info = state.runs;
+    var sub = $('runs-sub');
+    sub.textContent = '';
+    if (!info) { fill('admin-runs', empty('Kørslerne kunne ikke hentes.')); return; }
+    if (!info.synced_at) {
+      fill('admin-runs', empty('Ingen kørsler gemt endnu. De hentes af uptime-check.yml hver ~3. time.'));
+      return;
+    }
+    var failing = failingWorkflows();
+    var groups = runGroups().sort(function (a, b) {
+      var fa = failing.indexOf(a) >= 0, fb = failing.indexOf(b) >= 0;
+      if (fa !== fb) return fa ? -1 : 1;
+      return String(b.runs[0].created_at).localeCompare(String(a.runs[0].created_at));
+    });
+    sub.textContent = 'Seneste 14 dage, uden PR-tjek · synket ' + agoText(ago(info.synced_at));
+    if (!groups.length) { fill('admin-runs', empty('Ingen kørsler fundet.')); return; }
+    var rows = groups.map(function (g) {
+      var r = g.runs[0];
+      var o = runOutcome(r);
+      var v = lastVerdict(g);
+      var name = el('span', {}, [ghUrl(r.url)
+          ? el('a', { href: r.url, target: '_blank', rel: 'noopener', text: g.name })
+          : el('span', { text: g.name }),
+        el('br'), el('span', { class: 'adm-wf-file', text: g.path.replace('.github/workflows/', '') })]);
+      var status = el('span', {}, [pill(o[0] || 'info', o[1]),
+        v && v !== r && v.conclusion !== 'success' ? el('span', { class: 'adm-wf-file', text: ' sidst afgjort: fejlede' }) : null]);
+      var started = el('span', { title: when(r.created_at), style: 'white-space:nowrap', text: agoText(ago(r.created_at)) });
+      return [name, status, started,
+              EVENTS[r.event] || r.event, duration(r), runStrip(g.runs)];
+    });
+    fill('admin-runs', table(['Workflow', 'Seneste', 'Startet', 'Udløst af', 'Varighed', 'Historik'], rows, [4]));
   }
 
   function renderRecipes(ov) {
@@ -322,7 +502,6 @@
     $('admin-gate').hidden = false;
     $('admin-gate-text').textContent = text;
     $('admin-login').hidden = !showLogin;
-    $('admin-sub').textContent = '';
   }
 
   var loading = false;
@@ -333,8 +512,9 @@
     loading = true;
     return sb.auth.getSession().then(function (res) {
       var session = res && res.data && res.data.session;
+      $('admin-who').textContent = session ? (session.user.email || '') : '';
+      $('admin-logout').hidden = !session;
       if (!session) { gate('Log ind med din admin-konto for at se panelet.', true); return; }
-      $('admin-sub').textContent = 'Logget ind som ' + (session.user.email || '');
 
       return rpc('is_admin').then(function (ok) {
         if (!ok) { gate('Din konto har ikke admin-adgang.', false); return; }
@@ -350,15 +530,22 @@
           }),
           edge(session.access_token).catch(function (e) {
             showError('Edge-data kunne ikke hentes: ' + (e.message || e)); return null;
+          }),
+          rpc('admin_job_runs', { p_days: 14 }).catch(function (e) {
+            showError('Kørselshistorikken kunne ikke hentes: ' + (e.message || e)); return null;
           })
         ]).then(function (r) {
           var ov = r[0] || {};
           var ed = r[2];
+          state.runs = r[3];
           state.feedback = r[1] || [];
           state.pending = (ed && ed.pending_feedback) || [];
           renderTiles(ov, ed);
+          renderBadges(ov);
+          renderAttention(ov, ed);
           renderFeedback();
           renderStores(ov);
+          renderRuns();
           renderRecipes(ov);
           renderSecurity(ov);
           renderEdge(ed);
@@ -388,6 +575,11 @@
 
   function boot() {
     $('admin-refresh').addEventListener('click', load);
+    $('admin-logout').addEventListener('click', function () {
+      if (window.authLogout) window.authLogout();
+    });
+    window.addEventListener('hashchange', showSection);
+    showSection();
     $('admin-login').addEventListener('click', function () {
       if (window.openAuthModal) window.openAuthModal('login');
     });

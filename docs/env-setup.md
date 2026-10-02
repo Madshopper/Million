@@ -142,6 +142,31 @@ Kan springes over til daglig lokal udvikling.
 
 ---
 
+## 4b) Valgfrit: D1-budgettet i admin-panelet (`/admin`)
+
+`CF_ANALYTICS_TOKEN` (+ `CLOUDFLARE_ACCOUNT_ID`) er GitHub repo-secrets, som
+`deploy-edge.yml` og `deploy-edge-dev.yml` lægger ind i workerens vars ved
+deploy (`scripts/build-pages.sh`). Tokenen er en Cloudflare API-token med kun
+*Account Analytics: Read*. Uden den viser D1-kortet "kræver CF_ANALYTICS_TOKEN";
+resten af panelet virker.
+
+Kørselshistorikken under *Kørsler* kræver ingen token: `uptime-check.yml`
+gemmer kørslerne i Supabase (`public.job_runs`) med workflowets egen
+`GITHUB_TOKEN` via `scripts/sync-job-runs.py`.
+
+---|---|---|
+| `CF_ANALYTICS_TOKEN` (+ `CLOUDFLARE_ACCOUNT_ID`) | D1-budgettet (rows_written i dag) | Cloudflare API-token med kun *Account Analytics: Read* |
+| `ADMIN_GITHUB_TOKEN` | Kørselshistorik (GitHub Actions) under *Kørsler* | Fine-grained GitHub-token, kun repoet `Madshopper/Million`, kun *Actions: Read-only* |
+
+`ADMIN_GITHUB_TOKEN`: GitHub → Settings → Developer settings → Fine-grained
+tokens → Generate new token. Resource owner `Madshopper`, *Only select
+repositories* → `Million`, Permissions → Repository → *Actions: Read-only*.
+Gem den under repoets Settings → Secrets and variables → Actions, og kør
+`deploy-edge.yml` (eller merg noget til `main`). Lokalt kan den sættes i rod-`.env`.
+Repoet læses fra `ADMIN_GITHUB_REPO` (standard `Madshopper/Million`).
+
+---
+
 ## 5) Fase 9 — store-konti (ikke env-nøgler, men “sidste opsætning”)
 
 > Skal du **udføre** udgivelsen, så følg [`udgivelse.md`](udgivelse.md) i stedet —

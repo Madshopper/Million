@@ -356,6 +356,75 @@ GRANT EXECUTE ON FUNCTION public.admin_set_feedback_handled(bigint, boolean) TO 
 
 
 -- ---------------------------------------------------------------------------
+-- Kørselshistorik (GitHub Actions) til admin-panelets "Kørsler"
+-- ---------------------------------------------------------------------------
+-- Skrives af scripts/sync-job-runs.py, et trin i uptime-check.yml, der henter
+-- de seneste kørsler med workflowets egen GITHUB_TOKEN og upserter dem her med
+-- service_role. Ingen klient kan skrive; admins læser via admin_job_runs().
+-- En række pr. GitHub-kørsel (id = run id), så en kørsel der stod "i gang" ved
+-- én synk bliver rettet til sit udfald ved den næste. Scriptet sletter rækker
+-- ældre end 90 dage, så tabellen bliver ved med at være lille (~30 rækker/døgn).
+CREATE TABLE IF NOT EXISTS public.job_runs (
+  id          bigint PRIMARY KEY,
+  workflow    text NOT NULL,
+  path        text NOT NULL DEFAULT '',
+  event       text NOT NULL DEFAULT '',
+  status      text NOT NULL DEFAULT '',
+  conclusion  text,
+  branch      text NOT NULL DEFAULT '',
+  run_number  integer,
+  run_attempt integer,
+  created_at  timestamptz NOT NULL,
+  started_at  timestamptz,
+  updated_at  timestamptz,
+  url         text NOT NULL DEFAULT '',
+  synced_at   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS job_runs_created_idx ON public.job_runs (created_at DESC);
+
+REVOKE ALL ON public.job_runs FROM anon, authenticated;
+GRANT ALL ON public.job_runs TO service_role;
+ALTER TABLE public.job_runs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Service role fuld adgang" ON public.job_runs;
+CREATE POLICY "Service role fuld adgang" ON public.job_runs
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+
+CREATE OR REPLACE FUNCTION public.admin_job_runs(p_days integer DEFAULT 14)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = '42501';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'synced_at', (SELECT max(synced_at) FROM public.job_runs),
+    'runs', (
+      SELECT coalesce(jsonb_agg(r ORDER BY r.created_at DESC), '[]'::jsonb)
+      FROM (
+        SELECT id, workflow, path, event, status, conclusion, branch, run_number,
+               run_attempt, created_at, started_at, updated_at, url
+        FROM public.job_runs
+        WHERE created_at > now() - make_interval(days => least(greatest(coalesce(p_days, 14), 1), 90))
+        ORDER BY created_at DESC
+        LIMIT 1000
+      ) r
+    )
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.admin_job_runs(integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_job_runs(integer) TO authenticated;
+
+
+-- ---------------------------------------------------------------------------
 -- Gør din konto til admin (én gang, ret e-mailen hvis nødvendigt)
 -- ---------------------------------------------------------------------------
 -- INSERT INTO public.admin_users (user_id)

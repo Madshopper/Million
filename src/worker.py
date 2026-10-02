@@ -845,7 +845,11 @@ class Default(WSGI[Env]):
                 _cache_ver_kv = str(val)
         except Exception:
             pass                       # behold sidst kendte version
-        _cache_ver = f"{_cache_ver_kv or '0'}-{self._utc_day()}"
+        # BUILD_ID (sat af scripts/build-pages.sh) holder gamle isolates under
+        # et deploy ude af den nye kodes cache: uden den kunne en gammel isolate
+        # læse det nye cache_version og gemme gammel HTML under den nye nøgle.
+        build = str(getattr(self.raw_env, "BUILD_ID", "") or "0")
+        _cache_ver = f"{_cache_ver_kv or '0'}-{self._utc_day()}-{build}"
         _cache_ver_at = now
         return _cache_ver
 

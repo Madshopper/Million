@@ -112,6 +112,14 @@ fi
 CACHE_REFRESH_SECRET="$(cat "$SECRET_FILE")"
 CACHE_REFRESH_SECRET_TOML="$(toml_escape "$CACHE_REFRESH_SECRET")"
 
+# Bygge-id i edge-cache-nøglen (src/worker.py::_cache_version). Under et deploy
+# kører gamle isolates videre et stykke tid; læste de det nye cache_version fra
+# KV, gemte de den GAMLE kodes HTML under den nye nøgle, og den hang så i op til
+# 24 timer (sket 02-10-2026 med forsiden). Med bygge-id'et i nøglen kan gammel
+# kode aldrig skrive i den nye kodes cache. Tidsstemplet gør hvert build unikt,
+# også når samme commit deployes igen.
+BUILD_ID_VALUE="$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo local)-$(date +%s)"
+
 # D1-budget i /admin (app.py::_admin_d1_budget): valgfri Cloudflare-token med
 # KUN "Account Analytics: Read". Uden den viser panelet "ikke sat op". Samme
 # var-mønster som ovenfor, fordi Python Workers kun ser [vars] i os.environ.
@@ -324,6 +332,7 @@ SUPABASE_KEY = "sb_publishable_Jt8N0XezmzfZJSzzSwBBKQ_uGbNoq8f"
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Jt8N0XezmzfZJSzzSwBBKQ_uGbNoq8f"
 CACHE_REFRESH_SECRET = "${CACHE_REFRESH_SECRET_TOML}"
 SITE_URL = "${SITE_URL_VALUE}"
+BUILD_ID = "${BUILD_ID_VALUE}"
 # Skrive-tabeller (cart_popularity, price_alerts): "" = produktion, "_dev" =
 # dev-kopier (scripts/supabase-dev-tables.sql), så test ikke rører prod-data.
 TABLE_SUFFIX = "${TABLE_SUFFIX_VALUE}"

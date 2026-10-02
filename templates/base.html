@@ -89,9 +89,15 @@
        script første gang det reelt skal bruges (login/signup-modal åbnes,
        hhv. signup-visningen med Turnstile-feltet vises). Chart.js
        lazy-loades tilsvarende første gang et overlay åbnes (loadChartJs()). -->
+<<<<<<< HEAD
   <script src="{{ url_for('static', filename='js/supabase.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
+=======
+  <script src="{{ url_for('static', filename='js/supabase.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
+>>>>>>> origin/main
 </head>
 
 <body>
@@ -813,142 +819,7 @@
     </div>
   </div>
 
-  <!-- Auth (login / konto) modal -->
-  <div id="auth-overlay" class="auth-overlay" onclick="closeAuthModal()"></div>
-  <div id="auth-modal" class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-hidden="true">
-    <button class="auth-close" onclick="closeAuthModal()" aria-label="Luk">&#x2715;</button>
-
-    <!-- Udlogget: login / opret konto -->
-    <div id="auth-view-login">
-      <h2 id="auth-title">Log ind</h2>
-      <p class="auth-sub">Gem din kurv og få den frem på alle dine enheder.</p>
-
-      <!-- Google Identity Services renderer sin egen knap her (viser madshopper.dk
-           på samtykkeskærmen). auth.js skjuler fallback-knappen nedenfor, når GSI
-           er klar; kan GSI ikke loade, vises fallbacken (redirect-login) i stedet. -->
-      <div id="gsi-button" class="gsi-button"></div>
-      <button type="button" class="auth-google-btn" id="auth-google-fallback" onclick="authGoogle()" style="display:none;">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <path fill="#4285F4" d="M23.06 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h6.19a5.3 5.3 0 0 1-2.29 3.48v2.89h3.7c2.17-2 3.46-4.94 3.46-8.38z"/>
-          <path fill="#34A853" d="M12 24c3.1 0 5.7-1.03 7.6-2.79l-3.7-2.89c-1.03.69-2.35 1.1-3.9 1.1-3 0-5.54-2.03-6.45-4.75H1.72v2.98A11.99 11.99 0 0 0 12 24z"/>
-          <path fill="#FBBC05" d="M5.55 14.67a7.2 7.2 0 0 1 0-4.6V7.09H1.72a12 12 0 0 0 0 10.56l3.83-2.98z"/>
-          <path fill="#EA4335" d="M12 5.38c1.69 0 3.2.58 4.4 1.72l3.28-3.28C17.7 1.98 15.1.94 12 .94A11.99 11.99 0 0 0 1.72 7.09l3.83 2.98C6.46 7.41 9 5.38 12 5.38z"/>
-        </svg>
-        Fortsæt med Google
-      </button>
-
-      <!-- Skjult indtil window.__APPLE_CLIENT_ID er sat (se ovenfor) -
-           auth.js::showAppleButtonIfReady viser den, når Apple-SDK'en og
-           client-id'et begge er klar. -->
-      <button type="button" class="auth-apple-btn" id="auth-apple-btn" onclick="authApple()" style="display:none;">
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="#fff">
-          <path d="M16.365 1.43c0 1.14-.462 2.109-1.386 2.906-.923.797-1.985 1.259-3.184 1.386-.077-1.117.365-2.147 1.326-3.09.98-.943 2.06-1.443 3.244-1.5v.298Zm3.522 16.44c-.462 1.02-1.02 1.983-1.673 2.891-.923 1.309-1.798 2.284-2.622 2.925-.827.634-1.673.972-2.538.972-.634 0-1.463-.187-2.487-.56-.923-.35-1.673-.523-2.25-.523-.577 0-1.365.173-2.362.523-1 .373-1.827.56-2.487.56-.827 0-1.653-.336-2.48-1.01-.827-.634-1.673-1.598-2.538-2.891-1.02-1.545-1.674-3.19-1.962-4.933-.28-1.77-.14-3.402.42-4.895.42-1.107 1.056-1.983 1.909-2.63.85-.65 1.797-.98 2.842-.99.634 0 1.44.196 2.42.588.976.392 1.6.588 1.868.588.28 0 .952-.226 2.017-.678 1.02-.42 1.884-.588 2.59-.502 1.928.15 3.373.867 4.336 2.148-1.723 1.033-2.577 2.476-2.557 4.334.017 1.446.539 2.65 1.567 3.61.463.44.986.783 1.567 1.028-.126.373-.257.727-.42 1.058Z"/>
-        </svg>
-        Fortsæt med Apple
-      </button>
-
-      <div class="auth-divider"><span>eller</span></div>
-
-      <form id="auth-form" onsubmit="return authSubmit(event)" novalidate>
-        <label class="auth-field">
-          <span>Email</span>
-          <input type="email" id="auth-email" autocomplete="email" required maxlength="254" placeholder="dig@eksempel.dk">
-        </label>
-        <label class="auth-field">
-          <span>Adgangskode</span>
-          <input type="password" id="auth-password" autocomplete="current-password" required minlength="8" maxlength="72" placeholder="Mindst 8 tegn">
-        </label>
-        <label class="auth-field" id="auth-name-row" style="display:none;">
-          <span>Dit navn</span>
-          <input type="text" id="auth-name" autocomplete="nickname" maxlength="40" placeholder="fx Kasper">
-          <span class="auth-hint">Vises når I deler kurv, så andre kan se hvem der er med</span>
-        </label>
-        <div class="auth-field" id="auth-turnstile-row" style="display:none;">
-          <div id="auth-turnstile-widget" class="cf-turnstile" data-sitekey="0x4AAAAAAD_TUldIm22rh6Lz"
-               data-action="turnstile-spin-v1"></div>
-        </div>
-        <p id="auth-error" class="auth-error" role="alert" style="display:none;"></p>
-        <button type="submit" class="auth-submit" id="auth-submit-btn">Log ind</button>
-      </form>
-
-      <p class="auth-forgot" id="auth-forgot-row">
-        <button type="button" class="auth-link" onclick="authShowReset()">Glemt adgangskode?</button>
-      </p>
-
-      <p class="auth-switch">
-        <span id="auth-switch-text">Ny bruger?</span>
-        <button type="button" class="auth-link" onclick="authToggleMode()" id="auth-switch-btn">Opret konto</button>
-      </p>
-
-      <p class="auth-legal">
-        Ved at oprette en konto accepterer du vores
-        <a href="{{ url_for('terms_of_service') }}">vilkår</a>
-        og
-        <a href="{{ url_for('privacy_policy') }}">privatlivspolitik</a>.
-        Vi gemmer kun din email, dit valgte navn og din kurv.
-      </p>
-    </div>
-
-    <!-- Indlogget: konto -->
-    <div id="auth-view-account" style="display:none;">
-      <h2 id="auth-account-title">Din konto</h2>
-      <p class="auth-account-email" id="auth-account-email"></p>
-      <p class="auth-sub">Din kurv gemmes automatisk, når du er logget ind.</p>
-      <label class="auth-field">
-        <span>Dit navn i delte kurve</span>
-        <input type="text" id="auth-account-name" autocomplete="nickname" maxlength="40" placeholder="fx Kasper">
-      </label>
-      <p id="auth-name-msg" class="auth-error" role="status" style="display:none;"></p>
-      <button type="button" class="auth-submit" onclick="authSaveDisplayName()">Gem navn</button>
-
-      <!-- Mine prisalarmer. Brugeren kunne oprette alarmer, men hverken se
-           eller stoppe dem igen - og alarm-mailen havde ingen vej tilbage.
-           SELECT/DELETE for egne raekker findes allerede i
-           scripts/supabase-price-alerts-v2.sql; kun visningen manglede. -->
-      <section id="auth-alerts" class="auth-alerts">
-        <h3 class="auth-alerts-title">Mine prisalarmer</h3>
-        <p id="auth-alerts-empty" class="auth-sub" style="display:none;">
-          Du har ingen aktive prisalarmer. Åbn en vare og tryk “Overvåg pris”.
-        </p>
-        <ul id="auth-alerts-list" class="auth-alerts-list"></ul>
-        <p id="auth-alerts-msg" class="auth-error" role="status" style="display:none;"></p>
-      </section>
-
-      <button type="button" class="auth-submit auth-submit-secondary" onclick="authLogout()">Log ud</button>
-      <button type="button" class="auth-danger" onclick="authDeleteAccount()">Slet min konto</button>
-    </div>
-
-    <!-- Glemt adgangskode: anmod om nulstillingslink -->
-    <div id="auth-view-reset" style="display:none;">
-      <h2 id="auth-reset-title">Nulstil adgangskode</h2>
-      <p class="auth-sub">Skriv din email, så sender vi et link til at vælge en ny adgangskode.</p>
-      <form id="auth-reset-form" onsubmit="return authRequestReset(event)" novalidate>
-        <label class="auth-field">
-          <span>Email</span>
-          <input type="email" id="auth-reset-email" autocomplete="email" required maxlength="254" placeholder="dig@eksempel.dk">
-        </label>
-        <p id="auth-reset-msg" class="auth-error" role="alert" style="display:none;"></p>
-        <button type="submit" class="auth-submit" id="auth-reset-btn">Send nulstillingslink</button>
-      </form>
-      <p class="auth-switch">
-        <button type="button" class="auth-link" onclick="authShowLogin()">Tilbage til log ind</button>
-      </p>
-    </div>
-
-    <!-- Glemt adgangskode: sæt ny kode (efter klik på mail-link) -->
-    <div id="auth-view-newpassword" style="display:none;">
-      <h2 id="auth-newpassword-title">Vælg ny adgangskode</h2>
-      <p class="auth-sub">Indtast din nye adgangskode nedenfor.</p>
-      <form id="auth-newpw-form" onsubmit="return authSubmitNewPassword(event)" novalidate>
-        <label class="auth-field">
-          <span>Ny adgangskode</span>
-          <input type="password" id="auth-newpw" autocomplete="new-password" required minlength="8" maxlength="72" placeholder="Mindst 8 tegn">
-        </label>
-        <p id="auth-newpw-msg" class="auth-error" role="alert" style="display:none;"></p>
-        <button type="submit" class="auth-submit" id="auth-newpw-btn">Gem ny adgangskode</button>
-      </form>
-    </div>
-  </div>
+  {% include 'partials/auth_modal.html' %}
 
 </body>
 

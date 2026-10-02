@@ -1,121 +1,133 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+{# Admin har sit eget layout - ikke base.html. Ingen offentlig header/footer,
+   søgning, kurv eller script.js; kun login (auth.js + auth-modalen) og
+   static/js/admin.js. Siden er en tom skal, alle tal hentes efter login. #}
+<html lang="da">
 
-{% block title %}Admin - MadShopper{% endblock %}
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin - MadShopper</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <meta name="theme-color" content="#059669">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <script>
+    window.__SB_URL = {{ supabase_url|tojson }};
+    window.__SB_KEY = {{ supabase_anon_key|tojson }};
+    window.__SB_CARTS = {{ carts_table|tojson }};
+    window.__SB_PRICE_ALERTS = {{ price_alerts_table|tojson }};
+    window.__SB_RPC_SUFFIX = {{ rpc_suffix|tojson }};
+    window.__GOOGLE_CLIENT_ID = "683267660851-4jvo3nauv24s4g8sk5qhk1dlvuc4tjgr.apps.googleusercontent.com";
+    window.__APPLE_CLIENT_ID = "";
+  </script>
+  <script src="{{ url_for('static', filename='js/supabase.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
+</head>
 
-{% block content %}
-<style>
-  .adm { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
-  .adm h1 { margin: 0 0 4px; font-size: 1.6rem; }
-  .adm h2 { margin: 0 0 12px; font-size: 1.1rem; }
-  .adm-sub { color: var(--gray-500); margin: 0 0 20px; font-size: .9rem; }
-  .adm-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
-  .adm-btn { border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-900);
-             border-radius: var(--radius-sm); padding: 6px 12px; font: inherit; font-size: .85rem; cursor: pointer; }
-  .adm-btn:hover { border-color: var(--green); }
-  .adm-btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
-  .adm-btn.danger:hover { border-color: var(--red); color: var(--red); }
-  .adm-btn[aria-pressed="true"] { border-color: var(--green); color: var(--green); font-weight: 600; }
-  .adm-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .adm-tile, .adm-card { background: var(--white); border: 1px solid var(--gray-200);
-                         border-radius: var(--radius-md); padding: 14px 16px; }
-  .adm-tile .k { color: var(--gray-500); font-size: .8rem; }
-  .adm-tile .v { font-size: 1.5rem; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
-  .adm-tile .s { color: var(--gray-500); font-size: .78rem; margin-top: 2px; }
-  .adm-meter { height: 6px; border-radius: 3px; background: var(--gray-200); margin-top: 8px; overflow: hidden; }
-  .adm-meter > span { display: block; height: 100%; background: var(--green); }
-  .adm-meter.warn > span { background: var(--yellow); }
-  .adm-meter.bad > span { background: var(--red); }
-  .adm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 16px; }
-  .adm-card { margin-bottom: 16px; overflow-x: auto; }
-  .adm-grid .adm-card { margin-bottom: 0; }
-  .adm table { width: 100%; border-collapse: collapse; font-size: .88rem; }
-  .adm th { text-align: left; color: var(--gray-500); font-weight: 600; font-size: .78rem;
-            padding: 6px 8px; border-bottom: 1px solid var(--gray-200); }
-  .adm td { padding: 7px 8px; border-bottom: 1px solid var(--gray-200); vertical-align: top; }
-  .adm tr:last-child td { border-bottom: 0; }
-  .adm td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .adm-pill { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
-  .adm-pill.ok { background: var(--green-light); color: var(--green-dark); }
-  .adm-pill.warn { background: var(--yellow-light); color: #92400E; }
-  .adm-pill.bad { background: var(--red-light); color: #991B1B; }
-  .adm-pill.info { background: var(--blue-light); color: #1E40AF; }
-  .adm-fb { border-top: 1px solid var(--gray-200); padding: 12px 0; }
-  .adm-fb:first-child { border-top: 0; padding-top: 0; }
-  .adm-fb.done { opacity: .55; }
-  .adm-fb-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: .82rem; color: var(--gray-500); }
-  .adm-fb-head .adm-btn { margin-left: auto; }
-  .adm-fb-subj { font-weight: 600; margin-top: 6px; }
-  .adm-fb-msg { white-space: pre-wrap; word-break: break-word; margin-top: 4px; }
-  .adm-fb-meta { font-size: .8rem; color: var(--gray-500); margin-top: 6px; word-break: break-all; }
-  .adm a { color: var(--green); }
-  .adm-empty { color: var(--gray-500); font-size: .9rem; }
-  .adm-gate { text-align: center; padding: 48px 16px; }
-  .adm-gate p { color: var(--gray-500); }
-  .adm-err { background: var(--red-light); color: #991B1B; border-radius: var(--radius-sm);
-             padding: 10px 12px; margin-bottom: 16px; font-size: .88rem; }
-  [hidden] { display: none !important; }
-</style>
+<body class="adm-body">
+  <script>
+    // Samme tema-nøgle som resten af sitet (se base.html), sat før første maling.
+    try {
+      var _t = localStorage.getItem('madshopper_darkmode');
+      if (_t === 'true' || (_t === null && window.matchMedia
+          && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.body.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) { /* localStorage kan være spærret */ }
+  </script>
 
-<div class="adm" id="admin-root">
-  <h1>Admin</h1>
-  <p class="adm-sub" id="admin-sub">Henter …</p>
-
-  <div class="adm-gate" id="admin-gate" hidden>
-    <p id="admin-gate-text">Log ind med din admin-konto for at se panelet.</p>
-    <button type="button" class="adm-btn primary" id="admin-login">Log ind</button>
-  </div>
-
-  <div id="admin-main" hidden>
-    <div class="adm-bar">
-      <button type="button" class="adm-btn" id="admin-refresh">Opdater</button>
-      <span class="adm-sub" style="margin:0" id="admin-stamp"></span>
-    </div>
-    <div id="admin-errors"></div>
-
-    <div class="adm-tiles" id="admin-tiles"></div>
-
-    <section class="adm-card">
-      <div class="adm-bar" style="margin-bottom:8px">
-        <h2 style="margin:0">Feedback</h2>
-        <button type="button" class="adm-btn" id="fb-open" aria-pressed="true">Ubehandlet</button>
-        <button type="button" class="adm-btn" id="fb-all" aria-pressed="false">Alle</button>
+  <div class="adm-shell">
+    <aside class="adm-side" aria-label="Admin-menu">
+      <div class="adm-brand">
+        <img src="{{ url_for('static', filename='favicon.svg') }}" alt="" width="28" height="28">
+        <span><span class="adm-brand-name">MadShopper </span><b>Admin</b></span>
       </div>
-      <div id="admin-feedback"></div>
-    </section>
+      <nav class="adm-nav" id="admin-nav">
+        <a href="#oversigt" data-section="oversigt">Overblik</a>
+        <a href="#feedback" data-section="feedback">Feedback <span class="adm-badge" id="badge-feedback" hidden></span></a>
+        <a href="#scraping" data-section="scraping">Scraping <span class="adm-badge" id="badge-scraping" hidden></span></a>
+        <a href="#korsler" data-section="korsler">Kørsler <span class="adm-badge" id="badge-korsler" hidden></span></a>
+        <a href="#opskrifter" data-section="opskrifter">Opskrifter <span class="adm-badge" id="badge-opskrifter" hidden></span></a>
+        <a href="#brugere" data-section="brugere">Brugere</a>
+        <a href="#drift" data-section="drift">Drift</a>
+      </nav>
+      <div class="adm-side-foot">
+        <span id="admin-who" class="adm-who"></span>
+        <button type="button" class="adm-btn" id="admin-refresh">Opdater</button>
+        <button type="button" class="adm-btn" id="admin-logout" hidden>Log ud</button>
+        <a href="/" class="adm-backlink">Til madshopper.dk</a>
+      </div>
+    </aside>
 
-    <section class="adm-card">
-      <h2>Scraping pr. butik</h2>
-      <div id="admin-stores"></div>
-    </section>
+    <div class="adm" id="admin-root" role="main">
+      <div class="adm-gate" id="admin-gate">
+        <h1>Admin</h1>
+        <p id="admin-gate-text">Henter …</p>
+        <button type="button" class="adm-btn primary" id="admin-login" hidden>Log ind</button>
+      </div>
 
-    <section class="adm-card">
-      <h2>Opskrifter der venter på godkendelse</h2>
-      <div id="admin-recipes"></div>
-    </section>
+      <div id="admin-main" hidden>
+        <div id="admin-errors"></div>
 
-    <div class="adm-grid">
-      <section class="adm-card">
-        <h2>Sikkerhed seneste 24 timer</h2>
-        <div id="admin-security"></div>
-      </section>
-      <section class="adm-card">
-        <h2>Edge (Cloudflare)</h2>
-        <div id="admin-edge"></div>
-      </section>
-    </div>
+        <section data-section="oversigt" hidden>
+          <div class="adm-head"><h1>Overblik</h1><span class="adm-sub" id="admin-stamp"></span></div>
+          <div class="adm-tiles" id="admin-tiles"></div>
+          <div class="adm-card">
+            <h2>Kræver opmærksomhed</h2>
+            <div id="admin-attention"></div>
+          </div>
+        </section>
 
-    <div class="adm-grid">
-      <section class="adm-card">
-        <h2>Største tabeller (Supabase)</h2>
-        <div id="admin-tables"></div>
-      </section>
-      <section class="adm-card">
-        <h2>Nyeste brugere</h2>
-        <div id="admin-users"></div>
-      </section>
+        <section data-section="feedback" hidden>
+          <div class="adm-head">
+            <h1>Feedback</h1>
+            <span class="adm-seg">
+              <button type="button" class="adm-btn" id="fb-open" aria-pressed="true">Ubehandlet</button>
+              <button type="button" class="adm-btn" id="fb-all" aria-pressed="false">Alle</button>
+            </span>
+          </div>
+          <div class="adm-card" id="admin-feedback"></div>
+        </section>
+
+        <section data-section="scraping" hidden>
+          <div class="adm-head"><h1>Scraping pr. butik</h1></div>
+          <div class="adm-card" id="admin-stores"></div>
+        </section>
+
+        <section data-section="korsler" hidden>
+          <div class="adm-head"><h1>Kørsler</h1><span class="adm-sub" id="runs-sub"></span></div>
+          <div class="adm-card" id="admin-runs"></div>
+        </section>
+
+        <section data-section="opskrifter" hidden>
+          <div class="adm-head"><h1>Opskrifter</h1></div>
+          <div class="adm-card" id="admin-recipes"></div>
+        </section>
+
+        <section data-section="brugere" hidden>
+          <div class="adm-head"><h1>Brugere</h1></div>
+          <div class="adm-tiles" id="admin-user-tiles"></div>
+          <div class="adm-card"><h2>Nyeste brugere</h2><div id="admin-users"></div></div>
+        </section>
+
+        <section data-section="drift" hidden>
+          <div class="adm-head"><h1>Drift</h1></div>
+          <div class="adm-grid">
+            <div class="adm-card"><h2>Edge (Cloudflare)</h2><div id="admin-edge"></div></div>
+            <div class="adm-card"><h2>Sikkerhed seneste 24 timer</h2><div id="admin-security"></div></div>
+          </div>
+          <div class="adm-card"><h2>Største tabeller (Supabase)</h2><div id="admin-tables"></div></div>
+        </section>
+      </div>
     </div>
   </div>
-</div>
 
-<script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
-{% endblock %}
+  {% include 'partials/auth_modal.html' %}
+</body>
+
+</html>
