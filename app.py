@@ -129,7 +129,7 @@ _EDGE_ENV_VARS = (
     'SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL',
     'SUPABASE_KEY', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
     'CACHE_REFRESH_SECRET', 'ENABLE_PRICE_DB',
-    'GOOGLE_SHEET_WEBHOOK_URL', 'TABLE_SUFFIX',
+    'TABLE_SUFFIX',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
 )
@@ -611,84 +611,21 @@ def _edge_fetch_json(url: str, headers: dict):
     return (data if status == 200 else None), status
 
 
-_pending_feedback_ready = False
-
-
-def _d1_run(sql: str, params: tuple = ()) -> bool:
-    db = _d1()
-    if not db:
-        return False
-    stmt = db.prepare(sql)
-    if params:
-        stmt = stmt.bind(*params)
-    try:
-        _await_sync_retry(stmt.run)
-        return True
-    except Exception as e:
-        logger.warning("D1 _d1_run fejlede: %s (%s)", sql[:80], e)
-        return False
-
-
-def _ensure_pending_feedback_table() -> None:
-    global _pending_feedback_ready
-    if _pending_feedback_ready:
-        return
-    _d1_run(
-        "CREATE TABLE IF NOT EXISTS pending_feedback ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, feedback_type TEXT, name TEXT, "
-        "email TEXT, subject TEXT, message TEXT, page_url TEXT, created_at TEXT)"
-    )
-    _pending_feedback_ready = True
-
-
-def _queue_feedback_for_sheet(payload: dict) -> bool:
-    """Feedback går kun til Google Sheet (ikke Supabase). På edge er der ingen
-    ctx.waitUntil-adgang fra WSGI-laget, og et blokerende kald til den langsomme,
-    eksterne Apps Script-webhook kan overskride Workers' CPU/wall-time-budget
-    (set det give 503 på hele requesten). Derfor lægges rækken i D1 (hurtigt,
-    internt kald - samme klasse som de øvrige D1-kald der virker på edge), og en
-    periodisk GitHub Actions-relay (scripts/relay-feedback-to-sheet.py) sender
-    videre til webhooken uden om Workers helt. Lokalt (ikke edge) er der ingen af
-    disse begrænsninger, så vi sender direkte og synkront."""
-    if _IS_EDGE:
-        _ensure_pending_feedback_table()
-        return _d1_run(
-            "INSERT INTO pending_feedback "
-            "(feedback_type, name, email, subject, message, page_url, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                payload['type'], payload['name'], payload['email'],
-                payload['subject'], payload['message'], payload['page_url'],
-                payload['created_at'],
-            ),
-        )
-
-    # Denne gren rammes kun lokalt (_IS_EDGE er False - produktion og staging
-    # går altid gennem D1-grenen ovenfor, som allerede skriver til hvert
-    # miljøs eget D1 og aldrig relayes videre fra andet end den rigtige
-    # produktions-D1, se scripts/relay-feedback-to-sheet.py). I modsætning til
-    # alle andre skrive-veje i projektet var feedback IKKE adskilt fra
-    # produktion her: webhook_url pegede direkte på det RIGTIGE Google Sheet
-    # uanset TABLE_SUFFIX, så lokal test skrev rigtige rækker ind i
-    # produktions-arket (fundet under QA-audit 2026-08-17). Log i stedet for
-    # at sende, ligesom alt andet lokalt data holdes ude af produktion.
-    if _table_suffix():
-        logger.info('Lokal feedback (sendes ikke til Google Sheet): %r', payload)
-        return True
-
-    webhook_url = os.environ.get('GOOGLE_SHEET_WEBHOOK_URL')
-    if not webhook_url:
-        return False
-    try:
-        import httpx
-        httpx.post(
-            webhook_url, headers={'Content-Type': 'application/json'},
-            content=json.dumps(payload), timeout=5.0, follow_redirects=True,
-        )
-        return True
-    except Exception as e:
-        logger.error('Google Sheet-webhook fejlede: %s', e)
-        return False
+def _store_feedback(payload: dict) -> bool:
+    """Feedback skrives direkte i Supabase (public.feedback) via RPC'en
+    submit_feedback, der gentager valideringen i SQL og har et globalt loft -
+    se scripts/supabase-admin.sql. Svarene læses i /admin. Staging og lokal
+    kørsel skriver med env='dev', så testbeskeder kan skelnes i panelet."""
+    _, status = _supabase_rest('POST', 'rpc/submit_feedback', json_body={
+        'p_type': payload['type'],
+        'p_name': payload['name'],
+        'p_email': payload['email'],
+        'p_subject': payload['subject'],
+        'p_message': payload['message'],
+        'p_page_url': payload['page_url'],
+        'p_env': 'dev' if _table_suffix() else 'prod',
+    }, timeout=8.0)
+    return status in (200, 204)
 
 
 # ---------------------------------------------------------------------------
@@ -3129,8 +3066,8 @@ def admin_edge():
 
     out = {'success': True, 'edge': _IS_EDGE, 'd1_budget': _admin_d1_budget()}
     if _IS_EDGE:
-        # Feedback der endnu ikke er relayet (relay-feedback-to-sheet.py kører
-        # dagligt og flytter den til public.feedback). Kun læsning.
+        # Rester fra den gamle D1-kø (før feedback gik direkte til Supabase).
+        # Relay-jobbet er fjernet, så de bliver liggende her. Kun læsning.
         out['pending_feedback'] = _d1_rows(
             'SELECT id, feedback_type, name, email, subject, message, page_url, created_at '
             'FROM pending_feedback ORDER BY id DESC LIMIT 100'
@@ -3237,43 +3174,26 @@ def submit_feedback():
     if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$', email):
         email = None
 
-    # Felter ender i Google Sheet: en værdi der starter med = + - @ kan blive
-    # tolket som formel (CSV/formel-injektion). Apostrof gør den til ren tekst.
-    def _sheet_safe(v):
-        return "'" + v if v and v[0] in '=+-@' else v
-    name, email, subject, page_url = (
-        _sheet_safe(v) for v in (name, email, subject, page_url))
-
     if len(message) < 10:
         return jsonify(success=False, error='Beskeden skal være mindst 10 tegn.'), 400
     if len(message) > 500:
         return jsonify(success=False, error='Beskeden er for lang (maks. 500 tegn).'), 400
 
-    message = _sheet_safe(message)
-    created_at = datetime.now().isoformat(timespec='seconds')
-
-    # Feedback gemmes udelukkende i Google Sheet - ingen Supabase/DB-kopi.
-    persisted = _queue_feedback_for_sheet({
+    persisted = _store_feedback({
         "type": feedback_type,
         "name": name or "",
         "email": email or "",
         "subject": subject or "",
         "message": message,
         "page_url": page_url or "",
-        "created_at": created_at,
     })
     if not persisted:
-        logger.error("Feedback kunne ikke lægges i kø til Google Sheet (type=%s)", feedback_type)
-        # Svaret var success=True uanset udfaldet, og hverken feedback.html
-        # (læser kun data.success) eller appens FeedbackScreen (læser intet)
-        # kiggede på persisted - så når D1-inserten fejlede, fik brugeren "Tak
-        # for din besked! Vi har modtaget den.", mens beskeden var tabt. Det er
-        # ikke kun transiente fejl: D1's gratis-budget (100k rows_written/døgn)
-        # er konto-bredt, og én fuld reseed bruger ~97 % af det (se
-        # scripts/seed-d1.py), så en ekstra reseed samme døgn blokerer alle
-        # D1-skrivninger til midnat UTC (sket 09-09-2026). 503 + error får web
-        # til at vise fejlteksten og appens klient til at kaste ApiError, så
-        # brugeren kan prøve igen. POST caches ikke af edge.
+        logger.error("Feedback kunne ikke gemmes (type=%s)", feedback_type)
+        # Aldrig falsk "tak for din besked": hverken feedback.html (læser kun
+        # data.success) eller appens FeedbackScreen (læser intet) kigger på
+        # persisted. Fejler RPC'en (netværk, SQL ikke kørt, eller loftet i
+        # submit_feedback), får web fejlteksten og appens klient en ApiError,
+        # så brugeren kan prøve igen. POST caches ikke af edge.
         return jsonify(
             success=False, persisted=False,
             error='Vi kunne ikke gemme din besked lige nu. Prøv igen om lidt.',

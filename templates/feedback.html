@@ -169,8 +169,8 @@
           // Kun sti - ingen query-streng eller fragment. Compliance-audit
           // 19-08-2026 (GDPR-018): en henviser-URL kan bære et delt-kurv-
           // invitationstoken (?liste=) eller søgeord, og siden document.
-          // referrer/location.href ender i et Google Sheet via
-          // scripts/relay-feedback-to-sheet.py, skal de aldrig følge med.
+          // referrer/location.href gemmes i feedback-databasen (læses i
+          // /admin), skal de aldrig følge med.
           page_url: stripQueryAndFragment(document.referrer || window.location.href),
           turnstile_token: tsToken,
         }),

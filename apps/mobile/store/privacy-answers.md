@@ -27,12 +27,12 @@ skal App Tracking Transparency-prompten heller ikke vises.
 og hører under samme User Content-punkt — den er knyttet til brugeren og
 bruges kun til at vise din egen besparelse.
 
-**Databehandlere bag kulissen (compliance-audit 19-08-2026):** feedback-tekst
-(inkl. evt. navn/e-mail) sendes videre til et Google Sheet via en Apps
-Script-webhook (`scripts/relay-feedback-to-sheet.py`), og prisalarm-mails
-sendes via Resend (`updater.py::_send_price_alert_email`). Begge er
-databehandlere, der udelukkende behandler data for at levere selve
-app-funktionen (feedback-håndtering, mail-afsendelse) - ingen af dem bruger
+**Databehandlere bag kulissen (compliance-audit 19-08-2026, opdateret
+02-10-2026):** feedback-tekst (inkl. evt. navn/e-mail) gemmes i Supabase
+(`public.feedback`, kun læsbar i admin-panelet), og prisalarm-mails sendes
+via Resend (`updater.py::_send_price_alert_email`). Begge er databehandlere,
+der udelukkende behandler data for at levere selve app-funktionen
+(feedback-håndtering, mail-afsendelse) - ingen af dem bruger
 data til egne formål. Det er relevant for korrekt udfyldelse nedenfor.
 
 **Om sikkerhedslogningen på edge:** `src/worker.py` aggregerer
@@ -54,7 +54,7 @@ selv, hvis Apple spørger — men det er ikke et punkt der skal krydses af.
 | Er data-indsamlingen valgfri? | Ja — alt kernefunktionalitet virker uden konto |
 
 **OBS ved "Deles data med tredjeparter?" (rettet 19-08-2026, tidligere stod der
-ukritisk "Nej"):** Google Sheets modtager feedback-tekst, og Resend modtager
+ukritisk "Nej"):** Supabase gemmer feedback-tekst, og Resend modtager
 prisalarm-mailadresser (se boksen ovenfor). Under Play's egen definition
 tæller overførsel til en **service provider**, der udelukkende behandler data
 for at levere appens egen funktion, normalt IKKE som "sharing" (det gælder

@@ -209,25 +209,25 @@ GRANT EXECUTE ON FUNCTION public.admin_set_recipe_status(bigint, text) TO authen
 
 
 -- ---------------------------------------------------------------------------
--- Feedback-arkiv
+-- Feedback
 -- ---------------------------------------------------------------------------
--- Feedback-formularen skriver til D1 (pending_feedback), og
--- scripts/relay-feedback-to-sheet.py sender den videre til Google Sheet og
--- sletter den fra D1. Relayen gemmer nu en kopi her FØR sletningen, så svarene
--- kan læses i /admin. Kun service_role (relayen) skriver; admin læser og
--- markerer håndteret via RPC'erne nedenfor. d1_id gør relayen idempotent, hvis
--- en kørsel fejler halvvejs og samme række prøves igen.
+-- Feedback-formularen (/api/feedback i app.py) skriver direkte hertil via
+-- submit_feedback() nedenfor - ingen D1-kø, intet relay-job, intet Google
+-- Sheet. Svarene læses og markeres håndteret i /admin.
+--
+-- env: 'prod' fra produktions-workeren, 'dev' fra staging og lokalt (følger
+-- TABLE_SUFFIX), så testbeskeder kan skelnes i panelet uden en *_dev-tabel.
 CREATE TABLE IF NOT EXISTS public.feedback (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  d1_id         bigint UNIQUE,
-  feedback_type text NOT NULL DEFAULT 'feedback',
-  name          text NOT NULL DEFAULT '',
-  email         text NOT NULL DEFAULT '',
-  subject       text NOT NULL DEFAULT '',
-  message       text NOT NULL DEFAULT '',
-  page_url      text NOT NULL DEFAULT '',
+  env           text NOT NULL DEFAULT 'prod' CHECK (env IN ('prod', 'dev')),
+  feedback_type text NOT NULL DEFAULT 'feedback'
+                CHECK (feedback_type IN ('feedback', 'bug', 'feature', 'other')),
+  name          text NOT NULL DEFAULT '' CHECK (char_length(name) <= 120),
+  email         text NOT NULL DEFAULT '' CHECK (char_length(email) <= 254),
+  subject       text NOT NULL DEFAULT '' CHECK (char_length(subject) <= 200),
+  message       text NOT NULL CHECK (char_length(message) BETWEEN 10 AND 500),
+  page_url      text NOT NULL DEFAULT '' CHECK (char_length(page_url) <= 500),
   created_at    timestamptz NOT NULL DEFAULT now(),
-  archived_at   timestamptz NOT NULL DEFAULT now(),
   handled_at    timestamptz
 );
 
@@ -239,6 +239,66 @@ ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Service role fuld adgang" ON public.feedback;
 CREATE POLICY "Service role fuld adgang" ON public.feedback
   FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+
+-- Eneste skrivevej. Gentager appens validering i SQL (projektets regel), fordi
+-- den offentlige nøgle kan kalde RPC'en direkte uden om Turnstile-tjekket i
+-- app.py. Derfor også et globalt loft: højst 30 beskeder pr. time og 200 pr.
+-- døgn, så spam uden om formularen kan genere, men aldrig fylde databasen.
+-- Afvises en besked af loftet, får brugeren 503 + "prøv igen" fra app.py.
+CREATE OR REPLACE FUNCTION public.submit_feedback(
+  p_type     text,
+  p_name     text,
+  p_email    text,
+  p_subject  text,
+  p_message  text,
+  p_page_url text,
+  p_env      text DEFAULT 'prod'
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_type    text := coalesce(nullif(btrim(p_type), ''), 'feedback');
+  v_message text := btrim(coalesce(p_message, ''));
+  v_email   text := left(btrim(coalesce(p_email, '')), 254);
+  v_url     text := left(btrim(coalesce(p_page_url, '')), 500);
+BEGIN
+  IF char_length(v_message) < 10 OR char_length(v_message) > 500 THEN
+    RAISE EXCEPTION 'ugyldig besked' USING ERRCODE = '22023';
+  END IF;
+  IF v_type NOT IN ('feedback', 'bug', 'feature', 'other') THEN
+    v_type := 'feedback';
+  END IF;
+  IF v_email <> '' AND v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]{2,}$' THEN
+    v_email := '';
+  END IF;
+  IF v_url <> '' AND v_url !~* '^https?://\S+$' THEN
+    v_url := '';
+  END IF;
+
+  IF (SELECT count(*) FROM public.feedback WHERE created_at > now() - interval '1 hour') >= 30
+     OR (SELECT count(*) FROM public.feedback WHERE created_at > now() - interval '1 day') >= 200 THEN
+    RAISE EXCEPTION 'feedback-loft nået' USING ERRCODE = '54000';
+  END IF;
+
+  INSERT INTO public.feedback (env, feedback_type, name, email, subject, message, page_url)
+  VALUES (
+    CASE WHEN p_env = 'dev' THEN 'dev' ELSE 'prod' END,
+    v_type,
+    left(btrim(coalesce(p_name, '')), 120),
+    v_email,
+    left(btrim(coalesce(p_subject, '')), 200),
+    v_message,
+    v_url
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.submit_feedback(text, text, text, text, text, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.submit_feedback(text, text, text, text, text, text, text) TO anon, authenticated;
 
 
 CREATE OR REPLACE FUNCTION public.admin_feedback(p_limit integer DEFAULT 100)
@@ -256,7 +316,7 @@ BEGIN
   RETURN (
     SELECT coalesce(jsonb_agg(f ORDER BY f.created_at DESC), '[]'::jsonb)
     FROM (
-      SELECT id, feedback_type, name, email, subject, message, page_url,
+      SELECT id, env, feedback_type, name, email, subject, message, page_url,
              created_at, handled_at
       FROM public.feedback
       ORDER BY created_at DESC

@@ -58,9 +58,6 @@ jobs:
       - name: Build Edge bundle
         env:
           CACHE_REFRESH_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
-          # Uden denne byggede staging med tom webhook-URL, saa feedback afgivet
-          # paa dev aldrig kunne naa Google Sheet (samme var som i deploy-edge.yml).
-          GOOGLE_SHEET_WEBHOOK_URL: ${{ secrets.GOOGLE_SHEET_WEBHOOK_URL }}
           # Adgangsspaerring paa staging. madshopper-dev koerer den samme kode
           # mod SAMME Supabase-projekt og samme auth.users som produktionen, men
           # paa et offentligt custom domain. Uden denne er hele fladen aaben for

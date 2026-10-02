@@ -2,7 +2,7 @@
  *
  * Alt indhold hentes her efter login - selve siden er en tom skal. To kilder:
  *  - Supabase-RPC'erne i scripts/supabase-admin.sql (admin_overview,
- *    admin_feedback, ...), kaldt med brugerens egen session. De tjekker selv
+ *    admin_feedback, ...); feedback-formularen skriver direkte i public.feedback, kaldt med brugerens egen session. De tjekker selv
  *    is_admin() i SQL, så en ikke-admin får 403 uanset hvad denne fil gør.
  *  - POST /api/admin/edge (app.py) til D1, KV og D1-budgettet, med samme
  *    access-token som Bearer.
@@ -153,7 +153,7 @@
     }
 
     var open = state.feedback.filter(function (f) { return !f.handled_at; }).length + state.pending.length;
-    box.appendChild(tile('Ubehandlet feedback', nf(open), nf(state.pending.length) + ' i kø i D1'));
+    box.appendChild(tile('Ubehandlet feedback', nf(open), state.pending.length ? nf(state.pending.length) + ' i gammel D1-kø' : 'fra feedback-formularen'));
 
     var e = ov.engagement || {};
     box.appendChild(tile('Prisalarmer', nf(e.price_alerts_active), 'aktive'));
@@ -181,8 +181,9 @@
         pill(f.feedback_type === 'bug' ? 'bad' : 'info', typeNames[f.feedback_type] || f.feedback_type || 'Feedback'),
         el('span', { text: when(f.created_at) })
       ];
+      if (f.env === 'dev') head.push(pill('warn', 'Staging/lokal'));
       if (f.queued) {
-        head.push(pill('warn', 'I kø'));
+        head.push(pill('warn', 'Gammel D1-kø'));
       } else {
         var done = !!f.handled_at;
         head.push(el('button', {
@@ -284,7 +285,7 @@
     var rows = [
       ['Varer i D1', nf(ed.d1_products)],
       ['Sidste seed/deploy (cache_version)', v && !isNaN(v) ? when(v.toISOString()) : (ed.cache_version || '-')],
-      ['Feedback i kø i D1', nf((ed.pending_feedback || []).length)]
+      ['Feedback i gammel D1-kø', nf((ed.pending_feedback || []).length)]
     ];
     var b = ed.d1_budget || {};
     if (b.configured && !b.error) {

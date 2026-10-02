@@ -43,7 +43,6 @@ jobs:
       - name: Build Edge bundle
         env:
           CACHE_REFRESH_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
-          GOOGLE_SHEET_WEBHOOK_URL: ${{ secrets.GOOGLE_SHEET_WEBHOOK_URL }}
         run: bash scripts/build-pages.sh
 
       # Pin wrangler 4.x: wrangler-action@v3 falder ellers tilbage til 3.90.0

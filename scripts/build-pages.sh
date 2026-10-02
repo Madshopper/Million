@@ -112,15 +112,6 @@ fi
 CACHE_REFRESH_SECRET="$(cat "$SECRET_FILE")"
 CACHE_REFRESH_SECRET_TOML="$(toml_escape "$CACHE_REFRESH_SECRET")"
 
-# Feedback-sheet-webhook: samme mønster som CACHE_REFRESH_SECRET ovenfor.
-# Værdien gemmes lokalt i .feedback-webhook (ikke i git).
-WEBHOOK_FILE="$ROOT/.feedback-webhook"
-if [ -n "${GOOGLE_SHEET_WEBHOOK_URL:-}" ]; then
-  printf '%s' "$GOOGLE_SHEET_WEBHOOK_URL" > "$WEBHOOK_FILE"
-fi
-GOOGLE_SHEET_WEBHOOK_URL="$(cat "$WEBHOOK_FILE" 2>/dev/null || true)"
-GOOGLE_SHEET_WEBHOOK_URL_TOML="$(toml_escape "$GOOGLE_SHEET_WEBHOOK_URL")"
-
 # D1-budget i /admin (app.py::_admin_d1_budget): valgfri Cloudflare-token med
 # KUN "Account Analytics: Read". Uden den viser panelet "ikke sat op". Samme
 # var-mønster som ovenfor, fordi Python Workers kun ser [vars] i os.environ.
@@ -329,7 +320,6 @@ SITE_URL = "${SITE_URL_VALUE}"
 # Skrive-tabeller (cart_popularity, price_alerts): "" = produktion, "_dev" =
 # dev-kopier (scripts/supabase-dev-tables.sql), så test ikke rører prod-data.
 TABLE_SUFFIX = "${TABLE_SUFFIX_VALUE}"
-GOOGLE_SHEET_WEBHOOK_URL = "${GOOGLE_SHEET_WEBHOOK_URL_TOML:-}"
 ${ANALYTICS_LINES}
 ${STAGING_SECRET_LINE}
 ${STAGING_EMAIL_LINE}

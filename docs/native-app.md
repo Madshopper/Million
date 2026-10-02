@@ -356,7 +356,7 @@ API er færdig, men **UI kalder den ikke** (stub). For paritet: kald den ikke fr
 }
 ```
 
-Persistens: D1 `pending_feedback` → GitHub Actions → Google Sheet (ikke Supabase).
+Persistens: Supabase `public.feedback` via RPC'en `submit_feedback` (validering + globalt loft i SQL, `scripts/supabase-admin.sql`). Læses i `/admin`.
 
 ### 4.10 Rate limits (`app_support.py`)
 
