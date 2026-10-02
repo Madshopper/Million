@@ -11,7 +11,7 @@ name: Deploy uptime-worker
 #   UPTIME_ALERT_EMAIL                            modtager(e), kommasepareret
 #   MONITOR_ACCESS_SECRET                         valgfri; samme værdi som
 #     hovedworkerens, så tjekket kommer forbi login-spærringen
-# Workflowet fejler hvis en af dem mangler: en uptime-worker der ikke kan
+# Workflowet fejler hvis RESEND_API_KEY eller UPTIME_ALERT_EMAIL mangler: en uptime-worker der ikke kan
 # sende mail, alarmerer ingen.
 
 on:
