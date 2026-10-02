@@ -325,6 +325,10 @@
     // Synk kun én gang pr. login-overgang i denne page-load.
     if (lastSyncedUid === user.id) return;
     lastSyncedUid = user.id;
+    // Sider uden kurv (fx /admin, der ikke loader script.js) har ingen
+    // CartBridge. Synk ville dér se en tom lokal kurv og kunne skubbe den til
+    // serveren og slette brugerens gemte kurv - så rør slet ikke kurven.
+    if (!window.CartBridge) return;
 
     var localCart = (window.CartBridge && window.CartBridge.get()) ? window.CartBridge.get() : [];
     var server = await pullCart();
