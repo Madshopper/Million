@@ -28,5 +28,5 @@ id = "0e60bdf03ed4490cbfac5fa72c8adca5"
 # Secrets (sættes af deploy-workflowet fra GitHub Actions-secrets):
 #   RESEND_API_KEY  samme nøgle som prisalarmerne i cache-updater.yml
 #   ALERT_EMAIL     modtager(e) af alarmen, kommasepareret
-#   MONITOR_ACCESS_SECRET  samme værdi som hovedworkerens; lukker uptime-
-#                   tjekket forbi login-spærringen (X-MadShopper-Monitor)
+#   MONITOR_ACCESS_TOKEN  hex(HMAC-SHA256(CACHE_REFRESH_SECRET, "monitor-access"));
+#                   lukker tjekket forbi login-spærringen (X-MadShopper-Monitor)
