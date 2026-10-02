@@ -103,7 +103,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren). Usynlig for alle andre end admins (almindelig 404; adgang tjekkes på serveren via HttpOnly-cookien `ms_session` fra `/api/session`). Eget layout med sidemenu; CSS/JS ligger i `templates/admin/` og indlejres, så intet admin-indhold er en offentlig fil. Brugere-sektionen godkender/fjerner adgang til det private site via `admin_list_users`/`admin_set_approved` (falder tilbage til nyeste brugere, hvis RPC'erne mangler). Kørselshistorik fra GitHub Actions gemt i Supabase `job_runs` (`scripts/sync-job-runs.py` i security-monitor) |
 | Vilkår / privatliv / om os | ✅ | ✅ | – | – | Complete |
 | Opskrifter (bag gate) | ✅ flag | ✅ flag | ✅ | ❌ | Gated - kun med `RECIPES_ENABLED=1` / `EXPO_PUBLIC_RECIPES_ENABLED=1` *(fra som standard i alle miljøer, 02-10-2026)* |
-| Forsidens opskrift-teaser | ✅ ikke-klikbar "Kommer snart" | ✅ flag | ✅ `recipes_clickable` | ❌ | Web viser teaseren altid (kortene er ikke klikbare uden `RECIPES_ENABLED=1`); appen kun med flaget *(teaser tilbage på web 02-10-2026)* |
+| Forsidens opskrift-teaser | ✅ ikke-klikbar "Kommer snart" | ✅ ikke-klikbar "Kommer snart" | ✅ `recipes_clickable` | ❌ | Begge viser teaseren altid; kortene er kun klikbare med `RECIPES_ENABLED=1` (app: også `EXPO_PUBLIC_RECIPES_ENABLED=1`) *(tilbage på web og app 02-10-2026)* |
 | Cookie-samtykke (Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Analytics (GA4 via Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Push-beskeder / nyhedsbrev | ❌ | ❌ | ❌ | – | **Findes ikke** (se §2) |
