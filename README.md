@@ -21,14 +21,14 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: [dev.madshopper.dk
 - **Personal savings** - a monthly "you saved X kr" figure per user, recorded and read only via RPC (`record_compare_savings` / `get_personal_savings`, `scripts/supabase-user-savings.sql`)
 - **Recipes** (gated to staging) - recipe pages priced against the current cart prices (`/opskrifter`, `/api/recipes`, `recipe_importer.py` / `recipe_matching.py` / `recipe_pricing.py`); the front-page teaser is live
 - **Native app** - Expo/React Native app in `apps/mobile/` with full feature parity (not a WebView wrapper). See `docs/native-app.md` and `docs/udgivelse.md`
-- User feedback - buffered in Cloudflare D1 (`pending_feedback`) and relayed to a Google Sheet once a day by `scripts/relay-feedback-to-sheet.py`
+- User feedback - stored in Supabase (`public.feedback`) via the validated, throttled `submit_feedback` RPC and read in the owner-only admin panel at `/admin` (`scripts/supabase-admin.sql`)
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Backend | Python 3, Flask |
-| Production | Cloudflare Workers (EdgeKit/Pyodide), D1 (product cache mirror, `pending_feedback`, `security_events`), KV (`cache_version`, `home_data_v1`, edge response cache) |
+| Production | Cloudflare Workers (EdgeKit/Pyodide), D1 (product cache mirror, `security_events`), KV (`cache_version`, `home_data_v1`, edge response cache) |
 | Scrapers | Selenium, Requests |
 | Database | Supabase (`app_cache`, `produkter`, `price_history`, `nutrition_data`, `cart_popularity`, `cart_events`, `price_alerts`, `carts`, `user_monthly_savings`, shared carts, recipes) |
 | Auth | Supabase Auth via `supabase-js` (Google Identity Services, Apple, email/password), client-side only; Turnstile on sign-up |
@@ -97,7 +97,6 @@ cp .env.example .env
 | `TABLE_SUFFIX` | Suffix for write tables (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `user_monthly_savings`). Empty in production, `_dev` locally/staging so tests never touch prod data (see `scripts/supabase-dev-tables.sql` / `scripts/supabase-user-savings.sql`) |
 | `DEPLOY_KEY` | Supabase service key (scrapers/updater only - not needed for local app) |
 | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ZONE_ID` | Only needed locally so `scripts/deploy-worker.sh` can purge the Cloudflare CDN cache after a manual deploy |
-| `GOOGLE_SHEET_WEBHOOK_URL` | Apps Script webhook that forwards feedback to a Google Sheet (production instead buffers feedback in D1 and relays it via `feedback-relay.yml`) |
 
 ### Run
 
@@ -156,7 +155,6 @@ All deploys and data refreshes run via GitHub Actions (`.github/workflows/`):
 | `deploy-edge.yml` / `deploy-edge-dev.yml` | Builds and deploys the Worker to production / staging, then runs a functional check in a real browser (a fresh search render must return products) |
 | `canary-upload.yml` | Uploads a new Worker version to Cloudflare **without** moving traffic to it |
 | `uptime-check.yml` | Every 3 h: Playwright uptime probe (front page + category), a fresh search render (cached pages never exercise the render path), and the security-event relay - one job, e-mails on failure |
-| `feedback-relay.yml` | Daily (05:17 UTC), relays feedback buffered in D1 to the Google Sheet |
 | `security-monitor.yml` | Manual only (the scheduled run is a step in `uptime-check.yml`). `scripts/relay-security-events.py` relays security events from D1 to Supabase and **fails (→ e-mail) on attack thresholds, degraded responses, busy responses and Cloudflare 1101/1102 errors** (read from GraphQL analytics). A manual run with `cpu_detail_from`/`cpu_detail_to` reports CPU per minute - the only way to measure CPU on edge |
 | `mobile-tests.yml` | Network-free checks of the native app (multi-deal/SCO port, listing-API contract) on every PR |
 | `parity-tests.yml` | Tests for the contracts web and app share without sharing code (e.g. the theme setting) |
@@ -420,8 +418,7 @@ Million/
 │   ├── deploy-worker.sh     # Deploy + purge Cloudflare CDN cache
 │   ├── smoke-test.mjs               # Post-deploy concurrent-request smoke test (Playwright)
 │   ├── playwright-uptime-check.mjs  # uptime/search probe (Playwright, real headless browser)
-│   ├── setup-domain.sh / setup-edge-secrets.sh / setup-feedback-sheet.sh
-│   ├── relay-feedback-to-sheet.py # D1 feedback → Google Sheet
+│   ├── setup-domain.sh / setup-edge-secrets.sh
 │   ├── relay-security-events.py   # D1 security events → Supabase + alarms (security-monitor.yml)
 │   ├── cf-analytics.py      # Aggregated Workers/zone metrics (error rate, CPU, 5xx) via GraphQL
 │   ├── test-matching.py / eval-matching.py  # Match-engine regression test + segmented precision/recall

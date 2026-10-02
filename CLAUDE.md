@@ -24,12 +24,12 @@ MadShopper ([madshopper.dk](https://madshopper.dk)) - dansk pris-sammenligning f
 - `updater.py` - genopbygger produkt-cache + prishistorik (køres af GitHub Actions cache-updater)
 - `src/worker.py` - Cloudflare Workers entry point: edge-cache (Cache API), rate limiting, sikkerhedslogning, staging-adgangsspærring
 - `scraper/` - per-butik scrapers (Selenium/Requests), `dagrofa_scraper.py` (Meny/Spar/Min Købmand), `tjek_tilbud_scraper.py`, `*_katalog.py` (Bilka/Netto/Føtex/Lidl), `ai_classifier.py`, `keywords.py`, `supabase_utils.py`
-- `scripts/` - deploy (`build-pages.sh`, `deploy-worker.sh`, `setup-domain.sh`, `setup-edge-secrets.sh`, `setup-feedback-sheet.sh`), `seed-d1.py`, `build-nutrition.py`, `build-icons.py` (favicon/app-ikoner, køres manuelt på macOS), `audit-site.py`, `verify-integrations.py`, `relay-feedback-to-sheet.py`, `smoke-test.mjs` + `playwright-uptime-check.mjs` (Playwright), matchmotor-måling (`test-matching.py` = regressionstest af gates, `eval-matching.py` = segmenteret precision/recall mod EAN-verificeret guldsæt), samt `supabase-*.sql`
+- `scripts/` - deploy (`build-pages.sh`, `deploy-worker.sh`, `setup-domain.sh`, `setup-edge-secrets.sh`), `seed-d1.py`, `build-nutrition.py`, `build-icons.py` (favicon/app-ikoner, køres manuelt på macOS), `audit-site.py`, `verify-integrations.py`, `smoke-test.mjs` + `playwright-uptime-check.mjs` (Playwright), matchmotor-måling (`test-matching.py` = regressionstest af gates, `eval-matching.py` = segmenteret precision/recall mod EAN-verificeret guldsæt), samt `supabase-*.sql`
 - `data/` - cachede butikspriser, AI-classifier cache/log, `nutrition_data.json`, Rema pHash-cache
 - `templates/` (+ `macros/`, `partials/`) / `static/` - Jinja2 + CSS/JS (`script.js`, `auth.js`, `supabase.min.js`)
 - `apps/mobile/` - native iOS/Android-app (Expo/React Native); se `docs/native-app.md` og `docs/env-setup.md`
 - `docs/` - `Dev.md` (dev/staging-workflow), `Features.md` (roadmap), `paritet.md` (web/app-feature-matrix + aabne gaps - **opdatér i samme commit som du aendrer en feature**), `native-app.md`, `prisovervaagning.md`, `email-bekraeftelse.md`, `Github_fifs.md`
-- `.github/workflows/` - per-butik-scrapers, cache-updater, nutrition-build, edge-deploy (prod+dev), smoke/uptime-test, feedback-relay, dependency-audit
+- `.github/workflows/` - per-butik-scrapers, cache-updater, nutrition-build, edge-deploy (prod+dev), smoke/uptime-test, dependency-audit
 - `wrangler.toml`, `pyproject.toml` - Cloudflare/EdgeKit-konfiguration (uv)
 
 Fuld tech stack, butiksliste og mappetræ: `README.md` § Tech Stack / Supported Stores / Project Structure.
@@ -37,7 +37,7 @@ Fuld tech stack, butiksliste og mappetræ: `README.md` § Tech Stack / Supported
 ## Data & tabeller
 
 **Supabase:** `app_cache` (produkt-cache i chunks), `produkter` (rå butiksdata), `price_history` (30 dage), `nutrition_data`, `cart_popularity` + `cart_events` (anonym kurv-aktivitet), `price_alerts`, `carts` (gemt kurv pr. bruger, RLS-låst), `user_monthly_savings` (personlig besparelse pr. måned, kun via RPC).
-**Cloudflare D1:** read-only mirror af produkt-cachen (seedet nightly), `pending_feedback`, `security_events`.
+**Cloudflare D1:** read-only mirror af produkt-cachen (seedet nightly), `security_events`.
 **Cloudflare KV:** `cache_version` (bumpes ved hvert seed → invaliderer al edge-cache), `home_data_v1` (forudberegnede forsidepuljer, sparer ~4 D1/Supabase-kald pr. render).
 
 Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `user_monthly_savings`) vælges via `TABLE_SUFFIX`: tom i produktion, `_dev` lokalt og på staging - kør `scripts/supabase-dev-tables.sql` / `scripts/supabase-user-savings.sql` én gang.
@@ -52,6 +52,7 @@ Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `u
 - `supabase-cart-increment.sql` - `record_cart_activity`-RPC (SECURITY DEFINER, eneste skrivevej til `cart_events`)
 - `supabase-nutrition.sql`, `supabase-carts.sql`, `supabase-dev-tables.sql`
 - `supabase-user-savings.sql` - personlig månedlig besparelse (`get_personal_savings` / `record_compare_savings`)
+- `supabase-admin.sql` - admin-panelet `/admin`: `admin_users` + `is_admin()`, `admin_overview`, feedback-tabellen `feedback` + `submit_feedback`-RPC'en (eneste skrivevej for `/api/feedback`, med globalt loft) og opskrift-moderering. Skal køres FØR koden deployes, ellers giver feedback-formularen 503. Indsæt din konto i `admin_users` bagefter
 - `supabase-rls-audit.sql` (ren læsning), `supabase-lockdown.sql`, `supabase-hardening.sql` - sikkerhed/RLS
 
 ## Miljøer & deploy

@@ -129,7 +129,9 @@ _EDGE_ENV_VARS = (
     'SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL',
     'SUPABASE_KEY', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
     'CACHE_REFRESH_SECRET', 'ENABLE_PRICE_DB',
-    'GOOGLE_SHEET_WEBHOOK_URL', 'TABLE_SUFFIX',
+    'TABLE_SUFFIX',
+    # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
+    'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
 )
 
 
@@ -411,6 +413,8 @@ def _inject_site_meta():
         'price_alerts_table': 'price_alerts' + _table_suffix(),
         # Suffiks til client-side RPC'er (fx create_shared_cart_dev på staging).
         'rpc_suffix': _table_suffix(),
+        # Header-ikonet til /opskrifter vises kun når featuren er slået til.
+        'recipes_enabled': _recipes_enabled(),
         # Sandt naar SIDENS render byggede paa ufuldstaendige data (samme
         # isolate-kollision i D1-broen som saetter X-Data-Degraded-headeren,
         # se _mark_data_degraded). _build_search_listing/kategori-hentningen
@@ -609,84 +613,21 @@ def _edge_fetch_json(url: str, headers: dict):
     return (data if status == 200 else None), status
 
 
-_pending_feedback_ready = False
-
-
-def _d1_run(sql: str, params: tuple = ()) -> bool:
-    db = _d1()
-    if not db:
-        return False
-    stmt = db.prepare(sql)
-    if params:
-        stmt = stmt.bind(*params)
-    try:
-        _await_sync_retry(stmt.run)
-        return True
-    except Exception as e:
-        logger.warning("D1 _d1_run fejlede: %s (%s)", sql[:80], e)
-        return False
-
-
-def _ensure_pending_feedback_table() -> None:
-    global _pending_feedback_ready
-    if _pending_feedback_ready:
-        return
-    _d1_run(
-        "CREATE TABLE IF NOT EXISTS pending_feedback ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, feedback_type TEXT, name TEXT, "
-        "email TEXT, subject TEXT, message TEXT, page_url TEXT, created_at TEXT)"
-    )
-    _pending_feedback_ready = True
-
-
-def _queue_feedback_for_sheet(payload: dict) -> bool:
-    """Feedback går kun til Google Sheet (ikke Supabase). På edge er der ingen
-    ctx.waitUntil-adgang fra WSGI-laget, og et blokerende kald til den langsomme,
-    eksterne Apps Script-webhook kan overskride Workers' CPU/wall-time-budget
-    (set det give 503 på hele requesten). Derfor lægges rækken i D1 (hurtigt,
-    internt kald - samme klasse som de øvrige D1-kald der virker på edge), og en
-    periodisk GitHub Actions-relay (scripts/relay-feedback-to-sheet.py) sender
-    videre til webhooken uden om Workers helt. Lokalt (ikke edge) er der ingen af
-    disse begrænsninger, så vi sender direkte og synkront."""
-    if _IS_EDGE:
-        _ensure_pending_feedback_table()
-        return _d1_run(
-            "INSERT INTO pending_feedback "
-            "(feedback_type, name, email, subject, message, page_url, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                payload['type'], payload['name'], payload['email'],
-                payload['subject'], payload['message'], payload['page_url'],
-                payload['created_at'],
-            ),
-        )
-
-    # Denne gren rammes kun lokalt (_IS_EDGE er False - produktion og staging
-    # går altid gennem D1-grenen ovenfor, som allerede skriver til hvert
-    # miljøs eget D1 og aldrig relayes videre fra andet end den rigtige
-    # produktions-D1, se scripts/relay-feedback-to-sheet.py). I modsætning til
-    # alle andre skrive-veje i projektet var feedback IKKE adskilt fra
-    # produktion her: webhook_url pegede direkte på det RIGTIGE Google Sheet
-    # uanset TABLE_SUFFIX, så lokal test skrev rigtige rækker ind i
-    # produktions-arket (fundet under QA-audit 2026-08-17). Log i stedet for
-    # at sende, ligesom alt andet lokalt data holdes ude af produktion.
-    if _table_suffix():
-        logger.info('Lokal feedback (sendes ikke til Google Sheet): %r', payload)
-        return True
-
-    webhook_url = os.environ.get('GOOGLE_SHEET_WEBHOOK_URL')
-    if not webhook_url:
-        return False
-    try:
-        import httpx
-        httpx.post(
-            webhook_url, headers={'Content-Type': 'application/json'},
-            content=json.dumps(payload), timeout=5.0, follow_redirects=True,
-        )
-        return True
-    except Exception as e:
-        logger.error('Google Sheet-webhook fejlede: %s', e)
-        return False
+def _store_feedback(payload: dict) -> bool:
+    """Feedback skrives direkte i Supabase (public.feedback) via RPC'en
+    submit_feedback, der gentager valideringen i SQL og har et globalt loft -
+    se scripts/supabase-admin.sql. Svarene læses i /admin. Staging og lokal
+    kørsel skriver med env='dev', så testbeskeder kan skelnes i panelet."""
+    _, status = _supabase_rest('POST', 'rpc/submit_feedback', json_body={
+        'p_type': payload['type'],
+        'p_name': payload['name'],
+        'p_email': payload['email'],
+        'p_subject': payload['subject'],
+        'p_message': payload['message'],
+        'p_page_url': payload['page_url'],
+        'p_env': 'dev' if _table_suffix() else 'prod',
+    }, timeout=8.0)
+    return status in (200, 204)
 
 
 # ---------------------------------------------------------------------------
@@ -1281,16 +1222,16 @@ def _safe_match_filter(products: list, query: str, matcher) -> list:
 
 def _recipes_enabled() -> bool:
     """Styrer den FUNKTIONELLE opskrift-feature (detaljesider, /api/recipes,
-    /opskrifter, native app'ens recipes) - stadig under test og må kun være
-    tilgængelig på dev.madshopper.dk/lokalt, aldrig på madshopper.dk, samme
-    miljø-signal som _table_suffix()/rpc_suffix allerede bruger til at skelne
-    prod fra staging/lokalt.
+    /opskrifter, native app'ens recipes). Eksplicit flag RECIPES_ENABLED=1,
+    slået FRA som standard i alle miljøer - også lokalt og på staging. Før
+    fulgte den miljøet (_table_suffix()), men dev-branchen/staging fjernes, og
+    opskrifter må ikke afhænge af hvilket miljø der kører. Sæt
+    RECIPES_ENABLED=1 i en lokal .env for at arbejde på featuren.
 
-    Webforsidens "Lækre opskrifter"-sektion vises DERIMOD i alle miljøer inkl.
-    produktion som en ikke-klikbar teaser ("hvad er på vej") - se home()'s
-    recipes_clickable og recipe_card(clickable=...). Denne funktion styrer kun
-    om kortene reelt kan trykkes på/fører nogen steder hen."""
-    return bool(_table_suffix())
+    Styrer også forsidens "Lækre opskrifter"-sektion (web og app): opskrifter
+    må ikke udgives til brugerne (beslutning 02-10-2026), så
+    _build_home_categories tømmer puljen når denne er falsk."""
+    return os.environ.get("RECIPES_ENABLED") == "1"
 
 
 def _supabase_rest_config():
@@ -1331,18 +1272,21 @@ def _supabase_available() -> bool:
 
 
 def _supabase_rest(method: str, path: str, params: dict | None = None,
-                   json_body=None, prefer: str | None = None, timeout: float = 15.0) -> tuple:
+                   json_body=None, prefer: str | None = None, timeout: float = 15.0,
+                   auth_token: str | None = None) -> tuple:
     """Kald Supabase PostgREST direkte - ÉN kodesti på edge (js.fetch) og lokalt (httpx).
     Erstatter supabase-py-klienten, som ikke kan køre i Cloudflares Pyodide-runtime, så
     interaktive features (feedback, prisalarm, kurv, prishistorik) også virker offentligt.
-    Returnerer (data, status). status == 0 betyder netværks-/opsætningsfejl."""
+    Returnerer (data, status). status == 0 betyder netværks-/opsætningsfejl.
+    auth_token: en indlogget brugers EGEN access-token - kaldet kører så med
+    brugerens rettigheder (auth.uid()) i stedet for anon-nøglens."""
     base, key = _supabase_rest_config()
     if not base or not key:
         return None, 0
     url = f"{base}/rest/v1/{path}"
     if params:
         url += "?" + urllib.parse.urlencode(params)
-    headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+    headers = {"apikey": key, "Authorization": f"Bearer {auth_token or key}"}
     if json_body is not None:
         headers["Content-Type"] = "application/json"
     if prefer:
@@ -2513,12 +2457,13 @@ def _build_home_categories(active_stores, args):
         # Hentes derfor live fra Supabase - kun i denne gren, dvs. aldrig på edge.
         recipe_pool = _recipe_pool_live()
 
-    # Puljen tømmes IKKE her længere: webforsiden viser den nu som en
-    # ikke-klikbar teaser i alle miljøer inkl. produktion (se home() -
-    # recipes_clickable/recipe_card(clickable=...)), mens selve featuren
-    # (detaljesider, /api/recipes, /opskrifter) forbliver bag _recipes_enabled().
-    # api_home() (native app) har ingen teaser-krav og zeroer selv puljen for
-    # produktion, da app'en ville gøre den reelt klikbar/navigerbar.
+    # Opskrifter må ikke udgives til brugerne (beslutning 02-10-2026): uden
+    # _recipes_enabled() tømmes puljen her, så hverken webforsidens teaser
+    # (home()) eller appens forside (api_home(), også allerede udgivne builds)
+    # viser "Lækre opskrifter". Teaser-koden (recipes_clickable/
+    # recipe_card(clickable=...)) er bevaret til når featuren slås til.
+    if not _recipes_enabled():
+        recipe_pool = []
 
     if not _IS_EDGE:
         random.shuffle(sale_raw)
@@ -2660,9 +2605,7 @@ def home():
         trimmed_categories, template_mapping, recipe_pool = _build_home_categories(
             active_stores, request.args,
         )
-        # I produktion vises puljen som en ikke-klikbar smagsprøve på featuren
-        # ("hvad er på vej") - _recipes_enabled() styrer stadig om kortene rent
-        # faktisk kan trykkes på og fører nogen steder hen.
+        # Puljen er tom når opskrifter er slået fra (se _build_home_categories).
         recipes_clickable = _recipes_enabled()
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -2908,7 +2851,8 @@ def robots_txt():
     if host.endswith('.workers.dev'):
         body = 'User-agent: *\nDisallow: /\n'
     else:
-        body = f'User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n'
+        body = (f'User-agent: *\nAllow: /\nDisallow: /admin\n\n'
+                f'Sitemap: {SITE_URL}/sitemap.xml\n')
     return Response(body, mimetype='text/plain')
 
 
@@ -3030,6 +2974,118 @@ def feedback_page():
     return render_template('feedback.html')
 
 
+# ---------------------------------------------------------------------------
+# Admin (/admin). Siden er en tom skal - alle tal hentes af static/js/admin.js
+# efter login. Supabase-tallene går direkte fra browseren til admin-RPC'erne
+# (scripts/supabase-admin.sql), der selv tjekker is_admin() mod brugerens egen
+# JWT. Her ligger kun det browseren ikke kan nå: D1, KV og D1-budgettet fra
+# Cloudflare-analytics. Ingen af delene skriver noget (D1-budgettet er stramt).
+# ---------------------------------------------------------------------------
+_ADMIN_HEADERS = {
+    'Cache-Control': 'private, no-store',
+    'X-Robots-Tag': 'noindex, nofollow',
+}
+_ADMIN_BEARER_RE = re.compile(r'^Bearer ([A-Za-z0-9._-]{20,4096})$')
+# Gratis-planens døgngrænser for D1 (konto-brede, prod + staging tilsammen).
+_D1_DAILY_ROWS_WRITTEN = 100_000
+_D1_DAILY_ROWS_READ = 5_000_000
+
+
+@app.route('/admin')
+def admin_page():
+    # Ikke i _CACHEABLE_ENDPOINTS: ingen CDN-header, så hverken zonen eller
+    # workerens Cache API gemmer den. Indholdet er alligevel ens for alle.
+    resp = app.make_response(render_template('admin.html'))
+    resp.headers.update(_ADMIN_HEADERS)
+    return resp
+
+
+def _admin_request_ok() -> bool:
+    """Sandt når requesten bærer en gyldig Supabase-session for en admin.
+    PostgREST verificerer JWT'ens signatur, og is_admin() slår auth.uid() op i
+    admin_users - ét kald gør begge dele, og adminlisten bor kun i Supabase."""
+    m = _ADMIN_BEARER_RE.match(request.headers.get('Authorization', ''))
+    if not m:
+        return False
+    data, status = _supabase_rest('POST', 'rpc/is_admin', json_body={},
+                                  timeout=8.0, auth_token=m.group(1))
+    return status == 200 and data is True
+
+
+def _admin_d1_budget() -> dict:
+    """Dagens rows_written/rows_read for hele kontoen (UTC-døgn) fra Cloudflares
+    GraphQL-analytics. Kræver en læsetoken som secret CF_ANALYTICS_TOKEN."""
+    token = os.environ.get('CF_ANALYTICS_TOKEN')
+    account = os.environ.get('CLOUDFLARE_ACCOUNT_ID')
+    if not token or not account:
+        return {'configured': False}
+    day = datetime.utcnow().date().isoformat()
+    query = (
+        'query($a:String!,$d:Date!){viewer{accounts(filter:{accountTag:$a}){'
+        'd1AnalyticsAdaptiveGroups(limit:100,filter:{date_geq:$d,date_leq:$d}){'
+        'sum{rowsWritten rowsRead}dimensions{databaseId}}}}}'
+    )
+    url = 'https://api.cloudflare.com/client/v4/graphql'
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+    body = json.dumps({'query': query, 'variables': {'a': account, 'd': day}})
+    try:
+        if _IS_EDGE:
+            data, status = _edge_fetch(url, method='POST', headers=headers, body=body)
+        else:
+            import httpx
+            resp = httpx.post(url, headers=headers, content=body, timeout=8.0)
+            data, status = resp.json(), resp.status_code
+        groups = data['data']['viewer']['accounts'][0]['d1AnalyticsAdaptiveGroups']
+    except Exception as e:
+        logger.warning('Admin: D1-analytics fejlede: %s', type(e).__name__)
+        return {'configured': True, 'error': True}
+    databases = [{
+        'id': (g.get('dimensions') or {}).get('databaseId', ''),
+        'rows_written': int((g.get('sum') or {}).get('rowsWritten') or 0),
+        'rows_read': int((g.get('sum') or {}).get('rowsRead') or 0),
+    } for g in groups]
+    return {
+        'configured': True,
+        'day': day,
+        'rows_written': sum(d['rows_written'] for d in databases),
+        'rows_read': sum(d['rows_read'] for d in databases),
+        'limit_written': _D1_DAILY_ROWS_WRITTEN,
+        'limit_read': _D1_DAILY_ROWS_READ,
+        'databases': databases,
+    }
+
+
+@app.route('/api/admin/edge', methods=['POST'])
+@rate_limit(api_limiter)
+def admin_edge():
+    """POST (ikke GET), så workeren aldrig lægger svaret i edge-cachen."""
+    if not _admin_request_ok():
+        resp = jsonify(success=False, error='Ingen adgang')
+        resp.status_code = 403
+        resp.headers.update(_ADMIN_HEADERS)
+        return resp
+
+    out = {'success': True, 'edge': _IS_EDGE, 'd1_budget': _admin_d1_budget()}
+    if _IS_EDGE:
+        # Rester fra den gamle D1-kø (før feedback gik direkte til Supabase).
+        # Relay-jobbet er fjernet, så de bliver liggende her. Kun læsning.
+        out['pending_feedback'] = _d1_rows(
+            'SELECT id, feedback_type, name, email, subject, message, page_url, created_at '
+            'FROM pending_feedback ORDER BY id DESC LIMIT 100'
+        )
+        row = _d1_scalar('SELECT COUNT(*) AS c FROM products')
+        out['d1_products'] = int(row.get('c', 0)) if isinstance(row, dict) else None
+        kv = _edge_kv()
+        try:
+            version = _sync_bridge_call(kv.get_text('cache_version')) if kv else None
+        except Exception:
+            version = None
+        out['cache_version'] = str(version) if version else None
+    resp = jsonify(out)
+    resp.headers.update(_ADMIN_HEADERS)
+    return resp
+
+
 # Kun madshopper://-linket appen selv registrerer må modtage tokenet -
 # forhindrer at ?returnUrl= bliver en åben omdirigering til en fremmed side.
 _TURNSTILE_APP_SCHEME = 'madshopper://'
@@ -3119,43 +3175,26 @@ def submit_feedback():
     if email and not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$', email):
         email = None
 
-    # Felter ender i Google Sheet: en værdi der starter med = + - @ kan blive
-    # tolket som formel (CSV/formel-injektion). Apostrof gør den til ren tekst.
-    def _sheet_safe(v):
-        return "'" + v if v and v[0] in '=+-@' else v
-    name, email, subject, page_url = (
-        _sheet_safe(v) for v in (name, email, subject, page_url))
-
     if len(message) < 10:
         return jsonify(success=False, error='Beskeden skal være mindst 10 tegn.'), 400
     if len(message) > 500:
         return jsonify(success=False, error='Beskeden er for lang (maks. 500 tegn).'), 400
 
-    message = _sheet_safe(message)
-    created_at = datetime.now().isoformat(timespec='seconds')
-
-    # Feedback gemmes udelukkende i Google Sheet - ingen Supabase/DB-kopi.
-    persisted = _queue_feedback_for_sheet({
+    persisted = _store_feedback({
         "type": feedback_type,
         "name": name or "",
         "email": email or "",
         "subject": subject or "",
         "message": message,
         "page_url": page_url or "",
-        "created_at": created_at,
     })
     if not persisted:
-        logger.error("Feedback kunne ikke lægges i kø til Google Sheet (type=%s)", feedback_type)
-        # Svaret var success=True uanset udfaldet, og hverken feedback.html
-        # (læser kun data.success) eller appens FeedbackScreen (læser intet)
-        # kiggede på persisted - så når D1-inserten fejlede, fik brugeren "Tak
-        # for din besked! Vi har modtaget den.", mens beskeden var tabt. Det er
-        # ikke kun transiente fejl: D1's gratis-budget (100k rows_written/døgn)
-        # er konto-bredt, og én fuld reseed bruger ~97 % af det (se
-        # scripts/seed-d1.py), så en ekstra reseed samme døgn blokerer alle
-        # D1-skrivninger til midnat UTC (sket 09-09-2026). 503 + error får web
-        # til at vise fejlteksten og appens klient til at kaste ApiError, så
-        # brugeren kan prøve igen. POST caches ikke af edge.
+        logger.error("Feedback kunne ikke gemmes (type=%s)", feedback_type)
+        # Aldrig falsk "tak for din besked": hverken feedback.html (læser kun
+        # data.success) eller appens FeedbackScreen (læser intet) kigger på
+        # persisted. Fejler RPC'en (netværk, SQL ikke kørt, eller loftet i
+        # submit_feedback), får web fejlteksten og appens klient en ApiError,
+        # så brugeren kan prøve igen. POST caches ikke af edge.
         return jsonify(
             success=False, persisted=False,
             error='Vi kunne ikke gemme din besked lige nu. Prøv igen om lidt.',
@@ -3472,11 +3511,8 @@ def api_home():
             # som web-forsidens "Lækre opskrifter" - se apps/mobile/src/screens/
             # HomeScreen.tsx. Ikke en 'section' (recipes er ikke Product[]-formet).
             'recipes': recipe_pool,
-            # Samme teaser-model som webforsiden (home()'s recipes_clickable +
-            # recipe_card(clickable=...)): sektionen VISES i alle miljøer, men
-            # kortene fører kun nogen steder hen hvor featuren er åben. Appen
-            # nulstillede før puljen i produktion, så sektionen forsvandt helt -
-            # det var den eneste forskel på web og app her.
+            # recipes er tom når opskrifter er slået fra (se
+            # _build_home_categories), ligesom på webforsiden.
             'recipes_clickable': _recipes_enabled(),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {

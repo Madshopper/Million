@@ -244,8 +244,8 @@ def summarize_invocations(acct: dict) -> tuple[dict, dict]:
 
 
 def run_wrangler_sql(sql: str) -> list[dict]:
-    """Samme kaldemoenster som relay-feedback-to-sheet.py: --command (ikke
-    --file) er det eneste der returnerer raekkedata i denne wrangler-version."""
+    """--command (ikke --file) er det eneste der returnerer raekkedata i
+    denne wrangler-version."""
     result = subprocess.run(
         ["npx", "wrangler@4", "d1", "execute", DB_NAME, "--remote",
          f"--command={sql}", "--json"],

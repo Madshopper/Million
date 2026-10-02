@@ -342,7 +342,7 @@ def main() -> None:
     section("10. POST API'er (afvisning af ugyldige kald)")
     # Kun kald der SKAL afvises. Auditten koeres mod produktion, og de gyldige
     # udgaver skrev rigtige data: en kurv-haendelse der talte med i "Populaere
-    # varer" for alle besoegende, og en feedbackbesked til Google Sheet'et
+    # varer" for alle besoegende, og en feedbackbesked i feedback-tabellen
     # (den sidste blev dog allerede afvist af Turnstile-tjekket). At ruten
     # svarer med sin egen valideringsfejl beviser at den er i live og naar
     # Flask - uden at roere en eneste raekke.

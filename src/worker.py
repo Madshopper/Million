@@ -523,8 +523,7 @@ def _sec_flush(env, ctx) -> None:
         # DDL holdes UDE af batch'en. D1's batch koerer som én alt-eller-intet-
         # transaktion, og bliver et CREATE afvist deri, ville hver eneste
         # efterfoelgende skylning fejle med - altsaa permanent tavs logning.
-        # Som separat statement er moensteret det samme som
-        # _ensure_pending_feedback_table() i app.py, der er bevist i drift.
+        # Som separat statement (det moenster der er bevist i drift).
         # Én gang pr. isolate; tabellen oprettes desuden hver 15. minut af
         # scripts/relay-security-events.py, saa den findes i praksis altid.
         if not _sec_table_ready:
