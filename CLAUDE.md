@@ -29,7 +29,7 @@ MadShopper ([madshopper.dk](https://madshopper.dk)) - dansk pris-sammenligning f
 - `templates/` (+ `macros/`, `partials/`) / `static/` - Jinja2 + CSS/JS (`script.js`, `auth.js`, `supabase.min.js`)
 - `apps/mobile/` - native iOS/Android-app (Expo/React Native); se `docs/native-app.md` og `docs/env-setup.md`
 - `docs/` - `Dev.md` (dev/staging-workflow), `Features.md` (roadmap), `paritet.md` (web/app-feature-matrix + aabne gaps - **opdatér i samme commit som du aendrer en feature**), `native-app.md`, `prisovervaagning.md`, `email-bekraeftelse.md`, `Github_fifs.md`
-- `.github/workflows/` - per-butik-scrapers, cache-updater, nutrition-build, edge-deploy (prod+dev), smoke/uptime-test, feedback-relay, dependency-audit
+- `.github/workflows/` - per-butik-scrapers, cache-updater, nutrition-build, edge-deploy (prod + manuel staging), smoke/uptime-test, feedback-relay, dependency-audit
 - `wrangler.toml`, `pyproject.toml` - Cloudflare/EdgeKit-konfiguration (uv)
 
 Fuld tech stack, butiksliste og mappetræ: `README.md` § Tech Stack / Supported Stores / Project Structure.
@@ -59,10 +59,10 @@ Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `u
 | Miljø | Branch | URL | Data |
 |---|---|---|---|
 | Produktion | `main` | madshopper.dk | prod-tabeller, egen KV + D1 |
-| Staging | `dev` | dev.madshopper.dk | læser prod-data, skriver til `*_dev`, egen KV + D1 |
+| Staging | vilkårlig (manuel deploy) | dev.madshopper.dk | læser prod-data, skriver til `*_dev`, egen KV + D1 |
 | Lokal | - | localhost:5001 (`python app.py`) | læser prod-data, skriver til `*_dev` |
 
-Push til `dev` → `deploy-edge-dev.yml`; merge `dev` → `main` → `deploy-edge.yml`. Begge kører Playwright-røgtest bagefter. Fuld workflow: `docs/Dev.md`.
+Der er ingen `dev`-branch (fjernet 02-10-2026). Arbejde laves på en feature-branch med PR direkte til `main`; merge til `main` → `deploy-edge.yml`. Staging deployes kun manuelt: kør `deploy-edge-dev.yml` med den branch der skal afprøves. Begge kører Playwright-røgtest bagefter. Fuld workflow: `docs/Dev.md`.
 
 Produktion er ramt af et reelt nedbrud 2026-07-19 (1101/1102 CPU-fejl ved samtidige cold renders efter nightly reseed). Derfor: Workers-observability er **permanent slået fra** i `scripts/build-pages.sh` (dens introspektion var selve årsagen), edge-cachen er versioneret via `cache_version`, og sikkerhedslogningen i `src/worker.py` aggregeres i hukommelsen og skylles højst 1×/minut pr. isolate. Lav aldrig noget der logger pr. request.
 
@@ -82,7 +82,7 @@ Denne fil hævdede frem til 10-08-2026 at staging stadig havde den tændt. Det v
 
 **Browser-cache:** HTML sendes med `Cache-Control: no-store`, så browseren ikke gemmer gamle sider (og gamle `?v=`-links til CSS/JS). Uden det overskrev zonens *Browser Cache TTL* (4 timer) `max-age=0` til `max-age=14400`. `scripts/deploy-worker.sh` sætter også Browser Cache TTL til *Respect Existing Headers* via API ved hvert deploy.
 
-**D1-skrivebudget:** Gratis-planens 100k `rows_written` pr. UTC-døgn er konto-bredt - prod og staging tilsammen. En fuld reseed i `scripts/seed-d1.py` skriver tabelrække + PK-autoindeks + indeksindgange for hvert produkt: målt 5,0 rækker pr. produkt (97.163 for 19.429 produkter 11-09-2026), ~4,3 efter at `idx_products_sale` blev partielt. Nattens cache-updater (starter i praksis 00:30-01:00 UTC pga. GitHub-cron-forsinkelse) bruger altså det meste af døgnet alene. Et push til `main` **eller** `dev`, der rører `updater.py`/`app_support.py`/`scraper/**`, udløser en ekstra fuld reseed (`FORCE_RESEED=1`) og sprænger budgettet - sket 09-09-2026 (193k) og 11-09-2026 (194k skrevet). Derfor: merg matching-/scraper-ændringer til `main` med `[skip ci]` i merge-committen, så nattens kørsel henter koden med én reseed, og dispatch `deploy-edge.yml` manuelt hvis edge-koden også skal ud (`gh workflow run deploy-edge.yml --ref main` - den rører ikke D1). Test matching lokalt med `scripts/eval-matching.py`, ikke ved at pushe til `dev`, og tving aldrig en ekstra reseed samme døgn. Er budgettet sprængt, fejler alle D1-skrivninger til 00:00 UTC; `/api/feedback` svarer derfor 503 frem for falsk succes.
+**D1-skrivebudget:** Gratis-planens 100k `rows_written` pr. UTC-døgn er konto-bredt - prod og staging tilsammen. En fuld reseed i `scripts/seed-d1.py` skriver tabelrække + PK-autoindeks + indeksindgange for hvert produkt: målt 5,0 rækker pr. produkt (97.163 for 19.429 produkter 11-09-2026), ~4,3 efter at `idx_products_sale` blev partielt. Nattens cache-updater (starter i praksis 00:30-01:00 UTC pga. GitHub-cron-forsinkelse) bruger altså det meste af døgnet alene. Et push til `main`, der rører `updater.py`/`app_support.py`/`scraper/**`, udløser en ekstra fuld reseed (`FORCE_RESEED=1`) og sprænger budgettet - sket 09-09-2026 (193k) og 11-09-2026 (194k skrevet). Derfor: merg matching-/scraper-ændringer til `main` med `[skip ci]` i merge-committen, så nattens kørsel henter koden med én reseed, og dispatch `deploy-edge.yml` manuelt hvis edge-koden også skal ud (`gh workflow run deploy-edge.yml --ref main` - den rører ikke D1). Test matching lokalt med `scripts/eval-matching.py`, og tving aldrig en ekstra reseed samme døgn. Er budgettet sprængt, fejler alle D1-skrivninger til 00:00 UTC; `/api/feedback` svarer derfor 503 frem for falsk succes.
 
 ## Brugerkonti
 

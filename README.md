@@ -113,7 +113,8 @@ A second Cloudflare Worker (`madshopper-dev`, own KV namespace + D1 database, `e
 
 - Live at `https://dev.madshopper.dk` (also reachable at `https://madshopper-dev.kasp478g.workers.dev`)
 - Reads share production's Supabase tables (always-fresh product data); writes go to the `_dev` tables
-- Push to the `dev` branch → `deploy-edge-dev.yml` deploys automatically; merge `dev` into `main` → `deploy-edge.yml` deploys to production
+- There is no `dev` branch: work happens on feature branches with pull requests straight to `main`; merging to `main` → `deploy-edge.yml` deploys to production
+- Staging is deployed manually: run `deploy-edge-dev.yml` (Actions > Run workflow) on the branch you want to try out
 - Full workflow and one-time setup: `docs/Dev.md`
 
 ### Run cache updater
@@ -139,7 +140,7 @@ Production runs behind Cloudflare's edge, not against Supabase directly:
 
 This design traces back to the 2026-07-19 outage where concurrent cold renders (all visitors hitting an unversioned cache at once after a nightly reseed) triggered Cloudflare's 1101/1102 CPU-limit errors; see `docs/Dev.md` and the commit history around `scripts/seed-d1.py` for the full incident trail. **Never add anything that logs per request** - Workers observability is permanently off in both environments for that reason.
 
-**D1 write budget.** The free plan's 100k `rows_written` per UTC day is account-wide (production + staging). A full reseed writes ~4.3 rows per product, so the nightly run uses most of the day's budget on its own. A push to `main` or `dev` touching `updater.py`, `app_support.py` or `scraper/**` triggers an extra full reseed and blows the budget - so matching/scraper changes are merged to `main` with `[skip ci]` and tested locally with `scripts/eval-matching.py`. When the budget is exhausted all D1 writes fail until 00:00 UTC, and `/api/feedback` answers 503 rather than faking success.
+**D1 write budget.** The free plan's 100k `rows_written` per UTC day is account-wide (production + staging). A full reseed writes ~4.3 rows per product, so the nightly run uses most of the day's budget on its own. A push to `main` touching `updater.py`, `app_support.py` or `scraper/**` triggers an extra full reseed and blows the budget - so matching/scraper changes are merged to `main` with `[skip ci]` and tested locally with `scripts/eval-matching.py`. When the budget is exhausted all D1 writes fail until 00:00 UTC, and `/api/feedback` answers 503 rather than faking success.
 
 ### Deployment & CI
 

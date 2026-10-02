@@ -16,7 +16,7 @@ name: Web/app-paritetstests
 # blokere en hotfix-deploy.
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
     paths:
       - 'templates/base.html'
       - 'static/js/script.js'

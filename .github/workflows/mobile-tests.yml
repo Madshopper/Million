@@ -8,14 +8,14 @@ name: Mobile app tests
 #
 # TRIGGEREN: bevidst BÅDE push og pull_request. Workflowet blev oprettet med
 # `pull_request` alene - men repoet har haft præcis ÉN pull request
-# nogensinde (24-07-2026); alt arbejde siden er direkte pushes til dev/main
+# nogensinde (24-07-2026); alt arbejde frem til 02-10-2026 var direkte pushes til dev/main; nu går det via PR'er til main
 # plus lokale merges. Konsekvensen var at typecheck og unit-tests aldrig kørte
 # på en eneste reel ændring, mens workflow-filen gav indtryk af det modsatte.
 # Push-triggeren er derfor den der faktisk gør arbejdet; PR-triggeren
 # beholdes, så en fremtidig PR-baseret arbejdsgang også er dækket.
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
     paths:
       - 'apps/mobile/**'
       - 'app.py'

@@ -3,32 +3,16 @@ name: Deploy Edge Worker (staging)
 # Samme flow som deploy-edge.yml, men til madshopper-dev (egen KV/D1,
 # dev.madshopper.dk) i stedet for produktion - så features kan testes på en
 # rigtig edge-deployment uden at røre madshopper.dk.
+#
+# Dev-branchen er fjernet 02-10-2026: alt arbejde går nu via PR'er direkte til
+# main. Staging deployes derfor kun manuelt: Actions > "Deploy Edge Worker
+# (staging)" > Run workflow, og vælg den branch (fx en PR-branch) der skal
+# afprøves. Kører aldrig automatisk, så staging viser det man sidst valgte.
 on:
   workflow_dispatch:
-  push:
-    branches: [dev]
-    paths:
-      - 'app.py'
-      - 'app_support.py'
-      - 'src/**'
-      - 'templates/**'
-      - 'static/**'
-      - 'pyproject.toml'
-      - 'scripts/build-pages.sh'
-      - 'scripts/smoke-test.mjs'
-      # Nyt 19-08-2026: Playwright-installationen er flyttet hertil, og en
-      # aendring i den skal kunne proeves af med det samme.
-      - 'scripts/install-playwright-ci.sh'
-      - 'scripts/warm-edge-cache.mjs'
-      - 'scripts/test-render-exclusive.py'
-      - '.github/workflows/deploy-edge-dev.yml'
-      # Indgår i bundtet/afhængigheds-opløsningen - uden dem her kunne en
-      # ændring ligge udeployeret uden at nogen så det.
-      - '_routes.json'
-      - 'uv.lock'
 
-# Se begrundelsen i deploy-edge.yml. Samme gruppe som cache-updater bruger for
-# dev, så et staging-seed og en staging-deploy ikke kan overlappe.
+# Se begrundelsen i deploy-edge.yml. Samme gruppe som cache-updater bruger ved
+# staging_only, så et staging-seed og en staging-deploy ikke kan overlappe.
 concurrency:
   group: madshopper-edge-staging
   cancel-in-progress: false
@@ -59,7 +43,7 @@ jobs:
         env:
           CACHE_REFRESH_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
           # Uden denne byggede staging med tom webhook-URL, saa feedback afgivet
-          # paa dev aldrig kunne naa Google Sheet (samme var som i deploy-edge.yml).
+          # paa staging aldrig kunne naa Google Sheet (samme var som i deploy-edge.yml).
           GOOGLE_SHEET_WEBHOOK_URL: ${{ secrets.GOOGLE_SHEET_WEBHOOK_URL }}
           # Adgangsspaerring paa staging. madshopper-dev koerer den samme kode
           # mod SAMME Supabase-projekt og samme auth.users som produktionen, men
