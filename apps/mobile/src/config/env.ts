@@ -17,6 +17,7 @@ type Extra = {
   googleAndroidClientId?: string;
   flavor?: string;
   nonProdReleaseAllowed?: boolean;
+  recipesEnabled?: boolean;
 };
 
 const extra = (Constants.expoConfig?.extra || {}) as Extra;
@@ -53,15 +54,16 @@ if (!__DEV__ && env.flavor !== 'production' && !extra.nonProdReleaseAllowed) {
 }
 
 /**
- * Opskrift-featuren er kun åben på staging/lokalt - aldrig i et
- * produktions-build. Samme miljøsignal som webbens _recipes_enabled() i
- * app.py (`rpc_suffix` er tom i produktion, "_dev" ellers).
+ * Opskrift-featuren er slået FRA, medmindre buildet har
+ * EXPO_PUBLIC_RECIPES_ENABLED=1 (se app.config.js). Samme eksplicitte flag
+ * som webbens _recipes_enabled() i app.py (RECIPES_ENABLED=1) - ikke længere
+ * afledt af miljøet, da staging fjernes og opskrifter ikke må udgives.
  *
  * Flaget bor her og ikke i RootNavigator, så både navigationen, forsiden og
  * alt andet kan gate på præcis den samme værdi uden at importere hinanden på
  * kryds (cirkulær import).
  */
-export const recipesEnabled = Boolean(env.rpcSuffix);
+export const recipesEnabled = extra.recipesEnabled === true;
 
 export function rpcName(base: string): string {
   // delete_own_account har ingen _dev-variant (docs/native-app.md §10.3)

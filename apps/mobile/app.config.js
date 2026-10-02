@@ -221,6 +221,7 @@ const config = {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || PUBLIC_DEFAULTS.supabaseUrl,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || PUBLIC_DEFAULTS.supabaseAnonKey,
     rpcSuffix: process.env.EXPO_PUBLIC_RPC_SUFFIX || '',
+    recipesEnabled: process.env.EXPO_PUBLIC_RECIPES_ENABLED === '1',
     googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || PUBLIC_DEFAULTS.googleClientId,
     googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || PUBLIC_DEFAULTS.googleIosClientId,
     googleAndroidClientId:

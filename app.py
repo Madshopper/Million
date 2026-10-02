@@ -411,6 +411,8 @@ def _inject_site_meta():
         'price_alerts_table': 'price_alerts' + _table_suffix(),
         # Suffiks til client-side RPC'er (fx create_shared_cart_dev på staging).
         'rpc_suffix': _table_suffix(),
+        # Header-ikonet til /opskrifter vises kun når featuren er slået til.
+        'recipes_enabled': _recipes_enabled(),
         # Sandt naar SIDENS render byggede paa ufuldstaendige data (samme
         # isolate-kollision i D1-broen som saetter X-Data-Degraded-headeren,
         # se _mark_data_degraded). _build_search_listing/kategori-hentningen
@@ -1281,15 +1283,16 @@ def _safe_match_filter(products: list, query: str, matcher) -> list:
 
 def _recipes_enabled() -> bool:
     """Styrer den FUNKTIONELLE opskrift-feature (detaljesider, /api/recipes,
-    /opskrifter, native app'ens recipes) - stadig under test og må kun være
-    tilgængelig på dev.madshopper.dk/lokalt, aldrig på madshopper.dk, samme
-    miljø-signal som _table_suffix()/rpc_suffix allerede bruger til at skelne
-    prod fra staging/lokalt.
+    /opskrifter, native app'ens recipes). Eksplicit flag RECIPES_ENABLED=1,
+    slået FRA som standard i alle miljøer - også lokalt og på staging. Før
+    fulgte den miljøet (_table_suffix()), men dev-branchen/staging fjernes, og
+    opskrifter må ikke afhænge af hvilket miljø der kører. Sæt
+    RECIPES_ENABLED=1 i en lokal .env for at arbejde på featuren.
 
     Styrer også forsidens "Lækre opskrifter"-sektion (web og app): opskrifter
     må ikke udgives til brugerne (beslutning 02-10-2026), så
     _build_home_categories tømmer puljen når denne er falsk."""
-    return bool(_table_suffix())
+    return os.environ.get("RECIPES_ENABLED") == "1"
 
 
 def _supabase_rest_config():
@@ -2515,8 +2518,8 @@ def _build_home_categories(active_stores, args):
     # Opskrifter må ikke udgives til brugerne (beslutning 02-10-2026): uden
     # _recipes_enabled() tømmes puljen her, så hverken webforsidens teaser
     # (home()) eller appens forside (api_home(), også allerede udgivne builds)
-    # viser "Lækre opskrifter" i produktion. Teaser-koden (recipes_clickable/
-    # recipe_card(clickable=...)) er bevaret til dev/lokalt.
+    # viser "Lækre opskrifter". Teaser-koden (recipes_clickable/
+    # recipe_card(clickable=...)) er bevaret til når featuren slås til.
     if not _recipes_enabled():
         recipe_pool = []
 
@@ -2660,8 +2663,7 @@ def home():
         trimmed_categories, template_mapping, recipe_pool = _build_home_categories(
             active_stores, request.args,
         )
-        # Puljen er tom i produktion (se _build_home_categories) - teaseren
-        # vises kun på dev/lokalt, hvor kortene også er klikbare.
+        # Puljen er tom når opskrifter er slået fra (se _build_home_categories).
         recipes_clickable = _recipes_enabled()
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -3471,8 +3473,8 @@ def api_home():
             # som web-forsidens "Lækre opskrifter" - se apps/mobile/src/screens/
             # HomeScreen.tsx. Ikke en 'section' (recipes er ikke Product[]-formet).
             'recipes': recipe_pool,
-            # recipes er tom i produktion (se _build_home_categories), så
-            # sektionen kun vises på dev/lokalt, ligesom på webforsiden.
+            # recipes er tom når opskrifter er slået fra (se
+            # _build_home_categories), ligesom på webforsiden.
             'recipes_clickable': _recipes_enabled(),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
