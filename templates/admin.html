@@ -57,7 +57,7 @@
         <a href="#scraping" data-section="scraping">Scraping <span class="adm-badge" id="badge-scraping" hidden></span></a>
         <a href="#korsler" data-section="korsler">Kørsler <span class="adm-badge" id="badge-korsler" hidden></span></a>
         <a href="#opskrifter" data-section="opskrifter">Opskrifter <span class="adm-badge" id="badge-opskrifter" hidden></span></a>
-        <a href="#brugere" data-section="brugere">Brugere</a>
+        <a href="#brugere" data-section="brugere">Brugere <span class="adm-badge" id="badge-brugere" hidden></span></a>
         <a href="#drift" data-section="drift">Drift</a>
       </nav>
       <div class="adm-side-foot">
@@ -116,7 +116,16 @@
         <section data-section="brugere" hidden>
           <div class="adm-head"><h1>Brugere</h1></div>
           <div class="adm-tiles" id="admin-user-tiles"></div>
-          <div class="adm-card"><h2>Nyeste brugere</h2><div id="admin-users"></div></div>
+          <div class="adm-card">
+            <div class="adm-head" style="margin-bottom:8px">
+              <h2 style="margin:0" id="admin-users-title">Nyeste brugere</h2>
+              <span class="adm-seg" id="users-filter" hidden>
+                <button type="button" class="adm-btn" id="users-pending" aria-pressed="true">Venter</button>
+                <button type="button" class="adm-btn" id="users-all" aria-pressed="false">Alle</button>
+              </span>
+            </div>
+            <div id="admin-users"></div>
+          </div>
         </section>
 
         <section data-section="drift" hidden>
