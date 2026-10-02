@@ -4,7 +4,7 @@ export type TabParamList = {
   Home: undefined;
   Search: undefined;
   Recipes: undefined;
-  Settings: undefined;
+  Profile: undefined;
 };
 
 export type RootStackParamList = {
@@ -17,6 +17,7 @@ export type RootStackParamList = {
   Sco: undefined;
   Route: undefined;
   Auth: undefined;
+  Settings: undefined;
   Feedback: undefined;
   Legal: { kind: 'terms' | 'privacy' | 'about' };
 };

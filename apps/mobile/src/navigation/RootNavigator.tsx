@@ -19,6 +19,7 @@ import { SearchScreen } from '../screens/SearchScreen';
 import { RecipesScreen } from '../screens/RecipesScreen';
 import { CartScreen } from '../screens/CartScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProductDetailScreen } from '../screens/ProductDetailScreen';
 import { RecipeDetailScreen } from '../screens/RecipeDetailScreen';
 import { ScoScreen } from '../screens/ScoScreen';
@@ -218,14 +219,14 @@ function MainTabs() {
         />
       )}
       <Tabs.Screen
-        name="Settings"
-        component={SettingsScreen}
+        name="Profile"
+        component={ProfileScreen}
         options={({ navigation }) => ({
-          title: 'Indstillinger',
-          tabBarLabel: 'Indstillinger',
+          title: 'Profil',
+          tabBarLabel: 'Profil',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
-              name={tabIcon(focused, 'settings', 'settings-outline')}
+              name={tabIcon(focused, 'person-circle', 'person-circle-outline')}
               size={size}
               color={color}
             />
@@ -301,6 +302,8 @@ export function RootNavigator() {
             headerLeft: () => <CloseHeaderButton onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Tabs'))} />,
           })}
         />
+        {/* Indstillinger var en fane indtil 02-10-2026; nu åbnes de fra Profil. */}
+        <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Indstillinger' }} />
         <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: 'Feedback' }} />
         <Stack.Screen
           name="Legal"
