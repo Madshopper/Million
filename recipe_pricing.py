@@ -143,4 +143,10 @@ def compute_recipe_price_snapshots() -> None:
 
 
 if __name__ == '__main__':
-    compute_recipe_price_snapshots()
+    # Opskrifterne er skjult for brugerne (app.py's RECIPES_ENABLED), så
+    # nattens genberegning springes over, indtil featuren tændes. Sæt
+    # RECIPES_ENABLED=1 for at køre den alligevel.
+    if os.environ.get('RECIPES_ENABLED') == '1':
+        compute_recipe_price_snapshots()
+    else:
+        print('RECIPES_ENABLED er ikke sat - springer opskrift-priser over')
