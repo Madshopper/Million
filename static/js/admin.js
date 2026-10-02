@@ -135,9 +135,7 @@
     var box = $('admin-tiles');
     box.textContent = '';
     var u = ov.users || {};
-    box.appendChild(tile('Brugere', nf(u.total), nf(u.confirmed) + ' bekræftede'));
-    box.appendChild(tile('Nye brugere', nf(u.new_7d), 'seneste 7 dage, ' + nf(u.new_30d) + ' på 30'));
-    box.appendChild(tile('Aktive brugere', nf(u.active_7d), 'logget ind seneste 7 dage'));
+    box.appendChild(tile('Brugere', nf(u.total), nf(u.new_7d) + ' nye seneste 7 dage'));
 
     var db = ov.database || {};
     var dbRatio = db.limit_bytes ? db.size_bytes / db.limit_bytes : null;
@@ -155,9 +153,78 @@
     var open = state.feedback.filter(function (f) { return !f.handled_at; }).length + state.pending.length;
     box.appendChild(tile('Ubehandlet feedback', nf(open), state.pending.length ? nf(state.pending.length) + ' i gammel D1-kø' : 'fra feedback-formularen'));
 
+    var ub = $('admin-user-tiles');
+    ub.textContent = '';
     var e = ov.engagement || {};
-    box.appendChild(tile('Prisalarmer', nf(e.price_alerts_active), 'aktive'));
-    box.appendChild(tile('Kurve', nf(e.carts), nf(e.shared_carts) + ' delte, ' + nf(e.cart_events_7d) + ' kurv-hændelser/7 d'));
+    ub.appendChild(tile('Brugere', nf(u.total), nf(u.confirmed) + ' bekræftede'));
+    ub.appendChild(tile('Nye brugere', nf(u.new_7d), 'seneste 7 dage, ' + nf(u.new_30d) + ' på 30'));
+    ub.appendChild(tile('Aktive brugere', nf(u.active_7d), 'logget ind seneste 7 dage'));
+    ub.appendChild(tile('Prisalarmer', nf(e.price_alerts_active), 'aktive'));
+    ub.appendChild(tile('Kurve', nf(e.carts), nf(e.shared_carts) + ' delte, ' + nf(e.cart_events_7d) + ' kurv-hændelser/7 d'));
+  }
+
+  function openFeedbackCount() {
+    return state.feedback.filter(function (f) { return !f.handled_at; }).length + state.pending.length;
+  }
+
+  function staleStores(ov) {
+    return (ov.stores || []).filter(function (s) {
+      var h = ago(s.last_scraped);
+      return h == null || h > STALE_HOURS;
+    });
+  }
+
+  function badge(id, n) {
+    var b = $(id);
+    b.hidden = !n;
+    b.textContent = n ? String(n) : '';
+  }
+
+  function renderBadges(ov) {
+    badge('badge-feedback', openFeedbackCount());
+    badge('badge-scraping', staleStores(ov).length);
+    badge('badge-opskrifter', (ov.pending_recipes || []).length);
+  }
+
+  // Overblikkets "kræver opmærksomhed": hvert punkt linker til sin sektion.
+  function renderAttention(ov, ed) {
+    var items = [];
+    var open = openFeedbackCount();
+    if (open) items.push(['warn', open + ' ubehandlet feedback', '#feedback']);
+    staleStores(ov).forEach(function (s) {
+      items.push(['bad', s.butik + ': ingen nye data i ' + agoText(ago(s.last_scraped)).replace(' siden', ''), '#scraping']);
+    });
+    var pr = (ov.pending_recipes || []).length;
+    if (pr) items.push(['info', pr + ' opskrift' + (pr === 1 ? '' : 'er') + ' venter på godkendelse', '#opskrifter']);
+    var db = ov.database || {};
+    if (db.limit_bytes && db.size_bytes / db.limit_bytes >= 0.8) {
+      items.push(['bad', 'Supabase-databasen er ' + Math.round(db.size_bytes / db.limit_bytes * 100) + ' % fuld', '#drift']);
+    }
+    var b = (ed && ed.d1_budget) || {};
+    if (b.configured && !b.error && b.rows_written / b.limit_written >= 0.9) {
+      items.push(['warn', 'D1 rows_written er ' + Math.round(b.rows_written / b.limit_written * 100) + ' % af dagens budget', '#drift']);
+    }
+    if (!items.length) { fill('admin-attention', empty('Intet kræver opmærksomhed lige nu.')); return; }
+    fill('admin-attention', el('ul', { class: 'adm-attn' }, items.map(function (it) {
+      return el('li', {}, [pill(it[0], it[0] === 'bad' ? 'Problem' : it[0] === 'warn' ? 'Tjek' : 'Info'),
+                           el('a', { href: it[2], text: it[1] })]);
+    })));
+  }
+
+  /* ----------------------------------------------------------- navigation */
+  var SECTIONS = ['oversigt', 'feedback', 'scraping', 'opskrifter', 'brugere', 'drift'];
+
+  function showSection() {
+    var name = (location.hash || '').replace('#', '');
+    if (SECTIONS.indexOf(name) < 0) name = 'oversigt';
+    document.querySelectorAll('#admin-main section[data-section]').forEach(function (sec) {
+      sec.hidden = sec.getAttribute('data-section') !== name;
+    });
+    document.querySelectorAll('#admin-nav a').forEach(function (a) {
+      if (a.getAttribute('data-section') === name) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
+    });
+    window.scrollTo(0, 0);
   }
 
   function renderFeedback() {
@@ -213,6 +280,7 @@
     rpc('admin_set_feedback_handled', { p_id: f.id, p_handled: handled }).then(function () {
       f.handled_at = handled ? new Date().toISOString() : null;
       renderFeedback();
+      badge('badge-feedback', openFeedbackCount());
     }).catch(function (e) {
       btn.disabled = false;
       showError('Kunne ikke opdatere feedback: ' + (e.message || e));
@@ -322,7 +390,6 @@
     $('admin-gate').hidden = false;
     $('admin-gate-text').textContent = text;
     $('admin-login').hidden = !showLogin;
-    $('admin-sub').textContent = '';
   }
 
   var loading = false;
@@ -333,8 +400,9 @@
     loading = true;
     return sb.auth.getSession().then(function (res) {
       var session = res && res.data && res.data.session;
+      $('admin-who').textContent = session ? (session.user.email || '') : '';
+      $('admin-logout').hidden = !session;
       if (!session) { gate('Log ind med din admin-konto for at se panelet.', true); return; }
-      $('admin-sub').textContent = 'Logget ind som ' + (session.user.email || '');
 
       return rpc('is_admin').then(function (ok) {
         if (!ok) { gate('Din konto har ikke admin-adgang.', false); return; }
@@ -357,6 +425,8 @@
           state.feedback = r[1] || [];
           state.pending = (ed && ed.pending_feedback) || [];
           renderTiles(ov, ed);
+          renderBadges(ov);
+          renderAttention(ov, ed);
           renderFeedback();
           renderStores(ov);
           renderRecipes(ov);
@@ -388,6 +458,11 @@
 
   function boot() {
     $('admin-refresh').addEventListener('click', load);
+    $('admin-logout').addEventListener('click', function () {
+      if (window.authLogout) window.authLogout();
+    });
+    window.addEventListener('hashchange', showSection);
+    showSection();
     $('admin-login').addEventListener('click', function () {
       if (window.openAuthModal) window.openAuthModal('login');
     });
