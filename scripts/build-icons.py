@@ -261,7 +261,7 @@ def main() -> int:
     render("fullbleed", 512).save(play_icon, format="PNG", optimize=True)
     print(f"  {play_icon.relative_to(ROOT)} (512x512, fullbleed)")
 
-    print("Færdig. Husk at bumpe ?v= i templates/base.html hvis ikonerne er ændret.")
+    print("Færdig. ?v= på ikonerne opdateres automatisk ud fra filernes indhold.")
     return 0
 
 

@@ -1,40 +1,33 @@
 #!/usr/bin/env python3
-"""Håndhæver ?v=-reglen for statiske assets.
+"""Håndhæver den automatiske cache-busting af statiske assets.
 
-Kør: python3 scripts/test-cache-bust.py [base-ref]
+Kør: python3 scripts/test-cache-bust.py   (efter scripts/build-pages.sh, hvis
+dist/ skal kontrolleres; REQUIRE_DIST=1 gør en manglende dist/ til en fejl)
 
-BAGGRUNDEN, kort: browseren henter /static/css/styles.css og
-/static/js/{script,auth}.js med en ?v=<n>-forespørgselsstreng, og de serveres
-`immutable`. Ændrer man en af filerne UDEN at hælde ?v= op i
-templates/base.html, bliver den gamle udgave ved med at køre hos alle
-besøgende - potentielt i timer. Det er ikke teoretisk: da Turnstile-hooken
-blev slået til, brød login for alle, netop fordi klienterne kørte videre på
-den gamle auth.js (commit c7c0efd), og reglen er sidenhen glemt mindst to
-gange mere og først fanget af et menneske bagefter.
+BAGGRUNDEN: /static/* serveres `immutable` i et år. Tidligere skulle ?v=<n> i
+templates hæves i hånden ved hver ændring, og det blev glemt igen og igen:
+login brød for alle (c7c0efd), og 02-10-2026 stod "Spring til indhold" synligt
+øverst på siden, fordi styles.css' nye regel aldrig nåede browserne.
 
-En regel der kun står i CLAUDE.md bliver glemt. Denne test gør den til en
-gate - samme rolle som scripts/test-security-logging.py spiller for
-observability-invarianten.
-
-REGLEN: rører diffen en af de overvågede assets, SKAL samme diff også ændre
-den pågældende fils ?v=-tal i templates/base.html.
+Nu sætter app.py::_static_cache_bust selv ?v=<indholds-hash> på alle
+url_for('static', ...). Testen sikrer at:
+  1) ingen template skriver ?v= selv efter url_for('static', ...),
+  2) bygge-scriptet og app.py hasher med samme algoritme,
+  3) dist/python_modules/static_hashes.json (som edge læser) findes, matcher
+     de nuværende filer og dækker hver statisk fil templates refererer.
 """
 from __future__ import annotations
 
+import importlib.util
+import json
+import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_HTML = ROOT / "templates" / "base.html"
-
-# asset-sti i repoet -> hvordan den refereres i base.html
-WATCHED = {
-    "static/css/styles.css": "css/styles.css",
-    "static/js/script.js": "js/script.js",
-    "static/js/auth.js": "js/auth.js",
-}
+TEMPLATES = ROOT / "templates"
+DIST_HASHES = ROOT / "dist" / "python_modules" / "static_hashes.json"
 
 fails: list[str] = []
 
@@ -45,54 +38,53 @@ def check(label: str, ok: bool) -> None:
         fails.append(label)
 
 
-def git(*args: str) -> str:
-    return subprocess.run(
-        ["git", *args], cwd=ROOT, capture_output=True, text=True, check=False
-    ).stdout
-
-
-def versions_in(text: str) -> dict[str, set[str]]:
-    """{'js/auth.js': {'24'}} - alle ?v=-tal pr. asset i en base.html-tekst."""
-    out: dict[str, set[str]] = {}
-    for path in WATCHED.values():
-        pattern = re.escape(path) + r"'\s*\)\s*\}\}\?v=(\d+)"
-        out[path] = set(re.findall(pattern, text))
-    return out
+def load_builder():
+    spec = importlib.util.spec_from_file_location(
+        "build_static_hashes", ROOT / "scripts" / "build-static-hashes.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def main() -> int:
-    base_ref = sys.argv[1] if len(sys.argv) > 1 else "HEAD~1"
+    # --- 1) Ingen manuelle ?v= ----------------------------------------------
+    static_ref = re.compile(r"""url_for\(\s*['"]static['"]\s*,\s*filename\s*=\s*['"]([^'"]+)['"]\s*\)\s*\}\}(\?v=)?""")
+    referenced: set[str] = set()
+    for tpl in sorted(TEMPLATES.rglob("*.html")):
+        rel = tpl.relative_to(ROOT).as_posix()
+        for m in static_ref.finditer(tpl.read_text(encoding="utf-8")):
+            referenced.add(m.group(1))
+            check(f"{rel}: {m.group(1)} har ingen manuel ?v=", m.group(2) is None)
 
-    # --- 1) Hver asset har præcis ÉN version i base.html ---------------------
-    # styles.css står to gange (preload + stylesheet). Står de to med hvert
-    # sit tal, henter browseren filen TO gange og bruger den ene - præcis den
-    # slags stille spild en gate skal fange.
-    current = versions_in(BASE_HTML.read_text(encoding="utf-8"))
-    for path, found in current.items():
-        check(f"{path}: præcis én ?v=-værdi i base.html (fandt {sorted(found) or 'ingen'})",
-              len(found) == 1)
+    # --- 2) Samme algoritme i bygget og i app.py -----------------------------
+    builder = load_builder()
+    app_src = (ROOT / "app.py").read_text(encoding="utf-8")
+    m = re.search(r"^_STATIC_HASH_LEN = (\d+)$", app_src, re.M)
+    check("app.py og build-static-hashes.py bruger samme hash-længde",
+          bool(m) and int(m.group(1)) == builder.HASH_LEN)
+    check("app.py::_static_file_hash bruger sha256",
+          re.search(r"def _static_file_hash\(.*?\n(?:    .*\n)*?.*hashlib\.sha256", app_src) is not None)
+    prefixes = re.search(r"^_STATIC_NO_HASH_PREFIXES = \(([^)]*)\)", app_src, re.M)
+    no_hash = tuple(re.findall(r"'([^']+)'", prefixes.group(1))) if prefixes else ()
 
-    # --- 2) Ændret asset => ændret ?v= i samme diff --------------------------
-    changed = set(git("diff", "--name-only", base_ref, "HEAD").split())
-    if not changed:
-        print(f"\n(ingen ændringer mod {base_ref} - springer diff-kontrollen over)")
+    # --- 3) Edge-hashene -----------------------------------------------------
+    if not DIST_HASHES.exists():
+        if os.environ.get("REQUIRE_DIST") == "1":
+            check(f"{DIST_HASHES.relative_to(ROOT)} findes", False)
+        else:
+            print(f"\n(ingen {DIST_HASHES.relative_to(ROOT)} - kør scripts/build-pages.sh for at teste den)")
     else:
-        old_html = git("show", f"{base_ref}:templates/base.html")
-        old = versions_in(old_html) if old_html else {}
-        for asset, path in WATCHED.items():
-            if asset not in changed:
+        built = json.loads(DIST_HASHES.read_text(encoding="utf-8"))
+        check("static_hashes.json matcher de nuværende filer i static/", built == builder.build())
+        for ref in sorted(referenced):
+            if ref.startswith(no_hash):
                 continue
-            before = old.get(path, set())
-            after = current.get(path, set())
-            check(
-                f"{asset} er ændret => ?v= er hævet ({sorted(before) or '?'} -> {sorted(after) or '?'})",
-                bool(before) and bool(after) and before != after,
-            )
+            check(f"static_hashes.json har en hash for {ref}", ref in built)
 
     print()
     if fails:
         print(f"{len(fails)} KONTROL(LER) FEJLEDE")
-        print("Ret templates/base.html: hæv ?v= for den/de ændrede filer.")
+        print("Fjern ?v= fra templates - url_for('static', ...) sætter den selv.")
         return 1
     print("ALLE TESTS BESTAAET")
     return 0
