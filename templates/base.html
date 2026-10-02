@@ -32,8 +32,10 @@
        ?v= bumpes når ikonerne ændres. NB: _headers i scripts/build-pages.sh
        foreskriver ganske vist et års immutable cache for /static/*, men den
        fil slår ikke igennem - målt 24-07-2026 på BÅDE produktion og staging
-       svarer /static/css/styles.css med "max-age=0, must-revalidate". ?v= er
-       derfor korrekt praksis. HTML sendes med Cache-Control: no-store, så
+       svarer /static/css/styles.css med "max-age=0, must-revalidate". Målt
+       02-10-2026 svarer den nu "max-age=31536000, immutable", så ?v= SKAL
+       bumpes ved hver ændring af en statisk fil, ellers ser browsere med den
+       gamle fil i cachen aldrig ændringen. HTML sendes med Cache-Control: no-store, så
        browseren henter frisk HTML (og nye ?v=-links) uden hard refresh. -->
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}?v=2" type="image/svg+xml">
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=4" sizes="16x16 32x32 48x48">
@@ -52,11 +54,16 @@
   <link rel="preload" href="{{ url_for('static', filename='fonts/inter-latin-variable.woff2') }}?v=1" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="{{ url_for('static', filename='fonts/plus-jakarta-sans-latin-variable.woff2') }}?v=1" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}?v=1">
-  <link rel="preload" href="{{ url_for('static', filename='css/styles.css') }}?v=50" as="style">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=50">
+  <link rel="preload" href="{{ url_for('static', filename='css/styles.css') }}?v=51" as="style">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=51">
   <style>
     /* Fallback hvis styles.css fejler at loade (netværk/CDN) */
     body { font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif; margin: 0; background: #F9FAFB; color: #111827; }
+    /* Skip-linket skal være skjult indtil tastaturfokus, også hvis browseren
+       har en gammel styles.css i cachen uden .skip-link-reglen (sket 02-10-2026:
+       reglen kom ind uden ?v=-bump, og /static/ caches nu immutable i et år). */
+    .skip-link { position: absolute; top: -100px; left: 12px; }
+    .skip-link:focus { top: 12px; }
   </style>
   <!-- Offentlige Supabase-værdier til browseren (kun den offentlige publishable
        nøgle, aldrig en hemmelig nøgle). Ens for alle → sikre i delt edge-cache. -->
