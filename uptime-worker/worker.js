@@ -94,6 +94,12 @@ const SEARCH_CHECK = {
 const SEARCH_HOUR_UTC = 5;
 const SEARCH_MINUTE = 40;
 
+// Sitet lukkes bag login (src/worker.py); uloggede requests får kun en
+// login-side. Workeren kommer forbi med X-MadShopper-Monitor, som hovedworkeren
+// sammenligner konstant-tid med sit eget MONITOR_ACCESS_SECRET. Sendes kun til
+// madshopper.dk-domænerne, aldrig til Resend.
+let monitorSecret = "";
+
 async function runCheck(check) {
   const started = Date.now();
   try {
@@ -103,8 +109,10 @@ async function runCheck(check) {
       u.searchParams.set("max_price", String(1000000 + (Date.now() % 1000000)));
       url = u.toString();
     }
+    const headers = { "User-Agent": "MadShopper-Uptime/1.0 (+https://madshopper.dk)" };
+    if (monitorSecret) headers["X-MadShopper-Monitor"] = monitorSecret;
     const resp = await fetch(url, {
-      headers: { "User-Agent": "MadShopper-Uptime/1.0 (+https://madshopper.dk)" },
+      headers,
       redirect: "manual",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
@@ -185,6 +193,7 @@ function fmtTime(iso) {
 }
 
 export async function check(env, scheduledTime = Date.now()) {
+  monitorSecret = env.MONITOR_ACCESS_SECRET || "";
   let state = null;
   let firstRun = false;
   try {
