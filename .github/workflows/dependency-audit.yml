@@ -6,7 +6,11 @@ on:
     # Hver mandag kl. 06:00 UTC
     - cron: '0 6 * * 1'
   push:
-    branches: [main, dev]
+    branches: [main]
+    paths:
+      - 'requirements.txt'
+      - '.github/workflows/dependency-audit.yml'
+  pull_request:
     paths:
       - 'requirements.txt'
       - '.github/workflows/dependency-audit.yml'

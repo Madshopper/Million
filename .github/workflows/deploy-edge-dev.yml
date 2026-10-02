@@ -3,10 +3,16 @@ name: Deploy Edge Worker (staging)
 # Samme flow som deploy-edge.yml, men til madshopper-dev (egen KV/D1,
 # dev.madshopper.dk) i stedet for produktion - så features kan testes på en
 # rigtig edge-deployment uden at røre madshopper.dk.
+#
+# Dev-branchen er fjernet 02-10-2026: alt arbejde går nu via PR'er direkte til
+# main. Staging deployes automatisk fra main, sideløbende med produktionen, så
+# dev.madshopper.dk altid kører samme kode som madshopper.dk. Vil man afprøve
+# en PR-branch før merge: Actions > "Deploy Edge Worker (staging)" > Run
+# workflow, og vælg branchen. Næste push til main skriver staging tilbage.
 on:
   workflow_dispatch:
   push:
-    branches: [dev]
+    branches: [main]
     paths:
       - 'app.py'
       - 'app_support.py'
@@ -27,8 +33,9 @@ on:
       - '_routes.json'
       - 'uv.lock'
 
-# Se begrundelsen i deploy-edge.yml. Samme gruppe som cache-updater bruger for
-# dev, så et staging-seed og en staging-deploy ikke kan overlappe.
+
+# Se begrundelsen i deploy-edge.yml. Samme gruppe som cache-updater bruger ved
+# staging_only, så et staging-seed og en staging-deploy ikke kan overlappe.
 concurrency:
   group: madshopper-edge-staging
   cancel-in-progress: false
