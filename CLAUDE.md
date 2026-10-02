@@ -52,6 +52,7 @@ Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `u
 - `supabase-cart-increment.sql` - `record_cart_activity`-RPC (SECURITY DEFINER, eneste skrivevej til `cart_events`)
 - `supabase-nutrition.sql`, `supabase-carts.sql`, `supabase-dev-tables.sql`
 - `supabase-user-savings.sql` - personlig månedlig besparelse (`get_personal_savings` / `record_compare_savings`)
+- `supabase-admin.sql` - admin-panelet `/admin`: `admin_users` (lukket tabel, admins indsættes manuelt i SQL Editor) + `is_admin()` og `admin_*`-RPC'er, der hver afviser ikke-admins. Siden er en tom skal; data hentes i browseren (`static/js/admin.js`) med brugerens eget login
 - `supabase-rls-audit.sql` (ren læsning), `supabase-lockdown.sql`, `supabase-hardening.sql` - sikkerhed/RLS
 
 ## Miljøer & deploy

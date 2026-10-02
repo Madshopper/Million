@@ -2908,7 +2908,7 @@ def robots_txt():
     if host.endswith('.workers.dev'):
         body = 'User-agent: *\nDisallow: /\n'
     else:
-        body = f'User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n'
+        body = f'User-agent: *\nAllow: /\nDisallow: /admin\n\nSitemap: {SITE_URL}/sitemap.xml\n'
     return Response(body, mimetype='text/plain')
 
 
@@ -3028,6 +3028,17 @@ def about():
 @app.route('/feedback')
 def feedback_page():
     return render_template('feedback.html')
+
+
+# Admin-panel. Siden er en tom skal uden data - ens for alle, så den må gerne
+# ligge i den delte edge-cache. Alt indhold hentes i browseren af
+# static/js/admin.js via admin_*-RPC'erne (scripts/supabase-admin.sql), der
+# selv afviser alle uden en række i admin_users. Ingen hemmelig nøgle her.
+@app.route('/admin')
+def admin_page():
+    resp = Response(render_template('admin.html'), mimetype='text/html')
+    resp.headers['X-Robots-Tag'] = 'noindex, nofollow'
+    return resp
 
 
 # Kun madshopper://-linket appen selv registrerer må modtage tokenet -

@@ -105,6 +105,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Cookie-samtykke (Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Analytics (GA4 via Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Push-beskeder / nyhedsbrev | ❌ | ❌ | ❌ | – | **Findes ikke** (se §2) |
+| Admin-panel (`/admin`) | ✅ | – | ✅ `admin_*`-RPC'er | ⚠️ SQL lokalt | **Bevidst forskel** (se §3) *(02-10-2026)* |
 
 ---
 
@@ -126,6 +127,9 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 Disse skal **ikke** rettes - de er dokumenteret her, så de ikke bliver "opdaget"
 som gaps igen.
 
+- **Admin-panel kun på web.** `/admin` er et internt værktøj til ejeren
+  (nøgletal, opskrift-moderering, brugerliste), ikke en brugerfeature. Adgang
+  styres af `admin_users` i `scripts/supabase-admin.sql`.
 - **Cookie-banner og analytics kun på web.** App'en sætter ingen cookies og
   kalder aldrig ATT. `app.config.js` udelader bevidst
   `NSUserTrackingUsageDescription`, fordi App Privacy erklærer "no tracking".

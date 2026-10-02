@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - MadShopper{% endblock %}
+
+{% block content %}
+{# Tom skal: ingen data renderes server-side (siden ligger i den delte
+   edge-cache). static/js/admin.js henter alt via admin_*-RPC'erne i
+   scripts/supabase-admin.sql, som selv afviser ikke-admins. #}
+<style>
+  .admin-wrap { max-width: 1040px; }
+  .admin-wrap h2 { font-size: 1.15rem; font-weight: 700; margin: 28px 0 10px; }
+  .admin-state { color: var(--gray-600); margin: 12px 0; }
+  .admin-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 4px; }
+  .admin-tabs button, .admin-btn {
+    border: 1px solid var(--gray-300); background: var(--white); color: var(--gray-800);
+    border-radius: var(--radius-sm); padding: 6px 12px; font: inherit; cursor: pointer;
+  }
+  .admin-tabs button[aria-selected="true"] { background: var(--green); border-color: var(--green); color: #fff; }
+  .admin-btn.ok { border-color: var(--green); color: var(--green-dark); }
+  .admin-btn.no { border-color: var(--red); color: var(--red); }
+  .admin-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .admin-stat { border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 12px; }
+  .admin-stat b { display: block; font-size: 1.5rem; font-weight: 800; }
+  .admin-stat span { color: var(--gray-600); font-size: .85rem; }
+  .admin-table-scroll { overflow-x: auto; }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .admin-table th, .admin-table td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--gray-200); vertical-align: top; }
+  .admin-table th { color: var(--gray-600); font-weight: 600; }
+  .admin-recipe { border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 14px; margin-bottom: 10px; }
+  .admin-recipe h3 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+  .admin-recipe ul { margin: 8px 0 10px 18px; color: var(--gray-700); font-size: .9rem; }
+  .admin-meta { color: var(--gray-500); font-size: .85rem; }
+  .admin-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .admin-row input { border: 1px solid var(--gray-300); border-radius: var(--radius-sm); padding: 6px 10px; font: inherit; min-width: 220px; }
+  [data-theme="dark"] .admin-tabs button, [data-theme="dark"] .admin-btn,
+  [data-theme="dark"] .admin-row input { background: var(--gray-800); color: var(--gray-100); border-color: var(--gray-600); }
+</style>
+
+<div class="page-wrap">
+  <article class="static-page admin-wrap" id="adminRoot">
+    <h1>Admin</h1>
+    <p class="admin-state" id="adminState">Tjekker adgang …</p>
+
+    <div id="adminPanel" hidden>
+      <div class="admin-tabs" role="tablist">
+        <button type="button" role="tab" data-tab="overview" aria-selected="true">Overblik</button>
+        <button type="button" role="tab" data-tab="recipes" aria-selected="false">Opskrifter</button>
+        <button type="button" role="tab" data-tab="users" aria-selected="false">Brugere</button>
+      </div>
+
+      <section data-panel="overview">
+        <h2>Nøgletal</h2>
+        <div class="admin-stats" id="adminStats"></div>
+        <h2>Mest lagt i kurv (7 dage)</h2>
+        <div class="admin-table-scroll"><table class="admin-table" id="adminTop"></table></div>
+      </section>
+
+      <section data-panel="recipes" hidden>
+        <div class="admin-row">
+          <h2 style="margin-right:auto">Opskrifter</h2>
+          <button type="button" class="admin-btn" data-rstatus="pending">Afventer</button>
+          <button type="button" class="admin-btn" data-rstatus="approved">Godkendte</button>
+          <button type="button" class="admin-btn" data-rstatus="rejected">Afviste</button>
+        </div>
+        <div id="adminRecipes"></div>
+      </section>
+
+      <section data-panel="users" hidden>
+        <h2>Brugere</h2>
+        <form class="admin-row" id="adminUserSearch">
+          <input type="search" id="adminUserQ" placeholder="Søg på email" maxlength="100">
+          <button type="submit" class="admin-btn">Søg</button>
+        </form>
+        <div class="admin-table-scroll"><table class="admin-table" id="adminUsers"></table></div>
+        <div class="admin-row" style="margin-top:10px">
+          <button type="button" class="admin-btn" id="adminUsersMore" hidden>Vis flere</button>
+        </div>
+      </section>
+    </div>
+  </article>
+</div>
+<script src="{{ url_for('static', filename='js/admin.js') }}?v=1" defer></script>
+{% endblock %}
