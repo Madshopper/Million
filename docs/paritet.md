@@ -99,6 +99,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | "Følg system"-tema | ✅ | ✅ | – | ✅ | Complete *(web fik det 19-08-2026)* |
 | Standardbutikker | ✅ | ✅ | – | – | Complete |
 | Feedback / meld fejl | ✅ | ✅ | ✅ `/api/feedback` | ❌ | Complete |
+| Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren) |
 | Vilkår / privatliv / om os | ✅ | ✅ | – | – | Complete |
 | Opskrifter (bag gate) | ✅ dev | ✅ dev | ✅ | ❌ | Gated - kun `dev` |
 | Forsidens opskrift-teaser | ✅ | ✅ | ✅ `recipes_clickable` | ❌ | Complete *(app fik den 19-08-2026)* |

@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - MadShopper{% endblock %}
+
+{% block content %}
+<style>
+  .adm { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  .adm h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  .adm h2 { margin: 0 0 12px; font-size: 1.1rem; }
+  .adm-sub { color: var(--gray-500); margin: 0 0 20px; font-size: .9rem; }
+  .adm-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+  .adm-btn { border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-900);
+             border-radius: var(--radius-sm); padding: 6px 12px; font: inherit; font-size: .85rem; cursor: pointer; }
+  .adm-btn:hover { border-color: var(--green); }
+  .adm-btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
+  .adm-btn.danger:hover { border-color: var(--red); color: var(--red); }
+  .adm-btn[aria-pressed="true"] { border-color: var(--green); color: var(--green); font-weight: 600; }
+  .adm-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .adm-tile, .adm-card { background: var(--white); border: 1px solid var(--gray-200);
+                         border-radius: var(--radius-md); padding: 14px 16px; }
+  .adm-tile .k { color: var(--gray-500); font-size: .8rem; }
+  .adm-tile .v { font-size: 1.5rem; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .adm-tile .s { color: var(--gray-500); font-size: .78rem; margin-top: 2px; }
+  .adm-meter { height: 6px; border-radius: 3px; background: var(--gray-200); margin-top: 8px; overflow: hidden; }
+  .adm-meter > span { display: block; height: 100%; background: var(--green); }
+  .adm-meter.warn > span { background: var(--yellow); }
+  .adm-meter.bad > span { background: var(--red); }
+  .adm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .adm-card { margin-bottom: 16px; overflow-x: auto; }
+  .adm-grid .adm-card { margin-bottom: 0; }
+  .adm table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .adm th { text-align: left; color: var(--gray-500); font-weight: 600; font-size: .78rem;
+            padding: 6px 8px; border-bottom: 1px solid var(--gray-200); }
+  .adm td { padding: 7px 8px; border-bottom: 1px solid var(--gray-200); vertical-align: top; }
+  .adm tr:last-child td { border-bottom: 0; }
+  .adm td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .adm-pill { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+  .adm-pill.ok { background: var(--green-light); color: var(--green-dark); }
+  .adm-pill.warn { background: var(--yellow-light); color: #92400E; }
+  .adm-pill.bad { background: var(--red-light); color: #991B1B; }
+  .adm-pill.info { background: var(--blue-light); color: #1E40AF; }
+  .adm-fb { border-top: 1px solid var(--gray-200); padding: 12px 0; }
+  .adm-fb:first-child { border-top: 0; padding-top: 0; }
+  .adm-fb.done { opacity: .55; }
+  .adm-fb-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: .82rem; color: var(--gray-500); }
+  .adm-fb-head .adm-btn { margin-left: auto; }
+  .adm-fb-subj { font-weight: 600; margin-top: 6px; }
+  .adm-fb-msg { white-space: pre-wrap; word-break: break-word; margin-top: 4px; }
+  .adm-fb-meta { font-size: .8rem; color: var(--gray-500); margin-top: 6px; word-break: break-all; }
+  .adm a { color: var(--green); }
+  .adm-empty { color: var(--gray-500); font-size: .9rem; }
+  .adm-gate { text-align: center; padding: 48px 16px; }
+  .adm-gate p { color: var(--gray-500); }
+  .adm-err { background: var(--red-light); color: #991B1B; border-radius: var(--radius-sm);
+             padding: 10px 12px; margin-bottom: 16px; font-size: .88rem; }
+  [hidden] { display: none !important; }
+</style>
+
+<div class="adm" id="admin-root">
+  <h1>Admin</h1>
+  <p class="adm-sub" id="admin-sub">Henter …</p>
+
+  <div class="adm-gate" id="admin-gate" hidden>
+    <p id="admin-gate-text">Log ind med din admin-konto for at se panelet.</p>
+    <button type="button" class="adm-btn primary" id="admin-login">Log ind</button>
+  </div>
+
+  <div id="admin-main" hidden>
+    <div class="adm-bar">
+      <button type="button" class="adm-btn" id="admin-refresh">Opdater</button>
+      <span class="adm-sub" style="margin:0" id="admin-stamp"></span>
+    </div>
+    <div id="admin-errors"></div>
+
+    <div class="adm-tiles" id="admin-tiles"></div>
+
+    <section class="adm-card">
+      <div class="adm-bar" style="margin-bottom:8px">
+        <h2 style="margin:0">Feedback</h2>
+        <button type="button" class="adm-btn" id="fb-open" aria-pressed="true">Ubehandlet</button>
+        <button type="button" class="adm-btn" id="fb-all" aria-pressed="false">Alle</button>
+      </div>
+      <div id="admin-feedback"></div>
+    </section>
+
+    <section class="adm-card">
+      <h2>Scraping pr. butik</h2>
+      <div id="admin-stores"></div>
+    </section>
+
+    <section class="adm-card">
+      <h2>Opskrifter der venter på godkendelse</h2>
+      <div id="admin-recipes"></div>
+    </section>
+
+    <div class="adm-grid">
+      <section class="adm-card">
+        <h2>Sikkerhed seneste 24 timer</h2>
+        <div id="admin-security"></div>
+      </section>
+      <section class="adm-card">
+        <h2>Edge (Cloudflare)</h2>
+        <div id="admin-edge"></div>
+      </section>
+    </div>
+
+    <div class="adm-grid">
+      <section class="adm-card">
+        <h2>Største tabeller (Supabase)</h2>
+        <div id="admin-tables"></div>
+      </section>
+      <section class="adm-card">
+        <h2>Nyeste brugere</h2>
+        <div id="admin-users"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/admin.js') }}?v=2" defer></script>
+{% endblock %}
