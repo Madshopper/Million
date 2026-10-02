@@ -119,8 +119,8 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | 3 | Tyndt testdække på konto, delt kurv og prisalarmer | Høj | Kun `multiDeal`/`sco` (app) + listing-API-kontrakt (Python) + Playwright-røgtest. Ingen automatiserede tests af login, delt kurv, gemte lister eller prisalarmer på nogen af platformene. |
 | 4 | App'ens tilgængelighed er stadig ujævn | Medium | Ikon-/symbol-knapper fik etiketter 19-08-2026, men de fleste skærme har stadig ingen `accessibilityRole`/`accessibilityLabel`, og der er ingen VoiceOver-gennemgang. |
 | 5 | Ingen automatiseret web-a11y-kontrol | Medium | `scripts/audit-site.py` findes, men indgår ikke i deploy-workflowet. |
-| 7 | App'en har ingen login-væg til det private site | Høj | Uden login (eller uden godkendelse) giver alle `/api/*`-kald 401, og skærmene viser fejlteksten. Kræver en login-først-navigation og en "afventer godkendelse"-skærm, og et nyt build. |
 | 6 | Kurv-ikonet der fyldes op findes kun i app'en | Lav | App-headeren fik 01-10-2026 en vogn der fyldes med de første fire varer (`CartIcon.tsx`) + antal-badge i stedet for teksten "Kurv (n)". Web har stadig det almindelige ikon med badge. Samme tal, kun tegningen er forskellig. |
+| 7 | App'en har ingen login-væg til det private site | Høj | Uden login (eller uden godkendelse) giver alle `/api/*`-kald 401, og skærmene viser fejlteksten. Kræver en login-først-navigation og en "afventer godkendelse"-skærm, og et nyt build. |
 
 ---
 
