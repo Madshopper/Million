@@ -2769,6 +2769,52 @@ def collect_store_prices(products: list) -> list:
 
 
 _PRICE_HISTORY_RETAIN_DAYS = 30
+# Rækker pr. prune-kald: hvert RPC-kald har authenticator-rollens 8 s
+# statement_timeout, så oprydningen sker i portioner (se
+# scripts/supabase-price-last-seen.sql). Loftet på antal kald holder en
+# stor efterslæbning fra at forsinke resten af nattens kørsel.
+_PRICE_HISTORY_PRUNE_BATCH = 20000
+_PRICE_HISTORY_PRUNE_MAX_CALLS = 60
+
+
+def prune_price_history(client, rpc_base: str, rpc_headers: dict) -> int:
+    """Ryd prishistorik ældre end _PRICE_HISTORY_RETAIN_DAYS op i portioner,
+    indtil RPC'en melder 0 slettede. Returnerer antal slettede rækker.
+
+    En fejl stopper ikke kørslen (dagens priser er allerede gemt), men logges
+    som fejl med Supabase-svarets tekst og som GitHub-annotation på kørslen.
+    Tidligere blev den kun logget som advarsel uden svartekst, og oprydningen
+    fejlede hver nat i halvanden måned uden at nogen så det."""
+    deleted_total = 0
+    for _ in range(_PRICE_HISTORY_PRUNE_MAX_CALLS):
+        try:
+            resp = client.post(
+                f"{rpc_base}/prune_price_history",
+                headers=rpc_headers,
+                content=json.dumps({
+                    "retain_days": _PRICE_HISTORY_RETAIN_DAYS,
+                    "max_rows": _PRICE_HISTORY_PRUNE_BATCH,
+                }),
+            )
+            if not resp.is_success:
+                raise RuntimeError(f"HTTP {resp.status_code} {resp.text[:500]}")
+            deleted = int(resp.json() or 0)
+        except Exception as err:
+            msg = f"Prishistorik: oprydning (prune_price_history) fejlede efter {deleted_total} slettede rækker: {err}"
+            logger.error(msg)
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                print(f"::error title=prune_price_history fejlede::{msg}", flush=True)
+            return deleted_total
+        deleted_total += deleted
+        if deleted < _PRICE_HISTORY_PRUNE_BATCH:
+            break
+    else:
+        logger.warning(
+            "Prishistorik: oprydning stoppede efter %s kald (%s rækker) - resten tages næste nat",
+            _PRICE_HISTORY_PRUNE_MAX_CALLS, deleted_total,
+        )
+    logger.info("Prishistorik: oprydning slettede %s rækker", deleted_total)
+    return deleted_total
 
 
 def record_prices_batch(entries: list):
@@ -2866,16 +2912,7 @@ def record_prices_batch(entries: list):
                     code = last_resp.status_code if last_resp is not None else "?"
                     raise RuntimeError(f"Prishistorik RPC (record_price_batch) fejlede: HTTP {code} {body}")
 
-            try:
-                prune_resp = client.post(
-                    f"{rpc_base}/prune_price_history",
-                    headers=rpc_headers,
-                    content=json.dumps({"retain_days": _PRICE_HISTORY_RETAIN_DAYS}),
-                )
-                prune_resp.raise_for_status()
-            except Exception as del_err:
-                # Dagens priser er allerede gemt - oprydning kan ske ved næste kørsel.
-                logger.warning("Prishistorik: oprydning (prune_price_history) fejlede: %s", del_err)
+            prune_price_history(client, rpc_base, rpc_headers)
 
         _last_price_record_date = today
         logger.info(
