@@ -16,6 +16,7 @@ type Extra = {
   googleIosClientId?: string;
   googleAndroidClientId?: string;
   flavor?: string;
+  nonProdReleaseAllowed?: boolean;
 };
 
 const extra = (Constants.expoConfig?.extra || {}) as Extra;
@@ -34,6 +35,22 @@ export const env = {
   googleIosClientId: extra.googleIosClientId || '',
   googleAndroidClientId: extra.googleAndroidClientId || '',
 };
+
+/**
+ * Sikkerhedsnet (24-09-2026): et release-bundle (ikke __DEV__) med staging-
+ * flavor er kun gyldigt, når miljøet er valgt eksplicit - en EAS-profil eller
+ * MADSHOPPER_ALLOW_NONPROD_RELEASE=1 (se app.config.js). Ellers er det en
+ * lokal release-build med en efterladt staging-.env, og den må ikke skrive i
+ * *_dev-tabellerne eller ramme localhost i stilhed. Gradle giver ingen
+ * build-tids-variabel at tjekke på, så dette er Androids eneste værn - og
+ * iOS' andet. Fejler højlydt ved opstart frem for at skifte miljø.
+ */
+if (!__DEV__ && env.flavor !== 'production' && !extra.nonProdReleaseAllowed) {
+  throw new Error(
+    `Release-build med flavor=${env.flavor} uden eksplicit tilladelse. ` +
+      'Byg med produktions-env, via en EAS-profil, eller sæt MADSHOPPER_ALLOW_NONPROD_RELEASE=1.',
+  );
+}
 
 /**
  * Opskrift-featuren er kun åben på staging/lokalt - aldrig i et

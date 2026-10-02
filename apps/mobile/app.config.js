@@ -1,28 +1,79 @@
+import fs from 'fs';
+import path from 'path';
+
 // Compliance-audit 19-08-2026 (GDPR-029): NSAllowsLocalNetworking er kun
 // nødvendig for at ramme en lokal Flask-server (http://localhost:5001 eller
 // http://<mac-lan-ip>:5001) under udvikling - se docs/env-setup.md. Et
 // produktions-build peger altid på https://madshopper.dk og har ingen brug
 // for undtagelsen, som ellers unødigt svækker App Transport Security i den
 // udgave, der reelt havner i App Store.
-const IS_PRODUCTION_BUILD_FLAVOR = (process.env.EXPO_PUBLIC_FLAVOR || 'production') === 'production';
+const FLAVOR = process.env.EXPO_PUBLIC_FLAVOR || 'production';
+const IS_PRODUCTION_FLAVOR = FLAVOR === 'production';
 
-// Sikkerhedsnet (18-09-2026): et Xcode Archive (Release-konfiguration) skal
-// ALTID pege på produktion, uanset om en lokal .env/.env.production-fil eller
-// en efterladt shell-variabel (EXPO_PUBLIC_*) tilfældigvis peger på staging.
-// $CONFIGURATION kommer direkte fra Xcodes build-environment (sat af
-// react-native-xcode.sh -> export:embed) og kan ikke "efterlades" ved et
-// uheld sådan som en .env-fil kan. Kun EAS cloud-builds (som ikke sætter
-// CONFIGURATION) og lokal `expo start` er upåvirket af dette.
-const IS_XCODE_RELEASE_BUILD = process.env.CONFIGURATION === 'Release';
-const IS_PRODUCTION_BUILD = IS_XCODE_RELEASE_BUILD || IS_PRODUCTION_BUILD_FLAVOR;
-const PROD_DEFAULTS = {
-  apiBaseUrl: 'https://madshopper.dk',
-  rpcSuffix: '',
-  flavor: 'production',
+// Offentlige værdier (samme som eas.json -> build.production.env). Supabase-
+// projektet og Google-klienterne er de samme på tværs af flavors, så de er
+// fallback for alle builds - også et Xcode-arkiv fra en ren checkout uden
+// .env, der ellers fik tomme værdier og et dødt login.
+const PUBLIC_DEFAULTS = {
+  supabaseUrl: 'https://oxzxingkbsnqzpmjtktr.supabase.co',
+  supabaseAnonKey: 'sb_publishable_Jt8N0XezmzfZJSzzSwBBKQ_uGbNoq8f',
+  googleClientId: '683267660851-4jvo3nauv24s4g8sk5qhk1dlvuc4tjgr.apps.googleusercontent.com',
+  googleIosClientId: '683267660851-6ah9du0ig9fs3a0rcrbp72hu6t7j0hr4.apps.googleusercontent.com',
+  googleAndroidClientId: '683267660851-qo7pqojmbl75t9im36k7t22l6naqe8m0.apps.googleusercontent.com',
 };
-function prodSafe(envVar, key) {
-  if (IS_XCODE_RELEASE_BUILD) return PROD_DEFAULTS[key];
-  return envVar;
+
+// Sikkerhedsnet mod staging i et store-build (revideret 24-09-2026).
+//
+// Et ikke-produktions-build er kun "tilladt" når miljøet er valgt eksplicit:
+// en EAS-profil (EAS_BUILD=true, env kommer fra eas.json - preview/development
+// ER staging med vilje) eller MADSHOPPER_ALLOW_NONPROD_RELEASE=1 ved en
+// bevidst lokal release-build mod staging. En efterladt .env gælder ikke som
+// eksplicit valg.
+//
+// Tidligere tvang CONFIGURATION === 'Release' stille flavor/API/RPC-suffix
+// over på produktion. Det ramte også EAS' iOS-builds (de arkiverer med
+// -configuration Release), så preview-builds skrev testdata i prod-tabellerne
+// uden at nogen kunne se det. Nu skiftes der aldrig miljø i stilhed: en
+// uautoriseret non-prod release fejler i stedet.
+const NONPROD_RELEASE_ALLOWED =
+  process.env.EAS_BUILD === 'true' || process.env.MADSHOPPER_ALLOW_NONPROD_RELEASE === '1';
+
+// $CONFIGURATION sættes af Xcode, når expo-constants' build-fase evaluerer
+// denne fil under xcodebuild. Alt der ikke er en Debug-konfiguration tælles
+// som release (fanger også egne navne som "Release-Prod" eller "AppStore").
+// Gradle sætter ingen tilsvarende variabel - Android (og iOS) dækkes derfor
+// også af runtime-tjekket i src/config/env.ts.
+const XCODE_CONFIGURATION = process.env.CONFIGURATION || '';
+const IS_LOCAL_XCODE_RELEASE =
+  XCODE_CONFIGURATION !== '' && !/debug/i.test(XCODE_CONFIGURATION) && !NONPROD_RELEASE_ALLOWED;
+
+if (IS_LOCAL_XCODE_RELEASE) {
+  if (!IS_PRODUCTION_FLAVOR) {
+    throw new Error(
+      `Xcode-konfiguration "${XCODE_CONFIGURATION}" med EXPO_PUBLIC_FLAVOR=${FLAVOR}: ` +
+        'et release-build må ikke pege på staging. Ret apps/mobile/.env (eller shell-' +
+        'variablerne) til produktion, eller sæt MADSHOPPER_ALLOW_NONPROD_RELEASE=1 ' +
+        'hvis det er bevidst.',
+    );
+  }
+  // Info.plist bages ved `expo prebuild`, ikke her. Var prebuild kørt med en
+  // staging-.env, ligger ATS-undtagelsen stadig i ios/ og ville følge med i
+  // arkivet (GDPR-029), selvom flavoren nu er produktion.
+  const root = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+  const iosDir = path.join(root, 'ios');
+  const plists = fs.existsSync(iosDir)
+    ? fs
+        .readdirSync(iosDir)
+        .map((d) => path.join(iosDir, d, 'Info.plist'))
+        .filter((f) => fs.existsSync(f))
+    : [];
+  const leaky = plists.filter((f) => fs.readFileSync(f, 'utf8').includes('NSAllowsLocalNetworking'));
+  if (leaky.length) {
+    throw new Error(
+      `${leaky.join(', ')} indeholder NSAllowsLocalNetworking (prebuild kørt med staging-env). ` +
+        'Kør `npx expo prebuild --clean` med produktions-env før et release-arkiv.',
+    );
+  }
 }
 
 /** @type {import('expo/config').ExpoConfig} */
@@ -66,7 +117,7 @@ const config = {
         // GDPR-029): et rigtigt produktions-build peger altid på
         // https://madshopper.dk og har ingen brug for undtagelsen - den
         // fulgte tidligere ubetinget med i App Store-buildet.
-        ...(IS_PRODUCTION_BUILD ? {} : { NSAllowsLocalNetworking: true }),
+        ...(IS_PRODUCTION_FLAVOR ? {} : { NSAllowsLocalNetworking: true }),
       },
     },
     // NSPrivacyAccessedAPITypes skal spejle ALLE kategorier, som det
@@ -160,14 +211,17 @@ const config = {
     ['expo-build-properties', { ios: { useFrameworks: 'static' } }],
   ],
   extra: {
-    apiBaseUrl: prodSafe(process.env.EXPO_PUBLIC_API_BASE_URL, 'apiBaseUrl') || 'https://madshopper.dk',
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
-    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
-    rpcSuffix: prodSafe(process.env.EXPO_PUBLIC_RPC_SUFFIX, 'rpcSuffix') || '',
-    googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '',
-    googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
-    googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '',
-    flavor: prodSafe(process.env.EXPO_PUBLIC_FLAVOR, 'flavor') || 'production',
+    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://madshopper.dk',
+    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || PUBLIC_DEFAULTS.supabaseUrl,
+    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || PUBLIC_DEFAULTS.supabaseAnonKey,
+    rpcSuffix: process.env.EXPO_PUBLIC_RPC_SUFFIX || '',
+    googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || PUBLIC_DEFAULTS.googleClientId,
+    googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || PUBLIC_DEFAULTS.googleIosClientId,
+    googleAndroidClientId:
+      process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || PUBLIC_DEFAULTS.googleAndroidClientId,
+    flavor: FLAVOR,
+    // Læses af runtime-tjekket i src/config/env.ts (dækker også Android).
+    nonProdReleaseAllowed: NONPROD_RELEASE_ALLOWED,
     eas: {
       // Fra `eas init` (Cartspotter-organisationen), 2026-07-27
       projectId: '61fb2d3e-805e-4d2f-9c78-5e9705d28fd8',
