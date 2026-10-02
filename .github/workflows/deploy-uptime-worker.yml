@@ -8,11 +8,13 @@ name: Deploy uptime-worker
 # Secrets i GitHub Actions:
 #   CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID  (findes allerede)
 #   RESEND_API_KEY                                (findes allerede, prisalarmer)
-#   UPTIME_ALERT_EMAIL                            modtager(e), kommasepareret
+#   UPTIME_ALERT_EMAIL                            valgfri; modtager(e),
+#     kommasepareret. Uden den beholder workeren den ALERT_EMAIL, der allerede
+#     er sat direkte i Cloudflare (wrangler secret put ALERT_EMAIL)
 #   CACHE_REFRESH_SECRET                          (findes allerede) worker-
 #     secret'en MONITOR_ACCESS_TOKEN afledes heraf, så tjekket kommer forbi
 #     login-spærringen; den rå nøgle sendes aldrig til uptime-workeren
-# Workflowet fejler hvis RESEND_API_KEY eller UPTIME_ALERT_EMAIL mangler: en uptime-worker der ikke kan
+# Workflowet fejler hvis RESEND_API_KEY mangler: en uptime-worker der ikke kan
 # sende mail, alarmerer ingen.
 
 on:
@@ -42,13 +44,9 @@ jobs:
       - name: Tjek at alarm-secrets er sat
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          UPTIME_ALERT_EMAIL: ${{ secrets.UPTIME_ALERT_EMAIL }}
         run: |
-          missing=""
-          [ -n "$RESEND_API_KEY" ] || missing="$missing RESEND_API_KEY"
-          [ -n "$UPTIME_ALERT_EMAIL" ] || missing="$missing UPTIME_ALERT_EMAIL"
-          if [ -n "$missing" ]; then
-            echo "::error::Mangler GitHub Actions-secret(s):$missing"
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "::error::Mangler GitHub Actions-secret RESEND_API_KEY"
             exit 1
           fi
 
@@ -73,7 +71,9 @@ jobs:
           CACHE_REFRESH_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
         run: |
           printf '%s' "$RESEND_API_KEY" | npx --yes wrangler@4.114.0 secret put RESEND_API_KEY
-          printf '%s' "$UPTIME_ALERT_EMAIL" | npx --yes wrangler@4.114.0 secret put ALERT_EMAIL
+          if [ -n "$UPTIME_ALERT_EMAIL" ]; then
+            printf '%s' "$UPTIME_ALERT_EMAIL" | npx --yes wrangler@4.114.0 secret put ALERT_EMAIL
+          fi
           if [ -n "$CACHE_REFRESH_SECRET" ]; then
             # Samme token som site_gate.py::monitor_token.
             printf 'monitor-access' | openssl dgst -sha256 -hmac "$CACHE_REFRESH_SECRET" | awk '{print $NF}' \
