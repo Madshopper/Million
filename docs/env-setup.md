@@ -15,7 +15,6 @@ Begge `.env`-filer er gitignored. Commit dem aldrig.
 | `DEPLOY_KEY` (service_role) | kun rod-`.env` | Sat |
 | Cloudflare account/zone/token | kun rod | Sat |
 | Salling API | kun rod | Sat |
-| Google Sheet webhook | kun rod | Sat |
 | Google Client ID (web) | rod + mobile | Sat (fra web GIS) |
 | Supabase redirect URLs til native | Dashboard | **Sat** (`madshopper://`, `madshopper://**`, `exp://127.0.0.1:8081/--/*`, web) |
 | Google iOS/Android OAuth-klienter | Google Cloud | **Sat** (`dk.madshopper.app`, package/bundle + SHA-1) |

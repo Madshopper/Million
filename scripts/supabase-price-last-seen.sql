@@ -133,34 +133,50 @@ GRANT EXECUTE ON FUNCTION public.record_price_batch(jsonb) TO service_role;
 -- uden hensyn til at grafens forward-fill har brug for et startpunkt).
 --
 -- Beholder netop ÉN "anker"-række pr. (product_id, store) fra før grænsen -
--- den nyeste af de gamle - og sletter resten. DISTINCT ON-fremgangsmåden er
--- valgt frem for opgavebeskrivelsens korrelerede subquery-eksempel, fordi den
--- sidste er O(n²)-agtig og for langsom mod en tabel i denne størrelse
--- (1,2+ mio. rækker ved første kørsel, hvor næsten alt endnu er ældre end
--- grænsen).
-CREATE OR REPLACE FUNCTION public.prune_price_history(retain_days integer DEFAULT 30)
+-- den nyeste af de gamle - og sletter resten.
+--
+-- Sletter højst max_rows pr. kald; updater.py kalder igen indtil 0. Alle
+-- REST/RPC-kald arver authenticator-rollens statement_timeout=8s, og den
+-- tidligere version (DISTINCT ON over hele tabellen med date::date-casts, som
+-- ikke kan bruge price_history_date_idx, og ét DELETE uden loft) ramte den
+-- hver nat fra start: målt 02-10-2026 var intet slettet siden 12-08, 810.008
+-- rækker lå før grænsen, og tabellen fyldte 284 MB af 500. En
+-- funktions-SET statement_timeout hjælper ikke - timeren kører allerede, når
+-- funktionen starter. `date` er tekst i ISO-format (YYYY-MM-DD), så
+-- tekst-sammenligning er korrekt og bruger indekset; EXISTS-proben rammer
+-- pkey (product_id, store, date).
+DROP FUNCTION IF EXISTS public.prune_price_history(integer);
+CREATE OR REPLACE FUNCTION public.prune_price_history(
+  retain_days integer DEFAULT 30,
+  max_rows integer DEFAULT 20000
+)
 RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  cutoff date := current_date - retain_days;
+  cutoff text := (current_date - retain_days)::text;
   deleted_count integer;
 BEGIN
-  WITH anchors AS (
-    SELECT DISTINCT ON (product_id, store)
-      product_id, store, date::date AS anchor_date
-    FROM public.price_history
-    WHERE date::date < cutoff
-    ORDER BY product_id, store, date::date DESC
+  WITH victims AS (
+    SELECT ph.product_id, ph.store, ph.date
+    FROM public.price_history ph
+    WHERE ph.date < cutoff
+      AND EXISTS (
+        SELECT 1 FROM public.price_history newer
+        WHERE newer.product_id = ph.product_id
+          AND newer.store = ph.store
+          AND newer.date > ph.date
+          AND newer.date < cutoff
+      )
+    LIMIT max_rows
   )
   DELETE FROM public.price_history ph
-  USING anchors a
-  WHERE ph.product_id = a.product_id
-    AND ph.store = a.store
-    AND ph.date::date < cutoff
-    AND ph.date::date <> a.anchor_date;
+  USING victims v
+  WHERE ph.product_id = v.product_id
+    AND ph.store = v.store
+    AND ph.date = v.date;
 
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
   RETURN deleted_count;
@@ -169,5 +185,5 @@ $$;
 
 -- Postgres giver EXECUTE til PUBLIC som standard: uden REVOKE kan den offentlige nøgle kalde
 -- (SECURITY DEFINER) funktionen. Fundet 30-09-2026.
-REVOKE EXECUTE ON FUNCTION public.prune_price_history(integer) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.prune_price_history(integer) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.prune_price_history(integer, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.prune_price_history(integer, integer) TO service_role;

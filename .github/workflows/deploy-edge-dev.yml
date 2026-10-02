@@ -65,9 +65,6 @@ jobs:
       - name: Build Edge bundle
         env:
           CACHE_REFRESH_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
-          # Uden denne byggede staging med tom webhook-URL, saa feedback afgivet
-          # paa staging aldrig kunne naa Google Sheet (samme var som i deploy-edge.yml).
-          GOOGLE_SHEET_WEBHOOK_URL: ${{ secrets.GOOGLE_SHEET_WEBHOOK_URL }}
           # Adgangsspaerring paa staging. madshopper-dev koerer den samme kode
           # mod SAMME Supabase-projekt og samme auth.users som produktionen, men
           # paa et offentligt custom domain. Uden denne er hele fladen aaben for
@@ -75,6 +72,9 @@ jobs:
           # build-pages.sh en tilfaeldig ved hvert build - saa skifter
           # adgangsnoeglen ved hvert deploy (spaerringen virker stadig).
           STAGING_ACCESS_SECRET: ${{ secrets.STAGING_ACCESS_SECRET }}
+          # Valgfri: D1-budget i /admin (kun Account Analytics: Read).
+          CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           # Mail+adgangskode-login paa /staging-login (se src/worker.py) -
           # venligere for et menneske end nøglen ovenfor. Samme fail-closed
           # opførsel hvis en af dem mangler: login-siden falder tilbage til
