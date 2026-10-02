@@ -5,11 +5,34 @@ name: Deploy Edge Worker (staging)
 # rigtig edge-deployment uden at røre madshopper.dk.
 #
 # Dev-branchen er fjernet 02-10-2026: alt arbejde går nu via PR'er direkte til
-# main. Staging deployes derfor kun manuelt: Actions > "Deploy Edge Worker
-# (staging)" > Run workflow, og vælg den branch (fx en PR-branch) der skal
-# afprøves. Kører aldrig automatisk, så staging viser det man sidst valgte.
+# main. Staging deployes automatisk fra main, sideløbende med produktionen, så
+# dev.madshopper.dk altid kører samme kode som madshopper.dk. Vil man afprøve
+# en PR-branch før merge: Actions > "Deploy Edge Worker (staging)" > Run
+# workflow, og vælg branchen. Næste push til main skriver staging tilbage.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app.py'
+      - 'app_support.py'
+      - 'src/**'
+      - 'templates/**'
+      - 'static/**'
+      - 'pyproject.toml'
+      - 'scripts/build-pages.sh'
+      - 'scripts/smoke-test.mjs'
+      # Nyt 19-08-2026: Playwright-installationen er flyttet hertil, og en
+      # aendring i den skal kunne proeves af med det samme.
+      - 'scripts/install-playwright-ci.sh'
+      - 'scripts/warm-edge-cache.mjs'
+      - 'scripts/test-render-exclusive.py'
+      - '.github/workflows/deploy-edge-dev.yml'
+      # Indgår i bundtet/afhængigheds-opløsningen - uden dem her kunne en
+      # ændring ligge udeployeret uden at nogen så det.
+      - '_routes.json'
+      - 'uv.lock'
+
 
 # Se begrundelsen i deploy-edge.yml. Samme gruppe som cache-updater bruger ved
 # staging_only, så et staging-seed og en staging-deploy ikke kan overlappe.

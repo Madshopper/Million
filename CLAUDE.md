@@ -29,7 +29,7 @@ MadShopper ([madshopper.dk](https://madshopper.dk)) - dansk pris-sammenligning f
 - `templates/` (+ `macros/`, `partials/`) / `static/` - Jinja2 + CSS/JS (`script.js`, `auth.js`, `supabase.min.js`)
 - `apps/mobile/` - native iOS/Android-app (Expo/React Native); se `docs/native-app.md` og `docs/env-setup.md`
 - `docs/` - `Dev.md` (dev/staging-workflow), `Features.md` (roadmap), `paritet.md` (web/app-feature-matrix + aabne gaps - **opdatér i samme commit som du aendrer en feature**), `native-app.md`, `prisovervaagning.md`, `email-bekraeftelse.md`, `Github_fifs.md`
-- `.github/workflows/` - per-butik-scrapers, cache-updater, nutrition-build, edge-deploy (prod + manuel staging), smoke/uptime-test, feedback-relay, dependency-audit
+- `.github/workflows/` - per-butik-scrapers, cache-updater, nutrition-build, edge-deploy (prod + staging, begge fra main), smoke/uptime-test, feedback-relay, dependency-audit
 - `wrangler.toml`, `pyproject.toml` - Cloudflare/EdgeKit-konfiguration (uv)
 
 Fuld tech stack, butiksliste og mappetræ: `README.md` § Tech Stack / Supported Stores / Project Structure.
@@ -59,10 +59,10 @@ Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `u
 | Miljø | Branch | URL | Data |
 |---|---|---|---|
 | Produktion | `main` | madshopper.dk | prod-tabeller, egen KV + D1 |
-| Staging | vilkårlig (manuel deploy) | dev.madshopper.dk | læser prod-data, skriver til `*_dev`, egen KV + D1 |
+| Staging | `main` (automatisk) + manuel deploy af vilkårlig branch | dev.madshopper.dk | læser prod-data, skriver til `*_dev`, egen KV + D1 |
 | Lokal | - | localhost:5001 (`python app.py`) | læser prod-data, skriver til `*_dev` |
 
-Der er ingen `dev`-branch (fjernet 02-10-2026). Arbejde laves på en feature-branch med PR direkte til `main`; merge til `main` → `deploy-edge.yml`. Staging deployes kun manuelt: kør `deploy-edge-dev.yml` med den branch der skal afprøves. Begge kører Playwright-røgtest bagefter. Fuld workflow: `docs/Dev.md`.
+Der er ingen `dev`-branch (fjernet 02-10-2026). Arbejde laves på en feature-branch med PR direkte til `main`; merge til `main` → `deploy-edge.yml` (produktion) og `deploy-edge-dev.yml` (staging) samtidig. En PR-branch kan afprøves på staging før merge ved at køre `deploy-edge-dev.yml` manuelt på den; næste push til `main` skriver staging tilbage. Begge kører Playwright-røgtest bagefter. Fuld workflow: `docs/Dev.md`.
 
 Produktion er ramt af et reelt nedbrud 2026-07-19 (1101/1102 CPU-fejl ved samtidige cold renders efter nightly reseed). Derfor: Workers-observability er **permanent slået fra** i `scripts/build-pages.sh` (dens introspektion var selve årsagen), edge-cachen er versioneret via `cache_version`, og sikkerhedslogningen i `src/worker.py` aggregeres i hukommelsen og skylles højst 1×/minut pr. isolate. Lav aldrig noget der logger pr. request.
 

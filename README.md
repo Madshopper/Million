@@ -114,7 +114,7 @@ A second Cloudflare Worker (`madshopper-dev`, own KV namespace + D1 database, `e
 - Live at `https://dev.madshopper.dk` (also reachable at `https://madshopper-dev.kasp478g.workers.dev`)
 - Reads share production's Supabase tables (always-fresh product data); writes go to the `_dev` tables
 - There is no `dev` branch: work happens on feature branches with pull requests straight to `main`; merging to `main` → `deploy-edge.yml` deploys to production
-- Staging is deployed manually: run `deploy-edge-dev.yml` (Actions > Run workflow) on the branch you want to try out
+- Staging deploys automatically from `main` alongside production; to try a PR branch before merging, run `deploy-edge-dev.yml` manually on it (the next push to `main` overwrites it)
 - Full workflow and one-time setup: `docs/Dev.md`
 
 ### Run cache updater
