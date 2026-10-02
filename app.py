@@ -1311,9 +1311,9 @@ def _recipes_enabled() -> bool:
     opskrifter må ikke afhænge af hvilket miljø der kører. Sæt
     RECIPES_ENABLED=1 i en lokal .env for at arbejde på featuren.
 
-    Styrer også forsidens "Lækre opskrifter"-sektion (web og app): opskrifter
-    må ikke udgives til brugerne (beslutning 02-10-2026), så
-    _build_home_categories tømmer puljen når denne er falsk."""
+    Webforsidens "Lækre opskrifter" vises dog i alle miljøer som en
+    ikke-klikbar teaser ("Kommer snart"); denne funktion styrer kun om
+    kortene kan trykkes på. Appens forside viser ingen opskrifter uden den."""
     return os.environ.get("RECIPES_ENABLED") == "1"
 
 
@@ -2540,13 +2540,11 @@ def _build_home_categories(active_stores, args):
         # Hentes derfor live fra Supabase - kun i denne gren, dvs. aldrig på edge.
         recipe_pool = _recipe_pool_live()
 
-    # Opskrifter må ikke udgives til brugerne (beslutning 02-10-2026): uden
-    # _recipes_enabled() tømmes puljen her, så hverken webforsidens teaser
-    # (home()) eller appens forside (api_home(), også allerede udgivne builds)
-    # viser "Lækre opskrifter". Teaser-koden (recipes_clickable/
-    # recipe_card(clickable=...)) er bevaret til når featuren slås til.
-    if not _recipes_enabled():
-        recipe_pool = []
+    # Puljen tømmes IKKE her: webforsiden viser "Lækre opskrifter" som en
+    # ikke-klikbar teaser med "Kommer snart" i alle miljøer (se home() -
+    # recipes_clickable/recipe_card(clickable=...)). Selve featuren
+    # (detaljesider, /api/recipes, /opskrifter) forbliver bag
+    # _recipes_enabled(). Appens forside (api_home()) tømmer selv puljen.
 
     if not _IS_EDGE:
         random.shuffle(sale_raw)
@@ -2688,7 +2686,8 @@ def home():
         trimmed_categories, template_mapping, recipe_pool = _build_home_categories(
             active_stores, request.args,
         )
-        # Puljen er tom når opskrifter er slået fra (se _build_home_categories).
+        # Uden _recipes_enabled() vises puljen som en ikke-klikbar teaser
+        # ("Kommer snart") - kortene fører ingen steder hen.
         recipes_clickable = _recipes_enabled()
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -3647,9 +3646,9 @@ def api_home():
             # Samme forudberegnede top-10-pulje (home_data_v1-KV, klik-pointsum)
             # som web-forsidens "Lækre opskrifter" - se apps/mobile/src/screens/
             # HomeScreen.tsx. Ikke en 'section' (recipes er ikke Product[]-formet).
-            'recipes': recipe_pool,
-            # recipes er tom når opskrifter er slået fra (se
-            # _build_home_categories), ligesom på webforsiden.
+            # Appen viser ingen opskrifter, før featuren er slået til
+            # (beslutning 02-10-2026; teaseren er kun på webforsiden).
+            'recipes': recipe_pool if _recipes_enabled() else [],
             'recipes_clickable': _recipes_enabled(),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
