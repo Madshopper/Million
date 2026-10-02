@@ -100,6 +100,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Standardbutikker | ✅ | ✅ | – | – | Complete |
 | Feedback / meld fejl | ✅ | ✅ | ✅ `/api/feedback` | ❌ | Complete |
 | Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren). Usynlig for alle andre end admins (almindelig 404; adgang tjekkes på serveren via HttpOnly-cookien `ms_session` fra `/api/session`). Eget layout med sidemenu; CSS/JS ligger i `templates/admin/` og indlejres, så intet admin-indhold er en offentlig fil. Kørselshistorik fra GitHub Actions gemt i Supabase `job_runs` (`scripts/sync-job-runs.py` i uptime-check) |
+| Privat site (kun godkendte brugere) | ✅ | ⚠️ | ✅ `src/worker.py::_site_gate` | – | Web: `/login` med "afventer godkendelse". App: sender brugerens token på alle `/api/*`-kald og viser 401-teksten, men har endnu ingen egen login-væg eller "afventer"-skærm |
 | Vilkår / privatliv / om os | ✅ | ✅ | – | – | Complete |
 | Opskrifter (bag gate) | ✅ flag | ✅ flag | ✅ | ❌ | Gated - kun med `RECIPES_ENABLED=1` / `EXPO_PUBLIC_RECIPES_ENABLED=1` *(fra som standard i alle miljøer, 02-10-2026)* |
 | Forsidens opskrift-teaser | ✅ flag | ✅ flag | ✅ `recipes_clickable` | ❌ | Gated - samme flag *(skjult 02-10-2026: opskrifter må ikke udgives)* |
@@ -118,6 +119,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | 3 | Tyndt testdække på konto, delt kurv og prisalarmer | Høj | Kun `multiDeal`/`sco` (app) + listing-API-kontrakt (Python) + Playwright-røgtest. Ingen automatiserede tests af login, delt kurv, gemte lister eller prisalarmer på nogen af platformene. |
 | 4 | App'ens tilgængelighed er stadig ujævn | Medium | Ikon-/symbol-knapper fik etiketter 19-08-2026, men de fleste skærme har stadig ingen `accessibilityRole`/`accessibilityLabel`, og der er ingen VoiceOver-gennemgang. |
 | 5 | Ingen automatiseret web-a11y-kontrol | Medium | `scripts/audit-site.py` findes, men indgår ikke i deploy-workflowet. |
+| 7 | App'en har ingen login-væg til det private site | Høj | Uden login (eller uden godkendelse) giver alle `/api/*`-kald 401, og skærmene viser fejlteksten. Kræver en login-først-navigation og en "afventer godkendelse"-skærm, og et nyt build. |
 | 6 | Kurv-ikonet der fyldes op findes kun i app'en | Lav | App-headeren fik 01-10-2026 en vogn der fyldes med de første fire varer (`CartIcon.tsx`) + antal-badge i stedet for teksten "Kurv (n)". Web har stadig det almindelige ikon med badge. Samme tal, kun tegningen er forskellig. |
 
 ---
