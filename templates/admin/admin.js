@@ -576,7 +576,10 @@
   function boot() {
     $('admin-refresh').addEventListener('click', load);
     $('admin-logout').addEventListener('click', function () {
-      if (window.authLogout) window.authLogout();
+      // Efter log ud er /admin en 404 - send til forsiden i stedet.
+      Promise.resolve(window.authLogout && window.authLogout()).then(function () {
+        location.href = '/';
+      });
     });
     window.addEventListener('hashchange', showSection);
     showSection();

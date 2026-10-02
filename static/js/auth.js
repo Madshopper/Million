@@ -1192,6 +1192,46 @@
     return false;
   }
 
+  /* ------------------------------------------------------- serversession */
+  // Sessionen ligger i localStorage, som serveren ikke kan se. Sider der kræver
+  // login på serveren, får derfor access-tokenen som HttpOnly-cookie via
+  // /api/session (app.py). Markøren (bruger + tokenens exp) sparer kaldet, når
+  // cookien allerede passer; den sendes igen ved hver tokenfornyelse.
+  // Står man på 404-siden og får en frisk cookie, genindlæses én gang: siden
+  // kan have krævet en session, serveren endnu ikke kendte.
+  var SERVER_SESSION_KEY = 'madshopper_server_session';
+  var serverSessionBusy = false;
+
+  function syncServerSession(session) {
+    var token = session && session.access_token;
+    var payload = token ? _decodeJwt(token) : null;
+    // Et udløbet token (INITIAL_SESSION før SDK'en har fornyet) venter vi med:
+    // TOKEN_REFRESHED kommer lige efter med et gyldigt.
+    if (payload && payload.exp * 1000 < Date.now() + 10000) return;
+    var mark = payload ? (payload.sub + ':' + payload.exp) : null;
+    var prev = _readLS(SERVER_SESSION_KEY);
+    var retryKey = 'madshopper_session_retry:' + location.pathname;
+    var retried = true;
+    try { retried = !!sessionStorage.getItem(retryKey); } catch (e) { /* spærret */ }
+    var notFound = !retried && !!document.querySelector('[data-session-retry]');
+    if (mark === prev && !(notFound && token)) return;
+    if (!mark && !prev) return;
+    if (serverSessionBusy) return;
+    serverSessionBusy = true;
+    var headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    fetch('/api/session', { method: 'POST', headers: headers, body: '{}', credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) return;
+        _writeLS(SERVER_SESSION_KEY, mark);
+        if (!token || !notFound) return;
+        try { sessionStorage.setItem(retryKey, '1'); } catch (e) { return; }
+        location.reload();
+      })
+      .catch(function () { /* næste auth-hændelse prøver igen */ })
+      .then(function () { serverSessionBusy = false; });
+  }
+
   /* --------------------------------------------------------------- opstart */
   // Læser et recovery-link (#access_token=...&type=recovery) MANUELT, FØR
   // initClient()/detectSessionInUrl overhovedet ser URL'en.
@@ -1268,6 +1308,7 @@
       // currentUser og tømme den lokale kurv via handleSignedOut().
       if (currentView === 'newpassword') return;
 
+      syncServerSession(session);
       if (session && session.user) handleSignedIn(session.user);
       else handleSignedOut(event === 'SIGNED_OUT');
     });
