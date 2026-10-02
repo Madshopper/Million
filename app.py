@@ -481,7 +481,7 @@ def _inject_site_meta():
         # tom-resultat-tilstand, som script.js's healDegradedContent() saa kan
         # selv-helbrede med ét nyt kald - se kommentaren ved _mark_data_degraded
         # for hvorfor et retry INDE i denne request aldrig kan virke.
-        'data_degraded': _is_data_degraded(),
+        'data_degraded': bool(_is_data_degraded()),
     }
 
 
@@ -508,9 +508,10 @@ def _mark_data_degraded(reason: str) -> None:
         pass
 
 
-def _is_data_degraded() -> bool:
+def _is_data_degraded():
+    """Fejlvejens navn (sandt) hvis svaret er degraderet, ellers None."""
     try:
-        return bool(getattr(g, '_data_degraded', None))
+        return getattr(g, '_data_degraded', None) or None
     except RuntimeError:
         return False
 
@@ -550,6 +551,10 @@ def _set_response_headers(response):
             # overvågning: status er stadig 200, og "MadShopper" står der
             # stadig i title/logo - se scripts/playwright-uptime-check.mjs.
             response.headers['X-Data-Degraded'] = '1'
+            # Hvilken fejlvej (fast, lille ordliste + undtagelsesklasse) - så
+            # en måling mod produktion kan skelne bro-kollision fra D1-fejl
+            # uden logning pr. request. Klienterne kigger kun på '1' ovenfor.
+            response.headers['X-Data-Degraded-Reason'] = str(degraded)[:60]
         cacheable = (
             request.method == 'GET'
             and response.status_code == 200
@@ -809,10 +814,10 @@ def _d1_rows(sql: str, params: tuple = ()):
         stmt = stmt.bind(*params)
     try:
         return _await_sync_retry(stmt.all)
-    except Exception:
+    except Exception as exc:
         logger.exception("D1 _d1_rows fejlede efter retries: %s", sql[:80])
         # Tom liste er her en FEJL, ikke et resultat - se _mark_data_degraded.
-        _mark_data_degraded('d1_rows')
+        _mark_data_degraded('d1_rows:' + type(exc).__name__)
         return []
 
 
@@ -838,9 +843,9 @@ def _d1_scalar(sql: str, params: tuple = ()):
         stmt = stmt.bind(*params)
     try:
         return _await_sync_retry(stmt.first)
-    except Exception:
+    except Exception as exc:
         logger.exception("D1 _d1_scalar fejlede efter retries: %s", sql[:80])
-        _mark_data_degraded('d1_scalar')
+        _mark_data_degraded('d1_scalar:' + type(exc).__name__)
         return None
 
 

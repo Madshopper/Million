@@ -28,7 +28,9 @@ flag, der saettes mens en render "venter paa D1") og beviser at:
      forbindelsen midt i et D1-kald; finally i app.py koerer aldrig)
      nulstilles af naeste render - maalt 02-10-2026: ellers blev hele
      isolaten degraderet indtil den doede,
- 10) INVARIANT: super().fetch() kaldes KUN inde i _render_exclusive, saa en
+ 10) en ventende der afbrydes, giver sin plads videre, saa den bag den
+     ikke venter hele loftet (maalt 02-10-2026: 10,4 s),
+ 11) INVARIANT: super().fetch() kaldes KUN inde i _render_exclusive, saa en
      ny kodesti ikke stille kan springe laasen over.
 
 Workers-runtime findes ikke uden for Cloudflare, saa js, pyodide, edgekit og
@@ -334,6 +336,43 @@ async def _levende_holder():
 r = asyncio.run(_levende_holder())
 check("levende holder: broen nulstilles ikke (svaret degraderes i stedet for at kollidere)",
       r == ("degraded", "https://madshopper.dk/api/search?q=levende"))
+reset()
+
+
+# --- 5c) en ventende der afbrydes, giver sin plads videre ---------------------
+# Maalt mod produktion 02-10-2026: efter tre afbrudte parallelle soegninger
+# ventede naeste request 10,4 s (= _RENDER_WAIT_MAX_MS), fordi en afbrudt
+# ventende aldrig naaede til finally om super().fetch() og aldrig frigav sin
+# plads i koeen.
+async def _afbrudt_ventende():
+    reset()
+    W._RENDER_WAIT_MAX_MS, W._RENDER_DEAD_MS = 2_000, 5_000
+    a = asyncio.ensure_future(worker._render_exclusive(req("/langsom?a")))
+    await asyncio.sleep(0.01)
+    b = asyncio.ensure_future(worker._render_exclusive(req("/search?b")))
+    await asyncio.sleep(0.01)
+    c = asyncio.ensure_future(worker._render_exclusive(req("/search?c")))
+    await asyncio.sleep(0.01)
+    b.cancel()  # klienten lukkede forbindelsen mens b ventede
+    loop = asyncio.get_running_loop()
+    t0 = loop.time()
+    rc = await asyncio.wait_for(c, timeout=5)
+    waited = loop.time() - t0
+    await a
+    return rc, waited
+
+try:
+    rc, waited = asyncio.run(_afbrudt_ventende())
+    check(f"afbrudt ventende: den bag den renderer ({rc!r:.50})",
+          rc == ("ok", "https://madshopper.dk/search?c"))
+    check(f"afbrudt ventende: ingen ventetid til loftet ({waited*1000:.0f} ms, loft 2000)",
+          waited < 1.0)
+    check(f"afbrudt ventende: stadig aldrig to i Flask (max {BRIDGE['max_active']})",
+          BRIDGE["max_active"] == 1 and BRIDGE["degraded"] == 0)
+except asyncio.TimeoutError:
+    check("afbrudt ventende: haengte!", False)
+finally:
+    W._RENDER_WAIT_MAX_MS, W._RENDER_DEAD_MS = old_max, old_dead
 reset()
 
 
