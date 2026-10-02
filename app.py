@@ -758,6 +758,26 @@ def _sync_bridge_call(awaitable):
         _sync_bridge_busy = False
 
 
+def release_stale_sync_bridge() -> bool:
+    """Nulstil et optaget-flag som ingen længere ejer. Returnerer True hvis
+    flaget stod (hang).
+
+    Kaldes KUN af src/worker.py::_render_exclusive, når den har eneret på
+    Flask-stakken og ingen anden render er i gang - så kan intet lovligt eje
+    broen. Flaget hænger, når en request afbrydes (klienten lukker
+    forbindelsen) mens den er suspenderet i await_sync: Cloudflare kasserer
+    den synkrone Python-stak, så finally i _sync_bridge_call kører aldrig,
+    mens worker-lagets finally gør. Uden denne nulstilling svarede HVER
+    efterfølgende request i isolaten tomt + degraderet uden at spørge D1,
+    indtil isolaten døde - målt 02-10-2026 (16 degraderede svar 15:33-15:37
+    UTC efter 3 clientDisconnected, 0 D1-læsninger) og reproduceret mod
+    produktion med tre afbrudte parallelle søgninger."""
+    global _sync_bridge_busy
+    was_busy = _sync_bridge_busy
+    _sync_bridge_busy = False
+    return was_busy
+
+
 def _await_sync_retry(make_awaitable):
     """Kør await_sync(make_awaitable()) med retry ved forbigående kollision.
 

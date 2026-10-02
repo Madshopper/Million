@@ -1007,6 +1007,19 @@ class Default(WSGI[Env]):
             # Låsen er en optimering, aldrig en betingelse: fejler den, render
             # vi som før i stedet for at afvise requesten.
             pass
+        # Ingen render i gang = ingen kan lovligt eje D1/KV-broen. Står
+        # app.py's optaget-flag alligevel, er det efterladt af en request der
+        # blev afbrudt midt i et D1-kald (se app.release_stale_sync_bridge);
+        # uden nulstilling blev ALT i isolaten degraderet indtil den døde.
+        # Ikke i fail-open-vejen ovenfor med en levende holder - dér kan
+        # broen reelt være i brug.
+        try:
+            if _render_holder_gone(_now_ms()):
+                import app as _app_module
+                if _app_module.release_stale_sync_bridge():
+                    _sec_note("bridge_reset", request)
+        except Exception:
+            pass
         mark = (token, _now_ms())
         _render_active = mark
         try:
