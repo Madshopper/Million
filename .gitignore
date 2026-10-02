@@ -85,3 +85,9 @@ Ingen
 # Debug-snapshots i roden (renderede HTML/JSON-svar, aldrig commit)
 home.html
 s.html
+
+# iCloud-synk-dubletter (fx "fil 2.pdf", "mappe 2") - aldrig commit
+* 2
+* 2.*
+* 3
+* 3.*

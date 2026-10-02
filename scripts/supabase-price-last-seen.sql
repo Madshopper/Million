@@ -122,6 +122,9 @@ BEGIN
 END;
 $$;
 
+-- Postgres giver EXECUTE til PUBLIC som standard: uden REVOKE kan den offentlige nøgle kalde
+-- (SECURITY DEFINER) funktionen. Fundet 30-09-2026.
+REVOKE EXECUTE ON FUNCTION public.record_price_batch(jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.record_price_batch(jsonb) TO service_role;
 
 -- ---------------------------------------------------------------------------
@@ -164,4 +167,7 @@ BEGIN
 END;
 $$;
 
+-- Postgres giver EXECUTE til PUBLIC som standard: uden REVOKE kan den offentlige nøgle kalde
+-- (SECURITY DEFINER) funktionen. Fundet 30-09-2026.
+REVOKE EXECUTE ON FUNCTION public.prune_price_history(integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.prune_price_history(integer) TO service_role;
