@@ -197,6 +197,14 @@ function initMobileEnhancements() {
     });
 }
 
+/** Telefon: "Kategorier"-knappen folder alle kategorier ud (base.html). */
+function toggleCategoryNav(btn) {
+    const nav = document.getElementById('category-nav');
+    if (!nav) return;
+    const open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
 function toggleMenu() {
     const menu = document.getElementById('nav-menu');
     const hamburger = document.querySelector('.hamburger-btn');

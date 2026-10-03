@@ -4,12 +4,12 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -32,18 +32,6 @@ import { useStoreCatalog, storesParam } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { recipesEnabled } from '../config/env';
 import type { RootStackParamList } from '../navigation/types';
-
-const CATEGORY_LINKS: Array<{ label: string; slug: string }> = [
-  { label: 'Ugens Tilbud', slug: 'sale' },
-  { label: 'Køl', slug: 'Mejeri' },
-  { label: 'Kød & Fisk', slug: 'Koed_og_fisk' },
-  { label: 'Frugt & Grønt', slug: 'Frugt_og_groent' },
-  { label: 'Brød & Kager', slug: 'Broed_og_kager' },
-  { label: 'Frost', slug: 'Frost' },
-  { label: 'Kolonial', slug: 'Kolonial' },
-  { label: 'Drikkevarer', slug: 'Drikkevarer' },
-  { label: 'Slik', slug: 'Slik' },
-];
 
 type HomeRow =
   | { key: string; kind: 'hero' }
@@ -196,30 +184,27 @@ export function HomeScreen() {
           }
 
           if (item.kind === 'cats') {
+            // Én knap i stedet for en vandret chip-bjælke (03-10-2026): man
+            // så kun de første par kategorier og skulle swipe efter resten.
+            // Oversigten (CategoriesScreen) viser dem alle på én gang.
             return (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                directionalLockEnabled
-                style={styles.catsScroll}
-                contentContainerStyle={styles.catsContent}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Kategorier"
+                onPress={() => navigation.navigate('Categories')}
+                style={({ pressed }) => [
+                  styles.catsButton,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
               >
-                {CATEGORY_LINKS.map((c) => (
-                  <Pressable
-                    key={c.slug}
-                    onPress={() => {
-                      if (c.slug === 'sale') navigation.navigate('Sale');
-                      else navigation.navigate('Category', { slug: c.slug, title: c.label });
-                    }}
-                    style={[
-                      styles.catChip,
-                      { backgroundColor: colors.surface, borderColor: colors.border },
-                    ]}
-                  >
-                    <Text style={{ color: colors.text, fontWeight: '600' }}>{c.label}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+                <Ionicons name="grid-outline" size={20} color={colors.text} />
+                <Text style={[styles.catsButtonText, { color: colors.text }]}>Kategorier</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              </Pressable>
             );
           }
 
@@ -336,22 +321,18 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   hero: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
   brand: { fontSize: 32, fontWeight: '800', letterSpacing: -0.5 },
-  catsScroll: {
-    maxHeight: 44,
-    marginVertical: 8,
-    flexGrow: 0,
-  },
-  catsContent: {
-    paddingHorizontal: 12,
+  catsButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  catChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    gap: 10,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    marginRight: 8,
   },
+  catsButtonText: { flex: 1, fontSize: 16, fontWeight: '700' },
   section: { marginTop: 12 },
   sectionHead: {
     flexDirection: 'row',

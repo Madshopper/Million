@@ -15,6 +15,7 @@ import { useCart } from '../cart/CartContext';
 import { CartIcon } from '../components/CartIcon';
 import { HomeScreen } from '../screens/HomeScreen';
 import { CategoryScreen, SaleScreen } from '../screens/CategoryScreen';
+import { CategoriesScreen } from '../screens/CategoriesScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { RecipesScreen } from '../screens/RecipesScreen';
 import { CartScreen } from '../screens/CartScreen';
@@ -267,6 +268,11 @@ export function RootNavigator() {
         })}
       >
         <Stack.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="Categories"
+          component={CategoriesScreen}
+          options={{ title: 'Kategorier' }}
+        />
         <Stack.Screen
           name="Category"
           component={CategoryScreen}
