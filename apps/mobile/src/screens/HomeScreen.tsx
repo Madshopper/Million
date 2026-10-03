@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     padding: 16,
     borderRadius: 16,
-    backgroundColor: '#059669',
+    backgroundColor: '#1B5E20',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   savingsBadgeText: {
-    color: '#059669',
+    color: '#1B5E20',
     fontWeight: '800',
     fontSize: 13,
   },

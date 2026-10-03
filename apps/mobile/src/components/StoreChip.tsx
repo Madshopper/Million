@@ -1,15 +1,19 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { storeColor } from '../theme/storeColors';
+import { useTheme } from '../theme/ThemeContext';
 
-/** Lille mærkat i butikkens egen farve (theme/storeColors.ts). */
+/**
+ * Lille butiksmærkat. Alle butikker har samme grønne (primarySolid), så appen
+ * holder sig til tre farver: grøn, mørk tekst og gul til tilbud.
+ */
 export function StoreChip({ store, size = 'sm' }: { store: string; size?: 'sm' | 'md' }) {
+  const { colors } = useTheme();
   return (
     <View
       style={[
         styles.chip,
         size === 'md' && styles.chipMd,
-        { backgroundColor: storeColor(store) },
+        { backgroundColor: colors.primarySolid },
       ]}
     >
       <Text style={[styles.text, size === 'md' && styles.textMd]} numberOfLines={1}>
@@ -19,15 +23,16 @@ export function StoreChip({ store, size = 'sm' }: { store: string; size?: 'sm' |
   );
 }
 
-/** Farvet prik til steder hvor et helt mærkat fylder for meget. */
-export function StoreDot({ store, size = 8 }: { store: string; size?: number }) {
+/** Grøn prik til steder hvor et helt mærkat fylder for meget. */
+export function StoreDot({ size = 8 }: { store?: string; size?: number }) {
+  const { colors } = useTheme();
   return (
     <View
       style={{
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: storeColor(store),
+        backgroundColor: colors.primary,
       }}
     />
   );

@@ -28,7 +28,6 @@ import { recordCompareSavings } from '../savings/personalSavings';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { StoreDot } from '../components/StoreChip';
-import { storeColor } from '../theme/storeColors';
 
 /** Dedup pr. app-session — spejler web's `_comparedProductIds`. */
 const comparedProductIds = new Set<string>();
@@ -282,7 +281,7 @@ export function ScoScreen() {
                 styles.storeCard,
                 {
                   backgroundColor: colors.surface,
-                  borderColor: isActive ? storeColor(s.name) : colors.border,
+                  borderColor: isActive ? colors.primary : colors.border,
                   borderWidth: isActive ? 2 : 1,
                 },
               ]}

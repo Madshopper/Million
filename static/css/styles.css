@@ -1932,16 +1932,12 @@ main {
   flex: 1;
 }
 
-.cart-item {
-  border-left: 4px solid var(--store-color, transparent);
-}
-
 .cart-item-store {
   display: inline-block;
   margin-bottom: 3px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--store-color, #52525B);
+  background: var(--green);
   color: #fff;
   font-size: 0.65rem;
   font-weight: 700;

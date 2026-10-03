@@ -21,7 +21,6 @@ import { cartItemTitle } from '../cart/stripStoreBrand';
 import { useTheme } from '../theme/ThemeContext';
 import { StackScreenBody } from '../components/ScreenBody';
 import { StoreChip } from '../components/StoreChip';
-import { storeColor } from '../theme/storeColors';
 import type { RootStackParamList } from '../navigation/types';
 
 type PromptMode = 'save' | 'share' | 'join' | 'rename' | null;
@@ -317,20 +316,10 @@ export function CartScreen() {
 
   const renderItemRow = (item: CartItem) => {
     const lineTotal = item.price * item.quantity;
-    // Butikken vises som et farvet mærkat + en kant i samme farve, så man
-    // med det samme kan se hvilken butik hver vare er fra (Kalle 03-10-2026).
+    // Butikken vises som et grønt mærkat, så man med det samme kan se hvilken
+    // butik hver vare er fra (Kalle 03-10-2026).
     return (
-      <View
-        key={item.id}
-        style={[
-          styles.itemRow,
-          {
-            backgroundColor: colors.surface,
-            borderLeftWidth: item.store ? 4 : 0,
-            borderLeftColor: storeColor(item.store),
-          },
-        ]}
-      >
+      <View key={item.id} style={[styles.itemRow, { backgroundColor: colors.surface }]}>
         <View style={styles.thumbWrap}>
           {item.image ? (
             <Image source={{ uri: item.image }} style={styles.thumb} resizeMode="contain" />
