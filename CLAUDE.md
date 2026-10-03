@@ -39,7 +39,7 @@ Fuld tech stack, butiksliste og mappetræ: `README.md` § Tech Stack / Supported
 
 **Supabase:** `app_cache` (produkt-cache i chunks), `produkter` (rå butiksdata), `price_history` (30 dage), `nutrition_data`, `cart_popularity` + `cart_events` (anonym kurv-aktivitet), `price_alerts`, `carts` (gemt kurv pr. bruger, RLS-låst), `user_monthly_savings` (personlig besparelse pr. måned, kun via RPC).
 **Cloudflare D1:** read-only mirror af produkt-cachen (seedet nightly), `security_events`.
-**Cloudflare KV:** `cache_version` (bumpes ved hvert seed → invaliderer al edge-cache), `home_data_v1` (forudberegnede forsidepuljer, sparer ~4 D1/Supabase-kald pr. render), `d1_stats_v1` (optællinger), `sidx_ver` + `sidx:<version>:<p|s>:<tegn>` (søgeindekset, se § D1-læsebudget).
+**Cloudflare KV:** `cache_version` (bumpes ved hvert seed → invaliderer al edge-cache), `home_data_v1` (forudberegnede forsidepuljer, sparer ~4 D1/Supabase-kald pr. render), `d1_stats_v1` (optællinger), `features_v1` (Feature-panelet i `/admin`: hvilke funktioner der er udgivet på madshopper.dk; læses sammen med `cache_version` i `src/worker.py` og indgår i cache-nøglen, så et skift slår igennem inden for 5 min uden bump), `sidx_ver` + `sidx:<version>:<p|s>:<tegn>` (søgeindekset, se § D1-læsebudget).
 
 Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `user_monthly_savings`) vælges via `TABLE_SUFFIX`: tom i produktion, `_dev` lokalt og på staging - kør `scripts/supabase-dev-tables.sql` / `scripts/supabase-user-savings.sql` én gang.
 
@@ -64,7 +64,7 @@ Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `u
 | Staging | `main` (automatisk) + manuel deploy af vilkårlig branch | dev.madshopper.dk | læser prod-data, skriver til `*_dev`, egen KV + D1 |
 | Lokal | - | localhost:5001 (`python app.py`) | læser prod-data, skriver til `*_dev` |
 
-**Alt er slået til på staging.** En feature der er skjult bag et flag i produktion, skal være slået til på dev.madshopper.dk (sæt flaget i staging-grenen af `scripts/build-pages.sh`, fx `RECIPES_ENABLED`). Staging er låst for alle andre end godkendte (`_staging_blocked()` i `src/worker.py`, 404 til alle andre), og det skal den blive ved med.
+**Alt er slået til på staging.** En feature der er skjult bag et flag i produktion, skal være slået til på dev.madshopper.dk (sæt flaget i staging-grenen af `scripts/build-pages.sh`, fx `RECIPES_ENABLED`). I produktion udgives den fra fanen Feature i `/admin`: tilføj den til `app._FEATURES` og tjek den med `_feature_enabled('<key>')`. Staging er låst for alle andre end godkendte (`_staging_blocked()` i `src/worker.py`, 404 til alle andre), og det skal den blive ved med.
 
 Der er ingen `dev`-branch (fjernet 02-10-2026). Arbejde laves på en feature-branch med PR direkte til `main`; merge til `main` → `deploy-edge.yml` (produktion) og `deploy-edge-dev.yml` (staging) samtidig. En PR-branch kan afprøves på staging før merge ved at køre `deploy-edge-dev.yml` manuelt på den; næste push til `main` skriver staging tilbage. Begge kører Playwright-røgtest bagefter. Fuld workflow: `docs/Dev.md`.
 

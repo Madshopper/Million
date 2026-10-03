@@ -198,6 +198,12 @@ _cache_ver = None
 _cache_ver_kv = None
 _cache_ver_at = 0.0
 _CACHE_VER_TTL = 300.0
+# Feature-panelets valg (app.py::_FEATURES_KV_KEY), læst sammen med
+# cache_version. Et fingeraftryk af dem indgår i cache-nøglen, og de samme
+# valg gives videre til app.py, så en cachet side altid passer til nøglen.
+# Udgiver/skjuler admin en funktion, skifter nøglen inden for _CACHE_VER_TTL
+# uden at hele cachen skal bumpes. Sidst kendte værdi beholdes ved KV-fejl.
+_features_raw = None
 
 # De ENESTE query-parametre app.py rent faktisk læser (verificeret mod hvert
 # request.args.get(...)-kald i app.py). Bruges til at normalisere
@@ -861,7 +867,7 @@ class Default(WSGI[Env]):
         midnat UTC uanset KV, så staleness aldrig kan overskride dataens egen
         daglige kadence - også hvis KV-skrivningen eller KV-læsningen svigter.
         """
-        global _cache_ver, _cache_ver_kv, _cache_ver_at
+        global _cache_ver, _cache_ver_kv, _cache_ver_at, _features_raw
         try:
             from js import Date
             now = float(Date.now()) / 1000.0
@@ -876,11 +882,27 @@ class Default(WSGI[Env]):
                 _cache_ver_kv = str(val)
         except Exception:
             pass                       # behold sidst kendte version
+        try:
+            kv = getattr(self.raw_env, "CACHE_KV", None)
+            if kv is not None:
+                feats = await kv.get("features_v1")
+                _features_raw = str(feats) if feats else ""
+        except Exception:
+            pass                       # behold sidst kendte valg
+        try:
+            import app as _app_module
+            _app_module.set_edge_features(_features_raw)
+        except Exception:
+            pass
+        feat_fp = "0"
+        if _features_raw:
+            import zlib
+            feat_fp = format(zlib.crc32(_features_raw.encode()), "x")
         # BUILD_ID (sat af scripts/build-pages.sh) holder gamle isolates under
         # et deploy ude af den nye kodes cache: uden den kunne en gammel isolate
         # læse det nye cache_version og gemme gammel HTML under den nye nøgle.
         build = str(getattr(self.raw_env, "BUILD_ID", "") or "0")
-        _cache_ver = f"{_cache_ver_kv or '0'}-{self._utc_day()}-{build}"
+        _cache_ver = f"{_cache_ver_kv or '0'}-{self._utc_day()}-{build}-f{feat_fp}"
         _cache_ver_at = now
         return _cache_ver
 

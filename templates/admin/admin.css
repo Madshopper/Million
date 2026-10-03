@@ -130,3 +130,26 @@
 
 /* Drift: knapper til dev-siden */
 .adm-dev-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+/* Feature: hvad der vises på madshopper.dk */
+.adm-intro { margin: -8px 0 16px; max-width: 640px; }
+.adm-feat-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.adm-feat-head h2 { margin: 0; }
+.adm-feat-desc { margin: 8px 0 4px; max-width: 640px; }
+.adm-feat-btns { margin-top: 10px; }
+.adm-ok { background: var(--green-light); color: var(--green-dark); border-radius: var(--radius-sm);
+          padding: 10px 12px; margin: 0 0 16px; font-size: .88rem; }
+
+/* Bekræftelses-overlay (udgiv/skjul en funktion) */
+.adm-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+             padding: 16px; background: rgba(0, 0, 0, .5); }
+.adm-modal[hidden] { display: none; }
+.adm-modal-box { background: var(--white); color: var(--gray-900); border-radius: var(--radius-md);
+                 padding: 22px 24px; max-width: 440px; width: 100%; box-sizing: border-box;
+                 box-shadow: 0 20px 50px rgba(0, 0, 0, .3); }
+.adm-modal-box h2 { margin: 0 0 8px; font-size: 1.2rem; }
+.adm-modal-box p { margin: 0 0 12px; }
+.adm-modal-remind { background: var(--yellow-light); color: #92400E; border-radius: var(--radius-sm);
+                    padding: 10px 12px; margin-bottom: 12px; }
+.adm-modal-remind p { margin: 4px 0 0; }
+.adm-modal-btns { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 16px; }

@@ -118,11 +118,11 @@
     });
   }
 
-  function post(path, token) {
+  function post(path, token, body) {
     return fetch(path, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: '{}',
+      body: JSON.stringify(body || {}),
       credentials: 'same-origin'
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
@@ -228,7 +228,7 @@
   }
 
   /* ----------------------------------------------------------- navigation */
-  var SECTIONS = ['oversigt', 'trafik', 'feedback', 'scraping', 'korsler', 'opskrifter', 'brugere', 'drift'];
+  var SECTIONS = ['oversigt', 'trafik', 'feedback', 'scraping', 'korsler', 'opskrifter', 'feature', 'brugere', 'drift'];
 
   function showSection() {
     var name = (location.hash || '').replace('#', '');
@@ -659,6 +659,97 @@
       : empty('Ingen brugere.'));
   }
 
+  /* --------------------------------------------------------------- feature
+   * Hvad der vises på madshopper.dk. Valget gemmes i produktionens KV via
+   * /api/admin/features og slår igennem inden for ca. 5 minutter (workerens
+   * cache-nøgle skifter med valget, se src/worker.py::_cache_version). */
+  function token() {
+    return client().auth.getSession().then(function (res) {
+      var session = res && res.data && res.data.session;
+      if (!session) throw new Error('Du er ikke logget ind.');
+      return session.access_token;
+    });
+  }
+
+  function loadFeatures(tok) {
+    return post('/api/admin/features', tok).then(renderFeatures).catch(function (e) {
+      fill('admin-features', empty('Kunne ikke hente funktionerne: ' + ((e && e.message) || e)));
+    });
+  }
+
+  function renderFeatures(j) {
+    var list = (j && j.features) || [];
+    if (!list.length) { fill('admin-features', empty('Ingen funktioner at styre.')); return; }
+    var wrap = el('div', {}, list.map(function (f) {
+      var status;
+      if (!j.editable) status = pill('info', f.forced_here ? 'Altid slået til her' : 'Styres fra madshopper.dk');
+      else status = f.live ? pill('ok', 'Vises på madshopper.dk') : pill('warn', 'Under udvikling');
+      var btn = null;
+      if (j.editable) {
+        btn = el('button', {
+          type: 'button',
+          class: 'adm-btn' + (f.live ? ' danger' : ' primary'),
+          text: f.live ? 'Skjul igen' : 'Udgiv på madshopper.dk',
+          onclick: function () { askFeature(f, !f.live); }
+        });
+      }
+      return el('div', { class: 'adm-card adm-feat' }, [
+        el('div', { class: 'adm-feat-head' }, [el('h2', { text: f.name }), status]),
+        el('p', { class: 'adm-feat-desc', text: f.desc }),
+        f.changed_at ? el('p', { class: 'adm-sub', text: (f.live ? 'Udgivet ' : 'Skjult ') + when(f.changed_at) }) : null,
+        btn ? el('div', { class: 'adm-feat-btns' }, [btn]) : null
+      ]);
+    }));
+    if (!j.editable) {
+      wrap.insertBefore(el('p', { class: 'adm-sub', text: /^dev\./.test(location.hostname)
+        ? 'Du er på dev-siden, hvor alt altid er slået til. Udgiv fra madshopper.dk/admin.'
+        : 'Kan kun ændres på madshopper.dk/admin.' }), wrap.firstChild);
+    }
+    fill('admin-features', wrap);
+  }
+
+  var modalOk = null;
+  var modalReturn = null;
+  function closeModal() {
+    $('feature-modal').hidden = true;
+    modalOk = null;
+    if (modalReturn) { try { modalReturn.focus(); } catch (e) { /* væk */ } }
+  }
+
+  function askFeature(f, on) {
+    modalReturn = document.activeElement;
+    $('feature-modal-title').textContent = on ? 'Er du helt sikker?' : 'Skjul ' + f.name + '?';
+    $('feature-modal-text').textContent = on
+      ? f.name + ' bliver synlig for alle besøgende på madshopper.dk.'
+      : f.name + ' bliver skjult for alle på madshopper.dk igen. Den virker stadig på dev-siden.';
+    $('feature-modal-remind').hidden = !on;
+    $('feature-modal-app').textContent = f.app
+      || 'Tjek om appen også skal have en ny version, så den viser det samme som hjemmesiden.';
+    $('feature-modal-note').hidden = !(on && f.note);
+    $('feature-modal-note').textContent = (on && f.note) || '';
+    var ok = $('feature-modal-ok');
+    ok.textContent = on ? 'Ja, udgiv på madshopper.dk' : 'Ja, skjul den';
+    ok.disabled = false;
+    modalOk = function () {
+      ok.disabled = true;
+      token().then(function (tok) {
+        return post('/api/admin/features', tok, { key: f.key, on: on });
+      }).then(function (j) {
+        closeModal();
+        renderFeatures(j);
+        var box = $('admin-features');
+        box.insertBefore(el('p', { class: 'adm-ok', text: on
+          ? 'Gemt. ' + f.name + ' vises på madshopper.dk inden for ca. 5 minutter.'
+          : 'Gemt. ' + f.name + ' er skjult på madshopper.dk inden for ca. 5 minutter.' }), box.firstChild);
+      }).catch(function (e) {
+        closeModal();
+        showError('Kunne ikke ændre ' + f.name + ': ' + ((e && e.message) || e));
+      });
+    };
+    $('feature-modal').hidden = false;
+    $('feature-modal-cancel').focus();
+  }
+
   /* ------------------------------------------------------------------ flow */
   function gate(text, showLogin) {
     $('admin-main').hidden = true;
@@ -704,7 +795,8 @@
           rpc('admin_job_runs', { p_days: 14 }).catch(function (e) {
             showError('Kørselshistorikken kunne ikke hentes: ' + (e.message || e)); return null;
           }),
-          traffic(session.access_token).then(function (j) { return j.traffic; }).catch(function () { return null; })
+          traffic(session.access_token).then(function (j) { return j.traffic; }).catch(function () { return null; }),
+          loadFeatures(session.access_token)
         ]).then(function (r) {
           var ov = r[0] || {};
           var ed = r[2];
@@ -806,6 +898,14 @@
     $('fb-all').addEventListener('click', function () { setFilter(true); });
     $('users-pending').addEventListener('click', function () { setAccessFilter(false); });
     $('users-all').addEventListener('click', function () { setAccessFilter(true); });
+    $('feature-modal-cancel').addEventListener('click', closeModal);
+    $('feature-modal-ok').addEventListener('click', function () { if (modalOk) modalOk(); });
+    $('feature-modal').addEventListener('click', function (e) {
+      if (e.target === this && !$('feature-modal-ok').disabled) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !$('feature-modal').hidden && !$('feature-modal-ok').disabled) closeModal();
+    });
 
     var sb = client();
     if (sb) {
