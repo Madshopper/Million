@@ -157,6 +157,17 @@ BEGIN
   EXCEPTION WHEN undefined_function THEN
     NULL;
   END;
+  -- Feedback er ikke knyttet til kontoen med en fremmednøgle (formularen kan
+  -- bruges uden login), så CASCADE rammer den ikke. Beskeden beholdes, men
+  -- navn og email fjernes fra alt, der er sendt med kontoens email.
+  BEGIN
+    UPDATE public.feedback SET name = '', email = ''
+     WHERE lower(email) = lower((SELECT email FROM auth.users WHERE id = uid));
+  EXCEPTION WHEN undefined_table THEN
+    NULL;
+  END;
+  -- Resten (carts, price_alerts, user_monthly_savings, shared_carts,
+  -- admin_users og _dev-udgaverne) har ON DELETE CASCADE til auth.users.
   DELETE FROM auth.users WHERE id = uid;
 END;
 $$;
