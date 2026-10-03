@@ -90,7 +90,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Vist navn (delt kurv) | ✅ | ✅ | ✅ RPC `set_my_display_name` | ❌ | Complete |
 | "Mine prisalarmer" (se/slet) | ✅ | ✅ | ✅ | ❌ | Complete |
 | Slet konto | ✅ | ✅ | ✅ RPC `delete_own_account` | ❌ | Complete |
-| Profil-fane med "Deler kurv med" | ➖ | ✅ | ✅ (samme delt-kurv-RPC'er) | ❌ | **Bevidst forskel**: appens nederste fane hedder "Profil" (før "Indstillinger", ændret 02-10-2026) og samler konto, navn, delt kurv-medlemmer og prisalarmer; indstillingerne åbnes derfra. Web har ingen fanebjælke - kontoen ligger i konto-menuen og indstillingerne i tandhjulspanelet, og medlemmerne vises i kurven |
+| Profil-fane med "Fælles kurv" | ➖ | ✅ | ✅ (samme delt-kurv-RPC'er) | ❌ | **Bevidst forskel**: appens nederste fane hedder "Profil" (før "Indstillinger", ændret 02-10-2026) og samler konto, navn, "Fælles kurv" (alle medlemmer, start/stop deling) og prisalarmer; indstillinger (med slet konto) og feedback er tydelige rækker derfra (03-10-2026). Web har ingen fanebjælke - kontoen ligger i konto-menuen og indstillingerne i tandhjulspanelet, og medlemmerne vises i kurven |
 
 ### Indstillinger og indhold
 
