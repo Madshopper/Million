@@ -721,6 +721,37 @@
     }).then(function () { loading = false; });
   }
 
+  /* Dev-siden: produktionen udsteder et engangslink (2 min.), så staging-
+   * spærringen ikke spørger om login. Fanen åbnes før kaldet, ellers blokerer
+   * browseren den som pop-up. */
+  function openDev(path) {
+    var win = window.open('about:blank', '_blank');
+    var note = $('admin-dev-note');
+    client().auth.getSession().then(function (res) {
+      var session = res && res.data && res.data.session;
+      if (!session) throw new Error('Du er ikke logget ind.');
+      return fetch('/api/admin/staging-link', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: path }),
+        credentials: 'same-origin'
+      });
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (j) {
+      if (!j.direct && note) {
+        note.textContent = 'Direkte adgang er ikke sat op her, så dev-siden beder om sit eget login.';
+        note.hidden = false;
+      }
+      if (win) { win.opener = null; win.location.href = j.url; }
+      else location.href = j.url;
+    }).catch(function (e) {
+      if (win) win.close();
+      showError('Kunne ikke åbne dev-siden: ' + ((e && e.message) || e));
+    });
+  }
+
   function setFilter(all) {
     state.showAll = all;
     $('fb-all').setAttribute('aria-pressed', String(all));
@@ -730,6 +761,14 @@
 
   function boot() {
     $('admin-refresh').addEventListener('click', load);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-dev-path]'), function (b) {
+      b.addEventListener('click', function () { openDev(b.getAttribute('data-dev-path')); });
+    });
+    // På dev-siden selv giver knapperne ingen mening.
+    if (/^dev\./.test(location.hostname)) {
+      $('admin-dev').hidden = true;
+      $('admin-dev-card').hidden = true;
+    }
     $('admin-logout').addEventListener('click', function () {
       // Efter log ud er /admin en 404 - send til forsiden i stedet.
       Promise.resolve(window.authLogout && window.authLogout()).then(function () {

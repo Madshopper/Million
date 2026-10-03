@@ -65,6 +65,7 @@
         <span id="admin-who" class="adm-who"></span>
         <button type="button" class="adm-btn" id="admin-refresh">Opdater</button>
         <button type="button" class="adm-btn" id="admin-logout" hidden>Log ud</button>
+        <button type="button" class="adm-btn" id="admin-dev" data-dev-path="/">Se dev-siden</button>
         <a href="/" class="adm-backlink">Til madshopper.dk</a>
       </div>
     </aside>
@@ -148,6 +149,14 @@
           <div class="adm-grid">
             <div class="adm-card"><h2>Edge (Cloudflare)</h2><div id="admin-edge"></div></div>
             <div class="adm-card"><h2>Sikkerhed seneste 24 timer</h2><div id="admin-security"></div></div>
+          </div>
+          <div class="adm-card" id="admin-dev-card"><h2>Dev-siden (dev.madshopper.dk)</h2>
+            <p class="adm-sub">Testudgaven af sitet. Her lander nye ændringer, og den bruger sine egne testtabeller, så du kan klikke rundt uden at røre de rigtige data. Knapperne logger dig direkte ind på dev.</p>
+            <div class="adm-dev-btns">
+              <button type="button" class="adm-btn" data-dev-path="/">Åbn forsiden på dev</button>
+              <button type="button" class="adm-btn" data-dev-path="/admin">Åbn admin på dev</button>
+            </div>
+            <p class="adm-sub" id="admin-dev-note" hidden></p>
           </div>
           <div class="adm-card"><h2>Største tabeller (Supabase)</h2><div id="admin-tables"></div></div>
         </section>

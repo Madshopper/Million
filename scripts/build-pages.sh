@@ -129,6 +129,14 @@ if [ -n "${CF_ANALYTICS_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
 CLOUDFLARE_ACCOUNT_ID = \"$(toml_escape "$CLOUDFLARE_ACCOUNT_ID")\""
 fi
 
+# "Se dev-siden" i /admin: produktionen får staging-nøglen under et ANDET navn
+# (STAGING_LINK_SECRET), så spærringen i src/worker.py stadig er slået fra her.
+# Appen bruger den kun til at signere kortlivede links (app.py::admin_staging_link).
+STAGING_LINK_LINE=""
+if [ "$DEPLOY_ENV" = "production" ] && [ -n "${STAGING_LINK_SECRET:-}" ]; then
+  STAGING_LINK_LINE="STAGING_LINK_SECRET = \"$(toml_escape "$STAGING_LINK_SECRET")\""
+fi
+
 # Staging-adgangsnøgle: madshopper-dev kører den samme kode mod *_dev-tabeller,
 # men på en offentlig workers.dev-URL og mod SAMME Supabase-projekt/auth.users
 # som produktionen. Uden en spærring er hele feature-fladen frit tilgængelig for
@@ -337,6 +345,7 @@ BUILD_ID = "${BUILD_ID_VALUE}"
 # dev-kopier (scripts/supabase-dev-tables.sql), så test ikke rører prod-data.
 TABLE_SUFFIX = "${TABLE_SUFFIX_VALUE}"
 ${ANALYTICS_LINES}
+${STAGING_LINK_LINE}
 ${STAGING_SECRET_LINE}
 ${STAGING_EMAIL_LINE}
 ${STAGING_PASSWORD_LINE}

@@ -192,6 +192,8 @@ _EDGE_ENV_VARS = (
     'TABLE_SUFFIX',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
+    # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
+    'STAGING_LINK_SECRET',
 )
 
 
@@ -3588,6 +3590,41 @@ def admin_edge():
             version = None
         out['cache_version'] = str(version) if version else None
     resp = jsonify(out)
+    resp.headers.update(_ADMIN_HEADERS)
+    return resp
+
+
+_STAGING_URL = 'https://dev.madshopper.dk'
+# Kort levetid: linket er et engangsadgangskort til staging, ikke en session.
+_STAGING_LINK_TTL = 120
+_STAGING_LINK_PATHS = ('/', '/admin')
+
+
+def staging_link_sig(secret: str, exp: int) -> str:
+    """Signatur til ?t= på staging. Delt med src/worker.py::_staging_blocked,
+    som tjekker den mod sin egen STAGING_ACCESS_SECRET (samme værdi som
+    produktionens STAGING_LINK_SECRET). Selve secret'et forlader aldrig serveren."""
+    msg = f'staging-link:{exp}'.encode()
+    return hmac.new(secret.encode(), msg, hashlib.sha256).hexdigest()
+
+
+@app.route('/api/admin/staging-link', methods=['GET', 'POST'])
+@rate_limit(api_limiter)
+def admin_staging_link():
+    """Engangslink fra /admin til dev.madshopper.dk uden staging-login.
+    Samme adgangsregler som /api/admin/edge: POST, kun admins, ellers 404.
+    Uden STAGING_LINK_SECRET (lokalt, på staging) peges på login-siden."""
+    if request.method != 'POST' or not _admin_request_ok():
+        abort(404)
+    body = request.get_json(silent=True) or {}
+    path = body.get('path') if body.get('path') in _STAGING_LINK_PATHS else '/'
+    secret = _edge_var('STAGING_LINK_SECRET')
+    if secret:
+        exp = int(time.time()) + _STAGING_LINK_TTL
+        url = f'{_STAGING_URL}{path}?t={exp}.{staging_link_sig(secret, exp)}'
+    else:
+        url = f'{_STAGING_URL}/staging-login'
+    resp = jsonify({'success': True, 'url': url, 'direct': bool(secret)})
     resp.headers.update(_ADMIN_HEADERS)
     return resp
 
