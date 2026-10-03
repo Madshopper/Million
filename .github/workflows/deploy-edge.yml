@@ -22,6 +22,7 @@ on:
       # Gaten der stopper deployet hvis 2026-07-19-aarsagen genindfoeres.
       - 'scripts/test-security-logging.py'
       - 'scripts/test-render-exclusive.py'
+      - 'scripts/test-edge-env.py'
       # _routes.json og uv.lock indgaar i bundtet/oploesningen af afhaengigheder.
       # Uden dem her kunne en aendring i dem ligge udeployeret uden at nogen saa det.
       - '_routes.json'
@@ -115,6 +116,11 @@ jobs:
       # at ingen ny kodesti kalder super().fetch() uden om den.
       - name: Test render-laas (isolate-kollision i D1-broen)
         run: python3 scripts/test-render-exclusive.py
+
+      # EdgeKit udleverer kun vars deklareret i Env (src/worker.py). En
+      # manglende linje gav ingen fejl, bare en usynlig nøgle (03-10-2026).
+      - name: Test edge-env (vars appen læser er deklareret i Env)
+        run: python3 scripts/test-edge-env.py
 
       # Konfliktmarkører i en template blev vist som tekst på forsiden
       # 02-10-2026. Blokerer deploy hvis en merge er committet uløst.

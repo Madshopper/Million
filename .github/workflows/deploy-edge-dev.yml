@@ -27,6 +27,7 @@ on:
       - 'scripts/install-playwright-ci.sh'
       - 'scripts/warm-edge-cache.mjs'
       - 'scripts/test-render-exclusive.py'
+      - 'scripts/test-edge-env.py'
       - '.github/workflows/deploy-edge-dev.yml'
       # Indgår i bundtet/afhængigheds-opløsningen - uden dem her kunne en
       # ændring ligge udeployeret uden at nogen så det.
@@ -96,6 +97,11 @@ jobs:
       # Se begrundelsen i deploy-edge.yml.
       - name: Test render-laas (isolate-kollision i D1-broen)
         run: python3 scripts/test-render-exclusive.py
+
+      # EdgeKit udleverer kun vars deklareret i Env (src/worker.py). En
+      # manglende linje gav ingen fejl, bare en usynlig nøgle (03-10-2026).
+      - name: Test edge-env (vars appen læser er deklareret i Env)
+        run: python3 scripts/test-edge-env.py
 
       # Konfliktmarkører i en template blev vist som tekst på forsiden
       # 02-10-2026. Blokerer deploy hvis en merge er committet uløst.

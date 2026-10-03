@@ -556,6 +556,12 @@ class Env(Protocol):
     STAGING_ACCESS_SECRET: str
     STAGING_ACCESS_EMAIL: str
     STAGING_ACCESS_PASSWORD: str
+    # Admin: D1-budget og Trafik-fanen (app.py::_cf_graphql). EdgeKit udleverer
+    # KUN deklarerede navne - uden disse to linjer så appen aldrig nøglen,
+    # selvom den lå på workeren (03-10-2026). scripts/test-edge-env.py tjekker
+    # at alt i app._EDGE_ENV_VARS står her.
+    CF_ANALYTICS_TOKEN: str
+    CLOUDFLARE_ACCOUNT_ID: str
 
 
 # Eneste sti hvor en uautentificeret besøgende ser andet end blankt 404 -
