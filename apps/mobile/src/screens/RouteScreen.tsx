@@ -5,7 +5,6 @@ import { useCart } from '../cart/CartContext';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { StoreChip } from '../components/StoreChip';
-import { storeColor } from '../theme/storeColors';
 
 export function RouteScreen() {
   const { colors } = useTheme();
@@ -72,8 +71,6 @@ export function RouteScreen() {
             {
               backgroundColor: colors.surface,
               borderColor: colors.border,
-              borderLeftWidth: 4,
-              borderLeftColor: storeColor(g.store),
             },
           ]}
         >

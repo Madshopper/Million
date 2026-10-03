@@ -513,7 +513,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                 {
                   backgroundColor:
                     insight.kind === 'good'
-                      ? colors.badge
+                      ? colors.deal
                       : insight.kind === 'warning'
                         ? colors.warningMuted
                         : colors.surface,
@@ -525,7 +525,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                 style={{
                   color:
                     insight.kind === 'good'
-                      ? '#fff'
+                      ? colors.dealText
                       : insight.kind === 'warning'
                         ? colors.warning
                         : colors.text,

@@ -65,8 +65,8 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
             <Text style={styles.saleText}>{discountPct ? `SPAR ${discountPct}%` : 'TILBUD'}</Text>
           </View>
         ) : null}
-        {/* Neutral flade med butikkens farveprik (theme/storeColors.ts) i
-            stedet for grøn: grøn er knapper og besparelse, gul er tilbud. */}
+        {/* Neutral flade med en grøn prik: grøn er primærfarven, gul er
+            forbeholdt tilbud (theme/colors.ts). */}
         <View style={[styles.storeBadge, { backgroundColor: colors.surface }]}>
           <StoreDot store={product.store} size={7} />
           <Text style={[styles.storeText, { color: colors.text }]} numberOfLines={1}>

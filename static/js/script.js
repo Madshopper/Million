@@ -1378,7 +1378,6 @@ function updateCartDisplay() {
             const cartItem = document.createElement('div');
             cartItem.className = 'cart-item';
             cartItem.dataset.index = index;
-            if (item.store) cartItem.style.setProperty('--store-color', storeColor(item.store));
 
             // item.price er varens EGEN pris og skal vises deterministisk -
             // faldt vi (som før) tilbage til "første gyldige pris i
@@ -1878,18 +1877,6 @@ function renderScoItemList(storeName, matched, missing, alternatives, totalPrice
 // butiksrute). textContent -> innerHTML escaper IKKE anfoerselstegn, saa den
 // vej kunne en vaerdi bryde ud af attributten. Escapes eksplicit, saa
 // funktionen er sikker i baade tekst- og attribut-kontekst.
-// Én fast farve pr. butik, så butikken er tydelig i kurven. Holdes ens med
-// apps/mobile/src/theme/storeColors.ts.
-const STORE_COLORS = {
-    'Rema 1000': '#1D4ED8', 'Bilka': '#0284C7', 'Netto': '#27272A', 'Føtex': '#1E3A8A',
-    'Meny': '#9F1239', 'Spar': '#C2410C', 'Min Købmand': '#7C2D12', 'SuperBrugsen': '#B91C1C',
-    'Brugsen': '#BE185D', 'Kvickly': '#7C3AED', '365 Discount': '#0F766E', 'Lidl': '#1E40AF',
-    'Løvbjerg': '#15803D', 'ABC Lavpris': '#C026D3',
-};
-function storeColor(store) {
-    return (store && STORE_COLORS[store]) || '#52525B';
-}
-
 function escapeHtml(text) {
     return String(text == null ? '' : text)
         .replace(/&/g, '&amp;')
@@ -3712,11 +3699,12 @@ function openOverlay(productElementOrId) {
                 var isDark = document.body.getAttribute('data-theme') === 'dark';
                 if (idx === 0) {
                     // Cheapest
-                    el.style.border = '1.5px solid #2a7d4f';
-                    pEl.style.color = '#2a7d4f';
+                    // Kun de tre grønne fra styles.css (--green/-dark/-light).
+                    el.style.border = '1.5px solid var(--green)';
+                    pEl.style.color = isDark ? 'var(--green-light)' : 'var(--green-dark)';
                     bEl.textContent = 'Billigst';
-                    bEl.style.background = isDark ? '#14532d' : '#e6f4ea';
-                    bEl.style.color   = isDark ? '#bbf7d0' : '#1e7e34';
+                    bEl.style.background = isDark ? 'var(--green-dark)' : 'var(--green-light)';
+                    bEl.style.color   = isDark ? 'var(--green-light)' : 'var(--green-dark)';
                     bEl.style.display = 'block';
                 } else {
                     el.style.border = isDark ? '0.5px solid #374151' : '0.5px solid #dcdcdc';

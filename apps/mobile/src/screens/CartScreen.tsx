@@ -21,7 +21,6 @@ import { cartItemTitle } from '../cart/stripStoreBrand';
 import { useTheme } from '../theme/ThemeContext';
 import { StackScreenBody } from '../components/ScreenBody';
 import { StoreChip } from '../components/StoreChip';
-import { storeColor } from '../theme/storeColors';
 import type { RootStackParamList } from '../navigation/types';
 
 type PromptMode = 'save' | 'share' | 'join' | 'rename' | null;
@@ -272,7 +271,8 @@ export function CartScreen() {
           >
             <View style={styles.menuItemRow}>
               <Text style={{ color: colors.text }}>
-                Mine lister{savedLists.length ? ` (${savedLists.length})` : ''}
+                {active ? 'Gruppens lister' : 'Mine lister'}
+                {savedLists.length ? ` (${savedLists.length})` : ''}
               </Text>
               {!user ? <Text style={styles.lockIcon}>🔒</Text> : null}
             </View>
@@ -316,20 +316,10 @@ export function CartScreen() {
 
   const renderItemRow = (item: CartItem) => {
     const lineTotal = item.price * item.quantity;
-    // Butikken vises som et farvet mærkat + en kant i samme farve, så man
-    // med det samme kan se hvilken butik hver vare er fra (Kalle 03-10-2026).
+    // Butikken vises som et grønt mærkat, så man med det samme kan se hvilken
+    // butik hver vare er fra (Kalle 03-10-2026).
     return (
-      <View
-        key={item.id}
-        style={[
-          styles.itemRow,
-          {
-            backgroundColor: colors.surface,
-            borderLeftWidth: item.store ? 4 : 0,
-            borderLeftColor: storeColor(item.store),
-          },
-        ]}
-      >
+      <View key={item.id} style={[styles.itemRow, { backgroundColor: colors.surface }]}>
         <View style={styles.thumbWrap}>
           {item.image ? (
             <Image source={{ uri: item.image }} style={styles.thumb} resizeMode="contain" />
@@ -410,7 +400,7 @@ export function CartScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={{ color: colors.textMuted, textAlign: 'center', fontSize: 15 }}>
-              Ingen varer endnu — tryk «Tilføj vare» for at søge
+              Ingen varer endnu. Tryk «Tilføj vare» for at søge.
             </Text>
           </View>
         }
@@ -510,18 +500,41 @@ export function CartScreen() {
       <Modal visible={listsOpen} transparent animationType="fade" onRequestClose={() => setListsOpen(false)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
-            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 4 }}>
+            <Text
+              style={{
+                color: colors.text,
+                fontWeight: '700',
+                fontSize: 16,
+                marginBottom: 4,
+                // Tom tilstand er centreret; overskriften følger med.
+                textAlign: savedLists.length ? 'left' : 'center',
+              }}
+            >
               {active ? 'Gruppens lister' : 'Mine lister'}
             </Text>
-            <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
-              {savedLists.length}/{maxSavedLists} gemt
-              {active ? ' · hele gruppen kan indlæse dem' : ''}
-            </Text>
+            {savedLists.length ? (
+              <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
+                {savedLists.length}/{maxSavedLists} gemt
+                {active ? ' · hele gruppen kan indlæse dem' : ''}
+              </Text>
+            ) : null}
 
             {savedLists.length === 0 ? (
-              <Text style={{ color: colors.textMuted, marginBottom: 14 }}>
-                Ingen gemte lister endnu. Gem din kurv som en liste, så kan du hente den frem igen senere.
-              </Text>
+              // Tom tilstand: før var det en grå tekstklump og en "Luk"-knap,
+              // der blev klemt sammen (flex: 1 i en kolonne uden højde).
+              <View style={styles.listsEmpty}>
+                <View style={[styles.listsEmptyIcon, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                  <Text style={{ fontSize: 28 }}>📝</Text>
+                </View>
+                <Text style={[styles.listsEmptyTitle, { color: colors.text }]}>
+                  Ingen gemte lister endnu
+                </Text>
+                <Text style={[styles.listsEmptyText, { color: colors.textMuted }]}>
+                  {items.length
+                    ? 'Gem din kurv som en liste, så kan du hente den frem igen med ét tryk.'
+                    : 'Læg nogle varer i kurven og gem den som en liste. Så kan du hente den frem igen med ét tryk.'}
+                </Text>
+              </View>
             ) : (
               savedLists.map((list) => (
                 <View
@@ -568,12 +581,26 @@ export function CartScreen() {
               ))
             )}
 
-            <Pressable
-              onPress={() => setListsOpen(false)}
-              style={[styles.modalBtn, { borderColor: colors.border, marginTop: 4 }]}
-            >
-              <Text style={{ color: colors.text }}>Luk</Text>
-            </Pressable>
+            <View style={[styles.modalActions, { marginTop: 12 }]}>
+              <Pressable
+                onPress={() => setListsOpen(false)}
+                style={[styles.modalBtn, { borderColor: colors.border }]}
+              >
+                <Text style={{ color: colors.text }}>Luk</Text>
+              </Pressable>
+              {items.length && savedLists.length < maxSavedLists ? (
+                <Pressable
+                  onPress={() => {
+                    setListsOpen(false);
+                    // iOS afviser at vise en ny Modal, mens den gamle lukker.
+                    setTimeout(() => openPrompt('save'), 400);
+                  }}
+                  style={[styles.modalBtnPrimary, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Gem kurven</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         </View>
       </Modal>
@@ -811,6 +838,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   modalActions: { flexDirection: 'row', gap: 8 },
+  listsEmpty: { alignItems: 'center', paddingTop: 12, paddingBottom: 8, gap: 8 },
+  listsEmptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  listsEmptyTitle: { fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  listsEmptyText: { fontSize: 14, lineHeight: 20, textAlign: 'center', paddingHorizontal: 8 },
   savedListRow: {
     flexDirection: 'row',
     alignItems: 'center',

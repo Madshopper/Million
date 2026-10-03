@@ -31,7 +31,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Produktkort: mærke/navn/pris/tilbudsbadge | ✅ | ✅ | ✅ | ✅ | Complete |
 | Produktkort: vægt, "X stk", **kg-pris** | ✅ | ✅ | ✅ | ✅ | Complete *(app fik dem 19-08-2026)* |
 | "Kun hos <butik>"-badge | ✅ | ✅ | ✅ | ✅ | Complete |
-| Farver: tilbudspris gul (ikke rød), neutral butiksbadge, fast farve pr. butik i kurven | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; `theme/storeColors.ts` = `STORE_COLORS` i script.js)* |
+| Farver: tre grønne (#059669 / #047857 / #D6F5E3) + gul til alt tilbud, intet rødt tilbud, grønt butiksmærke i kurven | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; se `theme/colors.ts`)* |
 | Tom-tilstand ("ingen varer matcher") | ✅ | ✅ | – | ✅ | Complete |
 | Fejltilstand + "Prøv igen" | ✅ | ✅ | – | ⚠️ | Complete |
 
@@ -42,6 +42,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Fritekstsøgning | ✅ | ✅ | ✅ `/api/search` | ✅ | Complete |
 | Autocomplete (debounced) | ✅ | ✅ | ✅ `/api/autocomplete` | ✅ | Complete |
 | Stavekorrektion ("mlæk" → "mælk") | ✅ | ✅ | ✅ | ✅ | Complete |
+| Varer vist før man skriver (app: "Populære varer" fra `/api/home`, edge-cachet) | ➖ | ✅ | ✅ `/api/home` | ➖ | App-only |
 | Sortering (5 typer, inkl. kg-pris) | ✅ | ✅ | ✅ | ✅ | Complete |
 | Prisinterval min/max | ✅ | ✅ | ✅ | ✅ | Complete |
 | Filtre: tilbud / øko / laktosefri | ✅ | ✅ | ✅ | ✅ | Complete |
