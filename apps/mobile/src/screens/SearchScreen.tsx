@@ -277,6 +277,9 @@ export function SearchScreen() {
           columnWrapperStyle={{ paddingHorizontal: 2 }}
           contentContainerStyle={{ padding: 4 }}
           keyboardShouldPersistTaps="handled"
+          // Tastaturet åbner selv (autoFocus) og dækker halvdelen af
+          // forslagene. Et træk i listen lukker det, så varerne kan ses.
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator
           ListHeaderComponent={
             showStarter ? (
