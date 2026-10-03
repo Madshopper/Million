@@ -4,7 +4,6 @@
  */
 import { rpcName } from '../config/env';
 import { getSupabase } from '../auth/supabase';
-import type { ScoStoreResult } from '../cart/sco';
 
 export type PersonalSavings = {
   available: boolean;
@@ -45,23 +44,6 @@ function parsePayload(data: unknown): PersonalSavings | null {
     show_prev: Boolean(d.show_prev),
     message: String(d.message || ''),
   };
-}
-
-/** Billigste/dyreste blandt butikker med fuld kurv-dækning. */
-export function fullCoveragePriceRange(
-  stores: ScoStoreResult[],
-): { cheap: number; expensive: number } | null {
-  const full = stores.filter((s) => s.totalItems > 0 && s.coverage === s.totalItems);
-  if (full.length < 2) return null;
-  let cheap = full[0].totalPrice;
-  let expensive = full[0].totalPrice;
-  for (let i = 1; i < full.length; i++) {
-    const p = full[i].totalPrice;
-    if (p < cheap) cheap = p;
-    if (p > expensive) expensive = p;
-  }
-  if (!(expensive > cheap)) return null;
-  return { cheap, expensive };
 }
 
 export async function fetchPersonalSavings(): Promise<PersonalSavings> {
