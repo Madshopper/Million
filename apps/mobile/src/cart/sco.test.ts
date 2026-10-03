@@ -3,7 +3,7 @@
  * Kør: node --experimental-strip-types src/cart/sco.test.ts
  */
 import { applyDealPrice } from './multiDeal.ts';
-import { calculateStoreComparisons, sortScoStores } from './sco.ts';
+import { calculateStoreComparisons, compareSavingsRange, sortScoStores } from './sco.ts';
 import type { CartItem } from './types.ts';
 import type { StoreInfo } from '../api/types.ts';
 
@@ -118,5 +118,29 @@ const liveBilka = live.stores.find((s) => s.name === 'Bilka')!;
 assert(liveRema.totalPrice === 14, `Rema live-pris skal overskrive 10→14, fik ${liveRema.totalPrice}`);
 assert(liveBilka.totalPrice === 9, `Bilka live-pris skal overskrive 12→9, fik ${liveBilka.totalPrice}`);
 assert(sortScoStores(live.stores)[0].name === 'Bilka', 'billigste butik skal følge live-priser');
+
+// Personlig besparelse: anbefalet butik mod dyreste anden, kun fælles varer.
+const range = compareSavingsRange(sorted, result.matchedItemsPerStore);
+assert(sorted[0].name === 'Bilka', `Bilka anbefales (33 kr), fik ${sorted[0].name}`);
+assert(
+  range !== null && range.cheap === 33 && range.expensive === 40,
+  `Bilka 33 mod Rema 40 (multikøb talt med), fik ${JSON.stringify(range)}`,
+);
+
+// Ingen butik har hele kurven to steder: før gav det ingen besparelse (null).
+const partialCart: CartItem[] = [
+  ...cart,
+  { ...cart[1], id: 'product3', name: 'Ost', storePrices: { 'Rema 1000': 30 } },
+];
+const partial = await calculateStoreComparisons(partialCart, stores, selected, fakeFetch);
+const partialSorted = sortScoStores(partial.stores);
+assert(partialSorted[0].name === 'Rema 1000', 'Rema har flest varer');
+const partialRange = compareSavingsRange(partialSorted, partial.matchedItemsPerStore);
+// Rema 2x10 mod Netto 2x11 på mælken; Bilka er billigere end Rema og tæller ikke.
+assert(
+  partialRange !== null && partialRange.cheap === 20 && partialRange.expensive === 22,
+  `delvis kurv skal give 20/22, fik ${JSON.stringify(partialRange)}`,
+);
+assert(compareSavingsRange(partialSorted.slice(0, 1), partial.matchedItemsPerStore) === null, 'én butik: ingen besparelse');
 
 console.log('sco tests OK');

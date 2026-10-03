@@ -30,6 +30,8 @@ export type ScoMatchedItem = {
   image: string;
   price: number;
   quantity: number;
+  /** Linjens pris i butikken inkl. multikøb (samme tal som indgår i totalPrice). */
+  lineTotal: number;
 };
 
 export type ScoStoreResult = {
@@ -207,13 +209,15 @@ export async function calculateStoreComparisons(
       if (selectedStores.has(label) && label in storeCoverage && !Number.isNaN(p)) {
         storeCoverage[label] += 1;
         const dealStr = cartItem.storeMultiDeals ? cartItem.storeMultiDeals[label] || '' : '';
-        storeTotals[label] = (storeTotals[label] || 0) + applyDealPrice(p, quantity, dealStr);
+        const lineTotal = applyDealPrice(p, quantity, dealStr);
+        storeTotals[label] = (storeTotals[label] || 0) + lineTotal;
         matchedItemsPerStore[label].push({
           cart_id: cartItem.id,
           name: stripStoreBrand(cartItem.name || 'Vare'),
           image: cartItem.image || '',
           price: p,
           quantity,
+          lineTotal,
         });
       }
     }
@@ -294,6 +298,48 @@ export function sortScoStores(stores: ScoStoreResult[]): ScoStoreResult[] {
     if (b.coverage !== a.coverage) return b.coverage - a.coverage;
     return a.totalPrice - b.totalPrice;
   });
+}
+
+/**
+ * Besparelse til "Personlig besparelse": anbefalet butik (sorted[0]) mod den
+ * dyreste anden valgte butik, regnet KUN på de varer begge butikker har.
+ *
+ * Før krævede vi at mindst to butikker havde HELE kurven. Det sker næsten
+ * aldrig på en rigtig kurv, så record_compare_savings blev aldrig kaldt, og
+ * banneret stod på 0 kr for alle (målt 03-10-2026: tabellen var tom, og
+ * ingen kald i Supabase-loggen over tre døgn). Web-paritet: script.js.
+ */
+export function compareSavingsRange(
+  sorted: ScoStoreResult[],
+  matchedItemsPerStore: Record<string, ScoMatchedItem[]>,
+): { cheap: number; expensive: number } | null {
+  if (sorted.length < 2) return null;
+  const winnerLines = new Map<string, number>();
+  for (const m of matchedItemsPerStore[sorted[0].name] || []) {
+    winnerLines.set(m.cart_id, m.lineTotal);
+  }
+  let best: { cheap: number; expensive: number } | null = null;
+  for (let i = 1; i < sorted.length; i++) {
+    let cheap = 0;
+    let expensive = 0;
+    let shared = 0;
+    for (const m of matchedItemsPerStore[sorted[i].name] || []) {
+      const w = winnerLines.get(m.cart_id);
+      if (w == null) continue;
+      cheap += w;
+      expensive += m.lineTotal;
+      shared++;
+    }
+    if (!shared || expensive - cheap < 0.01) continue;
+    if (!best || expensive - cheap > best.expensive - best.cheap) {
+      best = { cheap: round2(cheap), expensive: round2(expensive) };
+    }
+  }
+  return best;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 export const SCO_TOP_N = 5;

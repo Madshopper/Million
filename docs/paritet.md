@@ -75,7 +75,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | "Find billigste" (SCO) | ✅ | ✅ | ✅ `/api/products` | ✅ | Complete |
 | Alternativer til manglende varer | ✅ | ✅ | ✅ `/api/alternatives` | ✅ | Complete |
 | Butiksrute (flere butikker) | ✅ | ✅ | – | ❌ | Complete |
-| Personlig besparelse | ✅ | ✅ | ✅ RPC `get_personal_savings` | ❌ | Complete |
+| Personlig besparelse (anbefalet butik mod dyreste på fælles varer, `compareSavingsRange`) | ✅ | ✅ | ✅ RPC `get_personal_savings` / `record_compare_savings` | ✅ `sco.test.ts` | Complete |
 
 ### Konto
 
