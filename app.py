@@ -3,7 +3,7 @@ import base64
 import hashlib
 import hmac
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import json
 from dotenv import load_dotenv
@@ -1540,8 +1540,114 @@ def _recipes_enabled() -> bool:
 
     Webforsidens "Lækre opskrifter" vises dog i alle miljøer som en
     ikke-klikbar teaser ("Kommer snart"); denne funktion styrer kun om
-    kortene kan trykkes på. Det samme gælder appens forside (api_home)."""
-    return os.environ.get("RECIPES_ENABLED") == "1"
+    kortene kan trykkes på. Det samme gælder appens forside (api_home).
+
+    Udgives fra Feature-panelet i /admin (se _FEATURES)."""
+    return _feature_enabled('recipes')
+
+
+# --- Feature-panelet i /admin ------------------------------------------------
+# Funktioner under udvikling er skjult på madshopper.dk, indtil de udgives fra
+# fanen Feature i /admin. Valget ligger i produktionens KV (_FEATURES_KV_KEY),
+# så det slår igennem uden nyt deploy. Miljø-varen (fx RECIPES_ENABLED=1)
+# tvinger en funktion til: build-pages.sh sætter den altid på staging, så
+# dev.madshopper.dk har alt slået til, og lokalt via .env.
+#
+# Ny funktion bag et flag = én post her + _feature_enabled('<key>') i koden,
+# og varen sat for staging i build-pages.sh. 'parts' er alt der hænger på
+# funktionen og vises når man åbner den i panelet. kind: 'web' (følger
+# knappen med det samme), 'job' (natlige kørsler, der selv tjekker valget via
+# scripts/feature_flags.py) og 'app' (kræver en ny app-version).
+#
+# "Fjern fra panelet" gør en udgivet funktion permanent: den forbliver slået
+# til, kan ikke skjules igen og vises ikke længere i panelet.
+_FEATURES = (
+    {
+        'key': 'recipes',
+        'name': 'Opskrifter',
+        'env': 'RECIPES_ENABLED',
+        'desc': 'Opskrifter med priser fra butikkerne. Mens den er under '
+                'udvikling, vises opskrifterne kun som "Kommer snart" på '
+                'forsiden.',
+        'app': 'Appen viser først opskrifterne, når der er lavet en ny '
+               'version af den med opskrifter slået til.',
+        'parts': (
+            {'kind': 'web', 'name': 'Opskriftsiden',
+             'desc': 'Siden /opskrifter og hver opskrifts egen side.'},
+            {'kind': 'web', 'name': 'Opskrift-ikonet i toppen',
+             'desc': 'Genvejen til opskrifterne i sidens menu.'},
+            {'kind': 'web', 'name': 'Opskrifter på forsiden',
+             'desc': '"Lækre opskrifter" kan trykkes på i stedet for "Kommer snart".'},
+            {'kind': 'job', 'name': 'Opskrifternes priser',
+             'desc': 'Regnes ud hver nat efter butikkernes nye priser.'},
+            {'kind': 'job', 'name': 'Import af opskrifter',
+             'desc': 'Kører hver morgen og tjekker nye opskrifter fra brugerne.'},
+            {'kind': 'app', 'name': 'Opskrifter i appen',
+             'desc': 'Fanen og opskrifterne i iPhone- og Android-appen.'},
+        ),
+    },
+)
+_FEATURE_KEYS = {f['key']: f for f in _FEATURES}
+_FEATURES_KV_KEY = 'features_v1'
+# Samme levetid som workerens cache_version-memo (src/worker.py).
+_FEATURES_TTL = 300.0
+# Sat af src/worker.py::_cache_version sammen med cache-nøglen, så en
+# cachet side altid er renderet med netop de valg nøglen er bygget af.
+_edge_features: tuple | None = None    # (dict, tidspunkt)
+_features_memo: tuple | None = None    # (dict, tidspunkt) - egen KV-læsning
+
+
+def _parse_features(raw) -> dict:
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def set_edge_features(raw) -> None:
+    """Kaldes af workeren med KV-teksten for _FEATURES_KV_KEY (eller None)."""
+    global _edge_features
+    _edge_features = (_parse_features(raw) if raw else {}, time.time())
+
+
+def _feature_flags() -> dict:
+    """Udgivne funktioner i produktionen: {key: {"on": bool, "at": iso}}.
+    Kun på edge; lokalt styres alt af miljø-varerne. Højst ét KV-opslag pr.
+    isolate pr. _FEATURES_TTL, og normalt nul, fordi workeren leverer dem."""
+    global _features_memo
+    if not _IS_EDGE:
+        return {}
+    now = time.time()
+    if _edge_features is not None and now - _edge_features[1] < 2 * _FEATURES_TTL:
+        return _edge_features[0]
+    if _features_memo is not None and now - _features_memo[1] < _FEATURES_TTL:
+        return _features_memo[0]
+    kv = _edge_kv()
+    if not kv:
+        return {}
+    try:
+        flags = _parse_features(_sync_bridge_call(kv.get_text(_FEATURES_KV_KEY)))
+    except Exception as e:
+        logger.warning("KV get %s failed: %s", _FEATURES_KV_KEY, e)
+        # Behold sidst kendte valg frem for at skjule en udgivet funktion.
+        return _features_memo[0] if _features_memo else {}
+    _features_memo = (flags, now)
+    return flags
+
+
+def _feature_forced(key: str) -> bool:
+    f = _FEATURE_KEYS.get(key)
+    return bool(f) and os.environ.get(f['env']) == '1'
+
+
+def _feature_enabled(key: str) -> bool:
+    if key not in _FEATURE_KEYS:
+        return False
+    if _feature_forced(key):
+        return True
+    entry = _feature_flags().get(key)
+    return isinstance(entry, dict) and entry.get('on') is True
 
 
 def _supabase_rest_config():
@@ -3594,6 +3700,90 @@ def admin_edge():
             version = None
         out['cache_version'] = str(version) if version else None
     resp = jsonify(out)
+    resp.headers.update(_ADMIN_HEADERS)
+    return resp
+
+
+def _features_editable() -> bool:
+    """Kun produktionens worker skriver valgene: staging har alt slået til
+    via miljø-varerne, og lokalt findes der ingen KV."""
+    return _IS_EDGE and _table_suffix() == ''
+
+
+def _admin_features_list(flags: dict) -> list:
+    out = []
+    for f in _FEATURES:
+        entry = flags.get(f['key'])
+        entry = entry if isinstance(entry, dict) else {}
+        # Gjort permanent: hører ikke længere til i panelet.
+        if entry.get('permanent') is True:
+            continue
+        out.append({
+            'key': f['key'], 'name': f['name'], 'desc': f['desc'],
+            'app': f.get('app'), 'parts': list(f.get('parts', ())),
+            'live': entry.get('on') is True,
+            'changed_at': entry.get('at'),
+            'forced_here': _feature_forced(f['key']),
+        })
+    return out
+
+
+@app.route('/api/admin/features', methods=['GET', 'POST'])
+@rate_limit(api_limiter)
+def admin_features():
+    """Feature-panelet. Samme adgangsregler som /api/admin/edge: POST, kun
+    admins, ellers 404. Body {} = list; {"key": ..., "on": bool} = udgiv
+    eller skjul på madshopper.dk; {"key": ..., "permanent": true} = fjern en
+    udgivet funktion fra panelet, så den forbliver slået til for altid. Valget læses frisk fra KV her (ikke
+    _feature_flags' memo), så panelet viser det der faktisk er gemt."""
+    if request.method != 'POST' or not _admin_request_ok():
+        abort(404)
+    editable = _features_editable()
+    kv = _edge_kv() if editable else None
+    flags = {}
+    if kv:
+        try:
+            flags = _parse_features(_sync_bridge_call(kv.get_text(_FEATURES_KV_KEY)))
+        except Exception as e:
+            logger.warning("KV get %s failed: %s", _FEATURES_KV_KEY, e)
+            resp = jsonify(success=False, error='Kunne ikke læse de gemte valg. Prøv igen.')
+            resp.headers.update(_ADMIN_HEADERS)
+            return resp, 503
+    body = request.get_json(silent=True) or {}
+    key = body.get('key')
+    if key is not None:
+        permanent = body.get('permanent') is True
+        if key not in _FEATURE_KEYS or (not permanent and not isinstance(body.get('on'), bool)):
+            abort(400)
+        if not kv:
+            resp = jsonify(success=False, error='Kan kun ændres på madshopper.dk/admin.')
+            resp.headers.update(_ADMIN_HEADERS)
+            return resp, 409
+        flags = {k: v for k, v in flags.items() if k in _FEATURE_KEYS}
+        current = flags.get(key) if isinstance(flags.get(key), dict) else {}
+        now = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        problem = None
+        if current.get('permanent') is True:
+            problem = 'Funktionen er permanent og kan ikke ændres.'
+        elif permanent and current.get('on') is not True:
+            problem = 'Funktionen skal være udgivet, før den kan fjernes fra panelet.'
+        if problem:
+            resp = jsonify(success=False, error=problem)
+            resp.headers.update(_ADMIN_HEADERS)
+            return resp, 409
+        if permanent:
+            flags[key] = dict(current, permanent=True, permanent_at=now)
+        else:
+            flags[key] = {'on': body['on'], 'at': now}
+        try:
+            _sync_bridge_call(kv.put(_FEATURES_KV_KEY, json.dumps(flags, separators=(',', ':'))))
+        except Exception as e:
+            logger.warning("KV put %s failed: %s", _FEATURES_KV_KEY, e)
+            resp = jsonify(success=False, error='Valget blev ikke gemt. Prøv igen.')
+            resp.headers.update(_ADMIN_HEADERS)
+            return resp, 503
+    resp = jsonify({'success': True, 'editable': editable,
+                    'features': _admin_features_list(flags)})
     resp.headers.update(_ADMIN_HEADERS)
     return resp
 

@@ -58,6 +58,7 @@
         <a href="#scraping" data-section="scraping">Scraping <span class="adm-badge" id="badge-scraping" hidden></span></a>
         <a href="#korsler" data-section="korsler">Kørsler <span class="adm-badge" id="badge-korsler" hidden></span></a>
         <a href="#opskrifter" data-section="opskrifter">Opskrifter <span class="adm-badge" id="badge-opskrifter" hidden></span></a>
+        <a href="#feature" data-section="feature">Feature</a>
         <a href="#brugere" data-section="brugere">Brugere <span class="adm-badge" id="badge-brugere" hidden></span></a>
         <a href="#drift" data-section="drift">Drift</a>
       </nav>
@@ -129,6 +130,12 @@
           <div class="adm-card" id="admin-recipes"></div>
         </section>
 
+        <section data-section="feature" hidden>
+          <div class="adm-head"><h1>Feature</h1></div>
+          <p class="adm-sub adm-intro">Her bestemmer du, hvad besøgende ser på madshopper.dk. Funktioner der stadig er under udvikling, er skjult for alle, indtil du udgiver dem. På dev-siden er alt altid slået til.</p>
+          <div id="admin-features"></div>
+        </section>
+
         <section data-section="brugere" hidden>
           <div class="adm-head"><h1>Brugere</h1></div>
           <div class="adm-tiles" id="admin-user-tiles"></div>
@@ -160,6 +167,22 @@
           </div>
           <div class="adm-card"><h2>Største tabeller (Supabase)</h2><div id="admin-tables"></div></div>
         </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="adm-modal" id="feature-modal" hidden>
+    <div class="adm-modal-box" role="dialog" aria-modal="true" aria-labelledby="feature-modal-title">
+      <h2 id="feature-modal-title"></h2>
+      <p id="feature-modal-text"></p>
+      <div class="adm-modal-remind" id="feature-modal-remind" hidden>
+        <b>Husk at opdatere appen</b>
+        <p id="feature-modal-app"></p>
+      </div>
+      <p class="adm-sub" id="feature-modal-note" hidden></p>
+      <div class="adm-modal-btns">
+        <button type="button" class="adm-btn" id="feature-modal-cancel">Annuller</button>
+        <button type="button" class="adm-btn primary" id="feature-modal-ok"></button>
       </div>
     </div>
   </div>
