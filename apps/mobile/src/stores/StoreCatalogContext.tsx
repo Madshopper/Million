@@ -23,6 +23,22 @@ const VERSION_KEY = 'madshopper_store_version';
  */
 const STORE_REFRESH_DEBOUNCE_MS = 300;
 
+// Samme genforsoeg som webben (script.js: fetchStoreCatalog). Et enkelt
+// netvaerksblip ved app-start gav ellers et tomt butikskatalog resten af
+// sessionen. /api/stores er statisk og rører ikke D1.
+const STORES_RETRY_DELAYS_MS = [500, 1500];
+
+async function fetchStoresWithRetry(): ReturnType<typeof fetchStores> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetchStores();
+    } catch (err) {
+      if (attempt >= STORES_RETRY_DELAYS_MS.length) throw err;
+      await new Promise((resolve) => setTimeout(resolve, STORES_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+}
+
 type StoreCatalogValue = {
   catalog: StoreInfo[];
   version: number;
@@ -73,7 +89,7 @@ export function StoreCatalogProvider({ children }: { children: React.ReactNode }
     let cancelled = false;
     (async () => {
       try {
-        const data = await fetchStores();
+        const data = await fetchStoresWithRetry();
         if (cancelled) return;
         setCatalog(data.stores);
         setVersion(data.version);

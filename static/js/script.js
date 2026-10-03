@@ -2283,11 +2283,30 @@ document.addEventListener('keydown', function (event) {
 //  Billigste butikker lukkede sammenligningen nedenunder. .sco-backdrop daekker
 //  hele overlayet og lukker det selv, saa handlerne er fjernet.)
 
+// Et enkelt netvaerksblip (mobil der skifter mellem wifi og 4G, mange
+// billeder der hentes samtidig) gav ellers et tomt butikskatalog resten af
+// besoeget, og "Billigste pris" svarede "Butikkerne kunne ikke hentes" indtil
+// brugeren selv genindlaeste. /api/stores er statisk og rører ikke D1, saa
+// to korte genforsoeg koster intet. Holdt korte, fordi soegning, filtre og
+// indstillinger foerst kobles til, naar kataloget er afgjort.
+const STORES_RETRY_DELAYS_MS = [500, 1500];
+
+async function fetchStoreCatalog() {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            return await fetchWithDegradedRetry('/api/stores');
+        } catch (err) {
+            if (attempt >= STORES_RETRY_DELAYS_MS.length) throw err;
+            await new Promise(resolve => setTimeout(resolve, STORES_RETRY_DELAYS_MS[attempt]));
+        }
+    }
+}
+
 async function initAllStores() {
     let catalogVersion = 1;
     let storesAdded = {};
     try {
-        const res  = await fetchWithDegradedRetry('/api/stores');
+        const res  = await fetchStoreCatalog();
         const data = await res.json();
         // Et "travlt"-/fejlsvar har ingen stores - uden tjekket blev
         // ALL_STORES undefined, og ALL_STORES.map nedenfor vaeltede hele

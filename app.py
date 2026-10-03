@@ -349,8 +349,12 @@ _CSP = (
     # /static/js/vendor/ (compliance-audit 19-08-2026, GDPR-005) - en
     # uversioneret, ulaast tredjeparts-CDN-fil i script-src var i sig selv en
     # sti til at overtage enhver besoegendes Supabase-session.
+    # static.cloudflareinsights.com: Cloudflare Web Analytics, som zonen selv
+    # indsaetter (automatisk installation). Cookiefri, anonym besoegsstatistik;
+    # blev blokeret her indtil 03-10-2026, saa den maalte ingenting.
     "script-src 'self' 'unsafe-inline' https://accounts.google.com "
-    "https://challenges.cloudflare.com https://appleid.cdn-apple.com; "
+    "https://challenges.cloudflare.com https://appleid.cdn-apple.com "
+    "https://static.cloudflareinsights.com; "
     # accounts.google.com: GSI henter sit eget stylesheet (/gsi/style) til
     # login-knappen. Uden den her mister knappen sin styling - fanget af
     # browsertesten, ikke af header-inspektion. fonts.googleapis.com er IKKE
@@ -370,7 +374,9 @@ _CSP = (
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co "
     "https://accounts.google.com "
     "https://challenges.cloudflare.com https://appleid.apple.com "
-    "https://verify.madshopper.dk; "
+    "https://verify.madshopper.dk "
+    # cloudflareinsights.com: Web Analytics-beaconens indsendelse (se script-src).
+    "https://cloudflareinsights.com; "
     "frame-src https://accounts.google.com https://challenges.cloudflare.com https://appleid.apple.com; "
     "manifest-src 'self'"
     + ("; upgrade-insecure-requests" if _IS_EDGE else "")
