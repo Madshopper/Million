@@ -127,3 +127,6 @@
 .adm-bar { height: 10px; border-radius: 5px; background: var(--gray-200); overflow: hidden; }
 .adm-bar > span { display: block; height: 100%; border-radius: 5px; background: var(--green); }
 .adm-bar-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Drift: knapper til dev-siden */
+.adm-dev-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }

@@ -562,6 +562,7 @@ class Env(Protocol):
     # at alt i app._EDGE_ENV_VARS står her.
     CF_ANALYTICS_TOKEN: str
     CLOUDFLARE_ACCOUNT_ID: str
+    STAGING_LINK_SECRET: str
 
 
 # Eneste sti hvor en uautentificeret besøgende ser andet end blankt 404 -
@@ -579,6 +580,16 @@ def _staging_session_token(secret: str) -> str:
     import hashlib
     import hmac as _hmac
     return _hmac.new(secret.encode(), b"staging-session", hashlib.sha256).hexdigest()
+
+
+def _staging_link_sig(secret: str, exp: int) -> str:
+    """Signaturen på engangslinket fra produktionens /admin. SKAL give det
+    samme som app.py::staging_link_sig (her en kopi, så workeren ikke afhænger
+    af flere navne fra app-modulet end selve Flask-appen)."""
+    import hashlib
+    import hmac as _hmac
+    return _hmac.new(secret.encode(), f"staging-link:{exp}".encode(),
+                     hashlib.sha256).hexdigest()
 
 
 def _cookie_value(cookie_header: str, name: str) -> str:
@@ -686,6 +697,19 @@ class Default(WSGI[Env]):
             got_key = parse_qs(url.query or "").get("k", [""])[0]
             if got_key and hmac.compare_digest(got_key.encode(), secret.encode()):
                 return self._staging_cookie_response(secret, path)
+
+            # ?t=<udløb>.<hmac> er engangslinket fra produktionens /admin
+            # ("Se dev-siden", app.py::admin_staging_link). Gyldigt i højst
+            # 2 minutter og bærer aldrig selve secret'et.
+            got_link = parse_qs(url.query or "").get("t", [""])[0]
+            if got_link and "." in got_link:
+                import time as _time
+                exp_s, sig = got_link.split(".", 1)
+                now = int(_time.time())
+                if exp_s.isdigit() and now <= int(exp_s) <= now + 300 and hmac.compare_digest(
+                    sig.encode(), _staging_link_sig(secret, int(exp_s)).encode()
+                ):
+                    return self._staging_cookie_response(secret, path)
 
             cookie = request.headers.get("Cookie") or ""
             got_token = _cookie_value(cookie, "ms_staging")
