@@ -190,6 +190,8 @@ _EDGE_ENV_VARS = (
     'SUPABASE_KEY', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
     'CACHE_REFRESH_SECRET', 'ENABLE_PRICE_DB',
     'TABLE_SUFFIX',
+    # Kun på staging (build-pages.sh): opskrifterne kan afprøves på dev-siden.
+    'RECIPES_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -1532,10 +1534,9 @@ def _safe_match_filter(products: list, query: str, matcher) -> list:
 def _recipes_enabled() -> bool:
     """Styrer den FUNKTIONELLE opskrift-feature (detaljesider, /api/recipes,
     /opskrifter, native app'ens recipes). Eksplicit flag RECIPES_ENABLED=1,
-    slået FRA som standard i alle miljøer - også lokalt og på staging. Før
-    fulgte den miljøet (_table_suffix()), men dev-branchen/staging fjernes, og
-    opskrifter må ikke afhænge af hvilket miljø der kører. Sæt
-    RECIPES_ENABLED=1 i en lokal .env for at arbejde på featuren.
+    slået FRA som standard. scripts/build-pages.sh sætter den kun for
+    staging (dev.madshopper.dk), aldrig for produktion. Sæt
+    RECIPES_ENABLED=1 i en lokal .env for at arbejde på featuren lokalt.
 
     Webforsidens "Lækre opskrifter" vises dog i alle miljøer som en
     ikke-klikbar teaser ("Kommer snart"); denne funktion styrer kun om

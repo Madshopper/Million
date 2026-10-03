@@ -53,6 +53,9 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   D1_DATABASE_ID="fa7fab55-a5e8-485a-9084-068890e9c8c5"
   SITE_URL_VALUE="https://dev.madshopper.dk"
   TABLE_SUFFIX_VALUE="_dev"
+  # Opskrifterne er skjult for brugerne på madshopper.dk, men skal kunne
+  # afprøves på dev-siden (app.py::_recipes_enabled).
+  RECIPES_LINE='RECIPES_ENABLED = "1"'
   # Custom domain så staging er nemmere at finde end workers.dev-URL'en
   # (samme adgangsspærring gælder stadig, se STAGING_ACCESS_SECRET nedenfor).
   ROUTES_BLOCK='
@@ -83,6 +86,8 @@ else
   D1_DATABASE_ID="8a43b0d1-1733-4abe-ad71-aa9bde4d4d12"
   SITE_URL_VALUE="https://madshopper.dk"
   TABLE_SUFFIX_VALUE=""
+  # Opskrifterne må ikke være tilgængelige på madshopper.dk.
+  RECIPES_LINE=""
   # Produktion: ALDRIG overstyrbar. En glemt miljoevariabel i en terminal maa
   # ikke kunne saette beskyttelsen ud af kraft paa det rigtige site.
   RATE_LIMIT_PER_MIN=150
@@ -344,6 +349,7 @@ BUILD_ID = "${BUILD_ID_VALUE}"
 # Skrive-tabeller (cart_popularity, price_alerts): "" = produktion, "_dev" =
 # dev-kopier (scripts/supabase-dev-tables.sql), så test ikke rører prod-data.
 TABLE_SUFFIX = "${TABLE_SUFFIX_VALUE}"
+${RECIPES_LINE}
 ${ANALYTICS_LINES}
 ${STAGING_LINK_LINE}
 ${STAGING_SECRET_LINE}
