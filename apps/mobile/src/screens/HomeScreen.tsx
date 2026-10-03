@@ -4,12 +4,12 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -18,6 +18,7 @@ import { fetchHome } from '../api/listing';
 import type { HomeSection, Product } from '../api/types';
 import type { Recipe } from '../api/recipes';
 import { useAuth } from '../auth/AuthContext';
+import { CategoriesDrawer } from '../components/CategoriesDrawer';
 import { applyClientFilters, FiltersBar, type FiltersValue } from '../components/FiltersBar';
 import { ProductCard } from '../components/ProductCard';
 import { RecipeCard } from '../components/RecipeCard';
@@ -32,18 +33,6 @@ import { useStoreCatalog, storesParam } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { recipesEnabled } from '../config/env';
 import type { RootStackParamList } from '../navigation/types';
-
-const CATEGORY_LINKS: Array<{ label: string; slug: string }> = [
-  { label: 'Ugens Tilbud', slug: 'sale' },
-  { label: 'Køl', slug: 'Mejeri' },
-  { label: 'Kød & Fisk', slug: 'Koed_og_fisk' },
-  { label: 'Frugt & Grønt', slug: 'Frugt_og_groent' },
-  { label: 'Brød & Kager', slug: 'Broed_og_kager' },
-  { label: 'Frost', slug: 'Frost' },
-  { label: 'Kolonial', slug: 'Kolonial' },
-  { label: 'Drikkevarer', slug: 'Drikkevarer' },
-  { label: 'Slik', slug: 'Slik' },
-];
 
 type HomeRow =
   | { key: string; kind: 'hero' }
@@ -79,6 +68,7 @@ export function HomeScreen() {
   const [savings, setSavings] = React.useState<PersonalSavings>(() => emptySavings(false));
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [catsOpen, setCatsOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const loadSavings = React.useCallback(async () => {
@@ -190,36 +180,33 @@ export function HomeScreen() {
           if (item.kind === 'hero') {
             return (
               <View style={styles.hero}>
-                <Text style={[styles.brand, { color: colors.primary }]}>MadShopper</Text>
+                <Text style={[styles.brand, { color: colors.text }]}>MadShopper</Text>
               </View>
             );
           }
 
           if (item.kind === 'cats') {
+            // Én knap i stedet for en vandret chip-bjælke (03-10-2026): man
+            // så kun de første par kategorier og skulle swipe efter resten.
+            // Skuffen (CategoriesDrawer) viser dem alle på én gang.
             return (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                directionalLockEnabled
-                style={styles.catsScroll}
-                contentContainerStyle={styles.catsContent}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Kategorier"
+                onPress={() => setCatsOpen(true)}
+                style={({ pressed }) => [
+                  styles.catsButton,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
               >
-                {CATEGORY_LINKS.map((c) => (
-                  <Pressable
-                    key={c.slug}
-                    onPress={() => {
-                      if (c.slug === 'sale') navigation.navigate('Sale');
-                      else navigation.navigate('Category', { slug: c.slug, title: c.label });
-                    }}
-                    style={[
-                      styles.catChip,
-                      { backgroundColor: colors.surface, borderColor: colors.border },
-                    ]}
-                  >
-                    <Text style={{ color: colors.text, fontWeight: '600' }}>{c.label}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+                <Ionicons name="grid-outline" size={20} color={colors.text} />
+                <Text style={[styles.catsButtonText, { color: colors.text }]}>Kategorier</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              </Pressable>
             );
           }
 
@@ -276,7 +263,7 @@ export function HomeScreen() {
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>Lækre opskrifter</Text>
                   {recipesClickable ? (
                     <Pressable onPress={() => navigation.navigate('Tabs', { screen: 'Recipes' })}>
-                      <Text style={{ color: colors.primary }}>Vis alle</Text>
+                      <Text style={{ color: colors.text, fontWeight: '600' }}>Vis alle</Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -302,7 +289,7 @@ export function HomeScreen() {
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>{section.title}</Text>
                 {section.href === '/ugens_tilbud' ? (
                   <Pressable onPress={() => navigation.navigate('Sale')}>
-                    <Text style={{ color: colors.primary }}>Vis alle</Text>
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>Vis alle</Text>
                   </Pressable>
                 ) : section.href ? (
                   <Pressable
@@ -313,7 +300,7 @@ export function HomeScreen() {
                       })
                     }
                   >
-                    <Text style={{ color: colors.primary }}>Vis alle</Text>
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>Vis alle</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -328,6 +315,14 @@ export function HomeScreen() {
           );
         }}
       />
+      <CategoriesDrawer
+        visible={catsOpen}
+        onClose={() => setCatsOpen(false)}
+        onSelect={(c) => {
+          if (c.slug === 'sale') navigation.navigate('Sale');
+          else navigation.navigate('Category', { slug: c.slug, title: c.label });
+        }}
+      />
     </View>
   );
 }
@@ -336,22 +331,18 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   hero: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
   brand: { fontSize: 32, fontWeight: '800', letterSpacing: -0.5 },
-  catsScroll: {
-    maxHeight: 44,
-    marginVertical: 8,
-    flexGrow: 0,
-  },
-  catsContent: {
-    paddingHorizontal: 12,
+  catsButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  catChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    gap: 10,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    marginRight: 8,
   },
+  catsButtonText: { flex: 1, fontSize: 16, fontWeight: '700' },
   section: { marginTop: 12 },
   sectionHead: {
     flexDirection: 'row',

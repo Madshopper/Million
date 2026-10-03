@@ -1,7 +1,12 @@
 :root {
+  /* Tre grønne, og kun dem (Kalle 03-10-2026): primær, sekundær, tertiær.
+     Samme værdier som appens primary/primaryDark/primaryMuted i
+     apps/mobile/src/theme/colors.ts. Tilføj ikke flere grønne nuancer;
+     gennemsigtige varianter skal bygge på rgba(5, 150, 105, x) = --green.
+     Tilbud er gule (#FFD500), aldrig grønne eller røde. */
   --green: #059669;
-  --green-light: #D6F5E3;
   --green-dark: #047857;
+  --green-light: #D6F5E3;
   --red: #DC2626;
   --red-light: #FEE2E2;
   --yellow: #D97706;
@@ -306,7 +311,10 @@ header {
 }
 
 .ac-price.ac-sale {
-  color: var(--red);
+  color: #1A1C19;
+  background: #FFD500;
+  padding: 1px 5px;
+  border-radius: 5px;
 }
 
 .ac-footer {
@@ -343,7 +351,7 @@ header {
 }
 
 [data-theme="dark"] .autocomplete-item.ac-query .ac-name strong {
-  color: #6ee7b7;
+  color: var(--green-light);
 }
 
 [data-theme="dark"] .ac-footer:hover {
@@ -968,19 +976,19 @@ main {
 
 /* Colors matching store badges */
 .store-filter-btn[data-store="Rema 1000"] .store-filter-dot {
-  background: var(--blue);
+  background: var(--green);
 }
 
 .store-filter-btn[data-store="Bilka"] .store-filter-dot {
-  background: var(--yellow);
+  background: var(--green);
 }
 
 .store-filter-btn[data-store="Meny"] .store-filter-dot {
-  background: #9f1239;
+  background: var(--green);
 }
 
 .store-filter-btn[data-store="Spar"] .store-filter-dot {
-  background: #0f766e;
+  background: var(--green);
 }
 
 .store-filter-btn[data-store="Min Købmand"] .store-filter-dot {
@@ -988,19 +996,19 @@ main {
 }
 
 .store-filter-btn[data-store="SuperBrugsen"] .store-filter-dot {
-  background: #991b1b;
+  background: var(--green);
 }
 
 .store-filter-btn[data-store="Brugsen"] .store-filter-dot {
-  background: #065f46;
+  background: var(--green);
 }
 
 .store-filter-btn[data-store="Kvickly"] .store-filter-dot {
-  background: #7c3aed;
+  background: var(--green);
 }
 
 .store-filter-btn[data-store="365 Discount"] .store-filter-dot {
-  background: #b45309;
+  background: var(--green);
 }
 
 .product.store-hidden {
@@ -1176,8 +1184,8 @@ main {
   margin-top: 2px;
 }
 
-/* Én dæmpet badge til alle butikker - samme mønster som mobilappens storeBadge
-   (primaryMuted/primary). Butiksklassen (.rema, .netto, …) sættes stadig af
+/* Én neutral badge til alle butikker - samme mønster som mobilappens storeBadge
+   (surface + tekst, ikke grøn: for meget grønt, Kalle 03-10-2026). Butiksklassen (.rema, .netto, …) sættes stadig af
    updateStoreBadges() i script.js og skal blive ved med at findes i markup'en,
    men den styrer ikke længere farven: farve er reserveret til tilbud og pris. */
 .store-badge {
@@ -1188,8 +1196,9 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: var(--green-light);
-  color: var(--green-dark);
+  background: var(--white);
+  color: var(--gray-800);
+  box-shadow: 0 0 0 1px var(--gray-200);
   font-size: 0.6rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -1200,9 +1209,13 @@ main {
 
 /* Solid, ikke rgba: badgen ligger oven på produktbilledet, og en gennemsigtig
    flade tog farve fra lyse billeder og blev ulæselig. */
+[data-theme="dark"] .sale-end-date {
+  color: #FACC15;
+}
+
 [data-theme="dark"] .store-badge {
-  background: #064E3B;
-  color: #6ee7b7;
+  background: var(--white);
+  color: var(--gray-800);
 }
 
 .product-content {
@@ -1295,7 +1308,7 @@ main {
 .price-sale {
   font-size: 1.35rem;
   font-weight: 900;
-  color: var(--red);
+  color: #1A1C19;
   letter-spacing: -0.02em;
   line-height: 1;
 }
@@ -1705,7 +1718,7 @@ main {
 
 .sale-end-date {
   font-size: 0.8rem;
-  color: var(--red);
+  color: #A16207;
   font-weight: 600;
 }
 
@@ -1922,6 +1935,18 @@ main {
 
 .cart-item-details {
   flex: 1;
+}
+
+.cart-item-store {
+  display: inline-block;
+  margin-bottom: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .cart-item-title {
@@ -2235,7 +2260,7 @@ main {
 }
 
 .savings-badge--btn:hover {
-  background: #ecfdf5;
+  background: var(--green-light);
 }
 
 @media (max-width: 640px) {
@@ -2390,8 +2415,8 @@ main {
 }
 
 .recipe-pill--sale {
-  background: var(--green-light);
-  color: var(--green-dark);
+  background: #FFD500;
+  color: #1A1C19;
 }
 
 .recipe-servings-stepper {
@@ -3796,9 +3821,15 @@ footer {
   font-size: 0.8rem;
 }
 
+/* Tilbudspris: samme gule som SPAR-mærkatet (.sale-badge) og appens
+   colors.deal, ikke rød. Rød er kun til fejl og slet. */
 .price.sale {
-  color: var(--red);
+  display: inline-block;
+  color: #1A1C19;
+  background: #FFD500;
   font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 6px;
 }
 
 .price:not(.sale):not(.original) {
@@ -3839,8 +3870,8 @@ footer {
 
 .comp-sale-tag {
   display: inline-block;
-  background: var(--red-light);
-  color: var(--red);
+  background: #FFD500;
+  color: #1A1C19;
   font-size: 0.65rem;
   font-weight: 700;
   padding: 1px 6px;
@@ -4005,7 +4036,7 @@ footer {
 
 .comp-card.active-history {
   border: 2px solid var(--green) !important;
-  background: #f0fdf4 !important;
+  background: var(--green-light) !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(5, 150, 105, 0.1);
   cursor: pointer;
@@ -4020,7 +4051,7 @@ footer {
 /* .comp-card already uses background: var(--white) → #1f2937 in dark mode ✓  */
 
 [data-theme="dark"] .comp-card.active-history {
-  background: #14532d !important;
+  background: rgba(5, 150, 105, 0.22) !important;
 }
 
 [data-theme="dark"] .comp-multideal {
@@ -4114,8 +4145,8 @@ footer {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: #f0fdf4;
-  border: 1.5px solid #dcfce7;
+  background: var(--green-light);
+  border: 1.5px solid var(--green-light);
   color: #059669;
   font-weight: 700;
   font-size: 0.95rem;
@@ -4127,7 +4158,7 @@ footer {
 }
 
 .alert-toggle-btn:hover {
-  background: #dcfce7;
+  background: var(--green-light);
   transform: translateY(-1px);
 }
 
@@ -4471,7 +4502,7 @@ body[data-theme="dark"] {
 /* Aktiv kategori-pill: dæmpet grøn i dark mode */
 [data-theme="dark"] .category-nav li a.active {
   background: rgba(5, 150, 105, 0.22);
-  color: #6ee7b7;
+  color: var(--green-light);
 }
 
 /* ── Cart Tabs ─────────────────────────────────────────────────────────────── */
@@ -4563,9 +4594,9 @@ body[data-theme="dark"] {
   padding: 10px 16px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--green-dark, #166534);
-  background: var(--green-light, #dcfce7);
-  border: 1.5px solid var(--green, #22c55e);
+  color: var(--green-dark);
+  background: var(--green-light);
+  border: 1.5px solid var(--green);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: var(--transition);
@@ -4573,7 +4604,7 @@ body[data-theme="dark"] {
 }
 
 .share-list-btn:hover {
-  background: var(--green, #22c55e);
+  background: var(--green);
   color: #fff;
 }
 
@@ -4749,7 +4780,7 @@ body[data-theme="dark"] {
   padding: 12px 16px;
   border: none;
   border-radius: var(--radius-md);
-  background: var(--green, #22c55e);
+  background: var(--green);
   color: #fff;
   font-weight: 700;
   font-size: 0.9rem;
@@ -5055,20 +5086,20 @@ body[data-theme="dark"] {
 
 .br-summary {
   margin: 14px 22px 4px;
-  background: #f0fdf4;
+  background: var(--green-light);
   border-radius: 14px;
   padding: 14px 18px;
-  border: 1px solid #bbf7d0;
+  border: 1px solid var(--green-light);
 }
-[data-theme="dark"] .br-summary { background: #052e16; border-color: #166534; }
+[data-theme="dark"] .br-summary { background: rgba(5, 150, 105, 0.12); border-color: var(--green-dark); }
 
 .br-summary-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .br-summary-main { display: flex; align-items: baseline; gap: 8px; }
-.br-summary-total { font-size: 1.35rem; font-weight: 800; color: #15803d; }
-[data-theme="dark"] .br-summary-total { color: #4ade80; }
+.br-summary-total { font-size: 1.35rem; font-weight: 800; color: var(--green-dark); }
+[data-theme="dark"] .br-summary-total { color: var(--green-light); }
 .br-summary-label { font-size: 0.82rem; color: var(--gray-500); }
-.br-summary-save { font-size: 0.82rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
-[data-theme="dark"] .br-summary-save { background: #14532d; color: #4ade80; }
+.br-summary-save { font-size: 0.82rem; font-weight: 700; color: var(--green-dark); background: var(--green-light); padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+[data-theme="dark"] .br-summary-save { background: var(--green-dark); color: var(--green-light); }
 .br-summary-save-vs { font-weight: 400; color: var(--gray-500); }
 
 .br-stores { padding: 10px 22px 22px; display: flex; flex-direction: column; gap: 12px; }

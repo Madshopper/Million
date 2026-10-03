@@ -133,6 +133,9 @@ async function checkUrl(url) {
     });
     await context.addInitScript(() => {
       Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+      // Cloudflare Web Analytics-beaconen springer over, når den tror den
+      // allerede kører: testens besøg skal ikke tælle i admin-fanen Trafik.
+      window.__cfBeacon = { load: "single" };
     });
     const page = await context.newPage();
     return await check(page, url);

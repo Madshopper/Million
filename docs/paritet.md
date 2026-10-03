@@ -23,6 +23,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 |---|---|---|---|---|---|
 | Forside med sektioner | ✅ | ✅ | ✅ `/api/home` | ✅ | Complete |
 | Kategorisider (9 kategorier) | ✅ | ✅ | ✅ `/api/category/<slug>` | ✅ | Complete |
+| Kategorier-knap med oversigt over alle (i stedet for vandret bjælke) | – | ✅ | – | ❌ | Complete *(03-10-2026; i appen en skuffe fra venstre. Web beholder den vandrette bjælke efter Kalles ønske)* |
 | Ugens Tilbud | ✅ | ✅ | ✅ `/api/sale` | ✅ | Complete |
 | Forsidens Ugens Tilbud: højst 2 varer pr. butik forrest | ✅ | ✅ | ✅ `_build_home_categories` | ❌ | Complete *(01-10-2026; gælder ikke Populære varer)* |
 | Underkategori-chips | ✅ | ✅ | ✅ | ✅ | Complete |
@@ -30,6 +31,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Produktkort: mærke/navn/pris/tilbudsbadge | ✅ | ✅ | ✅ | ✅ | Complete |
 | Produktkort: vægt, "X stk", **kg-pris** | ✅ | ✅ | ✅ | ✅ | Complete *(app fik dem 19-08-2026)* |
 | "Kun hos <butik>"-badge | ✅ | ✅ | ✅ | ✅ | Complete |
+| Farver: tre grønne (#059669 / #047857 / #D6F5E3) + gul til alt tilbud, intet rødt tilbud, grønt butiksmærke i kurven | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; se `theme/colors.ts`)* |
 | Tom-tilstand ("ingen varer matcher") | ✅ | ✅ | – | ✅ | Complete |
 | Fejltilstand + "Prøv igen" | ✅ | ✅ | – | ⚠️ | Complete |
 
@@ -40,6 +42,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Fritekstsøgning | ✅ | ✅ | ✅ `/api/search` | ✅ | Complete |
 | Autocomplete (debounced) | ✅ | ✅ | ✅ `/api/autocomplete` | ✅ | Complete |
 | Stavekorrektion ("mlæk" → "mælk") | ✅ | ✅ | ✅ | ✅ | Complete |
+| Varer vist før man skriver (app: "Populære varer" fra `/api/home`, edge-cachet) | ➖ | ✅ | ✅ `/api/home` | ➖ | App-only |
 | Sortering (5 typer, inkl. kg-pris) | ✅ | ✅ | ✅ | ✅ | Complete |
 | Prisinterval min/max | ✅ | ✅ | ✅ | ✅ | Complete |
 | Filtre: tilbud / øko / laktosefri | ✅ | ✅ | ✅ | ✅ | Complete |
@@ -75,7 +78,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | "Find billigste" (SCO) | ✅ | ✅ | ✅ `/api/products` | ✅ | Complete |
 | Alternativer til manglende varer | ✅ | ✅ | ✅ `/api/alternatives` | ✅ | Complete |
 | Butiksrute (flere butikker) | ✅ | ✅ | – | ❌ | Complete |
-| Personlig besparelse | ✅ | ✅ | ✅ RPC `get_personal_savings` | ❌ | Complete |
+| Personlig besparelse (anbefalet butik mod dyreste på fælles varer, `compareSavingsRange`) | ✅ | ✅ | ✅ RPC `get_personal_savings` / `record_compare_savings` | ✅ `sco.test.ts` | Complete |
 
 ### Konto
 
@@ -90,7 +93,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Vist navn (delt kurv) | ✅ | ✅ | ✅ RPC `set_my_display_name` | ❌ | Complete |
 | "Mine prisalarmer" (se/slet) | ✅ | ✅ | ✅ | ❌ | Complete |
 | Slet konto | ✅ | ✅ | ✅ RPC `delete_own_account` | ❌ | Complete |
-| Profil-fane med "Deler kurv med" | ➖ | ✅ | ✅ (samme delt-kurv-RPC'er) | ❌ | **Bevidst forskel**: appens nederste fane hedder "Profil" (før "Indstillinger", ændret 02-10-2026) og samler konto, navn, delt kurv-medlemmer og prisalarmer; indstillingerne åbnes derfra. Web har ingen fanebjælke - kontoen ligger i konto-menuen og indstillingerne i tandhjulspanelet, og medlemmerne vises i kurven |
+| Profil-fane med "Fælles kurv" | ➖ | ✅ | ✅ (samme delt-kurv-RPC'er) | ❌ | **Bevidst forskel**: appens nederste fane hedder "Profil" (før "Indstillinger", ændret 02-10-2026) og samler konto, navn, "Fælles kurv" (alle medlemmer, start/stop deling) og prisalarmer; indstillinger (med slet konto) og feedback er tydelige rækker derfra (03-10-2026). Web har ingen fanebjælke - kontoen ligger i konto-menuen og indstillingerne i tandhjulspanelet, og medlemmerne vises i kurven |
 
 ### Indstillinger og indhold
 

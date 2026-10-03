@@ -3484,11 +3484,14 @@ def _cf_graphql(query: str, variables: dict):
 
 def _admin_traffic() -> dict:
     """Besøg fra Cloudflare Web Analytics (7 dage) + workerens sundhed i dag.
-    Headless-browsere (vores egne Playwright-tests) tælles ikke med."""
+    Kun madshopper.dk: site-tagget dækker hele zonen, og dev.madshopper.dk
+    er kun os selv (målt 03-10-2026: 20 af dagens 29 besøg). Headless-browsere
+    tælles heller ikke, og vores Playwright-scripts (der udgiver sig for at
+    være almindelig Chrome) slår selv beaconen fra via window.__cfBeacon."""
     now = datetime.utcnow()
     since = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
-    rum_filter = ('{siteTag:$s,datetime_geq:$t,userAgentBrowser_neq:"ChromeHeadless",'
-                  'bot:0}')
+    rum_filter = ('{siteTag:$s,datetime_geq:$t,requestHost:"madshopper.dk",'
+                  'userAgentBrowser_neq:"ChromeHeadless",bot:0}')
     query = _ADMIN_TRAFFIC_QUERY.replace('filter:$f', 'filter:' + rum_filter)
     acc, err = _cf_graphql(query, {
         's': _CF_WEB_ANALYTICS_SITE_TAG,

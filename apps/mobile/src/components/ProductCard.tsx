@@ -12,6 +12,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { useCart } from '../cart/CartContext';
 import { buildStorePrices } from '../cart/buildStorePrices';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
+import { StoreDot } from './StoreChip';
 
 type Props = {
   product: Product;
@@ -64,8 +65,11 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
             <Text style={styles.saleText}>{discountPct ? `SPAR ${discountPct}%` : 'TILBUD'}</Text>
           </View>
         ) : null}
-        <View style={[styles.storeBadge, { backgroundColor: colors.primaryMuted }]}>
-          <Text style={[styles.storeText, { color: colors.primary }]} numberOfLines={1}>
+        {/* Neutral flade med en grøn prik: grøn er primærfarven, gul er
+            forbeholdt tilbud (theme/colors.ts). */}
+        <View style={[styles.storeBadge, { backgroundColor: colors.surface }]}>
+          <StoreDot store={product.store} size={7} />
+          <Text style={[styles.storeText, { color: colors.text }]} numberOfLines={1}>
             {product.store}
           </Text>
         </View>
@@ -121,7 +125,13 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
               <Text style={[styles.original, { color: colors.textMuted }]}>
                 {product.normal_price.toFixed(2)} kr
               </Text>
-              <Text style={[styles.price, { color: colors.sale }]}>
+              <Text
+                style={[
+                  styles.price,
+                  styles.dealPrice,
+                  { backgroundColor: colors.deal, color: colors.dealText },
+                ]}
+              >
                 {product.price.toFixed(2)} kr
               </Text>
             </>
@@ -242,6 +252,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     maxWidth: '55%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   storeText: { fontSize: 10, fontWeight: '600' },
   brand: { fontSize: 11, marginBottom: 2 },
@@ -260,6 +273,17 @@ const styles = StyleSheet.create({
   },
   original: { fontSize: 12, textDecorationLine: 'line-through' },
   price: { fontSize: 16, fontWeight: '700' },
+  // Gul tilbudspris som SPAR-mærkatet. overflow+borderRadius fordi iOS ellers
+  // tegner baggrunden på en Text uden runde hjørner.
+  dealPrice: {
+    alignSelf: 'flex-start',
+    fontWeight: '800',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginTop: 2,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
   addBtn: {
     position: 'absolute',
     right: 8,

@@ -153,19 +153,20 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
               <ToggleChip
                 label="Tilbud"
                 active={!!values.sale}
-                activeColor={colors.sale}
+                activeColor={colors.deal}
+                activeTextColor={colors.dealText}
                 onPress={() => toggle('sale')}
               />
               <ToggleChip
                 label="Øko"
                 active={!!values.organic}
-                activeColor={colors.badge}
+                activeColor={colors.primarySolid}
                 onPress={() => toggle('organic')}
               />
               <ToggleChip
                 label="Laktosefri"
                 active={!!values.lactose}
-                activeColor={colors.badge}
+                activeColor={colors.primarySolid}
                 onPress={() => toggle('lactose')}
               />
             </View>
@@ -233,11 +234,13 @@ function ToggleChip({
   label,
   active,
   activeColor,
+  activeTextColor = '#fff',
   onPress,
 }: {
   label: string;
   active: boolean;
   activeColor: string;
+  activeTextColor?: string;
   onPress: () => void;
 }) {
   const { colors } = useTheme();
@@ -252,7 +255,7 @@ function ToggleChip({
         },
       ]}
     >
-      <Text style={{ color: active ? '#fff' : colors.text, fontWeight: '600', fontSize: 13 }}>
+      <Text style={{ color: active ? activeTextColor : colors.text, fontWeight: '600', fontSize: 13 }}>
         {label}
       </Text>
     </Pressable>
