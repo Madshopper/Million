@@ -483,6 +483,28 @@
 
   /* ---------------------------------------------------------------- trafik */
   var DEVICE_NAMES = { desktop: 'Computer', mobile: 'Mobil', tablet: 'Tablet' };
+  var PAGE_NAMES = {
+    '/': 'Forside', '/index.html': 'Forside', '/search': 'Søgning', '/search/results': 'Søgeresultater',
+    '/ugens_tilbud': 'Ugens tilbud', '/sale.html': 'Ugens tilbud', '/om-os': 'Om os', '/about': 'Om os',
+    '/privatliv': 'Privatliv', '/privacy': 'Privatliv', '/terms-of-service': 'Vilkår',
+    '/feedback': 'Feedback', '/opskrifter': 'Opskrifter', '/admin': 'Admin'
+  };
+
+  // Stien som en læsbar side: "/" -> "Forside", "/Mejeri" -> "Kategori: Mejeri".
+  function pageName(path) {
+    if (!path) return '-';
+    var p = path.length > 1 ? path.replace(/\/+$/, '') : path;
+    if (PAGE_NAMES[p]) return PAGE_NAMES[p];
+    if (/^\/product\//.test(p)) return 'Vare';
+    if (/^\/opskrift\//.test(p)) return 'Opskrift';
+    var m = /^\/([^\/.]+)(\.html)?$/.exec(p);
+    if (m) {
+      var name = m[1];
+      try { name = decodeURIComponent(name); } catch (_) {}
+      return 'Kategori: ' + name.replace(/[-_]+/g, ' ');
+    }
+    return p;
+  }
 
   function shareRows(list, nameFn) {
     var total = list.reduce(function (a, x) { return a + x.count; }, 0) || 1;
@@ -533,7 +555,7 @@
     function list(id, rows, head, nameFn) {
       fill(id, rows && rows.length ? table(head, shareRows(rows, nameFn), [1, 2]) : empty('Ingen data endnu.'));
     }
-    list('admin-traffic-pages', tr.pages, ['Side', 'Visninger', 'Andel']);
+    list('admin-traffic-pages', tr.pages, ['Side', 'Visninger', 'Andel'], pageName);
     list('admin-traffic-referers', tr.referers, ['Kilde', 'Visninger', 'Andel'], function (n) { return n || 'Direkte / ukendt'; });
     list('admin-traffic-devices', tr.devices, ['Enhed', 'Visninger', 'Andel'], function (n) { return DEVICE_NAMES[n] || n || '-'; });
     var regionNames = null;
