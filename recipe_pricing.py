@@ -2,8 +2,13 @@
 
 Ren prisberegning over allerede matchede ingredienser
 (recipe_ingredients.matched_product_id) - ingen AI/Ollama involveret, så det
-kan køre i samme workflow som updater.py (.github/workflows/cache-updater.yml)
-lige efter app_cache er bygget frisk, i stedet for i recipe-import.yml.
+kunne køre lige efter updater.py i .github/workflows/cache-updater.yml.
+
+Siden Feature-fanen i /admin (03-10-2026) kører den i recipe-import.yml kl. 04
+UTC, efter nattens app_cache er bygget: kun dér har kørslen Cloudflare-nøglen
+til at se om opskrifterne er udgivet (scripts/feature_flags.py). Trinnet i
+cache-updater.yml springer derfor altid over, og at fjerne det ville udløse en
+ekstra D1-reseed ved merge (cache-updater.yml er i dens push-filter).
 
 Læses ved sidevisning som et opslag (app.py /api/recipes) frem for en live
 join mod aktuelle priser pr. request - samme grund som home_data_v1 (KV): tung
@@ -14,6 +19,7 @@ CLAUDE.md § Miljøer & deploy.
 from __future__ import annotations
 
 import os
+import sys
 
 from dotenv import load_dotenv
 from supabase import create_client
@@ -143,10 +149,12 @@ def compute_recipe_price_snapshots() -> None:
 
 
 if __name__ == '__main__':
-    # Opskrifterne er skjult for brugerne (app.py's RECIPES_ENABLED), så
-    # nattens genberegning springes over, indtil featuren tændes. Sæt
-    # RECIPES_ENABLED=1 for at køre den alligevel.
-    if os.environ.get('RECIPES_ENABLED') == '1':
+    # Kører kun når opskrifterne er udgivet fra Feature-fanen i /admin
+    # (scripts/feature_flags.py), så priserne starter sammen med funktionen.
+    # RECIPES_ENABLED=1 kører den alligevel (lokalt/test).
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scripts'))
+    from feature_flags import feature_live
+    if os.environ.get('RECIPES_ENABLED') == '1' or feature_live('recipes'):
         compute_recipe_price_snapshots()
     else:
-        print('RECIPES_ENABLED er ikke sat - springer opskrift-priser over')
+        print('Opskrifterne er ikke udgivet - springer opskrift-priser over')

@@ -133,8 +133,16 @@
 
 /* Feature: hvad der vises på madshopper.dk */
 .adm-intro { margin: -8px 0 16px; max-width: 640px; }
-.adm-feat-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.adm-feat-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%;
+                 background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .adm-feat-head h2 { margin: 0; }
+.adm-feat-head:hover h2 { color: var(--green); }
+.adm-feat-arrow { color: var(--gray-500); width: 12px; }
+.adm-feat-parts { list-style: none; margin: 12px 0 4px; padding: 0; border-top: 1px solid var(--gray-200); }
+.adm-feat-parts li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+                     padding: 10px 0; border-bottom: 1px solid var(--gray-200); font-size: .9rem; }
+.adm-feat-kind { color: var(--gray-500); font-size: .75rem; }
+.adm-feat-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .adm-feat-desc { margin: 8px 0 4px; max-width: 640px; }
 .adm-feat-btns { margin-top: 10px; }
 .adm-ok { background: var(--green-light); color: var(--green-dark); border-radius: var(--radius-sm);

@@ -5,9 +5,12 @@ name: Recipe Import & Moderation
 # se recipe_importer.py's moduldokumentation for hvorfor.
 
 on:
-  # Ingen daglig kørsel (02-10-2026): opskrifterne er skjult for brugerne
-  # (RECIPES_ENABLED), så der er intet at moderere. Kan stadig startes manuelt.
-  # Tænd igen med en cron, fx '0 4 * * *', når opskrifterne skal ud.
+  # Dagligt (import, moderation og opskrifternes priser), men kun når
+  # opskrifterne er udgivet fra Feature-fanen i /admin (tjekkes i første trin
+  # via scripts/feature_flags.py). Mens de er skjult,
+  # stopper kørslen efter tjekket. Manuel start kører altid.
+  schedule:
+    - cron: '0 4 * * *'
   workflow_dispatch:
     inputs:
       url:
@@ -30,17 +33,28 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Er opskrifterne udgivet?
+        id: feature
+        if: ${{ github.event_name == 'schedule' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 scripts/feature_flags.py recipes
+
       - name: Setup Python
+        if: ${{ github.event_name != 'schedule' || steps.feature.outputs.on == 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install Python dependencies
+        if: ${{ github.event_name != 'schedule' || steps.feature.outputs.on == 'true' }}
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Kør opskrift-import/-moderation
+        if: ${{ github.event_name != 'schedule' || steps.feature.outputs.on == 'true' }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
@@ -51,3 +65,14 @@ jobs:
           else
             python recipe_importer.py moderate
           fi
+
+      # Opskrifternes priser efter nattens nye butikspriser (se
+      # recipe_pricing.py's moduldokumentation for hvorfor den kører her).
+      - name: Genberegn opskrift-priser
+        if: ${{ github.event_name != 'schedule' || steps.feature.outputs.on == 'true' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python recipe_pricing.py

@@ -1553,22 +1553,38 @@ def _recipes_enabled() -> bool:
 # tvinger en funktion til: build-pages.sh sætter den altid på staging, så
 # dev.madshopper.dk har alt slået til, og lokalt via .env.
 #
-# Ny funktion bag et flag = én linje her + _feature_enabled('<key>') i koden,
-# og varen sat for staging i build-pages.sh. 'app' er påmindelsen i
-# udgiv-dialogen, når den native app også skal have en ny version.
+# Ny funktion bag et flag = én post her + _feature_enabled('<key>') i koden,
+# og varen sat for staging i build-pages.sh. 'parts' er alt der hænger på
+# funktionen og vises når man åbner den i panelet. kind: 'web' (følger
+# knappen med det samme), 'job' (natlige kørsler, der selv tjekker valget via
+# scripts/feature_flags.py) og 'app' (kræver en ny app-version).
+#
+# "Fjern fra panelet" gør en udgivet funktion permanent: den forbliver slået
+# til, kan ikke skjules igen og vises ikke længere i panelet.
 _FEATURES = (
     {
         'key': 'recipes',
         'name': 'Opskrifter',
         'env': 'RECIPES_ENABLED',
-        'desc': 'Opskriftsiden, opskrift-ikonet i toppen og klikbare '
-                'opskrifter på forsiden. Uden den vises opskrifterne kun '
-                'som "Kommer snart".',
+        'desc': 'Opskrifter med priser fra butikkerne. Mens den er under '
+                'udvikling, vises opskrifterne kun som "Kommer snart" på '
+                'forsiden.',
         'app': 'Appen viser først opskrifterne, når der er lavet en ny '
                'version af den med opskrifter slået til.',
-        'note': 'Opskrifternes priser regnes ikke ud om natten, mens '
-                'funktionen er skjult. Bed Claude slå det til, når '
-                'opskrifterne er udgivet.',
+        'parts': (
+            {'kind': 'web', 'name': 'Opskriftsiden',
+             'desc': 'Siden /opskrifter og hver opskrifts egen side.'},
+            {'kind': 'web', 'name': 'Opskrift-ikonet i toppen',
+             'desc': 'Genvejen til opskrifterne i sidens menu.'},
+            {'kind': 'web', 'name': 'Opskrifter på forsiden',
+             'desc': '"Lækre opskrifter" kan trykkes på i stedet for "Kommer snart".'},
+            {'kind': 'job', 'name': 'Opskrifternes priser',
+             'desc': 'Regnes ud hver nat efter butikkernes nye priser.'},
+            {'kind': 'job', 'name': 'Import af opskrifter',
+             'desc': 'Kører hver morgen og tjekker nye opskrifter fra brugerne.'},
+            {'kind': 'app', 'name': 'Opskrifter i appen',
+             'desc': 'Fanen og opskrifterne i iPhone- og Android-appen.'},
+        ),
     },
 )
 _FEATURE_KEYS = {f['key']: f for f in _FEATURES}
@@ -3699,9 +3715,12 @@ def _admin_features_list(flags: dict) -> list:
     for f in _FEATURES:
         entry = flags.get(f['key'])
         entry = entry if isinstance(entry, dict) else {}
+        # Gjort permanent: hører ikke længere til i panelet.
+        if entry.get('permanent') is True:
+            continue
         out.append({
             'key': f['key'], 'name': f['name'], 'desc': f['desc'],
-            'app': f.get('app'), 'note': f.get('note'),
+            'app': f.get('app'), 'parts': list(f.get('parts', ())),
             'live': entry.get('on') is True,
             'changed_at': entry.get('at'),
             'forced_here': _feature_forced(f['key']),
@@ -3714,7 +3733,8 @@ def _admin_features_list(flags: dict) -> list:
 def admin_features():
     """Feature-panelet. Samme adgangsregler som /api/admin/edge: POST, kun
     admins, ellers 404. Body {} = list; {"key": ..., "on": bool} = udgiv
-    eller skjul på madshopper.dk. Valget læses frisk fra KV her (ikke
+    eller skjul på madshopper.dk; {"key": ..., "permanent": true} = fjern en
+    udgivet funktion fra panelet, så den forbliver slået til for altid. Valget læses frisk fra KV her (ikke
     _feature_flags' memo), så panelet viser det der faktisk er gemt."""
     if request.method != 'POST' or not _admin_request_ok():
         abort(404)
@@ -3732,15 +3752,29 @@ def admin_features():
     body = request.get_json(silent=True) or {}
     key = body.get('key')
     if key is not None:
-        if key not in _FEATURE_KEYS or not isinstance(body.get('on'), bool):
+        permanent = body.get('permanent') is True
+        if key not in _FEATURE_KEYS or (not permanent and not isinstance(body.get('on'), bool)):
             abort(400)
         if not kv:
             resp = jsonify(success=False, error='Kan kun ændres på madshopper.dk/admin.')
             resp.headers.update(_ADMIN_HEADERS)
             return resp, 409
         flags = {k: v for k, v in flags.items() if k in _FEATURE_KEYS}
-        flags[key] = {'on': body['on'],
-                      'at': datetime.now(timezone.utc).isoformat(timespec='seconds')}
+        current = flags.get(key) if isinstance(flags.get(key), dict) else {}
+        now = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        problem = None
+        if current.get('permanent') is True:
+            problem = 'Funktionen er permanent og kan ikke ændres.'
+        elif permanent and current.get('on') is not True:
+            problem = 'Funktionen skal være udgivet, før den kan fjernes fra panelet.'
+        if problem:
+            resp = jsonify(success=False, error=problem)
+            resp.headers.update(_ADMIN_HEADERS)
+            return resp, 409
+        if permanent:
+            flags[key] = dict(current, permanent=True, permanent_at=now)
+        else:
+            flags[key] = {'on': body['on'], 'at': now}
         try:
             _sync_bridge_call(kv.put(_FEATURES_KV_KEY, json.dumps(flags, separators=(',', ':'))))
         except Exception as e:
