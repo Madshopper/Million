@@ -23,6 +23,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 |---|---|---|---|---|---|
 | Forside med sektioner | ✅ | ✅ | ✅ `/api/home` | ✅ | Complete |
 | Kategorisider (9 kategorier) | ✅ | ✅ | ✅ `/api/category/<slug>` | ✅ | Complete |
+| Kategorier-knap med oversigt over alle (i stedet for vandret bjælke) | – | ✅ | – | ❌ | Complete *(03-10-2026; i appen en skuffe fra venstre. Web beholder den vandrette bjælke efter Kalles ønske)* |
 | Ugens Tilbud | ✅ | ✅ | ✅ `/api/sale` | ✅ | Complete |
 | Forsidens Ugens Tilbud: højst 2 varer pr. butik forrest | ✅ | ✅ | ✅ `_build_home_categories` | ❌ | Complete *(01-10-2026; gælder ikke Populære varer)* |
 | Underkategori-chips | ✅ | ✅ | ✅ | ✅ | Complete |
@@ -30,6 +31,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Produktkort: mærke/navn/pris/tilbudsbadge | ✅ | ✅ | ✅ | ✅ | Complete |
 | Produktkort: vægt, "X stk", **kg-pris** | ✅ | ✅ | ✅ | ✅ | Complete *(app fik dem 19-08-2026)* |
 | "Kun hos <butik>"-badge | ✅ | ✅ | ✅ | ✅ | Complete |
+| Farver: tre grønne (#059669 / #047857 / #D6F5E3) + gul til alt tilbud, intet rødt tilbud, grønt butiksmærke i kurven | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; se `theme/colors.ts`)* |
 | Tom-tilstand ("ingen varer matcher") | ✅ | ✅ | – | ✅ | Complete |
 | Fejltilstand + "Prøv igen" | ✅ | ✅ | – | ⚠️ | Complete |
 

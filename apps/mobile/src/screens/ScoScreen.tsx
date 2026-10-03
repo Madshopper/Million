@@ -27,6 +27,7 @@ import type { CartItem } from '../cart/types';
 import { recordCompareSavings } from '../savings/personalSavings';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
+import { StoreDot } from '../components/StoreChip';
 
 /** Dedup pr. app-session — spejler web's `_comparedProductIds`. */
 const comparedProductIds = new Set<string>();
@@ -279,8 +280,9 @@ export function ScoScreen() {
               style={[
                 styles.storeCard,
                 {
-                  backgroundColor: isActive ? colors.primaryMuted : colors.surface,
+                  backgroundColor: colors.surface,
                   borderColor: isActive ? colors.primary : colors.border,
+                  borderWidth: isActive ? 2 : 1,
                 },
               ]}
             >
@@ -289,13 +291,16 @@ export function ScoScreen() {
                   <Text style={styles.winnerText}>Billigst</Text>
                 </View>
               ) : null}
-              <Text style={[styles.storeName, { color: colors.text }]} numberOfLines={1}>
-                {s.name}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <StoreDot store={s.name} />
+                <Text style={[styles.storeName, { color: colors.text, flexShrink: 1 }]} numberOfLines={1}>
+                  {s.name}
+                </Text>
+              </View>
               <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
                 Dækning: {s.coverage}/{s.totalItems}
               </Text>
-              <Text style={[styles.storePrice, { color: colors.primary }]}>
+              <Text style={[styles.storePrice, { color: colors.text }]}>
                 {s.totalPrice.toFixed(2)} kr
               </Text>
             </Pressable>

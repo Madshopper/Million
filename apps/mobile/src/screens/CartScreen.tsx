@@ -20,6 +20,7 @@ import type { CartItem } from '../cart/types';
 import { cartItemTitle } from '../cart/stripStoreBrand';
 import { useTheme } from '../theme/ThemeContext';
 import { StackScreenBody } from '../components/ScreenBody';
+import { StoreChip } from '../components/StoreChip';
 import type { RootStackParamList } from '../navigation/types';
 
 type PromptMode = 'save' | 'share' | 'join' | 'rename' | null;
@@ -315,7 +316,8 @@ export function CartScreen() {
 
   const renderItemRow = (item: CartItem) => {
     const lineTotal = item.price * item.quantity;
-    const metaBits = [item.unitMeasure, item.store].filter(Boolean);
+    // Butikken vises som et grønt mærkat, så man med det samme kan se hvilken
+    // butik hver vare er fra (Kalle 03-10-2026).
     return (
       <View key={item.id} style={[styles.itemRow, { backgroundColor: colors.surface }]}>
         <View style={styles.thumbWrap}>
@@ -324,16 +326,21 @@ export function CartScreen() {
           ) : (
             <View style={[styles.thumb, { backgroundColor: colors.border }]} />
           )}
-          <View style={[styles.qtyBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.qtyBadgeText}>{item.quantity}</Text>
+          <View style={[styles.qtyBadge, { backgroundColor: colors.text }]}>
+            <Text style={[styles.qtyBadgeText, { color: colors.surface }]}>{item.quantity}</Text>
           </View>
         </View>
 
         <View style={styles.itemBody}>
-          {metaBits.length ? (
-            <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
-              {metaBits.join(' · ').toUpperCase()}
-            </Text>
+          {item.store || item.unitMeasure ? (
+            <View style={styles.storeRow}>
+              {item.store ? <StoreChip store={item.store} /> : null}
+              {item.unitMeasure ? (
+                <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                  {item.unitMeasure.toUpperCase()}
+                </Text>
+              ) : null}
+            </View>
           ) : null}
           <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
             {cartItemTitle(item)}
@@ -766,6 +773,7 @@ const styles = StyleSheet.create({
   qtyBadgeText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   itemBody: { flex: 1, minWidth: 0, gap: 2 },
   itemMeta: { fontSize: 11, fontWeight: '600', letterSpacing: 0.2 },
+  storeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   itemName: { fontSize: 15, fontWeight: '800', letterSpacing: 0.2 },
   qtyControls: {
     flexDirection: 'row',

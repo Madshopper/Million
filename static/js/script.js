@@ -1404,6 +1404,7 @@ function updateCartDisplay() {
                         <img src="${escapeHtml(item.image || '')}" alt="${escapeHtml(item.name)}">
                     </div>
                     <div class="cart-item-details">
+                        ${item.store ? `<span class="cart-item-store">${escapeHtml(item.store)}</span>` : ''}
                         <h4 class="cart-item-title">${escapeHtml(cartItemTitle(item))}</h4>
                         ${extraInfo}
                         ${multiDealHtml}
@@ -3690,11 +3691,12 @@ function openOverlay(productElementOrId) {
                 var isDark = document.body.getAttribute('data-theme') === 'dark';
                 if (idx === 0) {
                     // Cheapest
-                    el.style.border = '1.5px solid #2a7d4f';
-                    pEl.style.color = '#2a7d4f';
+                    // Kun de tre grønne fra styles.css (--green/-dark/-light).
+                    el.style.border = '1.5px solid var(--green)';
+                    pEl.style.color = isDark ? 'var(--green-light)' : 'var(--green-dark)';
                     bEl.textContent = 'Billigst';
-                    bEl.style.background = isDark ? '#14532d' : '#e6f4ea';
-                    bEl.style.color   = isDark ? '#bbf7d0' : '#1e7e34';
+                    bEl.style.background = isDark ? 'var(--green-dark)' : 'var(--green-light)';
+                    bEl.style.color   = isDark ? 'var(--green-light)' : 'var(--green-dark)';
                     bEl.style.display = 'block';
                 } else {
                     el.style.border = isDark ? '0.5px solid #374151' : '0.5px solid #dcdcdc';
