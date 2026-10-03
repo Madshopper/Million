@@ -23,7 +23,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 |---|---|---|---|---|---|
 | Forside med sektioner | ✅ | ✅ | ✅ `/api/home` | ✅ | Complete |
 | Kategorisider (9 kategorier) | ✅ | ✅ | ✅ `/api/category/<slug>` | ✅ | Complete |
-| Kategorier-knap med oversigt over alle (i stedet for vandret bjælke) | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; web kun på telefon, desktop beholder bjælken)* |
+| Kategorier-knap med alle kategorier (i stedet for vandret bjælke) | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; app: menu der glider ind fra venstre; web: folder ud på telefon, desktop beholder bjælken)* |
 | Ugens Tilbud | ✅ | ✅ | ✅ `/api/sale` | ✅ | Complete |
 | Forsidens Ugens Tilbud: højst 2 varer pr. butik forrest | ✅ | ✅ | ✅ `_build_home_categories` | ❌ | Complete *(01-10-2026; gælder ikke Populære varer)* |
 | Underkategori-chips | ✅ | ✅ | ✅ | ✅ | Complete |

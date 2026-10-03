@@ -5,8 +5,8 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 
 /**
  * Alle hovedkategorier i samme rækkefølge som webbens kategorimenu
- * (templates/base.html). Bruges af Kategorier-oversigten (CategoriesScreen),
- * som forsidens "Kategorier"-knap åbner. Før 03-10-2026 lå de som en vandret
+ * (templates/base.html). Bruges af kategorimenuen (components/CategoriesDrawer),
+ * som forsidens "Kategorier"-knap åbner fra venstre. Før 03-10-2026 lå de som en vandret
  * chip-bjælke på forsiden, hvor man skulle swipe for at se de sidste.
  *
  * slug 'sale' er Ugens Tilbud (egen skærm, ikke /api/category/<slug>).
