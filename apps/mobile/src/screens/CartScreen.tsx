@@ -270,7 +270,8 @@ export function CartScreen() {
           >
             <View style={styles.menuItemRow}>
               <Text style={{ color: colors.text }}>
-                Mine lister{savedLists.length ? ` (${savedLists.length})` : ''}
+                {active ? 'Gruppens lister' : 'Mine lister'}
+                {savedLists.length ? ` (${savedLists.length})` : ''}
               </Text>
               {!user ? <Text style={styles.lockIcon}>🔒</Text> : null}
             </View>
@@ -492,7 +493,16 @@ export function CartScreen() {
       <Modal visible={listsOpen} transparent animationType="fade" onRequestClose={() => setListsOpen(false)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
-            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 4 }}>
+            <Text
+              style={{
+                color: colors.text,
+                fontWeight: '700',
+                fontSize: 16,
+                marginBottom: 4,
+                // Tom tilstand er centreret; overskriften følger med.
+                textAlign: savedLists.length ? 'left' : 'center',
+              }}
+            >
               {active ? 'Gruppens lister' : 'Mine lister'}
             </Text>
             {savedLists.length ? (
