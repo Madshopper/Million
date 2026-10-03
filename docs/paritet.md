@@ -105,7 +105,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Feedback / meld fejl | ✅ | ✅ | ✅ `/api/feedback` | ❌ | Complete |
 | Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren). Usynlig for alle andre end admins (almindelig 404; adgang tjekkes på serveren via HttpOnly-cookien `ms_session` fra `/api/session`). Eget layout med sidemenu; CSS/JS ligger i `templates/admin/` og indlejres, så intet admin-indhold er en offentlig fil. Brugere-sektionen godkender/fjerner adgang til det private site via `admin_list_users`/`admin_set_approved` (falder tilbage til nyeste brugere, hvis RPC'erne mangler). Kørselshistorik fra GitHub Actions gemt i Supabase `job_runs` (`scripts/sync-job-runs.py` i security-monitor) |
 | Vilkår / privatliv / om os | ✅ | ✅ | – | – | Complete |
-| Opskrifter (bag gate) | ✅ flag | ✅ flag | ✅ | ❌ | Gated - kun med `RECIPES_ENABLED=1` / `EXPO_PUBLIC_RECIPES_ENABLED=1` *(fra som standard i alle miljøer, 02-10-2026)* |
+| Opskrifter (bag gate) | ✅ flag | ✅ flag | ✅ | ❌ | Gated - kun med `RECIPES_ENABLED=1` / `EXPO_PUBLIC_RECIPES_ENABLED=1` *(fra som standard; slået til på staging/dev.madshopper.dk via `build-pages.sh` 03-10-2026, aldrig i produktion)* |
 | Forsidens opskrift-teaser | ✅ ikke-klikbar "Kommer snart" | ✅ ikke-klikbar "Kommer snart" | ✅ `recipes_clickable` | ❌ | Begge viser teaseren altid; kortene er kun klikbare med `RECIPES_ENABLED=1` (app: også `EXPO_PUBLIC_RECIPES_ENABLED=1`) *(tilbage på web og app 02-10-2026)* |
 | Cookie-samtykke (Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Analytics (GA4 via Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |

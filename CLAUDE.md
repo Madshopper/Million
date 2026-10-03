@@ -64,6 +64,8 @@ Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `u
 | Staging | `main` (automatisk) + manuel deploy af vilkårlig branch | dev.madshopper.dk | læser prod-data, skriver til `*_dev`, egen KV + D1 |
 | Lokal | - | localhost:5001 (`python app.py`) | læser prod-data, skriver til `*_dev` |
 
+**Alt er slået til på staging.** En feature der er skjult bag et flag i produktion, skal være slået til på dev.madshopper.dk (sæt flaget i staging-grenen af `scripts/build-pages.sh`, fx `RECIPES_ENABLED`). Staging er låst for alle andre end godkendte (`_staging_blocked()` i `src/worker.py`, 404 til alle andre), og det skal den blive ved med.
+
 Der er ingen `dev`-branch (fjernet 02-10-2026). Arbejde laves på en feature-branch med PR direkte til `main`; merge til `main` → `deploy-edge.yml` (produktion) og `deploy-edge-dev.yml` (staging) samtidig. En PR-branch kan afprøves på staging før merge ved at køre `deploy-edge-dev.yml` manuelt på den; næste push til `main` skriver staging tilbage. Begge kører Playwright-røgtest bagefter. Fuld workflow: `docs/Dev.md`.
 
 Produktion er ramt af et reelt nedbrud 2026-07-19 (1101/1102 CPU-fejl ved samtidige cold renders efter nightly reseed). Derfor: Workers-observability er **permanent slået fra** i `scripts/build-pages.sh` (dens introspektion var selve årsagen), edge-cachen er versioneret via `cache_version`, og sikkerhedslogningen i `src/worker.py` aggregeres i hukommelsen og skylles højst 1×/minut pr. isolate. Lav aldrig noget der logger pr. request.
