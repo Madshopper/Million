@@ -40,6 +40,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Fritekstsøgning | ✅ | ✅ | ✅ `/api/search` | ✅ | Complete |
 | Autocomplete (debounced) | ✅ | ✅ | ✅ `/api/autocomplete` | ✅ | Complete |
 | Stavekorrektion ("mlæk" → "mælk") | ✅ | ✅ | ✅ | ✅ | Complete |
+| Varer vist før man skriver (app: "Populære varer" fra `/api/home`, edge-cachet) | ➖ | ✅ | ✅ `/api/home` | ➖ | App-only |
 | Sortering (5 typer, inkl. kg-pris) | ✅ | ✅ | ✅ | ✅ | Complete |
 | Prisinterval min/max | ✅ | ✅ | ✅ | ✅ | Complete |
 | Filtre: tilbud / øko / laktosefri | ✅ | ✅ | ✅ | ✅ | Complete |
