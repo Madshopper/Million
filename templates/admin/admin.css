@@ -119,3 +119,11 @@
   .adm-who, .adm-backlink, .adm-wf-file { display: none; }
   .adm { padding: 20px 16px 48px; }
 }
+
+/* Trafik: besøg pr. dag som vandrette søjler */
+.adm-bars { display: grid; gap: 6px; }
+.adm-bar-row { display: grid; grid-template-columns: 110px 1fr 56px; align-items: center; gap: 10px; font-size: .85rem; }
+.adm-bar-label { color: var(--gray-500); white-space: nowrap; }
+.adm-bar { height: 10px; border-radius: 5px; background: var(--gray-200); overflow: hidden; }
+.adm-bar > span { display: block; height: 100%; border-radius: 5px; background: var(--green); }
+.adm-bar-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }

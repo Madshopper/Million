@@ -3416,6 +3416,124 @@ def _admin_d1_budget() -> dict:
     }
 
 
+# Cloudflare Web Analytics (cookiefri besøgsstatistik, som zonen selv
+# indsætter - se script-src i CSP'en). Site-tagget er offentligt: det står i
+# beaconens data-attribut på hver side.
+_CF_WEB_ANALYTICS_SITE_TAG = os.environ.get('CF_WEB_ANALYTICS_SITE_TAG') or 'cea571a2d49c4915b43feffe6e773784'
+_CF_WORKER_SCRIPT = 'madshopper'
+
+_ADMIN_TRAFFIC_QUERY = """
+query($a:String!,$s:String!,$t:Time!,$d:Date!,$w:String!){viewer{accounts(filter:{accountTag:$a}){
+ days:rumPageloadEventsAdaptiveGroups(limit:10,filter:$f,orderBy:[date_ASC]){count sum{visits} dimensions{date}}
+ pages:rumPageloadEventsAdaptiveGroups(limit:10,filter:$f,orderBy:[count_DESC]){count dimensions{requestPath}}
+ countries:rumPageloadEventsAdaptiveGroups(limit:8,filter:$f,orderBy:[count_DESC]){count dimensions{countryName}}
+ devices:rumPageloadEventsAdaptiveGroups(limit:5,filter:$f,orderBy:[count_DESC]){count dimensions{deviceType}}
+ referers:rumPageloadEventsAdaptiveGroups(limit:8,filter:$f,orderBy:[count_DESC]){count dimensions{refererHost}}
+ browsers:rumPageloadEventsAdaptiveGroups(limit:6,filter:$f,orderBy:[count_DESC]){count dimensions{userAgentBrowser}}
+ vitals:rumWebVitalsEventsAdaptiveGroups(limit:1,filter:$f){count quantiles{largestContentfulPaintP75 interactionToNextPaintP75 cumulativeLayoutShiftP75}}
+ worker:workersInvocationsAdaptive(limit:50,filter:{scriptName:$w,date_geq:$d}){sum{requests errors} quantiles{cpuTimeP50 cpuTimeP99} dimensions{status}}
+}}}
+"""
+
+
+def _cf_graphql(query: str, variables: dict):
+    """Cloudflares GraphQL-analytics med læsetokenen CF_ANALYTICS_TOKEN.
+    Returnerer (konto-objektet, None) eller (None, 'not_configured'|'error')."""
+    token = os.environ.get('CF_ANALYTICS_TOKEN')
+    account = os.environ.get('CLOUDFLARE_ACCOUNT_ID')
+    if not token or not account:
+        return None, 'not_configured'
+    url = 'https://api.cloudflare.com/client/v4/graphql'
+    headers = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+    body = json.dumps({'query': query, 'variables': {'a': account, **variables}})
+    try:
+        if _IS_EDGE:
+            data, _status = _edge_fetch(url, method='POST', headers=headers, body=body)
+        else:
+            import httpx
+            data = httpx.post(url, headers=headers, content=body, timeout=8.0).json()
+        return data['data']['viewer']['accounts'][0], None
+    except Exception as e:
+        logger.warning('Admin: Cloudflare-analytics fejlede: %s', type(e).__name__)
+        return None, 'error'
+
+
+def _admin_traffic() -> dict:
+    """Besøg fra Cloudflare Web Analytics (7 dage) + workerens sundhed i dag.
+    Headless-browsere (vores egne Playwright-tests) tælles ikke med."""
+    now = datetime.utcnow()
+    since = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+    rum_filter = ('{siteTag:$s,datetime_geq:$t,userAgentBrowser_neq:"ChromeHeadless",'
+                  'bot:0}')
+    query = _ADMIN_TRAFFIC_QUERY.replace('filter:$f', 'filter:' + rum_filter)
+    acc, err = _cf_graphql(query, {
+        's': _CF_WEB_ANALYTICS_SITE_TAG,
+        't': since.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'd': now.date().isoformat(),
+        'w': _CF_WORKER_SCRIPT,
+    })
+    if err:
+        return {'configured': err != 'not_configured', 'error': err == 'error'}
+
+    def top(key, dim):
+        return [{'name': (g.get('dimensions') or {}).get(dim) or '', 'count': int(g.get('count') or 0)}
+                for g in acc.get(key) or []]
+
+    days = [{'date': (g.get('dimensions') or {}).get('date'),
+             'pageviews': int(g.get('count') or 0),
+             'visits': int((g.get('sum') or {}).get('visits') or 0)} for g in acc.get('days') or []]
+    vit = (acc.get('vitals') or [{}])[0] if acc.get('vitals') else {}
+    q = vit.get('quantiles') or {}
+    worker = {'requests': 0, 'errors': 0, 'by_status': {}, 'cpu_p50_ms': None, 'cpu_p99_ms': None}
+    for g in acc.get('worker') or []:
+        n = int((g.get('sum') or {}).get('requests') or 0)
+        status = (g.get('dimensions') or {}).get('status') or 'ukendt'
+        worker['requests'] += n
+        worker['errors'] += int((g.get('sum') or {}).get('errors') or 0)
+        worker['by_status'][status] = worker['by_status'].get(status, 0) + n
+        if status == 'success':
+            gq = g.get('quantiles') or {}
+            # cpuTime er i mikrosekunder.
+            if gq.get('cpuTimeP50') is not None:
+                worker['cpu_p50_ms'] = round(gq['cpuTimeP50'] / 1000, 1)
+            if gq.get('cpuTimeP99') is not None:
+                worker['cpu_p99_ms'] = round(gq['cpuTimeP99'] / 1000, 1)
+
+    def us_to_ms(v):
+        return round(v / 1000) if isinstance(v, (int, float)) and v >= 0 else None
+
+    return {
+        'configured': True,
+        'today': now.date().isoformat(),
+        'days': days,
+        'pages': top('pages', 'requestPath'),
+        'countries': top('countries', 'countryName'),
+        'devices': top('devices', 'deviceType'),
+        'referers': top('referers', 'refererHost'),
+        'browsers': top('browsers', 'userAgentBrowser'),
+        'vitals': {
+            'samples': int(vit.get('count') or 0),
+            'lcp_ms': us_to_ms(q.get('largestContentfulPaintP75')),
+            'inp_ms': us_to_ms(q.get('interactionToNextPaintP75')),
+            'cls': (q['cumulativeLayoutShiftP75']
+                    if isinstance(q.get('cumulativeLayoutShiftP75'), (int, float))
+                    and q['cumulativeLayoutShiftP75'] >= 0 else None),
+        },
+        'worker': worker,
+    }
+
+
+@app.route('/api/admin/traffic', methods=['GET', 'POST'])
+@rate_limit(api_limiter)
+def admin_traffic():
+    """Samme adgangsregler som /api/admin/edge: POST, kun admins, ellers 404."""
+    if request.method != 'POST' or not _admin_request_ok():
+        abort(404)
+    resp = jsonify({'success': True, 'traffic': _admin_traffic()})
+    resp.headers.update(_ADMIN_HEADERS)
+    return resp
+
+
 @app.route('/api/admin/edge', methods=['GET', 'POST'])
 @rate_limit(api_limiter)
 def admin_edge():
