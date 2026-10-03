@@ -1584,9 +1584,87 @@ _FEATURES = (
              'desc': 'Kører hver morgen og tjekker nye opskrifter fra brugerne.'},
             {'kind': 'app', 'name': 'Opskrifter i appen',
              'desc': 'Fanen og opskrifterne i iPhone- og Android-appen.'},
+            {'kind': 'idea', 'name': 'Gem opskrifter',
+             'desc': 'Gemte opskrifter under "Mine opskrifter" / "Favorit opskrifter".'},
+            {'kind': 'idea', 'name': 'Mit køleskab',
+             'desc': 'Forslag til opskrifter ud fra det man har i køleskabet.'},
+            {'kind': 'idea', 'name': 'Aftensmad fra tilbud',
+             'desc': 'Forslag til aftensmad ud fra ugens tilbudsvarer.'},
         ),
     },
 )
+
+# Projekter der ikke er færdige, men ikke har en knap (fx appen i butikkerne).
+# Vises i samme panel, så der er ét overblik over alt der er i gang. Holdes
+# opdateret i koden, når et skridt bliver færdigt. "Marker som færdig" i
+# panelet gemmes i _PROJECTS_KV_KEY (ikke features_v1, så det ikke skifter
+# edge-cache-nøglen) og fjerner projektet fra panelet.
+# status: 'waiting' (venter på Kalle), 'doing' (i gang), 'idea' (ikke startet).
+_PROJECTS = (
+    {
+        'key': 'app_store',
+        'name': 'Appen i App Store og Google Play',
+        'status': 'waiting',
+        'desc': 'Appen er bygget og testet i simulatoren. Den mangler de '
+                'konti og trin, kun du kan klare, før den kan udgives.',
+        'parts': (
+            {'done': True, 'name': 'Appen bygget',
+             'desc': 'Alle skærme, login, kurv, lister og prisalarmer.'},
+            {'done': True, 'name': 'Klar til Apples godkendelse',
+             'desc': 'Slet konto i appen, skærmbilleder til iPhone og app-tekster.'},
+            {'done': False, 'name': 'Apple Developer-konto',
+             'desc': 'Koster ca. 99 USD om året. Giver også Apple-login på hjemmesiden.'},
+            {'done': False, 'name': 'Google Play-konto',
+             'desc': 'Koster ca. 25 USD én gang.'},
+            {'done': False, 'name': 'Første rigtige test på en telefon',
+             'desc': 'Google- og Apple-login er kun prøvet i simulatoren.'},
+            {'done': False, 'name': 'Skærmbilleder til Android',
+             'desc': 'Kræver en Android-telefon eller -simulator.'},
+            {'done': False, 'name': 'Send til godkendelse',
+             'desc': 'Udfyld oplysningerne i App Store Connect og Play Console og indsend.'},
+        ),
+    },
+    {
+        'key': 'app_a11y',
+        'name': 'Appen for svagtseende',
+        'status': 'doing',
+        'desc': 'Appen skal kunne bruges med VoiceOver og skærmlæser.',
+        'parts': (
+            {'done': True, 'name': 'Knapper med ikoner har navne',
+             'desc': 'Skærmlæseren kan læse ikon-knapperne op.'},
+            {'done': False, 'name': 'Resten af skærmene',
+             'desc': 'De fleste skærme mangler stadig beskrivelser til skærmlæseren.'},
+            {'done': False, 'name': 'Gennemgang med VoiceOver',
+             'desc': 'Hele appen prøvet af med skærmlæser på en iPhone.'},
+        ),
+    },
+    {
+        'key': 'app_crash_reports',
+        'name': 'Fejlrapporter fra appen',
+        'status': 'idea',
+        'desc': 'Når appen går ned hos en bruger, ser vi det i dag kun i '
+                'Apples egne rapporter. Kræver valg af en gratis tjeneste.',
+        'parts': (),
+    },
+    {
+        'key': 'tests',
+        'name': 'Flere automatiske tests',
+        'status': 'idea',
+        'desc': 'Login, delt kurv, gemte lister og prisalarmer testes ikke '
+                'automatisk i dag, hverken på hjemmesiden eller i appen.',
+        'parts': (),
+    },
+    {
+        'key': 'push',
+        'name': 'Beskeder på telefonen',
+        'status': 'idea',
+        'desc': 'Prisalarmer som besked på telefonen i stedet for mail. '
+                'Skal bygges på serveren, hjemmesiden og i appen på én gang.',
+        'parts': (),
+    },
+)
+_PROJECT_KEYS = {p['key']: p for p in _PROJECTS}
+_PROJECTS_KV_KEY = 'projects_v1'
 _FEATURE_KEYS = {f['key']: f for f in _FEATURES}
 _FEATURES_KV_KEY = 'features_v1'
 # Samme levetid som workerens cache_version-memo (src/worker.py).
@@ -3751,6 +3829,25 @@ def admin_features():
             return resp, 503
     body = request.get_json(silent=True) or {}
     key = body.get('key')
+    if key is not None and key in _PROJECT_KEYS:
+        # Projekt markeret som færdigt: forsvinder fra panelet.
+        if body.get('done') is not True:
+            abort(400)
+        if not kv:
+            resp = jsonify(success=False, error='Kan kun ændres på madshopper.dk/admin.')
+            resp.headers.update(_ADMIN_HEADERS)
+            return resp, 409
+        try:
+            done = _parse_features(_sync_bridge_call(kv.get_text(_PROJECTS_KV_KEY)))
+            done = {k: v for k, v in done.items() if k in _PROJECT_KEYS}
+            done[key] = datetime.now(timezone.utc).isoformat(timespec='seconds')
+            _sync_bridge_call(kv.put(_PROJECTS_KV_KEY, json.dumps(done, separators=(',', ':'))))
+        except Exception as e:
+            logger.warning("KV %s failed: %s", _PROJECTS_KV_KEY, e)
+            resp = jsonify(success=False, error='Valget blev ikke gemt. Prøv igen.')
+            resp.headers.update(_ADMIN_HEADERS)
+            return resp, 503
+        key = None
     if key is not None:
         permanent = body.get('permanent') is True
         if key not in _FEATURE_KEYS or (not permanent and not isinstance(body.get('on'), bool)):
@@ -3782,8 +3879,16 @@ def admin_features():
             resp = jsonify(success=False, error='Valget blev ikke gemt. Prøv igen.')
             resp.headers.update(_ADMIN_HEADERS)
             return resp, 503
+    projects_done = {}
+    if kv:
+        try:
+            projects_done = _parse_features(_sync_bridge_call(kv.get_text(_PROJECTS_KV_KEY)))
+        except Exception as e:
+            logger.warning("KV get %s failed: %s", _PROJECTS_KV_KEY, e)
     resp = jsonify({'success': True, 'editable': editable,
-                    'features': _admin_features_list(flags)})
+                    'features': _admin_features_list(flags),
+                    'projects': [dict(p, parts=list(p['parts'])) for p in _PROJECTS
+                                 if not projects_done.get(p['key'])]})
     resp.headers.update(_ADMIN_HEADERS)
     return resp
 
