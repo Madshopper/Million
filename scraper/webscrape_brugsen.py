@@ -1,35 +1,36 @@
+"""
+Brugsen tilbudsavis via Tjek/ShopGun (dealer d311fg).
+
+Coop viser avisen på brugsen.coop.dk/avis/ som en Tjek-widget, der bygges i
+browseren. Den gamle Selenium-scraper ledte efter div[data-role='offer'] i
+avis-siden; den markup forsvandt i juli 2026, og scraperen fandt derefter 0
+tilbud hver nat uden at fejle, så Brugsens priser stod stille i månedsvis.
+Tjeks API giver de samme tilbud struktureret (pris, førpris, multikøb,
+billede) og kræver ingen browser - samme vej som Netto, Føtex, Lidl m.fl.
+"""
 import os
 import sys
-import time
 
-_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scraper_utils import create_driver, scroll_page, JS_EXTRACT, process_items
-from supabase_utils import save_to_supabase
+from supabase_utils import save_product_dicts
+from tjek_tilbud_scraper import fetch_tjek_tilbud
 
-
-def scrape_brugsen():
-    url = "https://brugsen.coop.dk/avis/"
-    driver = create_driver()
-    print(f"  -> Henter tilbudsavis fra {url}")
-    try:
-        driver.get(url)
-        time.sleep(3)
-        scroll_page(driver)
-        cards_data = driver.execute_script(JS_EXTRACT)
-        if not cards_data:
-            print("  ! Ingen tilbud fundet.")
-            return []
-        print(f"    Fandt {len(cards_data)} tilbud.")
-        return process_items(cards_data)
-    finally:
-        driver.quit()
+DEALER_ID = "d311fg"
+BUTIK = "Brugsen"
 
 
 def main():
-    print("Starter scraping af Brugsen tilbudsavis...")
-    results = scrape_brugsen()
-    save_to_supabase(results, "Brugsen", row_type="simple")
+    print("Starter Brugsen scraper (Tjek API)...")
+    # dedupe_by_heading: samme vare kan stå både i ugeavisen og i fx
+    # "Søndag & mandag"-indstikket; to rækker med samme navn i én butik
+    # forvirrer matchingen. fetch_tjek_tilbud raiser selv, hvis der ingen
+    # aktive aviser er, eller en avis der påstår at have tilbud giver nul.
+    rows = fetch_tjek_tilbud(DEALER_ID, BUTIK, dedupe_by_heading=True)
+    # min_ratio=None: antallet af aktive aviser svinger legitimt; sundheds-
+    # kontrollen ligger pr. avis i fetch_tjek_tilbud (se dens docstring).
+    # save_product_dicts raiser på 0 rækker, så en tom kørsel bliver rød.
+    save_product_dicts(BUTIK, rows, min_ratio=None)
+    print("\nFærdig!")
 
 
 if __name__ == "__main__":
