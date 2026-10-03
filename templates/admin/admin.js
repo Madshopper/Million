@@ -502,7 +502,7 @@
     if (!tr || !tr.configured || tr.error) {
       var msg = !tr ? 'Trafikdata kunne ikke hentes.'
         : tr.error ? 'Cloudflare-analytics svarede ikke. Prøv at opdatere.'
-        : 'Kræver Cloudflare-nøglen CF_ANALYTICS_TOKEN (se Drift).';
+        : 'Serveren kan ikke se ' + ((tr.missing && tr.missing.length) ? tr.missing.join(' og ') : 'Cloudflare-nøglen') + '.';
       fill('admin-traffic-days', empty(msg));
       ['pages', 'referers', 'devices', 'countries', 'browsers', 'worker'].forEach(function (k) {
         fill('admin-traffic-' + k, empty('-'));

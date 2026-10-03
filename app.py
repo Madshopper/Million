@@ -3373,11 +3373,32 @@ def _admin_request_ok() -> bool:
     return bool(m) and _is_admin_token(m.group(1))
 
 
+def _edge_var(name: str):
+    """os.environ, og på edge direkte fra env-objektet som reserve. Sync'en i
+    _sync_edge_env sker kun én gang pr. isolate; målt 03-10-2026 manglede
+    CF_ANALYTICS_TOKEN i os.environ i produktion, selvom var'en lå på workeren."""
+    value = os.environ.get(name)
+    if value or not _IS_EDGE:
+        return value
+    try:
+        from edgekit.runtime import current_env
+        raw = getattr(current_env(), name, None)
+    except Exception:
+        return None
+    if raw is None:
+        return None
+    value = str(raw)
+    if value and value != 'undefined':
+        os.environ[name] = value
+        return value
+    return None
+
+
 def _admin_d1_budget() -> dict:
     """Dagens rows_written/rows_read for hele kontoen (UTC-døgn) fra Cloudflares
     GraphQL-analytics. Kræver en læsetoken som secret CF_ANALYTICS_TOKEN."""
-    token = os.environ.get('CF_ANALYTICS_TOKEN')
-    account = os.environ.get('CLOUDFLARE_ACCOUNT_ID')
+    token = _edge_var('CF_ANALYTICS_TOKEN')
+    account = _edge_var('CLOUDFLARE_ACCOUNT_ID')
     if not token or not account:
         return {'configured': False}
     day = datetime.utcnow().date().isoformat()
@@ -3439,8 +3460,8 @@ query($a:String!,$s:String!,$t:Time!,$d:Date!,$w:String!){viewer{accounts(filter
 def _cf_graphql(query: str, variables: dict):
     """Cloudflares GraphQL-analytics med læsetokenen CF_ANALYTICS_TOKEN.
     Returnerer (konto-objektet, None) eller (None, 'not_configured'|'error')."""
-    token = os.environ.get('CF_ANALYTICS_TOKEN')
-    account = os.environ.get('CLOUDFLARE_ACCOUNT_ID')
+    token = _edge_var('CF_ANALYTICS_TOKEN')
+    account = _edge_var('CLOUDFLARE_ACCOUNT_ID')
     if not token or not account:
         return None, 'not_configured'
     url = 'https://api.cloudflare.com/client/v4/graphql'
@@ -3473,7 +3494,12 @@ def _admin_traffic() -> dict:
         'w': _CF_WORKER_SCRIPT,
     })
     if err:
-        return {'configured': err != 'not_configured', 'error': err == 'error'}
+        out = {'configured': err != 'not_configured', 'error': err == 'error'}
+        if err == 'not_configured':
+            # Kun navnene - aldrig værdierne. Gør fejlsøgning mulig uden logs.
+            out['missing'] = [n for n in ('CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID')
+                              if not _edge_var(n)]
+        return out
 
     def top(key, dim):
         return [{'name': (g.get('dimensions') or {}).get(dim) or '', 'count': int(g.get('count') or 0)}
