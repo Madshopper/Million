@@ -30,6 +30,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Produktkort: mærke/navn/pris/tilbudsbadge | ✅ | ✅ | ✅ | ✅ | Complete |
 | Produktkort: vægt, "X stk", **kg-pris** | ✅ | ✅ | ✅ | ✅ | Complete *(app fik dem 19-08-2026)* |
 | "Kun hos <butik>"-badge | ✅ | ✅ | ✅ | ✅ | Complete |
+| Farver: tilbudspris gul (ikke rød), neutral butiksbadge, fast farve pr. butik i kurven | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; `theme/storeColors.ts` = `STORE_COLORS` i script.js)* |
 | Tom-tilstand ("ingen varer matcher") | ✅ | ✅ | – | ✅ | Complete |
 | Fejltilstand + "Prøv igen" | ✅ | ✅ | – | ⚠️ | Complete |
 

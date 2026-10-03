@@ -190,7 +190,7 @@ export function HomeScreen() {
           if (item.kind === 'hero') {
             return (
               <View style={styles.hero}>
-                <Text style={[styles.brand, { color: colors.primary }]}>MadShopper</Text>
+                <Text style={[styles.brand, { color: colors.text }]}>MadShopper</Text>
               </View>
             );
           }
@@ -276,7 +276,7 @@ export function HomeScreen() {
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>Lækre opskrifter</Text>
                   {recipesClickable ? (
                     <Pressable onPress={() => navigation.navigate('Tabs', { screen: 'Recipes' })}>
-                      <Text style={{ color: colors.primary }}>Vis alle</Text>
+                      <Text style={{ color: colors.text, fontWeight: '600' }}>Vis alle</Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -302,7 +302,7 @@ export function HomeScreen() {
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>{section.title}</Text>
                 {section.href === '/ugens_tilbud' ? (
                   <Pressable onPress={() => navigation.navigate('Sale')}>
-                    <Text style={{ color: colors.primary }}>Vis alle</Text>
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>Vis alle</Text>
                   </Pressable>
                 ) : section.href ? (
                   <Pressable
@@ -313,7 +313,7 @@ export function HomeScreen() {
                       })
                     }
                   >
-                    <Text style={{ color: colors.primary }}>Vis alle</Text>
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>Vis alle</Text>
                   </Pressable>
                 ) : null}
               </View>
