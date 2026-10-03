@@ -133,6 +133,7 @@
   }
 
   function edge(token) { return post('/api/admin/edge', token); }
+  function traffic(token) { return post('/api/admin/traffic', token); }
 
   /* ---------------------------------------------------------------- render */
   function renderTiles(ov, ed) {
@@ -227,7 +228,7 @@
   }
 
   /* ----------------------------------------------------------- navigation */
-  var SECTIONS = ['oversigt', 'feedback', 'scraping', 'korsler', 'opskrifter', 'brugere', 'drift'];
+  var SECTIONS = ['oversigt', 'trafik', 'feedback', 'scraping', 'korsler', 'opskrifter', 'brugere', 'drift'];
 
   function showSection() {
     var name = (location.hash || '').replace('#', '');
@@ -480,6 +481,93 @@
     fill('admin-edge', table(['', ''], rows, [1]));
   }
 
+  /* ---------------------------------------------------------------- trafik */
+  var DEVICE_NAMES = { desktop: 'Computer', mobile: 'Mobil', tablet: 'Tablet' };
+
+  function shareRows(list, nameFn) {
+    var total = list.reduce(function (a, x) { return a + x.count; }, 0) || 1;
+    return list.map(function (x) {
+      return [nameFn ? nameFn(x.name) : (x.name || '-'), nf(x.count), Math.round(x.count * 100 / total) + ' %'];
+    });
+  }
+
+  function vitalRating(ms, good, poor) {
+    if (ms == null) return null;
+    return ms <= good ? 'god' : ms <= poor ? 'kan forbedres' : 'langsom';
+  }
+
+  function renderTraffic(tr) {
+    var tiles = $('admin-traffic-tiles');
+    tiles.textContent = '';
+    if (!tr || !tr.configured || tr.error) {
+      var msg = !tr ? 'Trafikdata kunne ikke hentes.'
+        : tr.error ? 'Cloudflare-analytics svarede ikke. Prøv at opdatere.'
+        : 'Kræver Cloudflare-nøglen CF_ANALYTICS_TOKEN (se Drift).';
+      fill('admin-traffic-days', empty(msg));
+      ['pages', 'referers', 'devices', 'countries', 'browsers', 'worker'].forEach(function (k) {
+        fill('admin-traffic-' + k, empty('-'));
+      });
+      return;
+    }
+    var days = tr.days || [];
+    var today = days.filter(function (d) { return d.date === tr.today; })[0] || { visits: 0, pageviews: 0 };
+    var visits7 = days.reduce(function (a, d) { return a + d.visits; }, 0);
+    var views7 = days.reduce(function (a, d) { return a + d.pageviews; }, 0);
+    tiles.appendChild(tile('Besøg i dag', nf(today.visits), nf(today.pageviews) + ' sidevisninger'));
+    tiles.appendChild(tile('Besøg 7 dage', nf(visits7), nf(views7) + ' sidevisninger'));
+    tiles.appendChild(tile('Sider pr. besøg', visits7 ? (views7 / visits7).toFixed(1).replace('.', ',') : '-', 'gennemsnit, 7 dage'));
+    var v = tr.vitals || {};
+    var lcpRating = vitalRating(v.lcp_ms, 2500, 4000);
+    tiles.appendChild(tile('Indlæsningstid', v.lcp_ms != null ? (v.lcp_ms / 1000).toFixed(1).replace('.', ',') + ' s' : '-',
+      lcpRating ? lcpRating + ' (3 af 4 besøg er hurtigere)' : 'ingen målinger endnu'));
+
+    var max = days.reduce(function (a, d) { return Math.max(a, d.visits); }, 0) || 1;
+    fill('admin-traffic-days', days.length ? el('div', { class: 'adm-bars' }, days.map(function (d) {
+      return el('div', { class: 'adm-bar-row' }, [
+        el('span', { class: 'adm-bar-label', text: new Date(d.date + 'T12:00:00Z').toLocaleDateString('da-DK', { weekday: 'short', day: 'numeric', month: 'short' }) }),
+        el('span', { class: 'adm-bar' }, [el('span', { style: 'width:' + Math.max(1, d.visits * 100 / max).toFixed(1) + '%' })]),
+        el('span', { class: 'adm-bar-value', text: nf(d.visits) })
+      ]);
+    })) : empty('Ingen besøg målt endnu.'));
+
+    function list(id, rows, head, nameFn) {
+      fill(id, rows && rows.length ? table(head, shareRows(rows, nameFn), [1, 2]) : empty('Ingen data endnu.'));
+    }
+    list('admin-traffic-pages', tr.pages, ['Side', 'Visninger', 'Andel']);
+    list('admin-traffic-referers', tr.referers, ['Kilde', 'Visninger', 'Andel'], function (n) { return n || 'Direkte / ukendt'; });
+    list('admin-traffic-devices', tr.devices, ['Enhed', 'Visninger', 'Andel'], function (n) { return DEVICE_NAMES[n] || n || '-'; });
+    var regionNames = null;
+    try { regionNames = new Intl.DisplayNames(['da'], { type: 'region' }); } catch (_) {}
+    list('admin-traffic-countries', tr.countries, ['Land', 'Visninger', 'Andel'], function (n) {
+      try { return (regionNames && n && regionNames.of(n)) || n || '-'; } catch (_) { return n || '-'; }
+    });
+    list('admin-traffic-browsers', tr.browsers, ['Browser', 'Visninger', 'Andel']);
+
+    var w = tr.worker || {};
+    var bs = w.by_status || {};
+    var failed = Object.keys(bs).filter(function (k) { return k !== 'success' && k !== 'clientDisconnected'; })
+      .reduce(function (a, k) { return a + bs[k]; }, 0);
+    var rows = [
+      ['Forespørgsler i dag', nf(w.requests)],
+      ['Fejlede (fx CPU-grænse)', failed ? pill('bad', nf(failed)) : nf(0)],
+      ['Afbrudt af besøgende', nf(bs.clientDisconnected || 0)],
+      ['CPU pr. forespørgsel (typisk)', w.cpu_p50_ms != null ? String(w.cpu_p50_ms).replace('.', ',') + ' ms' : '-'],
+      ['CPU pr. forespørgsel (tungeste 1 %)', w.cpu_p99_ms != null ? String(w.cpu_p99_ms).replace('.', ',') + ' ms' : '-']
+    ];
+    Object.keys(bs).forEach(function (k) {
+      if (k !== 'success' && k !== 'clientDisconnected') rows.push(['  status ' + k, nf(bs[k])]);
+    });
+    fill('admin-traffic-worker', table(['', ''], rows, [1]));
+  }
+
+  // Overblikkets flise - tilføjes efter renderTiles, som tømmer boksen.
+  function renderTrafficTile(tr) {
+    if (!tr || !tr.configured || tr.error) return;
+    var today = (tr.days || []).filter(function (d) { return d.date === tr.today; })[0] || { visits: 0, pageviews: 0 };
+    $('admin-tiles').insertBefore(tile('Besøg i dag', nf(today.visits), nf(today.pageviews) + ' sidevisninger'),
+      $('admin-tiles').firstChild);
+  }
+
   function renderTables(ov) {
     var t = ov.tables || [];
     fill('admin-tables', t.length
@@ -593,7 +681,8 @@
           }),
           rpc('admin_job_runs', { p_days: 14 }).catch(function (e) {
             showError('Kørselshistorikken kunne ikke hentes: ' + (e.message || e)); return null;
-          })
+          }),
+          traffic(session.access_token).then(function (j) { return j.traffic; }).catch(function () { return null; })
         ]).then(function (r) {
           var ov = r[0] || {};
           var ed = r[2];
@@ -614,6 +703,9 @@
           renderEdge(ed);
           renderTables(ov);
           renderUsers(ov);
+          state.traffic = r[5];
+          renderTraffic(r[5]);
+          renderTrafficTile(r[5]);
           $('admin-stamp').textContent = 'Opdateret ' + when(ov.generated_at || new Date().toISOString());
         });
       }, function (e) {

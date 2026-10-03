@@ -53,6 +53,7 @@
       </div>
       <nav class="adm-nav" id="admin-nav">
         <a href="#oversigt" data-section="oversigt">Overblik</a>
+        <a href="#trafik" data-section="trafik">Trafik</a>
         <a href="#feedback" data-section="feedback">Feedback <span class="adm-badge" id="badge-feedback" hidden></span></a>
         <a href="#scraping" data-section="scraping">Scraping <span class="adm-badge" id="badge-scraping" hidden></span></a>
         <a href="#korsler" data-section="korsler">Kørsler <span class="adm-badge" id="badge-korsler" hidden></span></a>
@@ -84,6 +85,20 @@
           <div class="adm-card">
             <h2>Kræver opmærksomhed</h2>
             <div id="admin-attention"></div>
+          </div>
+        </section>
+
+        <section data-section="trafik" hidden>
+          <div class="adm-head"><h1>Trafik</h1><span class="adm-sub">Cloudflare Web Analytics, seneste 7 dage (UTC)</span></div>
+          <div class="adm-tiles" id="admin-traffic-tiles"></div>
+          <div class="adm-card"><h2>Besøg pr. dag</h2><div id="admin-traffic-days"></div></div>
+          <div class="adm-grid">
+            <div class="adm-card"><h2>Mest besøgte sider</h2><div id="admin-traffic-pages"></div></div>
+            <div class="adm-card"><h2>Kommer fra</h2><div id="admin-traffic-referers"></div></div>
+            <div class="adm-card"><h2>Enheder</h2><div id="admin-traffic-devices"></div></div>
+            <div class="adm-card"><h2>Lande</h2><div id="admin-traffic-countries"></div></div>
+            <div class="adm-card"><h2>Browsere</h2><div id="admin-traffic-browsers"></div></div>
+            <div class="adm-card"><h2>Serveren i dag</h2><div id="admin-traffic-worker"></div></div>
           </div>
         </section>
 
