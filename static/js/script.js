@@ -1490,8 +1490,8 @@ function updateCartDisplay() {
                 // Kun butikker der foerer HELE kurven maa sammenlignes. Totaler
                 // paa tvaers af forskellig daekning er ikke sammenlignelige:
                 // banneret lovede 182,40 kr i besparelse, mens selve
-                // sammenligningen (som bruger fullCoveragePriceRange og altsaa
-                // allerede regnede rigtigt) viste 30,40 kr for samme kurv.
+                // sammenligningen (der kun regnede med butikker med hele
+                // kurven) viste 30,40 kr for samme kurv.
                 // Fundet i QA-gennemgangen 27-08-2026.
                 const full = sorted.filter(([name]) => storeCovered[name] === cart.length);
                 if (full.length >= 2) {
@@ -1573,20 +1573,43 @@ function recordCompareEvent(cartProducts) {
     }
 }
 
-/** Billigste/dyreste blandt butikker med fuld kurv-dækning. Null hvis <2. */
-function fullCoveragePriceRange(stores) {
-    if (!stores || !stores.length) return null;
-    const full = stores.filter(s => s.totalItems > 0 && s.coverage === s.totalItems);
-    if (full.length < 2) return null;
-    let cheap = full[0].totalPrice;
-    let expensive = full[0].totalPrice;
-    for (let i = 1; i < full.length; i++) {
-        const p = full[i].totalPrice;
-        if (p < cheap) cheap = p;
-        if (p > expensive) expensive = p;
+/**
+ * Besparelse til "Personlig besparelse": anbefalet butik (sorted[0]) mod den
+ * dyreste anden valgte butik, regnet KUN paa de varer begge butikker har.
+ * Null hvis ingen anden butik er dyrere paa faelles varer.
+ *
+ * Foer kraevede vi at mindst to butikker havde HELE kurven. Det sker naesten
+ * aldrig paa en rigtig kurv, saa record_compare_savings blev aldrig kaldt, og
+ * banneret stod paa 0 kr for alle (maalt 03-10-2026: tabellen var tom, og
+ * ingen kald i Supabase-loggen over tre doegn). App-paritet: sco.ts.
+ */
+function compareSavingsRange(sorted, matchedItemsPerStore) {
+    if (!sorted || sorted.length < 2 || !matchedItemsPerStore) return null;
+    const winnerLines = new Map();
+    (matchedItemsPerStore[sorted[0].name] || []).forEach(m => {
+        winnerLines.set(m.cart_id, m.lineTotal);
+    });
+    let best = null;
+    for (let i = 1; i < sorted.length; i++) {
+        let cheap = 0;
+        let expensive = 0;
+        let shared = 0;
+        (matchedItemsPerStore[sorted[i].name] || []).forEach(m => {
+            const w = winnerLines.get(m.cart_id);
+            if (w == null) return;
+            cheap += w;
+            expensive += m.lineTotal;
+            shared++;
+        });
+        if (!shared || expensive - cheap < 0.01) continue;
+        if (!best || expensive - cheap > best.expensive - best.cheap) {
+            best = {
+                cheap: Math.round(cheap * 100) / 100,
+                expensive: Math.round(expensive * 100) / 100
+            };
+        }
     }
-    if (!(expensive > cheap)) return null;
-    return { cheap: Number(cheap), expensive: Number(expensive) };
+    return best;
 }
 
 // Sidste kurv-sammensaetning vi har optjent besparelse for. Holdes i
@@ -1595,10 +1618,10 @@ function fullCoveragePriceRange(stores) {
 // besoeg.
 let _savingsSignature = null;
 
-function recordPersonalSavings(stores) {
+function recordPersonalSavings(stores, matchedItemsPerStore) {
     try {
         if (!_authUser()) return;
-        const range = fullCoveragePriceRange(stores);
+        const range = compareSavingsRange(stores, matchedItemsPerStore);
         if (!range) return;
         // Kun ÉN gang pr. kurv. Funktionen kaldes ved HVER aabning af
         // sammenligningen og igen hver gang man accepterer et alternativ, saa
@@ -1686,8 +1709,9 @@ function showReference() {
             overlay.style.display = 'flex';
             document.body.style.overflow = 'hidden';
 
-            // Personlig besparelse: dyreste − billigste (fuld dækning), kræver login
-            recordPersonalSavings(sorted);
+            // Personlig besparelse: anbefalet butik mod dyreste anden butik paa
+            // faelles varer (compareSavingsRange), kræver login
+            recordPersonalSavings(sorted, matchedItemsPerStore);
         })
         .catch(error => {
             console.error('Error calculating store comparisons:', error);
@@ -2182,13 +2206,15 @@ async function calculateStoreComparisons() {
             if (selectedStores.has(label) && label in storeCoverage && !Number.isNaN(p)) {
                 storeCoverage[label] += 1;
                 const dealStr = cartItem.storeMultiDeals ? (cartItem.storeMultiDeals[label] || '') : '';
-                storeTotals[label] = (storeTotals[label] || 0) + applyDealPrice(p, quantity, dealStr);
+                const lineTotal = applyDealPrice(p, quantity, dealStr);
+                storeTotals[label] = (storeTotals[label] || 0) + lineTotal;
                 matchedItemsPerStore[label].push({
                     cart_id: cartItem.id,
                     name: stripStoreBrand(cartItem.name || 'Vare'),
                     image: cartItem.image || '',
                     price: p,
-                    quantity: quantity
+                    quantity: quantity,
+                    lineTotal: lineTotal
                 });
             }
         }

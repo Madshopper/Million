@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,14 +13,33 @@ import type { RootStackParamList } from '../navigation/types';
 /**
  * Profil-fanen (erstattede fanen "Indstillinger" 02-10-2026).
  *
- * Alt om brugeren selv: konto, vist navn, hvem man deler kurv med og
- * prisalarmer. Appens indstillinger (tema, standardbutikker, slet konto) er
- * rykket ned bag rækken "Indstillinger", der åbner SettingsScreen i stakken.
+ * Alt om brugeren selv: konto, vist navn, "Fælles kurv" (hvem man deler kurv
+ * med) og prisalarmer. Appens indstillinger (tema, standardbutikker, slet
+ * konto) ligger bag rækken "Indstillinger", der åbner SettingsScreen i
+ * stakken. Feedback har sin egen tydelige række (03-10-2026), så den er let
+ * at finde. Farver: kun knapper og eget avatar er grønne; resten er neutralt.
  */
 export function ProfileScreen() {
   const { colors } = useTheme();
   const { user, displayName, logout, saveDisplayName } = useAuth();
-  const { active, title, members, maxMembers, inviteUrl } = useSharedCart();
+  const { active, title, members, maxMembers, inviteUrl, createShared, leaveShared } = useSharedCart();
+  const [sharing, setSharing] = React.useState(false);
+
+  // Samme standardnavn som kurvens "Del kurv" (CartScreen), så man kan starte
+  // en fælles kurv direkte herfra uden at lede efter "···"-menuen.
+  const onStartShare = React.useCallback(async () => {
+    setSharing(true);
+    const err = await createShared('Fælles kurv');
+    setSharing(false);
+    if (err) Alert.alert('Kunne ikke dele kurven', err);
+  }, [createShared]);
+
+  const confirmLeave = React.useCallback(() => {
+    Alert.alert('Stop deling', 'Du forlader den fælles kurv. Dine varer bliver i din egen kurv.', [
+      { text: 'Annullér', style: 'cancel' },
+      { text: 'Forlad', style: 'destructive', onPress: () => void leaveShared() },
+    ]);
+  }, [leaveShared]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   // Web-paritet (base.html #auth-account-name / auth.js saveDisplayNameFromAccount)
@@ -44,7 +63,6 @@ export function ProfileScreen() {
     setNameMsg(err ? { text: err, error: true } : { text: 'Navnet er gemt.', error: false });
   }, [nameInput, saveDisplayName]);
 
-  const others = members.filter((m) => !m.me);
   const card = { backgroundColor: colors.surface, borderColor: colors.border };
   const shownName = displayName || user?.email || '';
 
@@ -106,30 +124,30 @@ export function ProfileScreen() {
           giver kun mening for en logget ind bruger. */}
       {user ? (
         <>
-          <Text style={[styles.h, { color: colors.text }]}>Deler kurv med</Text>
+          <Text style={[styles.h, { color: colors.text }]}>Fælles kurv</Text>
           <View style={[styles.row, styles.column, card]}>
             {active ? (
               <>
                 <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 8 }}>
                   {title ? `"${title}" · ` : ''}
-                  {members.length}/{maxMembers} medlemmer
+                  {members.length}/{maxMembers} personer deler kurven
                 </Text>
-                {others.length ? (
-                  others.map((m, i) => (
-                    <View key={m.id || `${m.name}-${i}`} style={styles.memberRow}>
-                      <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                        <Text style={styles.avatarText}>{memberInitial(m.name)}</Text>
-                      </View>
-                      <Text style={{ color: colors.text, flex: 1 }} numberOfLines={1}>
-                        {m.name || 'Ukendt'}
-                      </Text>
+                {members.map((m, i) => (
+                  <View key={m.id || `${m.name}-${i}`} style={styles.memberRow}>
+                    <View style={[styles.avatar, { backgroundColor: colors.border }]}>
+                      <Text style={[styles.avatarText, { color: colors.text }]}>{memberInitial(m.name)}</Text>
                     </View>
-                  ))
-                ) : (
-                  <Text style={{ color: colors.text, marginBottom: 4 }}>
-                    Ingen har tilsluttet sig endnu.
+                    <Text style={{ color: colors.text, flex: 1 }} numberOfLines={1}>
+                      {m.name || 'Ukendt'}
+                      {m.me ? <Text style={{ color: colors.textMuted }}> (dig)</Text> : null}
+                    </Text>
+                  </View>
+                ))}
+                {members.length <= 1 ? (
+                  <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
+                    Ingen andre er med endnu. Send en invitation.
                   </Text>
-                )}
+                ) : null}
                 <View style={styles.actions}>
                   {inviteUrl ? (
                     <Pressable onPress={() => void Share.share({ message: inviteUrl })} hitSlop={8}>
@@ -139,17 +157,22 @@ export function ProfileScreen() {
                   <Pressable onPress={() => navigation.navigate('Cart')} hitSlop={8}>
                     <Text style={{ color: colors.primary, fontWeight: '600' }}>Åbn kurven</Text>
                   </Pressable>
+                  <Pressable onPress={confirmLeave} hitSlop={8}>
+                    <Text style={{ color: colors.textMuted, fontWeight: '600' }}>Stop deling</Text>
+                  </Pressable>
                 </View>
               </>
             ) : (
               <>
                 <Text style={{ color: colors.text }}>Du deler ikke din kurv med nogen.</Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                  Del den fra kurven under "···" → "Del kurv".
+                  Del kurven med familien, så I handler ind på den samme liste.
                 </Text>
                 <View style={styles.actions}>
-                  <Pressable onPress={() => navigation.navigate('Cart')} hitSlop={8}>
-                    <Text style={{ color: colors.primary, fontWeight: '600' }}>Gå til kurven</Text>
+                  <Pressable onPress={() => void onStartShare()} disabled={sharing} hitSlop={8}>
+                    <Text style={{ color: colors.primary, fontWeight: '700', opacity: sharing ? 0.5 : 1 }}>
+                      {sharing ? 'Deler…' : 'Del kurv'}
+                    </Text>
                   </Pressable>
                 </View>
               </>
@@ -160,11 +183,26 @@ export function ProfileScreen() {
 
       <PriceAlertsSection />
 
-      <Text style={[styles.h, { color: colors.text }]}>Mere</Text>
+      <Text style={[styles.h, { color: colors.text }]}>Indstillinger og hjælp</Text>
       {(
         [
-          ['Indstillinger', 'settings-outline', () => navigation.navigate('Settings')],
-          ['Send feedback eller meld en fejl', 'chatbubble-outline', () => navigation.navigate('Feedback')],
+          ['Indstillinger', 'Udseende, butikker og slet konto', 'settings-outline', () => navigation.navigate('Settings')],
+          ['Feedback', 'Ris, ros eller en fejl? Skriv til os', 'chatbubble-ellipses-outline', () => navigation.navigate('Feedback')],
+        ] as const
+      ).map(([label, sub, icon, onPress]) => (
+        <Pressable key={label} onPress={onPress} style={[styles.row, card]} accessibilityRole="button">
+          <Ionicons name={icon} size={20} color={colors.text} style={{ marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontWeight: '600' }}>{label}</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12 }}>{sub}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
+      ))}
+
+      <Text style={[styles.h, { color: colors.text }]}>Om MadShopper</Text>
+      {(
+        [
           ['Vilkår', 'document-text-outline', () => navigation.navigate('Legal', { kind: 'terms' })],
           ['Privatliv', 'lock-closed-outline', () => navigation.navigate('Legal', { kind: 'privacy' })],
           ['Om os', 'information-circle-outline', () => navigation.navigate('Legal', { kind: 'about' })],

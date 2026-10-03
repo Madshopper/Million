@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { fetchAutocomplete, fetchSearch } from '../api/listing';
+import { fetchAutocomplete, fetchHome, fetchSearch } from '../api/listing';
 import type { Product } from '../api/types';
 import { FiltersBar, type FiltersValue } from '../components/FiltersBar';
 import { ProductCard } from '../components/ProductCard';
@@ -37,7 +37,7 @@ export function SearchScreen() {
   const { colors } = useTheme();
   // queryLabels: debouncet butiksvalg (se StoreCatalogContext) - ellers ville
   // hvert butikstryk i filter-arket koste baade en autocomplete og en soegning.
-  const { queryLabels, catalog } = useStoreCatalog();
+  const { queryLabels, catalog, ready } = useStoreCatalog();
   const [q, setQ] = useState('');
   // Kun opdateret 500 ms efter brugeren er holdt op med at skrive - selve
   // søgningen (inkl. sideskift) afhænger af DENNE, ikke af q direkte, så et
@@ -55,6 +55,11 @@ export function SearchScreen() {
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState<FiltersValue>(DEFAULT_FILTERS);
+  // Forslag før brugeren har skrevet noget, så skærmen ikke er tom fra start.
+  // Hentes fra /api/home med samme parametre som forsiden (kun butikker), så
+  // det er samme URL og typisk et edge-cache-hit fra KV-puljen home_data_v1 -
+  // ingen D1-søgning og intet ekstra rows_read.
+  const [starter, setStarter] = useState<{ title: string; products: Product[] } | null>(null);
 
   // Delt mellem de to debounce-effects nedenfor, så søge-kaldet kan annullere
   // en ventende/igangværende autocomplete FØR det selv sendes af sted - uden
@@ -144,6 +149,30 @@ export function SearchScreen() {
     setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, queryLabels, catalog]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    void fetchHome({ stores: storesParam(queryLabels, catalog) })
+      .then((data) => {
+        if (cancelled || !data.success) return;
+        // "Populære varer" passer bedst til en søgeskærm; ellers første
+        // sektion med varer (fx "Ugens Tilbud").
+        const withProducts = (data.sections || []).filter((s) => s.products?.length);
+        const first =
+          withProducts.find((s) => s.key === 'Populære varer') || withProducts[0];
+        setStarter(first ? { title: first.title, products: first.products.slice(0, 20) } : null);
+      })
+      .catch(() => {
+        // Forslagene er pynt. Fejler de, viser vi bare hjælpeteksten.
+        if (!cancelled) setStarter(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, queryLabels, catalog]);
+
+  const showStarter = q.trim().length === 0 && !!starter?.products.length;
 
   const load = useCallback(async () => {
     if (!committedQuery) return;
@@ -242,13 +271,23 @@ export function SearchScreen() {
       ) : (
         <FlatList
           style={{ flex: 1 }}
-          data={products}
+          data={showStarter ? starter!.products : products}
           keyExtractor={(p) => p.id}
           numColumns={2}
           columnWrapperStyle={{ paddingHorizontal: 2 }}
           contentContainerStyle={{ padding: 4 }}
           keyboardShouldPersistTaps="handled"
+          // Tastaturet åbner selv (autoFocus) og dækker halvdelen af
+          // forslagene. Et træk i listen lukker det, så varerne kan ses.
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator
+          ListHeaderComponent={
+            showStarter ? (
+              <Text style={[styles.starterTitle, { color: colors.text }]}>
+                {starter!.title}
+              </Text>
+            ) : null
+          }
           renderItem={({ item }) => (
             <ProductCard
               product={item}
@@ -285,7 +324,9 @@ export function SearchScreen() {
             ) : null
           }
           ListFooterComponent={
-            <Pager page={page} totalPages={totalPages} onPage={(p) => setPage(p)} />
+            showStarter ? null : (
+              <Pager page={page} totalPages={totalPages} onPage={(p) => setPage(p)} />
+            )
           }
         />
       )}
@@ -310,6 +351,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ccc',
   },
   meta: { paddingHorizontal: 16, marginBottom: 4 },
+  starterTitle: { fontSize: 17, fontWeight: '700', paddingHorizontal: 8, paddingTop: 4, paddingBottom: 8 },
   pager: {
     flexDirection: 'row',
     justifyContent: 'space-between',
