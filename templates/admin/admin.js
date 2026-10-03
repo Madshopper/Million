@@ -680,14 +680,20 @@
   var PART_KIND = {
     web: ['Hjemmesiden', 'Følger knappen med det samme'],
     job: ['Kørsel', 'Starter og stopper med knappen'],
-    app: ['Appen', 'Kræver en ny app-version']
+    app: ['Appen', 'Kræver en ny app-version'],
+    idea: ['Idé', 'Ikke bygget endnu']
+  };
+  var PROJECT_STATUS = {
+    waiting: ['warn', 'Venter på dig'],
+    doing: ['info', 'I gang'],
+    idea: ['info', 'Ikke startet']
   };
   var featOpen = {};
 
   function partRow(f, p) {
     var kind = PART_KIND[p.kind] || PART_KIND.web;
     var st;
-    if (p.kind === 'app') st = pill('info', kind[1]);
+    if (p.kind === 'app' || p.kind === 'idea') st = pill('info', kind[1]);
     else if (f.forced_here) st = pill('ok', 'Slået til her');
     else st = f.live ? pill('ok', p.kind === 'job' ? 'Kører' : 'Vises') : pill('warn', p.kind === 'job' ? 'Sat på pause' : 'Skjult');
     return el('li', {}, [
@@ -700,12 +706,56 @@
     ]);
   }
 
+  function projectCard(j, pr) {
+    var open = !!featOpen['p:' + pr.key];
+    var parts = pr.parts || [];
+    var doneN = parts.filter(function (x) { return x.done; }).length;
+    var st = PROJECT_STATUS[pr.status] || PROJECT_STATUS.doing;
+    var head = el('button', {
+      type: 'button', class: 'adm-feat-head', 'aria-expanded': String(open),
+      onclick: function () { featOpen['p:' + pr.key] = !open; renderFeatures(j); }
+    }, [
+      el('span', { class: 'adm-feat-arrow', 'aria-hidden': 'true', text: parts.length ? (open ? '▾' : '▸') : '' }),
+      el('h2', { text: pr.name }), pill(st[0], st[1]),
+      parts.length ? el('span', { class: 'adm-sub', text: doneN + ' af ' + parts.length + ' trin færdige' }) : null
+    ]);
+    return el('div', { class: 'adm-card adm-feat' }, [
+      head,
+      el('p', { class: 'adm-feat-desc', text: pr.desc }),
+      open && parts.length ? el('ul', { class: 'adm-feat-parts' }, parts.map(function (x) {
+        return el('li', {}, [
+          el('div', {}, [el('b', { text: x.name }), el('div', { class: 'adm-sub', text: x.desc })]),
+          x.done ? pill('ok', 'Færdig') : pill('warn', 'Mangler')
+        ]);
+      })) : null,
+      j.editable ? el('div', { class: 'adm-feat-btns' }, [el('button', {
+        type: 'button', class: 'adm-btn', text: 'Marker som færdig',
+        onclick: function () { askFeature(pr, 'done'); }
+      })]) : null
+    ]);
+  }
+
   function renderFeatures(j) {
     var list = (j && j.features) || [];
-    if (!list.length) {
-      fill('admin-features', empty('Ingen funktioner under udvikling. Alt er udgivet og gjort permanent.'));
-      return;
+    var projects = (j && j.projects) || [];
+    var out = el('div', {}, [
+      el('h2', { class: 'adm-feat-group', text: 'Funktioner med knap' }),
+      el('p', { class: 'adm-sub adm-intro', text: 'Skjult på madshopper.dk, indtil du udgiver dem.' }),
+      list.length ? featureCards(j, list) : empty('Ingen funktioner under udvikling. Alt er udgivet og gjort permanent.'),
+      el('h2', { class: 'adm-feat-group', text: 'Projekter i gang' }),
+      el('p', { class: 'adm-sub adm-intro', text: 'Ting der ikke er færdige endnu. De forsvinder herfra, når du markerer dem som færdige.' }),
+      projects.length ? el('div', {}, projects.map(function (pr) { return projectCard(j, pr); }))
+        : empty('Ingen projekter i gang.')
+    ]);
+    if (!j.editable) {
+      out.insertBefore(el('p', { class: 'adm-sub', text: /^dev\./.test(location.hostname)
+        ? 'Du er på dev-siden, hvor alt altid er slået til. Udgiv fra madshopper.dk/admin.'
+        : 'Kan kun ændres på madshopper.dk/admin.' }), out.firstChild);
     }
+    fill('admin-features', out);
+  }
+
+  function featureCards(j, list) {
     var wrap = el('div', {}, list.map(function (f) {
       var status;
       if (!j.editable) status = pill('info', f.forced_here ? 'Altid slået til her' : 'Styres fra madshopper.dk');
@@ -745,12 +795,7 @@
         btns.length ? el('div', { class: 'adm-feat-btns' }, btns) : null
       ]);
     }));
-    if (!j.editable) {
-      wrap.insertBefore(el('p', { class: 'adm-sub', text: /^dev\./.test(location.hostname)
-        ? 'Du er på dev-siden, hvor alt altid er slået til. Udgiv fra madshopper.dk/admin.'
-        : 'Kan kun ændres på madshopper.dk/admin.' }), wrap.firstChild);
-    }
-    fill('admin-features', wrap);
+    return wrap;
   }
 
   var modalOk = null;
@@ -770,7 +815,8 @@
       publish: f.name + ' bliver synlig for alle besøgende på madshopper.dk.'
         + (jobs.length ? ' Kørslerne (' + jobs.join(' og ') + ') starter igen af sig selv.' : ''),
       hide: f.name + ' bliver skjult for alle på madshopper.dk igen, og kørslerne sættes på pause. Den virker stadig på dev-siden.',
-      permanent: f.name + ' forbliver udgivet for altid og forsvinder fra panelet. Den kan ikke skjules igen bagefter.'
+      permanent: f.name + ' forbliver udgivet for altid og forsvinder fra panelet. Den kan ikke skjules igen bagefter.',
+      done: f.name + ' bliver markeret som færdig og forsvinder fra panelet.'
     }[action];
     $('feature-modal-title').textContent = action === 'hide' ? 'Skjul ' + f.name + '?' : 'Er du helt sikker?';
     $('feature-modal-text').textContent = text;
@@ -779,11 +825,14 @@
       || 'Tjek om appen også skal have en ny version, så den viser det samme som hjemmesiden.';
     $('feature-modal-note').hidden = true;
     var ok = $('feature-modal-ok');
-    ok.textContent = { publish: 'Ja, udgiv på madshopper.dk', hide: 'Ja, skjul den', permanent: 'Ja, gør den permanent' }[action];
+    ok.textContent = { publish: 'Ja, udgiv på madshopper.dk', hide: 'Ja, skjul den',
+                       permanent: 'Ja, gør den permanent', done: 'Ja, den er færdig' }[action];
     ok.disabled = false;
     modalOk = function () {
       ok.disabled = true;
-      var body = action === 'permanent' ? { key: f.key, permanent: true } : { key: f.key, on: action === 'publish' };
+      var body = action === 'permanent' ? { key: f.key, permanent: true }
+        : action === 'done' ? { key: f.key, done: true }
+        : { key: f.key, on: action === 'publish' };
       token().then(function (tok) {
         return post('/api/admin/features', tok, body);
       }).then(function (j) {
@@ -793,7 +842,8 @@
         box.insertBefore(el('p', { class: 'adm-ok', text: {
           publish: 'Gemt. ' + f.name + ' vises på madshopper.dk inden for ca. 5 minutter.',
           hide: 'Gemt. ' + f.name + ' er skjult på madshopper.dk inden for ca. 5 minutter.',
-          permanent: f.name + ' er nu permanent og er fjernet fra panelet.'
+          permanent: f.name + ' er nu permanent og er fjernet fra panelet.',
+          done: f.name + ' er markeret som færdig og er fjernet fra panelet.'
         }[action] }), box.firstChild);
       }).catch(function (e) {
         closeModal();
