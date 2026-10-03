@@ -306,7 +306,10 @@ header {
 }
 
 .ac-price.ac-sale {
-  color: var(--red);
+  color: #1A1C19;
+  background: #FFD500;
+  padding: 1px 5px;
+  border-radius: 5px;
 }
 
 .ac-footer {
@@ -1176,8 +1179,8 @@ main {
   margin-top: 2px;
 }
 
-/* Én dæmpet badge til alle butikker - samme mønster som mobilappens storeBadge
-   (primaryMuted/primary). Butiksklassen (.rema, .netto, …) sættes stadig af
+/* Én neutral badge til alle butikker - samme mønster som mobilappens storeBadge
+   (surface + tekst, ikke grøn: for meget grønt, Kalle 03-10-2026). Butiksklassen (.rema, .netto, …) sættes stadig af
    updateStoreBadges() i script.js og skal blive ved med at findes i markup'en,
    men den styrer ikke længere farven: farve er reserveret til tilbud og pris. */
 .store-badge {
@@ -1188,8 +1191,9 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: var(--green-light);
-  color: var(--green-dark);
+  background: var(--white);
+  color: var(--gray-800);
+  box-shadow: 0 0 0 1px var(--gray-200);
   font-size: 0.6rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -1200,9 +1204,13 @@ main {
 
 /* Solid, ikke rgba: badgen ligger oven på produktbilledet, og en gennemsigtig
    flade tog farve fra lyse billeder og blev ulæselig. */
+[data-theme="dark"] .sale-end-date {
+  color: #FACC15;
+}
+
 [data-theme="dark"] .store-badge {
-  background: #064E3B;
-  color: #6ee7b7;
+  background: var(--white);
+  color: var(--gray-800);
 }
 
 .product-content {
@@ -1295,7 +1303,7 @@ main {
 .price-sale {
   font-size: 1.35rem;
   font-weight: 900;
-  color: var(--red);
+  color: #1A1C19;
   letter-spacing: -0.02em;
   line-height: 1;
 }
@@ -1705,7 +1713,7 @@ main {
 
 .sale-end-date {
   font-size: 0.8rem;
-  color: var(--red);
+  color: #A16207;
   font-weight: 600;
 }
 
@@ -1922,6 +1930,22 @@ main {
 
 .cart-item-details {
   flex: 1;
+}
+
+.cart-item {
+  border-left: 4px solid var(--store-color, transparent);
+}
+
+.cart-item-store {
+  display: inline-block;
+  margin-bottom: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--store-color, #52525B);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .cart-item-title {
@@ -2390,8 +2414,8 @@ main {
 }
 
 .recipe-pill--sale {
-  background: var(--green-light);
-  color: var(--green-dark);
+  background: #FFD500;
+  color: #1A1C19;
 }
 
 .recipe-servings-stepper {
@@ -3796,9 +3820,15 @@ footer {
   font-size: 0.8rem;
 }
 
+/* Tilbudspris: samme gule som SPAR-mærkatet (.sale-badge) og appens
+   colors.deal, ikke rød. Rød er kun til fejl og slet. */
 .price.sale {
-  color: var(--red);
+  display: inline-block;
+  color: #1A1C19;
+  background: #FFD500;
   font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 6px;
 }
 
 .price:not(.sale):not(.original) {
@@ -3839,8 +3869,8 @@ footer {
 
 .comp-sale-tag {
   display: inline-block;
-  background: var(--red-light);
-  color: var(--red);
+  background: #FFD500;
+  color: #1A1C19;
   font-size: 0.65rem;
   font-weight: 700;
   padding: 1px 6px;

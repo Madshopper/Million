@@ -4,6 +4,8 @@ import { calculateButiksrute, type RouteResult } from '../cart/butiksrute';
 import { useCart } from '../cart/CartContext';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
+import { StoreChip } from '../components/StoreChip';
+import { storeColor } from '../theme/storeColors';
 
 export function RouteScreen() {
   const { colors } = useTheme();
@@ -63,10 +65,21 @@ export function RouteScreen() {
       </View>
 
       {groups.map((g) => (
-        <View key={g.store} style={[styles.storeBlock, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          key={g.store}
+          style={[
+            styles.storeBlock,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderLeftWidth: 4,
+              borderLeftColor: storeColor(g.store),
+            },
+          ]}
+        >
           <View style={styles.storeHead}>
-            <Text style={[styles.storeName, { color: colors.text }]}>{g.store}</Text>
-            <Text style={{ color: colors.primary, fontWeight: '700' }}>{g.subtotal.toFixed(2)} kr</Text>
+            <StoreChip store={g.store} size="md" />
+            <Text style={{ color: colors.text, fontWeight: '700' }}>{g.subtotal.toFixed(2)} kr</Text>
           </View>
           {g.items.map((ri, idx) => (
             <View key={`${ri.item.id}-${idx}`} style={styles.itemRow}>

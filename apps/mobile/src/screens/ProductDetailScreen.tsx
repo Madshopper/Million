@@ -25,6 +25,7 @@ import { rpcName } from '../config/env';
 import { useCart } from '../cart/CartContext';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
+import { StoreDot } from '../components/StoreChip';
 import type { RootStackParamList } from '../navigation/types';
 import type { Product, StoreInfo } from '../api/types';
 
@@ -356,7 +357,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         <Text style={{ color: colors.textMuted, marginTop: 4 }}>{product.description}</Text>
       ) : null}
       {product.is_sale && product.sale_end_date ? (
-        <Text style={{ color: colors.sale, marginTop: 6 }}>
+        <Text style={{ color: colors.dealInk, fontWeight: '600', marginTop: 6 }}>
           Tilbud frem til: {product.sale_end_date}
         </Text>
       ) : null}
@@ -367,7 +368,13 @@ export function ProductDetailScreen({ route, navigation }: Props) {
             <Text style={[styles.original, { color: colors.textMuted }]}>
               {product.normal_price.toFixed(2)} kr
             </Text>
-            <Text style={[styles.price, { color: colors.sale }]}>
+            <Text
+              style={[
+                styles.price,
+                styles.dealPrice,
+                { backgroundColor: colors.deal, color: colors.dealText },
+              ]}
+            >
               {product.price.toFixed(2)} kr
             </Text>
           </>
@@ -427,10 +434,13 @@ export function ProductDetailScreen({ route, navigation }: Props) {
             style={[styles.compare, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ color: colors.text, fontWeight: '600' }}>{c.label}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <StoreDot store={c.label} />
+                <Text style={{ color: colors.text, fontWeight: '600' }}>{c.label}</Text>
+              </View>
               {c.isSale ? (
-                <View style={[styles.miniBadge, { backgroundColor: colors.sale }]}>
-                  <Text style={styles.miniBadgeText}>Tilbud</Text>
+                <View style={[styles.miniBadge, { backgroundColor: colors.deal }]}>
+                  <Text style={[styles.miniBadgeText, { color: colors.dealText }]}>Tilbud</Text>
                 </View>
               ) : null}
             </View>
@@ -644,6 +654,14 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', marginTop: 4 },
   original: { textDecorationLine: 'line-through', fontSize: 14 },
   price: { fontSize: 24, fontWeight: '800' },
+  dealPrice: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 2,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
   btnOutline: {
     marginTop: 12,
     padding: 12,
