@@ -5,7 +5,7 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 
 /**
  * Alle hovedkategorier i samme rækkefølge som webbens kategorimenu
- * (templates/base.html). Bruges af kategorimenuen (components/CategoriesDrawer),
+ * (templates/base.html). Bruges af kategori-skuffen (CategoriesDrawer),
  * som forsidens "Kategorier"-knap åbner fra venstre. Før 03-10-2026 lå de som en vandret
  * chip-bjælke på forsiden, hvor man skulle swipe for at se de sidste.
  *

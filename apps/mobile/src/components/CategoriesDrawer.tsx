@@ -7,93 +7,107 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CATEGORY_LINKS } from '../categories/categories';
 import { useTheme } from '../theme/ThemeContext';
-import type { RootStackParamList } from '../navigation/types';
+
+type CategoryLink = (typeof CATEGORY_LINKS)[number];
+
+type Props = {
+  visible: boolean;
+  onClose: () => void;
+  /** Kaldes når skuffen er gledet helt ud, så navigationen ikke sker bag den. */
+  onSelect: (category: CategoryLink) => void;
+};
 
 /**
- * Kategorimenu der glider ind fra venstre over forsiden (Kalle 03-10-2026:
- * "en åbningsmenu som slider ind fra venstre" i stedet for en hel skærm).
- * Bygget på Modal + Animated, så den ikke kræver en drawer-navigator eller
- * nye native afhængigheder. Tryk på den mørke baggrund lukker den.
- * Neutrale farver; kun Ugens Tilbud er gul.
+ * Kategorimenu som en skuffe, der glider ind fra venstre oven på forsiden
+ * (åbnes af forsidens "Kategorier"-knap). Forsiden bliver synlig bag en
+ * dæmpet baggrund; tryk dér eller på krydset lukker. Bevidst neutrale farver:
+ * kun Ugens Tilbud får tilbudsfarven gul, så den skiller sig ud.
  */
-export function CategoriesDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+export function CategoriesDrawer({ visible, onClose, onSelect }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const panelWidth = Math.min(320, Math.round(width * 0.8));
+  const { width: windowWidth } = useWindowDimensions();
+  const drawerWidth = Math.min(320, Math.round(windowWidth * 0.8));
 
+  // Modal'en skal blive stående, mens skuffen glider ud, så den har sin egen
+  // "mounted"-tilstand ved siden af visible.
+  const [mounted, setMounted] = React.useState(visible);
   const progress = React.useRef(new Animated.Value(0)).current;
-  // Modal'en skal blive stående mens lukke-animationen kører.
-  const [mounted, setMounted] = React.useState(open);
+  const pending = React.useRef<CategoryLink | null>(null);
 
   React.useEffect(() => {
-    if (open) setMounted(true);
+    if (visible) setMounted(true);
     Animated.timing(progress, {
-      toValue: open ? 1 : 0,
-      duration: open ? 240 : 200,
-      easing: open ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+      toValue: visible ? 1 : 0,
+      duration: visible ? 240 : 200,
+      easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
-      if (finished && !open) setMounted(false);
+      if (!finished || visible) return;
+      setMounted(false);
+      const chosen = pending.current;
+      pending.current = null;
+      if (chosen) onSelect(chosen);
     });
-  }, [open, progress]);
+    // onSelect bevidst udeladt: en ny funktion pr. render må ikke genstarte animationen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, progress]);
 
-  const go = (slug: string, label: string) => {
-    onClose();
-    if (slug === 'sale') navigation.navigate('Sale');
-    else navigation.navigate('Category', { slug, title: label });
-  };
+  if (!mounted) return null;
 
   const translateX = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [-panelWidth, 0],
+    outputRange: [-drawerWidth, 0],
   });
 
   return (
-    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
-      <View style={StyleSheet.absoluteFill}>
-        <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: progress }]}>
+    <Modal
+      transparent
+      visible
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={styles.root}>
+        <Animated.View style={[styles.backdrop, { opacity: progress }]}>
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={onClose}
             accessibilityRole="button"
             accessibilityLabel="Luk kategorier"
+            onPress={onClose}
           />
         </Animated.View>
         <Animated.View
           style={[
-            styles.panel,
+            styles.drawer,
             {
-              width: panelWidth,
+              width: drawerWidth,
               backgroundColor: colors.surface,
-              paddingTop: insets.top + 12,
-              paddingBottom: insets.bottom + 12,
+              borderRightColor: colors.border,
+              paddingTop: insets.top + 8,
               transform: [{ translateX }],
             },
           ]}
         >
-          <View style={styles.head}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.text }]}>Kategorier</Text>
             <Pressable
-              onPress={onClose}
-              hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="Luk"
+              hitSlop={10}
+              onPress={onClose}
             >
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </Pressable>
           </View>
-          <ScrollView>
+          <ScrollView contentContainerStyle={{ paddingVertical: 8, paddingBottom: insets.bottom + 16 }}>
             {CATEGORY_LINKS.map((c) => {
               const isSale = c.slug === 'sale';
               return (
@@ -101,15 +115,15 @@ export function CategoriesDrawer({ open, onClose }: { open: boolean; onClose: ()
                   key={c.slug}
                   accessibilityRole="button"
                   accessibilityLabel={c.label}
-                  onPress={() => go(c.slug, c.label)}
+                  onPress={() => {
+                    pending.current = c;
+                    onClose();
+                  }}
                   style={({ pressed }) => [
                     styles.row,
                     {
-                      backgroundColor: isSale
-                        ? colors.warningMuted
-                        : pressed
-                          ? colors.bg
-                          : 'transparent',
+                      backgroundColor: isSale ? colors.warningMuted : 'transparent',
+                      opacity: pressed ? 0.6 : 1,
                     },
                   ]}
                 >
@@ -118,8 +132,10 @@ export function CategoriesDrawer({ open, onClose }: { open: boolean; onClose: ()
                     size={22}
                     color={isSale ? colors.warning : colors.textMuted}
                   />
-                  <Text style={[styles.label, { color: colors.text }]}>{c.label}</Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                  <Text style={[styles.label, { color: colors.text }]} numberOfLines={1}>
+                    {c.label}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                 </Pressable>
               );
             })}
@@ -131,37 +147,32 @@ export function CategoriesDrawer({ open, onClose }: { open: boolean; onClose: ()
 }
 
 const styles = StyleSheet.create({
-  backdrop: { backgroundColor: 'rgba(0,0,0,0.4)' },
-  panel: {
+  root: { flex: 1 },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
+  drawer: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     left: 0,
-    borderTopRightRadius: 20,
-    borderBottomRightRadius: 20,
-    paddingHorizontal: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 2, height: 0 },
-    elevation: 12,
+    borderRightWidth: StyleSheet.hairlineWidth,
   },
-  head: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: 20,
     paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  title: { fontSize: 22, fontWeight: '800' },
+  title: { fontSize: 20, fontWeight: '800' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    marginHorizontal: 8,
     paddingHorizontal: 12,
     paddingVertical: 14,
     borderRadius: 12,
-    marginBottom: 2,
   },
   label: { flex: 1, fontSize: 16, fontWeight: '600' },
 });

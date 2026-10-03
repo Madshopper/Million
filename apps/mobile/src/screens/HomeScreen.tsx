@@ -66,9 +66,9 @@ export function HomeScreen() {
   const [recipesClickable, setRecipesClickable] = React.useState(recipesEnabled);
   const [filters, setFilters] = React.useState<FiltersValue>({ sort: 'relevance' });
   const [savings, setSavings] = React.useState<PersonalSavings>(() => emptySavings(false));
-  const [catsOpen, setCatsOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [catsOpen, setCatsOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const loadSavings = React.useCallback(async () => {
@@ -188,7 +188,7 @@ export function HomeScreen() {
           if (item.kind === 'cats') {
             // Én knap i stedet for en vandret chip-bjælke (03-10-2026): man
             // så kun de første par kategorier og skulle swipe efter resten.
-            // Menuen (CategoriesDrawer) glider ind fra venstre med dem alle.
+            // Skuffen (CategoriesDrawer) viser dem alle på én gang.
             return (
               <Pressable
                 accessibilityRole="button"
@@ -315,7 +315,14 @@ export function HomeScreen() {
           );
         }}
       />
-      <CategoriesDrawer open={catsOpen} onClose={() => setCatsOpen(false)} />
+      <CategoriesDrawer
+        visible={catsOpen}
+        onClose={() => setCatsOpen(false)}
+        onSelect={(c) => {
+          if (c.slug === 'sale') navigation.navigate('Sale');
+          else navigation.navigate('Category', { slug: c.slug, title: c.label });
+        }}
+      />
     </View>
   );
 }
