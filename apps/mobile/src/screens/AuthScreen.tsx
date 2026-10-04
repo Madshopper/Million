@@ -46,6 +46,7 @@ export function AuthScreen({ navigation }: Props) {
     logout,
     recoveryActive,
     recoveryError,
+    signupLinkNotice,
     endRecovery,
   } = useAuth();
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -85,6 +86,13 @@ export function AuthScreen({ navigation }: Props) {
   // så den vises ved siden af skærmens egen fejl frem for at blive kopieret
   // ind i `error` - som ryddes hver gang mode skifter.
   const shownError = error || recoveryError;
+
+  // Bekræftelseslinket fra mailen kunne ikke logge ind (fx oprettet på en
+  // anden enhed): vis login-formularen med beskeden.
+  useEffect(() => {
+    if (signupLinkNotice) setMode('login');
+  }, [signupLinkNotice]);
+  const shownInfo = info || (mode === 'login' ? signupLinkNotice : null);
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
@@ -238,7 +246,7 @@ export function AuthScreen({ navigation }: Props) {
         {shownError ? (
           <Text style={[styles.error, { color: colors.sale }]}>{shownError}</Text>
         ) : null}
-        {info ? <Text style={[styles.info, { color: colors.badge }]}>{info}</Text> : null}
+        {shownInfo ? <Text style={[styles.info, { color: colors.badge }]}>{shownInfo}</Text> : null}
 
         <Pressable
           onPress={() => void submit()}

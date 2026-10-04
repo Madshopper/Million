@@ -30,7 +30,7 @@ import { RouteScreen } from '../screens/RouteScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { LegalScreen } from '../screens/LegalScreen';
-import { isRecoveryUrl } from '../auth/recoveryLink';
+import { isRecoveryUrl, parseSignupLink } from '../auth/recoveryLink';
 import { recipesEnabled } from '../config/env';
 import type { RootStackParamList, TabParamList } from './types';
 
@@ -66,8 +66,9 @@ const Tabs = createBottomTabNavigator<TabParamList>();
  * Appen har med vilje ikke haft nogen `linking` på NavigationContainer: uden
  * den kan et link udefra ikke pege på en vilkårlig skærm i stakken - og det
  * er netop dét, der beskytter gatede skærme (opskrifter) mod at blive åbnet
- * i et produktions-build. `filter` slipper derfor KUN recovery-links igennem
- * (parseRecoveryLink kræver eksplicit `type=recovery` + brugbare tokens), og
+ * i et produktions-build. `filter` slipper derfor KUN recovery- og
+ * bekræftelseslinks igennem (de kræver eksplicit `type=recovery` eller
+ * `type=signup`), og
  * `getStateFromPath` returnerer én fast tilstand: Tabs + Auth. Der findes
  * ingen sti-mapping, så ingen URL kan navigere nogen andre steder hen.
  *
@@ -76,7 +77,7 @@ const Tabs = createBottomTabNavigator<TabParamList>();
  */
 const recoveryLinking: LinkingOptions<RootStackParamList> = {
   prefixes: [Linking.createURL('/'), 'madshopper://'],
-  filter: (url) => isRecoveryUrl(url),
+  filter: (url) => isRecoveryUrl(url) || parseSignupLink(url) !== null,
   getStateFromPath: () => ({
     routes: [{ name: 'Tabs' as const }, { name: 'Auth' as const }],
   }),

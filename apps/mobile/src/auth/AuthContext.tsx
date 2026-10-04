@@ -21,7 +21,7 @@ import {
 } from '@react-native-google-signin/google-signin';
 import { env, rpcName } from '../config/env';
 import { getSupabase } from './supabase';
-import { parseRecoveryLink } from './recoveryLink';
+import { parseRecoveryLink, parseSignupLink } from './recoveryLink';
 import { getTurnstileToken } from './turnstile';
 import { disablePush, resyncPush, usePushFeature } from '../push/push';
 import { useCart } from '../cart/CartContext';
@@ -50,6 +50,29 @@ const CARTS_TABLE = 'carts'; // + TABLE_SUFFIX via env on server; client uses RP
 const PENDING_RESET_KEY = 'pendingPasswordReset';
 const PENDING_RESET_TTL_MS = 60 * 60 * 1000; // 1 time - matcher Supabase-linkets typiske levetid
 
+/**
+ * Samme slags kvittering for oprettelse: bekræftelseslinket fra mailen logger
+ * kun ind, hvis DENNE enhed selv har oprettet en konto med netop den e-mail.
+ * Ellers kunne en angribers egne bekræftelses-tokens logge offeret ind på en
+ * fremmed konto. 24 timer = levetiden på Supabases bekræftelseslink.
+ */
+const PENDING_SIGNUP_KEY = 'pendingSignup';
+const PENDING_SIGNUP_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function readPendingEmail(key: string, ttlMs: number): Promise<string | null> {
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { email?: string; ts?: number };
+    if (parsed.email && typeof parsed.ts === 'number' && Date.now() - parsed.ts < ttlMs) {
+      return parsed.email;
+    }
+  } catch {
+    /* ingen brugbar kvittering */
+  }
+  return null;
+}
+
 type AuthContextValue = {
   user: User | null;
   session: Session | null;
@@ -64,6 +87,8 @@ type AuthContextValue = {
   recoveryActive: boolean;
   /** Sidste fejl fra et recovery-link (fx udløbet), til visning i AuthScreen. */
   recoveryError: string | null;
+  /** Besked efter et bekræftelseslink, der ikke kunne logge ind (fx udløbet). */
+  signupLinkNotice: string | null;
   endRecovery: () => void;
   /**
    * Falsk mens den personlige kurv hentes og merges ved login. Delt kurv må
@@ -137,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [recoveryActive, setRecoveryActive] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [signupLinkNotice, setSignupLinkNotice] = useState<string | null>(null);
   const [personalCartReady, setPersonalCartReady] = useState(false);
   // handleSignedIn kalder setUser(u) og registrerer LIGE EFTER kurv-lytteren.
   // Men state er ikke opdateret endnu i den render, saa baade scheduleSync og
@@ -510,22 +536,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // fremmede konto (session fixation). Vi kræver derfor at DENNE enhed
       // selv har bedt om en nulstilling for nylig, før vi overhovedet
       // forsøger at oprette en session ud fra linket.
-      let pendingEmail: string | null = null;
-      try {
-        const raw = await AsyncStorage.getItem(PENDING_RESET_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw) as { email?: string; ts?: number };
-          if (
-            parsed.email &&
-            typeof parsed.ts === 'number' &&
-            Date.now() - parsed.ts < PENDING_RESET_TTL_MS
-          ) {
-            pendingEmail = parsed.email;
-          }
-        }
-      } catch {
-        /* ingen brugbar kvittering - behandles som "ingen" nedenfor */
-      }
+      const pendingEmail = await readPendingEmail(PENDING_RESET_KEY, PENDING_RESET_TTL_MS);
       if (!pendingEmail) {
         setRecoveryError(
           'Linket ser ikke ud til at høre til en nulstilling, du selv har bedt om på denne enhed. Bed om et nyt link.',
@@ -577,6 +588,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  /**
+   * Bekræftelseslink fra oprettelses-mailen → session.
+   *
+   * Før pegede linket på hjemmesiden, så brugeren blev logget ind dér i
+   * stedet for i appen. Nu peger det på appen (madshopper://), og her
+   * veksles det til en session. Selve bekræftelsen er allerede sket hos
+   * Supabase, når linket åbner appen; kvitteringen afgør kun, om vi også
+   * logger ind automatisk.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const handle = async (url: string) => {
+      const link = parseSignupLink(url);
+      if (!link || cancelled) return;
+      if (link.kind === 'error') {
+        setSignupLinkNotice('Linket er udløbet eller allerede brugt. Prøv at logge ind.');
+        return;
+      }
+      const sb = getSupabase();
+      if (!sb) return;
+
+      const pendingEmail = await readPendingEmail(PENDING_SIGNUP_KEY, PENDING_SIGNUP_TTL_MS);
+      if (!pendingEmail) {
+        // Oprettet på en anden enhed (eller et fremmed link): mailen er
+        // bekræftet, men vi logger ikke ind på en konto vi ikke kender.
+        setSignupLinkNotice('Din e-mail er bekræftet. Log ind for at fortsætte.');
+        return;
+      }
+      const result =
+        link.kind === 'tokens'
+          ? await sb.auth.setSession({
+              access_token: link.accessToken,
+              refresh_token: link.refreshToken,
+            })
+          : await sb.auth.exchangeCodeForSession(link.code);
+      if (cancelled) return;
+      if (result.error) {
+        setSignupLinkNotice('Din e-mail er bekræftet. Log ind for at fortsætte.');
+        return;
+      }
+      const sessionEmail = result.data.session?.user?.email?.trim().toLowerCase();
+      if (sessionEmail !== pendingEmail) {
+        await sb.auth.signOut().catch(() => {});
+        setSignupLinkNotice('Linket matcher ikke en konto, du har oprettet her. Log ind for at fortsætte.');
+        return;
+      }
+      setSignupLinkNotice(null);
+      await AsyncStorage.removeItem(PENDING_SIGNUP_KEY).catch(() => {});
+    };
+
+    const sub = Linking.addEventListener('url', ({ url }) => void handle(url));
+    void Linking.getInitialURL().then((url) => {
+      if (url) void handle(url);
+    });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
+
   const endRecovery = useCallback(() => {
     setRecoveryActive(false);
     setRecoveryError(null);
@@ -610,10 +682,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
         options: {
           data: { display_name: normalizeDisplayName(name), turnstile_token: token },
-          emailRedirectTo: env.apiBaseUrl,
+          // Bekræftelseslinket skal åbne APPEN, ikke hjemmesiden (før
+          // env.apiBaseUrl = madshopper.dk, så man blev logget ind på webben).
+          emailRedirectTo: makeRedirectUri({ scheme: 'madshopper' }),
         },
       });
       if (error) return { error: oversaetFejl(error), needsConfirmation: false };
+      if (!data.session) {
+        try {
+          await AsyncStorage.setItem(
+            PENDING_SIGNUP_KEY,
+            JSON.stringify({ email: email.trim().toLowerCase(), ts: Date.now() }),
+          );
+        } catch {
+          /* uden kvittering bekræftes mailen stadig; man skal bare logge ind selv */
+        }
+      }
       // Supabase koerer med mailer_autoconfirm, saa signUp returnerer en
       // FAERDIG session og brugeren er logget ind med det samme. Kalderen skal
       // kunne se forskel: skaermen sagde foer "Tjek din mail for at bekraefte
@@ -814,6 +898,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       displayName: readUserDisplayName(user),
       recoveryActive,
       recoveryError,
+      signupLinkNotice,
       endRecovery,
       personalCartReady,
       signInEmail,
@@ -833,6 +918,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ready,
       recoveryActive,
       recoveryError,
+      signupLinkNotice,
       endRecovery,
       personalCartReady,
       signInEmail,
