@@ -23,7 +23,7 @@ import { env, rpcName } from '../config/env';
 import { getSupabase } from './supabase';
 import { parseRecoveryLink } from './recoveryLink';
 import { getTurnstileToken } from './turnstile';
-import { disablePush, resyncPush } from '../push/push';
+import { disablePush, resyncPush, usePushFeature } from '../push/push';
 import { useCart } from '../cart/CartContext';
 import { cartToRows, mergeCarts, type CompactCartItem } from '../cart/types';
 
@@ -133,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { items, applyFromServer, addSyncListener } = useCart();
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const pushFeatureOn = usePushFeature();
   const [ready, setReady] = useState(false);
   const [recoveryActive, setRecoveryActive] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
@@ -409,10 +410,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [refreshCart]);
 
-  // Beskeder på telefonen følger den bruger der er logget ind (src/push/push.ts).
+  // Beskeder på telefonen følger den bruger der er logget ind (src/push/push.ts):
+  // har telefonen givet lov, tilmeldes den automatisk ved login.
   useEffect(() => {
-    if (user?.id) void resyncPush();
-  }, [user?.id]);
+    if (user?.id && pushFeatureOn) void resyncPush();
+  }, [user?.id, pushFeatureOn]);
 
   const handleSignedOut = useCallback(
     (clearLocal: boolean) => {

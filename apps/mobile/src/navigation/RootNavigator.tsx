@@ -9,6 +9,7 @@ import {
 } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
+import { askOnFirstLaunch, usePushFeature } from '../push/push';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -254,6 +255,11 @@ function MainTabs() {
 }
 
 export function RootNavigator() {
+  // Første gang appen åbnes: spørg om lov til notifikationer (Kalle 04-10-2026).
+  const pushFeature = usePushFeature();
+  useEffect(() => {
+    if (pushFeature) void askOnFirstLaunch();
+  }, [pushFeature]);
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener(openFromNotification);
     return () => sub.remove();

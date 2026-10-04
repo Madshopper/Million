@@ -220,7 +220,7 @@ function PushRow() {
     setBusy(true);
     try {
       if (state === 'on') {
-        await disablePush();
+        await disablePush(true);
         setState('off');
       } else {
         setState(await enablePush());

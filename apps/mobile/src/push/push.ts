@@ -55,15 +55,29 @@ export function usePushFeature(): boolean {
   return pushEnabledBuild || server;
 }
 
-/* ---- Tilmelding ---- */
+/* ---- Tilmelding ----
+ *
+ * Telefonens tilladelse er hovedkontakten (Kalle 04-10-2026): appen spørger
+ * ved første åbning, og så længe tilladelsen er givet, tilmeldes telefonen
+ * automatisk ved login. "Slå fra" under Mine prisalarmer gemmer et fravalg
+ * (OPTOUT_KEY), så den ikke tilmeldes igen af sig selv. */
+const ASKED_KEY = 'push_asked_v1';
+const OPTOUT_KEY = 'push_optout_v1';
+
 export type PushState = 'on' | 'off' | 'denied' | 'unsupported';
 
 export async function getPushState(): Promise<PushState> {
   if (!Device.isDevice) return 'unsupported';
   const perm = await Notifications.getPermissionsAsync();
-  if (perm.status === 'denied' && !perm.canAskAgain) return 'denied';
+  if (!perm.granted && !perm.canAskAgain) return 'denied';
   const token = await AsyncStorage.getItem(TOKEN_KEY);
   return perm.granted && token ? 'on' : 'off';
+}
+
+/** Har telefonen givet MadShopper lov til notifikationer? (simulator: ja) */
+export async function notificationsAllowed(): Promise<boolean> {
+  if (!Device.isDevice) return true;
+  return (await Notifications.getPermissionsAsync()).granted;
 }
 
 async function currentToken(): Promise<string> {
@@ -77,30 +91,41 @@ async function currentToken(): Promise<string> {
 async function save(token: string): Promise<boolean> {
   const sb = getSupabase();
   if (!sb) return false;
+  const { data: sess } = await sb.auth.getSession();
+  if (!sess.session) return false;
   const { data, error } = await sb.rpc(rpcName('register_push_device'), { kind: 'expo', token });
   return !error && data === true;
 }
 
-/** Spørger om lov og tilmelder enheden. Returnerer den nye tilstand. */
-export async function enablePush(): Promise<PushState> {
-  if (!Device.isDevice) return 'unsupported';
+async function ensureChannel() {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Prisalarmer',
       importance: Notifications.AndroidImportance.HIGH,
     });
   }
+}
+
+/** Spørger om lov (hvis telefonen må spørge) og tilmelder enheden. */
+export async function enablePush(): Promise<PushState> {
+  if (!Device.isDevice) return 'unsupported';
+  await ensureChannel();
   let perm = await Notifications.getPermissionsAsync();
-  if (!perm.granted) perm = await Notifications.requestPermissionsAsync();
+  if (!perm.granted && perm.canAskAgain) perm = await Notifications.requestPermissionsAsync();
   if (!perm.granted) return perm.canAskAgain ? 'off' : 'denied';
+  await AsyncStorage.removeItem(OPTOUT_KEY);
   const token = await currentToken();
   if (!(await save(token))) throw new Error('register_push_device afviste');
   await AsyncStorage.setItem(TOKEN_KEY, token);
   return 'on';
 }
 
-/** Afmelder enheden (knappen, og ved log ud). Fejler aldrig højlydt. */
-export async function disablePush(): Promise<void> {
+/**
+ * Afmelder enheden. optOut=true er knappen "Slå fra" (huskes, så telefonen
+ * ikke tilmeldes igen ved næste login); ved log ud er den false.
+ */
+export async function disablePush(optOut = false): Promise<void> {
+  if (optOut) await AsyncStorage.setItem(OPTOUT_KEY, '1');
   const token = await AsyncStorage.getItem(TOKEN_KEY);
   if (!token) return;
   try {
@@ -112,10 +137,31 @@ export async function disablePush(): Promise<void> {
   await AsyncStorage.removeItem(TOKEN_KEY);
 }
 
-/** Ved login: var beskeder slået til på telefonen, følger de nu denne bruger. */
+/**
+ * Første gang appen åbnes (med funktionen slået til): spørg om lov til
+ * notifikationer. Er brugeren logget ind og siger ja, tilmeldes telefonen.
+ */
+export async function askOnFirstLaunch(): Promise<void> {
+  try {
+    if (!Device.isDevice || (await AsyncStorage.getItem(ASKED_KEY))) return;
+    await AsyncStorage.setItem(ASKED_KEY, '1');
+    await ensureChannel();
+    const perm = await Notifications.getPermissionsAsync();
+    if (perm.granted || !perm.canAskAgain) {
+      if (perm.granted) await resyncPush();
+      return;
+    }
+    const res = await Notifications.requestPermissionsAsync();
+    if (res.granted) await resyncPush();
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Ved login og opstart: har telefonen givet lov (og ikke fravalgt), tilmeldes den. */
 export async function resyncPush(): Promise<void> {
   try {
-    if (!Device.isDevice || !(await AsyncStorage.getItem(TOKEN_KEY))) return;
+    if (!Device.isDevice || (await AsyncStorage.getItem(OPTOUT_KEY))) return;
     const perm = await Notifications.getPermissionsAsync();
     if (!perm.granted) return;
     const token = await currentToken();
