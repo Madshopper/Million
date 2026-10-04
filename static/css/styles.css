@@ -3,7 +3,7 @@
      Samme værdier som appens primary/primaryDark/primaryMuted i
      apps/mobile/src/theme/colors.ts. Tilføj ikke flere grønne nuancer;
      gennemsigtige varianter skal bygge på rgba(5, 150, 105, x) = --green.
-     Tilbud er gule (#CA8A04), aldrig grønne eller røde. */
+     Tilbud er gule (#DFA300), aldrig grønne eller røde. */
   --green: #059669;
   --green-dark: #047857;
   --green-light: #D6F5E3;
@@ -311,7 +311,7 @@ header {
 }
 
 .ac-price.ac-sale {
-  color: #CA8A04;
+  color: #DFA300;
 }
 
 .ac-footer {
@@ -1155,7 +1155,7 @@ main {
   position: absolute;
   top: 8px;
   left: 8px;
-  background: #CA8A04;
+  background: #DFA300;
   color: #1A1C19;
   font-size: 0.65rem;
   font-weight: 800;
@@ -1301,7 +1301,7 @@ main {
 .price-sale {
   font-size: 1.35rem;
   font-weight: 900;
-  color: #CA8A04;
+  color: #DFA300;
   letter-spacing: -0.02em;
   line-height: 1;
 }
@@ -1711,7 +1711,7 @@ main {
 
 .sale-end-date {
   font-size: 0.8rem;
-  color: #CA8A04;
+  color: #DFA300;
   font-weight: 600;
 }
 
@@ -2408,7 +2408,7 @@ main {
 }
 
 .recipe-pill--sale {
-  background: #CA8A04;
+  background: #DFA300;
   color: #1A1C19;
 }
 
@@ -2598,7 +2598,7 @@ main {
 }
 
 .recipe-ingredient-sale-tag {
-  background: #CA8A04;
+  background: #DFA300;
   color: #1A1C19;
   font-size: 0.62rem;
   font-weight: 800;
@@ -3820,7 +3820,7 @@ footer {
    tilstande (dæmpet guldgul, så den kan ses på både hvid og mørk); kun
    mærkatet har gul flade (Kalle 04-10-2026). */
 .price.sale {
-  color: #CA8A04;
+  color: #DFA300;
   font-weight: 900;
 }
 
@@ -3863,7 +3863,7 @@ footer {
 
 .comp-sale-tag {
   display: inline-block;
-  background: #CA8A04;
+  background: #DFA300;
   color: #1A1C19;
   font-size: 0.65rem;
   font-weight: 700;

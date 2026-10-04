@@ -21,12 +21,12 @@ export const lightColors = {
   primaryMuted: '#D6F5E3',
   // Kun til fejl og "slet"-handlinger. Tilbud er gule (deal*), ikke røde.
   sale: '#C62828',
-  // Tilbud: én dæmpet guldgul (#CA8A04) overalt, som flade på SPAR-mærket
+  // Tilbud: én varm guldgul (#DFA300) overalt, som flade på SPAR-mærket
   // (mørk tekst) og som tekstfarve på tilbudsprisen. Valgt så den kan ses i
   // både lys og mørk tilstand (Kalle 04-10-2026).
-  deal: '#CA8A04',
+  deal: '#DFA300',
   dealText: '#1A1C19',
-  dealInk: '#CA8A04',
+  dealInk: '#DFA300',
   badge: '#047857',
   tabInactive: '#8A9184',
   // Web-paritet (styles.css --yellow/--yellow-light): samme advarselsfarve
@@ -49,9 +49,9 @@ export const darkColors = {
   primaryDark: '#D6F5E3',
   primaryMuted: '#047857',
   sale: '#EF9A9A',
-  deal: '#CA8A04',
+  deal: '#DFA300',
   dealText: '#1A1C19',
-  dealInk: '#CA8A04',
+  dealInk: '#DFA300',
   badge: '#059669',
   tabInactive: '#6B7268',
   warning: '#F5B94D',
