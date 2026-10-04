@@ -1610,8 +1610,8 @@ _FEATURES = (
         'desc': 'Prisalarmer som besked på telefonen i stedet for mail. '
                 'Når den er udgivet, sendes der ingen mails. Har man ikke slået '
                 'beskeder til, venter alarmen, til man gør det.',
-        'app': 'Appen viser knappen, så snart den er udgivet her, men kun i '
-               'en ny app-version, der har beskeder med.',
+        'app': 'Appen spørger om lov til beskeder, så snart den er udgivet '
+               'her, men kun i en ny app-version, der har beskeder med.',
         'parts': (
             {'kind': 'web', 'name': 'Knappen "Få besked på telefonen"',
              'desc': 'Under Mine prisalarmer på hjemmesiden. På iPhone kun når '
@@ -1620,8 +1620,9 @@ _FEATURES = (
              'desc': 'Nattens tjek af prisalarmer sender en besked i stedet '
                      'for en mail.'},
             {'kind': 'app', 'name': 'Beskeder i appen',
-             'desc': 'Knappen under Mine prisalarmer og selve beskederne på '
-                     'iPhone. Android kræver en gratis Firebase-opsætning.'},
+             'desc': 'Spørger om lov ved første åbning; derefter styres det i '
+                     'telefonens indstillinger. Android kræver en gratis '
+                     'Firebase-opsætning.'},
         ),
     },
 )
