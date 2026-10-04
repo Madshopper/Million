@@ -91,3 +91,10 @@ jobs:
       - name: Flask-log ved fejl
         if: failure()
         run: tail -80 /tmp/flask.log || true
+
+      # Flask (startet via `uv run`) holder uv's cache-laas. Lever den stadig,
+      # naar setup-uv's efterrydning koerer "uv cache prune", venter den i 5
+      # min og fejler jobbet, selvom alle tests bestod (sket 04-10-2026, PR #43).
+      - name: Stop lokal Flask
+        if: always()
+        run: pkill -f "python app.py" || true
