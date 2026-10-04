@@ -15,6 +15,29 @@ if (urls.length === 0) {
   process.exit(2);
 }
 
+// Staging (dev.madshopper.dk) er spærret og svarer 404 uden nøglen. Den
+// sendes med som ?k= på SAMME navigation som selve tjekket: workeren sætter
+// cookien og sender videre til samme sti med resten af query'en. En separat
+// login-navigation først ville være "anden side i sessionen", som Bot Fight
+// Mode afviser fra GitHub Actions (se 2026-07-27 nedenfor). Læses fra miljøet,
+// ikke et argument (compliance-audit 19-08-2026, GDPR-036).
+const ACCESS_KEY = (process.env.STAGING_ACCESS_SECRET || "").trim();
+
+function withKey(url) {
+  if (!ACCESS_KEY) return url;
+  const u = new URL(url);
+  u.searchParams.set("k", ACCESS_KEY);
+  return u.toString();
+}
+
+/** Nøglen må aldrig stå i en log (Playwrights fejl citerer den fulde URL). */
+function redact(message) {
+  if (!ACCESS_KEY) return String(message);
+  return String(message)
+    .split(ACCESS_KEY).join("<redacted>")
+    .split(encodeURIComponent(ACCESS_KEY)).join("<redacted>");
+}
+
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 15_000;
 
@@ -61,7 +84,7 @@ async function check(page, url) {
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     const target = search ? freshSearchUrl(url) : url;
     try {
-      const response = await page.goto(target, {
+      const response = await page.goto(withKey(target), {
         waitUntil: "domcontentloaded",
         timeout: 25_000,
       });
@@ -96,7 +119,7 @@ async function check(page, url) {
         console.log(`FEJL ${url} (HTTP ${status}, forsøg ${attempt})`);
       }
     } catch (err) {
-      console.log(`FEJL ${url} (${err.message}, forsøg ${attempt})`);
+      console.log(`FEJL ${url} (${redact(err.message)}, forsøg ${attempt})`);
     }
     if (attempt < ATTEMPTS) await sleep(RETRY_DELAY_MS);
   }
@@ -152,7 +175,7 @@ for (let i = 0; i < urls.length; i++) {
 }
 if (fail) {
   console.log(
-    "::error::madshopper.dk svarer ikke korrekt. Tjek Cloudflare-dashboardet (Workers & Pages -> madshopper -> Deployments) og rul evt. tilbage til seneste stabile version."
+    `::error::${new URL(urls[0]).host} svarer ikke korrekt. Tjek Cloudflare-dashboardet (Workers & Pages -> madshopper -> Deployments) og rul evt. tilbage til seneste stabile version.`
   );
   process.exit(1);
 }

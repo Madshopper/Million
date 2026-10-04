@@ -208,10 +208,11 @@ def _parse_kg_price(base_price_text: str | None) -> str:
     return ''
 
 
-def _extract_products(pool: list) -> tuple[int, list[dict]]:
+def _extract_products(pool: list) -> tuple[int, list[dict], int]:
+    """(numFound, fødevarer, antal rå varer på siden før fødevare-filteret)."""
     search = _find_search(pool)
     if not search:
-        return 0, []
+        return 0, [], 0
 
     num_found_raw = _resolve_ref_chain(pool, search.get('numFound'))
     num_found = int(num_found_raw) if isinstance(num_found_raw, (int, float)) else 0
@@ -283,10 +284,10 @@ def _extract_products(pool: list) -> tuple[int, list[dict]]:
             'billede_url': image,
         })
 
-    return num_found, products
+    return num_found, products, len(raw_items)
 
 
-def fetch_search_page(offset: int = 0) -> tuple[int, list[dict]]:
+def fetch_search_page(offset: int = 0) -> tuple[int, list[dict], int]:
     r = requests.get(
         SEARCH_URL,
         params={'q': '*', 'fetchsize': FETCH_SIZE, 'offset': offset},
@@ -298,17 +299,19 @@ def fetch_search_page(offset: int = 0) -> tuple[int, list[dict]]:
     return _extract_products(pool)
 
 
-def fetch_all_products() -> list[dict]:
-    num_found, first = fetch_search_page(0)
+def fetch_all_products() -> tuple[list[dict], int, int]:
+    """(unikke fødevarer, numFound fra lidl.dk, rå varer faktisk hentet)."""
+    num_found, first, raw_seen = fetch_search_page(0)
     all_products = list(first)
     print(f'  Side 0: {len(first)} fødevarer (katalog: {num_found} varer i alt på lidl.dk)')
 
     offset = FETCH_SIZE
     while offset < num_found:
         time.sleep(PAGE_DELAY)
-        _, batch = fetch_search_page(offset)
+        _, batch, raw = fetch_search_page(offset)
         print(f'  Side {offset // FETCH_SIZE}: {len(batch)} fødevarer')
         all_products.extend(batch)
+        raw_seen += raw
         offset += FETCH_SIZE
 
     # Dedup på erp - samme vare kan teoretisk optræde to gange
@@ -323,7 +326,28 @@ def fetch_all_products() -> list[dict]:
 
     if len(unique) < len(all_products):
         print(f'  Dedup: {len(all_products)} → {len(unique)} unikke fødevarer')
-    return unique
+    return unique, num_found, raw_seen
+
+
+def catalog_complete(num_found: int, raw_seen: int, food_count: int) -> bool:
+    """True hvis vi beviseligt fik HELE det katalog, lidl.dk selv melder.
+
+    Så er et mindre antal end i går Lidls eget sortiment, ikke en
+    scraping-fejl, og totalantals-værnet skal ikke blokere. Lidl skar
+    netbutikken fra 281 til 190 varer natten til 04-10-2026; værnet afviste
+    skrivningen, og fordi de gamle 281 rækker så blev liggende, ville det have
+    afvist hver nat fremover (samme selvforstærkende lås som tilbudsavis-
+    scraperne, se supabase_utils.save_product_dicts).
+
+    De ægte fejl, værnet er sat for, fanges stadig: et ændret skema giver 0
+    rå varer eller numFound 0, og en side der ikke parses, gør raw_seen for
+    lille. Fødevare-andelen (normalt ~70 %) fanger et filter der pludselig
+    smider næsten alt væk."""
+    if num_found < 50:
+        return False
+    if raw_seen < num_found * 0.9:
+        return False
+    return food_count >= num_found * 0.4
 
 
 def build_rows(products: list[dict]) -> list[dict]:
@@ -362,8 +386,11 @@ def build_rows(products: list[dict]) -> list[dict]:
 def main():
     print('Starter Lidl katalog scraper (lidl.dk hyldpriser)...')
 
-    products = fetch_all_products()
+    products, num_found, raw_seen = fetch_all_products()
     rows = build_rows(products)
+    complete = catalog_complete(num_found, raw_seen, len(rows))
+    print(f'  Hentet {raw_seen} af {num_found} varer fra lidl.dk '
+          f'({"komplet" if complete else "IKKE komplet - totalantals-værnet bruges"})')
 
     on_offer = sum(1 for r in rows if r['tilbud'] == 'Ja')
     normal_only = len(rows) - on_offer
@@ -374,7 +401,8 @@ def main():
         norm = f" (norm: {r['normalpris']} kr)" if r['normalpris'] else ''
         print(f"  {r['navn']:40s}  {r['pris']:>6} kr{norm}  tilbud={r['tilbud']}")
 
-    save_product_dicts(BUTIK, rows, delete_eq_kategori=KATEGORI)
+    save_product_dicts(BUTIK, rows, delete_eq_kategori=KATEGORI,
+                       min_ratio=None if complete else 0.5)
     print(f'\nFærdig! {len(rows)} Lidl-produkter gemt.')
 
 

@@ -704,7 +704,14 @@ class Default(WSGI[Env]):
             # virker. Bruges af CI's warmup/røgtest (se deploy-edge-dev.yml).
             got_key = parse_qs(url.query or "").get("k", [""])[0]
             if got_key and hmac.compare_digest(got_key.encode(), secret.encode()):
-                return self._staging_cookie_response(secret, path)
+                # Resten af query'en bevares (k/t fjernes), så CI's
+                # funktionstjek kan ramme fx /search/results?q=... i ÉN
+                # navigation - Bot Fight Mode afviser en anden navigation i
+                # samme browser fra GitHub Actions (se playwright-uptime-check.mjs).
+                from urllib.parse import parse_qsl, urlencode
+                rest = urlencode([(k, v) for k, v in parse_qsl(url.query or "", keep_blank_values=True)
+                                  if k not in ("k", "t")])
+                return self._staging_cookie_response(secret, path + ("?" + rest if rest else ""))
 
             # ?t=<udløb>.<hmac> er engangslinket fra produktionens /admin
             # ("Se dev-siden", app.py::admin_staging_link). Gyldigt i højst
