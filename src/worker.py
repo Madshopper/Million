@@ -571,6 +571,8 @@ class Env(Protocol):
     CF_ANALYTICS_TOKEN: str
     CLOUDFLARE_ACCOUNT_ID: str
     STAGING_LINK_SECRET: str
+    APPLE_TEAM_ID: str
+    ANDROID_CERT_SHA256: str
 
 
 # Eneste sti hvor en uautentificeret besøgende ser andet end blankt 404 -

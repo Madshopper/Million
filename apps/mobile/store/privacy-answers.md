@@ -71,9 +71,14 @@ Datatyper at krydse af:
 - **App activity → Other user-generated content** (kurv/lister/delt kurv) — Collected, Linked, *App functionality*. Optional.
 - **App activity → Other actions** (anonyme kurv-hændelser) — Collected, **Not linked**, *Analytics*.
 - **Messages → Other in-app messages** (feedback) — Collected, Linked hvis du selv skriver navn/mail, *Customer support*. Optional.
+- **Device or other IDs** (tilføjet 04-10-2026) — Collected, Linked, *App functionality*. Optional. Push-adressen til prisalarmer (`push_devices`, `src/push/push.ts`) gemmes på brugerens konto, og Firebase Cloud Messaging (som Expos push-tjeneste bruger på Android) har sit eget installations-id. Gemmes kun, når brugeren er logget ind og har sagt ja til beskeder.
 
 Ikke afkrydset: Location, Financial info, Health, Contacts, Photos, Files,
-Calendar, Device or other IDs, Installed apps, Web browsing.
+Calendar, Installed apps, Web browsing.
+
+**Tilladelser i Android-buildet** (`app.config.js` → `android.blockedPermissions`):
+kun internet, vibration og notifikationer. Adgang til filer, mikrofon og "vis
+over andre apps" er fjernet, så der er intet at forklare i Play Console.
 
 **Data deletion URL** (Play kræver et link, når konti kan oprettes):
 `https://madshopper.dk/privatliv` — siden beskriver både in-app-sletningen og

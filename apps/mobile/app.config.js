@@ -76,6 +76,29 @@ if (IS_LOCAL_XCODE_RELEASE) {
   }
 }
 
+// Firebase-filen til Android-beskeder (prisalarmer). Expos push-tjeneste
+// sender via Googles Firebase Cloud Messaging på Android, og uden filen får
+// appen aldrig en push-adresse: prisalarmer ville så tavst aldrig nå frem
+// (der sendes ingen mails, når "Beskeder på telefonen" er udgivet). Filen er
+// ikke hemmelig (Firebase-projektets offentlige id'er) og ligger i git, men
+// kan også gives som EAS-filvariabel GOOGLE_SERVICES_JSON.
+const APP_ROOT = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+const GOOGLE_SERVICES_FILE =
+  process.env.GOOGLE_SERVICES_JSON ||
+  (fs.existsSync(path.join(APP_ROOT, 'google-services.json')) ? './google-services.json' : undefined);
+
+// Et Android-build til Google Play må ikke laves uden Firebase-filen (se ovenfor).
+if (
+  process.env.EAS_BUILD_PLATFORM === 'android' &&
+  process.env.EAS_BUILD_PROFILE === 'production' &&
+  !GOOGLE_SERVICES_FILE
+) {
+  throw new Error(
+    'apps/mobile/google-services.json mangler: uden den virker prisalarmer ikke på Android. ' +
+      'Se docs/udgivelse.md § 3 (Firebase).',
+  );
+}
+
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
   name: 'MadShopper',
@@ -156,6 +179,16 @@ const config = {
   },
   android: {
     package: 'dk.madshopper.app',
+    ...(GOOGLE_SERVICES_FILE ? { googleServicesFile: GOOGLE_SERVICES_FILE } : {}),
+    // Expos skabelon tilføjer adgang til filer og "vis over andre apps", som
+    // appen aldrig bruger. Google Play spørger ind til hver tilladelse, og en
+    // ubrugt en modsiger svarene i store/privacy-answers.md.
+    blockedPermissions: [
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.WRITE_EXTERNAL_STORAGE',
+      'android.permission.SYSTEM_ALERT_WINDOW',
+      'android.permission.RECORD_AUDIO',
+    ],
     adaptiveIcon: {
       backgroundColor: '#059669',
       foregroundImage: './assets/android-icon-foreground.png',

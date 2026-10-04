@@ -119,24 +119,49 @@ Læg dem i `apps/mobile/store/screenshots/android/`.
 
 ---
 
-## 3. Google Play (~25 USD engangs)
+## 3. Google Play (25 USD én gang)
 
-1. [play.google.com/console](https://play.google.com/console) → opret udviklerkonto.
-   Identitetsverifikation kan tage flere dage — start den tidligt.
-2. Ny app: MadShopper, dansk, gratis, package `dk.madshopper.app`.
-3. Byg en AAB og send den ind:
+Opdateret 04-10-2026. Koden er klar; dette er dine trin, i rækkefølge.
+
+1. **Udviklerkonto.** [play.google.com/console](https://play.google.com/console)
+   → opret konto. Koster 25 USD én gang (ikke et abonnement).
+   - *Personlig konto:* hurtigst at oprette, men Google kræver en **lukket test
+     med mindst 12 testere i 14 dage i træk**, før appen må udgives til alle.
+   - *Organisationskonto:* slipper for de 14 dage, men kræver et gratis
+     D-U-N-S-nummer til firmaet (kan tage op til et par uger at få).
+   - Identitetstjekket kan tage flere dage, så start tidligt.
+2. **Firebase (gratis).** Uden den når prisalarmer aldrig frem på Android, og
+   et Play-build stopper derfor selv med en fejl, hvis filen mangler.
+   1. [console.firebase.google.com](https://console.firebase.google.com) → Add
+      project → vælg Google Cloud-projektet med Google-login (683267660851), så
+      alt ligger samme sted. Google Analytics: **slå fra**.
+   2. Add app → Android → package `dk.madshopper.app` → download
+      `google-services.json` → læg den i `apps/mobile/` (eller send den i
+      tråden, så committer Claude den). Filen er ikke hemmelig.
+   3. Project settings → Service accounts → Generate new private key. Den fil
+      ER hemmelig: upload den kun til Expo med
+      `eas credentials` → Android → production → Google Service Account →
+      "Push Notifications (FCM V1)". Læg den aldrig i git.
+3. **Ny app i Play Console:** MadShopper, dansk, app, gratis.
+4. **Byg** (gratis kø hos Expo):
    ```bash
    cd apps/mobile
    eas build --profile production --platform android
-   eas submit --profile production --platform android
    ```
-4. Play App Signing giver dig en **ny** SHA-256 (Play signerer selv appen).
-   Find den under Release → Setup → App integrity. Den skal med i både:
-   - Google Cloud → Android-OAuth-klienten (ellers virker Google-login ikke i
-     den udgave brugerne henter), og
-   - `ANDROID_CERT_SHA256` i næste trin.
-
----
+   Google kræver, at den **første** fil uploades i hånden: hent `.aab`-filen
+   fra Expo og upload den under Test → Lukket test. Senere udgaver kan sendes
+   med `eas submit --profile production --platform android`.
+5. **Play App Signing** giver en ny SHA-256 (Release → Setup → App integrity
+   → App signing). Den skal ind to steder:
+   - Google Cloud → Android-OAuth-klienten (SHA-1'en derfra), ellers virker
+     Google-login ikke i den udgave brugerne henter.
+   - `ANDROID_CERT_SHA256` i trin 4 nedenfor.
+6. **Butikssiden** udfyldes med det der ligger klar: tekster i
+   `apps/mobile/store/da-DK/`, ikon og feature graphic i
+   `apps/mobile/store/graphics/`, Data safety og aldersvurdering i
+   `apps/mobile/store/privacy-answers.md`. Skærmbilleder: se trin 1e.
+7. **Lukket test** (kun personlig konto): inviter 12 testere via deres
+   Gmail-adresser, vent 14 dage, og ansøg så om adgang til produktion.
 
 ## 4. Universal links / App Links (efter trin 2 og 3)
 

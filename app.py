@@ -198,6 +198,8 @@ _EDGE_ENV_VARS = (
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
     'STAGING_LINK_SECRET',
+    # App-links: /.well-known/apple-app-site-association og assetlinks.json.
+    'APPLE_TEAM_ID', 'ANDROID_CERT_SHA256',
 )
 
 
@@ -1638,23 +1640,27 @@ _PROJECTS = (
         'key': 'app_store',
         'name': 'Appen i App Store og Google Play',
         'status': 'waiting',
-        'desc': 'Appen er bygget og testet i simulatoren. Den mangler de '
-                'konti og trin, kun du kan klare, før den kan udgives.',
+        'desc': 'Appen er i App Store. Android-udgaven er gjort klar i koden og '
+                'mangler de konti og trin, kun du kan klare.',
         'parts': (
             {'done': True, 'name': 'Appen bygget',
              'desc': 'Alle skærme, login, kurv, lister og prisalarmer.'},
-            {'done': True, 'name': 'Klar til Apples godkendelse',
-             'desc': 'Slet konto i appen, skærmbilleder til iPhone og app-tekster.'},
-            {'done': False, 'name': 'Apple Developer-konto',
-             'desc': 'Koster ca. 99 USD om året. Giver også Apple-login på hjemmesiden.'},
+            {'done': True, 'name': 'Udgivet i App Store',
+             'desc': 'Version 1.0.0 kom i App Store 25-09-2026.'},
+            {'done': True, 'name': 'Android gjort klar i koden',
+             'desc': 'Ubrugte tilladelser fjernet, mørkt tema virker, og et '
+                     'Play-build stopper selv, hvis Firebase-filen mangler.'},
             {'done': False, 'name': 'Google Play-konto',
-             'desc': 'Koster ca. 25 USD én gang.'},
-            {'done': False, 'name': 'Første rigtige test på en telefon',
-             'desc': 'Google- og Apple-login er kun prøvet i simulatoren.'},
+             'desc': 'Koster ca. 25 USD én gang. Identitetstjek kan tage dage.'},
+            {'done': False, 'name': 'Firebase til beskeder på Android',
+             'desc': 'Gratis. Uden den når prisalarmer aldrig frem på Android.'},
             {'done': False, 'name': 'Skærmbilleder til Android',
-             'desc': 'Kræver en Android-telefon eller -simulator.'},
-            {'done': False, 'name': 'Send til godkendelse',
-             'desc': 'Udfyld oplysningerne i App Store Connect og Play Console og indsend.'},
+             'desc': 'Kræver en Android-telefon eller emulatoren på Windows-pc\'en.'},
+            {'done': False, 'name': 'Lukket test i 14 dage',
+             'desc': 'Nye personlige Play-konti skal have 12 testere i 14 dage '
+                     'før appen må udgives til alle.'},
+            {'done': False, 'name': 'Send til godkendelse i Google Play',
+             'desc': 'Udfyld oplysningerne i Play Console og indsend.'},
         ),
     },
     {
