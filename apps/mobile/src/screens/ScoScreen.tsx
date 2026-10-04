@@ -248,7 +248,6 @@ export function ScoScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
-      <Text style={[styles.h1, { color: colors.text }]}>Find billigste butik</Text>
       <Text style={{ color: colors.textMuted, marginBottom: 12 }}>
         Sammenligning af {topStores.length} butikker for din kurv
       </Text>
@@ -393,7 +392,6 @@ export function ScoScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  h1: { fontSize: 22, fontWeight: '800' },
   h2: { fontSize: 16, fontWeight: '700', marginBottom: 8, marginTop: 4 },
   routeBtn: {
     borderWidth: 1,

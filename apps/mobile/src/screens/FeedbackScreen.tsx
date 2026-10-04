@@ -114,7 +114,6 @@ export function FeedbackScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.title, { color: colors.text }]}>Feedback</Text>
         <Text style={{ color: colors.textMuted, marginBottom: 16 }}>
           Fortæl os hvad du synes, eller meld en fejl
         </Text>
@@ -198,7 +197,6 @@ export function FeedbackScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  title: { fontSize: 22, fontWeight: '800' },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   typeChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, borderWidth: 1 },
   input: {
