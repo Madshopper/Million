@@ -26,6 +26,17 @@
         "EXPO_PUBLIC_PUSH_ENABLED": "1"
       }
     },
+    "test-android": {
+      "distribution": "internal",
+      "channel": "test",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "test"
+      },
+      "environment": "preview"
+    },
     "production": {
       "autoIncrement": true,
       "env": {
