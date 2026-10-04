@@ -77,6 +77,11 @@ jobs:
           APP_URL: ${{ secrets.APP_URL }}
           CACHE_REFRESH_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          # Beskeder på telefonen (push_notify.py). Feature-panelet afgør om
+          # de bruges i stedet for mail - læses med Cloudflare-nøglen.
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: python updater.py
 
       # Skriver opskrifternes pris-snapshot til produktionens tabel - samme

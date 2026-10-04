@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Alert,
   Animated,
   Image,
@@ -22,6 +23,13 @@ import { buildStorePrices } from '../cart/buildStorePrices';
 import { useAuth } from '../auth/AuthContext';
 import { getSupabase } from '../auth/supabase';
 import { rpcName } from '../config/env';
+import {
+  enablePush,
+  getPushState,
+  notificationsAllowed,
+  usePushFeature,
+  type PushState,
+} from '../push/push';
 import { useCart } from '../cart/CartContext';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
@@ -169,13 +177,43 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   const [targetPriceInput, setTargetPriceInput] = useState('');
   const [alertSaving, setAlertSaving] = useState(false);
   const [alertSet, setAlertSet] = useState(false);
+  // Med "Beskeder på telefonen" udgivet sendes prisalarmer KUN som besked
+  // (Kalle 04-10-2026), så appen beder om lov, når en alarm sættes.
+  const pushFeature = usePushFeature();
+  const [pushState, setPushState] = useState<PushState | null>(null);
+  // Vises når notifikationer er slået fra: så kommer prisalarmen aldrig frem.
+  const [pushOffOverlay, setPushOffOverlay] = useState(false);
 
-  const onMonitorPress = () => {
+  const onMonitorPress = async () => {
     if (!user) {
       setLoginOverlay(true);
       return;
     }
+    if (pushFeature) {
+      let state = await getPushState().catch((): PushState => 'off');
+      // Ikke spurgt endnu (eller tidligere slået fra i appen): spørg nu.
+      if (state === 'off') state = await enablePush().catch((): PushState => 'off');
+      setPushState(state);
+      // Kun telefonens tilladelse afgør overlayet - en fejl i selve
+      // tilmeldingen (fx netværk) må ikke spærre for at sætte alarmen.
+      if (state !== 'on' && !(await notificationsAllowed().catch(() => false))) {
+        setPushOffOverlay(true);
+        return;
+      }
+    }
     setMonitorOpen(true);
+  };
+
+  const onTurnOnPush = async () => {
+    const state = await enablePush().catch((): PushState => 'off');
+    setPushState(state);
+    if (state === 'on' || (await notificationsAllowed().catch(() => false))) {
+      setPushOffOverlay(false);
+      setMonitorOpen(true);
+      return;
+    }
+    // Telefonen må ikke spørge igen: kun Indstillinger kan slå dem til.
+    void Linking.openSettings();
   };
 
   /** Web-paritet (static/js/script.js savePriceAlert) - samme RPC, samme validering. */
@@ -386,7 +424,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
       </View>
 
       <Pressable
-        onPress={onMonitorPress}
+        onPress={() => void onMonitorPress()}
         style={[styles.btnOutline, { borderColor: colors.border }]}
       >
         <Text style={{ color: colors.text }}>Overvåg pris</Text>
@@ -574,11 +612,19 @@ export function ProductDetailScreen({ route, navigation }: Props) {
               Prisovervågning
             </Text>
             {alertSet ? (
-              <Text style={{ color: colors.text }}>✅ Alarm sat - du får en mail</Text>
+              <Text style={{ color: colors.text }}>
+                {!pushFeature
+                  ? '✅ Alarm sat - du får en mail'
+                  : pushState === 'on'
+                    ? '✅ Alarm sat - du får en besked'
+                    : '✅ Alarm sat. Slå beskeder til under Profil, ellers får du ikke besked.'}
+              </Text>
             ) : (
               <>
                 <Text style={{ color: colors.textMuted, marginBottom: 12 }}>
-                  Giv mig besked på mail når prisen falder til:
+                  {pushFeature
+                    ? 'Giv mig besked når prisen falder til:'
+                    : 'Giv mig besked på mail når prisen falder til:'}
                 </Text>
                 <TextInput
                   value={targetPriceInput}
@@ -610,6 +656,41 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                 <Text style={{ color: colors.text }}>Annuller</Text>
               </Pressable>
             ) : null}
+          </View>
+        </View>
+      </Modal>
+      <Modal visible={pushOffOverlay} transparent animationType="fade" onRequestClose={() => setPushOffOverlay(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface, alignItems: 'center' }]}>
+            <Text style={{ fontSize: 28, marginBottom: 8 }}>🔕</Text>
+            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 6, textAlign: 'center' }}>
+              Notifikationer er slået fra
+            </Text>
+            <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>
+              Du får ingen besked, når prisen falder, fordi notifikationer er slået fra for
+              MadShopper. Slå dem til for at bruge prisovervågning.
+            </Text>
+            <Pressable
+              onPress={() => void onTurnOnPush()}
+              style={[styles.btn, { width: '100%', marginTop: 0, backgroundColor: colors.primary }]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.btnText}>Slå notifikationer til</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void Linking.openSettings()}
+              style={[styles.btnOutline, { width: '100%', marginTop: 8, borderColor: colors.border }]}
+              accessibilityRole="button"
+            >
+              <Text style={{ color: colors.text }}>Åbn Indstillinger</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setPushOffOverlay(false)}
+              style={[styles.btnOutline, { width: '100%', marginTop: 8, borderColor: colors.border }]}
+              accessibilityRole="button"
+            >
+              <Text style={{ color: colors.text }}>Ikke nu</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>

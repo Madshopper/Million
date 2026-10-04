@@ -3032,6 +3032,67 @@ def _send_price_alert_email(to_email: str, product_name: str, target_price: floa
         return False
 
 
+def _push_live() -> bool:
+    """Er "Beskeder på telefonen" udgivet i Feature-panelet? PUSH_ENABLED=1
+    tvinger den til (lokalt). Ved tvivl: nej, så mailen bruges som før."""
+    if os.environ.get('PUSH_ENABLED') == '1':
+        return True
+    try:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scripts'))
+        from feature_flags import feature_live
+        return feature_live('push')
+    except Exception as e:
+        logger.warning("Prisalarmer: kunne ikke læse Feature-panelet: %s", e)
+        return False
+
+
+def _push_devices_for(base: str, headers: dict, user_ids: set) -> dict:
+    """user_id -> liste af enheder (scripts/supabase-push.sql)."""
+    if not user_ids:
+        return {}
+    table = f"push_devices{_updater_table_suffix()}"
+    try:
+        import httpx
+        resp = httpx.get(
+            f"{base}/rest/v1/{table}",
+            headers=headers,
+            params={
+                "select": "id,user_id,kind,token,p256dh,auth",
+                "user_id": f"in.({','.join(sorted(user_ids))})",
+            },
+            timeout=30.0,
+        )
+        if resp.status_code == 404:
+            logger.info("%s findes ikke endnu - kør scripts/supabase-push.sql", table)
+            return {}
+        resp.raise_for_status()
+        rows = resp.json()
+    except Exception as e:
+        logger.warning("Prisalarmer: kunne ikke hente telefoner til beskeder: %s", e)
+        return {}
+    out: dict = {}
+    for row in rows:
+        out.setdefault(str(row.get('user_id')), []).append(row)
+    return out
+
+
+def _delete_push_devices(base: str, headers: dict, ids: list) -> None:
+    """Slet enheder der ikke findes mere (app slettet, tilladelse fjernet)."""
+    table = f"push_devices{_updater_table_suffix()}"
+    try:
+        import httpx
+        httpx.delete(
+            f"{base}/rest/v1/{table}",
+            headers={**headers, "Prefer": "return=minimal"},
+            params={"id": f"in.({','.join(str(int(i)) for i in ids)})"},
+            timeout=30.0,
+        ).raise_for_status()
+        logger.info("Prisalarmer: fjernede %d telefon(er) der ikke findes mere", len(ids))
+    except Exception as e:
+        logger.warning("Prisalarmer: kunne ikke rydde op i telefoner: %s", e)
+
+
 def check_price_alerts(products: list) -> None:
     """Tjek aktive prisalarmer mod nattens friske priser, mail ved match.
 
@@ -3058,7 +3119,7 @@ def check_price_alerts(products: list) -> None:
                 f"{base}/rest/v1/{table}",
                 headers=headers,
                 params={
-                    "select": "id,product_id,product_name,target_price,email",
+                    "select": "id,product_id,product_name,target_price,email,user_id",
                     "notified_at": "is.null",
                     "email": "not.is.null",
                 },
@@ -3078,7 +3139,8 @@ def check_price_alerts(products: list) -> None:
     cheapest = _cheapest_prices_by_id(products)
     triggered_ids = []
     unresolved = []  # alarmer hvis product_id ikke findes i nattens friske priser
-    unsent = []      # alarmer der udløste, men hvor selve mail-afsendelsen fejlede
+    unsent = []      # alarmer der udløste, men hvor beskeden/mailen ikke kom frem
+    hits = []        # (alarm, pris nu) for alarmer der er udløst i nat
     for alert in alerts:
         pid = str(alert.get('product_id') or '')
         target = alert.get('target_price')
@@ -3096,10 +3158,49 @@ def check_price_alerts(products: list) -> None:
             continue
         if price_now > float(target):
             continue
-        if _send_price_alert_email(email, alert.get('product_name') or '', float(target), price_now):
+        hits.append((alert, price_now))
+
+    # Beskeder på telefonen (Feature-panelet: 'push'). Når den er udgivet,
+    # sendes prisalarmer KUN som besked - aldrig som mail (Kalle 04-10-2026).
+    # Har brugeren ingen telefon tilmeldt, eller kom beskeden ikke frem, bliver
+    # alarmen stående og prøves igen næste nat, så den når frem, så snart
+    # brugeren slår beskeder til. Før udgivelsen sendes mail som hidtil.
+    push_live = bool(hits) and _push_live()
+    devices_by_user = _push_devices_for(
+        base, headers, {str(a.get('user_id')) for a, _ in hits if a.get('user_id')}
+    ) if push_live else {}
+    pushed = 0
+    waiting = 0      # udløst, men ingen tilmeldt telefon/browser endnu
+    gone_devices = []
+    for alert, price_now in hits:
+        target = float(alert['target_price'])
+        name = alert.get('product_name') or ''
+        if push_live:
+            devices = devices_by_user.get(str(alert.get('user_id') or ''), [])
+            if not devices:
+                waiting += 1
+                continue
+            from push_notify import price_alert_message, send_to_devices
+            delivered, gone = send_to_devices(devices, price_alert_message(name, target, price_now))
+            gone_devices.extend(gone)
+            if delivered:
+                pushed += 1
+                triggered_ids.append(alert['id'])
+            else:
+                unsent.append(alert['id'])
+            continue
+        if _send_price_alert_email(alert['email'], name, target, price_now):
             triggered_ids.append(alert['id'])
         else:
             unsent.append(alert['id'])
+
+    if gone_devices:
+        _delete_push_devices(base, headers, gone_devices)
+    if pushed:
+        logger.info("Prisalarmer: %d sendt som besked på telefonen", pushed)
+    if waiting:
+        logger.info("Prisalarmer: %d udløst, men brugeren har ikke slået beskeder "
+                    "til endnu - venter", waiting)
 
     if unresolved:
         logger.warning(
@@ -3116,8 +3217,9 @@ def check_price_alerts(products: list) -> None:
         # forbliver notified_at=NULL og forsøges forgæves igen hver nat.
         # Aggregeret advarsel (produktionsrevision 18-08-2026, blokerer #6).
         logger.warning(
-            "Prisalarmer: %d udløst(e) alarm(er) kunne IKKE sendes (Resend-kald "
-            "fejlede eller RESEND_API_KEY mangler) - de forsøges igen næste nat: %s",
+            "Prisalarmer: %d udløst(e) alarm(er) kunne IKKE sendes (besked eller "
+            "mail fejlede, fx manglende VAPID_PRIVATE_KEY/RESEND_API_KEY) - de "
+            "forsøges igen næste nat: %s",
             len(unsent), unsent[:10])
 
     if not triggered_ids:
@@ -3136,7 +3238,7 @@ def check_price_alerts(products: list) -> None:
             )
             resp.raise_for_status()
         logger.info(
-            "Prisalarmer: sendte %s mail(s) af %s aktive alarmer", len(triggered_ids), len(alerts)
+            "Prisalarmer: %s udløst (mail eller besked) af %s aktive alarmer", len(triggered_ids), len(alerts)
         )
     except Exception as e:
         logger.warning("Prisalarmer: kunne ikke markere alarmer som udløst: %s", e)

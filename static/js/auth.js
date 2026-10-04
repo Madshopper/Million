@@ -372,6 +372,8 @@
       }
     } catch (e) { /* ignorér */ }
 
+    resyncPush();
+
     // ?alarmer=1 er linket i prisalarm-mailen ("se og slet dine alarmer").
     // Aabn kontovisningen direkte, saa modtageren lander praecis dér, i stedet
     // for bare paa forsiden uden at kunne finde listen.
@@ -455,7 +457,7 @@
     // Kontovisningen indeholder listen over prisalarmer - hent den, hver gang
     // visningen aabnes, saa den ikke naar at blive foraeldet (en alarm kan
     // vaere udloest og slettet siden sidst).
-    if (name === 'account') loadPriceAlerts();
+    if (name === 'account') { loadPriceAlerts(); refreshPushUI(); }
   }
 
   /* --------------------------------------------------------- prisalarmer
@@ -546,6 +548,179 @@
       _setAlertsMsg('Kunne ikke slette prisalarmen. Prøv igen.', true);
       if (btn) btn.disabled = false;
     }
+  }
+
+  /* ------------------------------------------- beskeder på telefonen (push)
+
+     Feature-panelet 'push'. Blokken #auth-push findes kun i siden, når den
+     er udgivet (eller på dev). Browseren giver en push-adresse + to nøgler,
+     som gemmes via register_push_device-RPC'en (scripts/supabase-push.sql);
+     nattens updater.py sender så prisalarmen hertil. Når funktionen er
+     udgivet, er det den ENESTE vej - der sendes ingen mails (Kalle 04-10-2026).
+     static/sw.js viser beskeden. Den ligger under /static/ og styrer derfor
+     ingen sider - derfor ventes der paa reg.active, ikke navigator.serviceWorker
+     .ready (som kun svarer for en worker der styrer siden). */
+  var pushActive = false;
+
+  function _pushBox() { return el('auth-push'); }
+  function _pushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  }
+  function _isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function _isStandalone() {
+    return window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  }
+  function _b64ToBytes(b64) {
+    var pad = '='.repeat((4 - b64.length % 4) % 4);
+    var raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  function _setPush(status, btnText, msg, isError) {
+    var st = el('auth-push-status'), btn = el('auth-push-btn'), m = el('auth-push-msg');
+    if (st && status) st.textContent = status;
+    if (btn) {
+      btn.style.display = btnText ? '' : 'none';
+      if (btnText) btn.textContent = btnText;
+      btn.disabled = false;
+    }
+    if (m) {
+      m.textContent = msg || '';
+      m.style.display = msg ? 'block' : 'none';
+      m.classList.toggle('auth-ok', !!msg && !isError);
+    }
+  }
+  async function _pushSubscription() {
+    if (!_pushSupported()) return null;
+    var reg = await navigator.serviceWorker.getRegistration('/static/');
+    return reg ? await reg.pushManager.getSubscription() : null;
+  }
+  async function _savePushSubscription(sub) {
+    var j = sub.toJSON();
+    var res = await SB.rpc(window.AuthBridge.rpcName('register_push_device'), {
+      kind: 'web', token: j.endpoint, p256dh: j.keys && j.keys.p256dh, auth: j.keys && j.keys.auth
+    });
+    return !res.error && res.data === true;
+  }
+
+  async function refreshPushUI() {
+    var box = _pushBox();
+    if (!box) return;
+    if (!_pushSupported()) {
+      if (_isIOS() && !_isStandalone()) {
+        _setPush('På iPhone kan beskeder kun slås til, når MadShopper ligger på ' +
+          'hjemmeskærmen. Tryk på Del og så "Føj til hjemmeskærm", og åbn ' +
+          'MadShopper derfra.', '');
+      } else {
+        _setPush('Din browser kan ikke vise beskeder. Brug appen eller en anden ' +
+          'browser for at få besked om dine prisalarmer.', '');
+      }
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      pushActive = false;
+      _setPush('Beskeder er slået fra for madshopper.dk i din browser. Slå dem til ' +
+        'i browserens indstillinger, så kan du bruge dem her.', '');
+      return;
+    }
+    var sub = null;
+    try { sub = await _pushSubscription(); } catch (e) { /* ignorér */ }
+    pushActive = !!sub && Notification.permission === 'granted';
+    if (pushActive) {
+      _setPush('Beskeder er slået til på denne enhed. Du får besked, når prisen falder.',
+        'Slå beskeder fra');
+    } else {
+      _setPush('Slå beskeder til for at få besked, når prisen falder. Prisalarmer ' +
+        'sendes kun som besked.',
+        'Få besked på telefonen');
+    }
+  }
+
+  // Status til "Overvåg pris" (script.js): 'on', 'off' (kan slås til),
+  // 'denied' (blokeret i browseren), 'homescreen' (iPhone uden hjemmeskærm)
+  // eller 'unsupported'.
+  async function pushStatus() {
+    if (!_pushSupported()) return (_isIOS() && !_isStandalone()) ? 'homescreen' : 'unsupported';
+    if (Notification.permission === 'denied') return 'denied';
+    var sub = null;
+    try { sub = await _pushSubscription(); } catch (e) { /* ignorér */ }
+    pushActive = !!sub && Notification.permission === 'granted';
+    if (pushActive && SB && currentUser) {
+      // Sikr at adressen ligger hos den indloggede bruger.
+      try { await _savePushSubscription(sub); } catch (e) { /* ignorér */ }
+    }
+    return pushActive ? 'on' : 'off';
+  }
+
+  async function enablePush() {
+    var box = _pushBox();
+    if (!box || !SB || !currentUser || !_pushSupported()) return;
+    var perm = await Notification.requestPermission();
+    if (perm !== 'granted') { await refreshPushUI(); return; }
+    var reg = await navigator.serviceWorker.register(box.getAttribute('data-sw'), { scope: '/static/' });
+    if (!reg.active) {
+      await new Promise(function (resolve) {
+        var w = reg.installing || reg.waiting;
+        if (!w) return resolve();
+        w.addEventListener('statechange', function () { if (w.state === 'activated') resolve(); });
+        setTimeout(resolve, 10000);
+      });
+    }
+    var sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _b64ToBytes(box.getAttribute('data-vapid'))
+      });
+    }
+    if (!(await _savePushSubscription(sub))) {
+      try { await sub.unsubscribe(); } catch (e) { /* ignorér */ }
+      throw new Error('register_push_device afviste');
+    }
+  }
+
+  async function disablePush() {
+    var sub = await _pushSubscription();
+    if (!sub) return;
+    if (SB && currentUser) {
+      await SB.rpc(window.AuthBridge.rpcName('unregister_push_device'), { token: sub.endpoint });
+    }
+    await sub.unsubscribe();
+  }
+
+  async function togglePush() {
+    var btn = el('auth-push-btn');
+    if (btn) btn.disabled = true;
+    var wasOn = pushActive;
+    try {
+      if (wasOn) await disablePush(); else await enablePush();
+      await refreshPushUI();
+      var m = el('auth-push-msg');
+      if (m && pushActive !== wasOn) {
+        _setPush('', btn && btn.textContent,
+          pushActive ? 'Beskeder er slået til.' : 'Beskeder er slået fra. Du får ikke besked om dine prisalarmer.', false);
+      }
+    } catch (e) {
+      console.error('[auth] beskeder:', e);
+      await refreshPushUI();
+      _setPush('', btn && btn.textContent, 'Det lykkedes ikke. Prøv igen.', true);
+    }
+  }
+
+  // Ved login: er beskeder allerede slået til i denne browser, gemmes
+  // adressen igen under den indloggede bruger (den kan være skiftet).
+  async function resyncPush() {
+    if (!_pushBox() || !SB || !currentUser || !_pushSupported()) return;
+    if (Notification.permission !== 'granted') return;
+    try {
+      var sub = await _pushSubscription();
+      if (sub) { pushActive = await _savePushSubscription(sub); }
+    } catch (e) { /* ignorér */ }
   }
 
   function normalizeDisplayName(raw) {
@@ -1031,6 +1206,9 @@
       // (tomme) lokale kurv over den rigtige, gemte kurv.
       _writeLS(OWNER_KEY, null);
       _writeLS(SYNCED_KEY, null);
+      // En anden kan logge ind i samme browser bagefter: prisalarmer må ikke
+      // blive ved med at komme her. Slås til igen med ét tryk efter login.
+      if (pushActive) { try { await disablePush(); } catch (e) { /* ignorér */ } pushActive = false; }
       await SB.auth.signOut();
     } catch (e) { /* ignorér */ }
     closeAuthModal();
@@ -1335,6 +1513,7 @@
   window.authRequestReset = requestReset;
   window.authSubmitNewPassword = submitNewPassword;
   window.authSaveDisplayName = saveDisplayNameFromAccount;
+  window.authTogglePush = togglePush;
 
   // Bro til script.js (gem/del lister kræver konto).
   window.AuthBridge = {
@@ -1349,6 +1528,18 @@
       return false;
     },
     getDisplayName: getDisplayName,
+    // Sandt når beskeder er slået til i denne browser (script.js' "Alarm sat").
+    pushActive: function () { return pushActive; },
+    // Sandt når "Beskeder på telefonen" er udgivet (blokken findes i siden).
+    pushFeature: function () { return !!_pushBox(); },
+    pushStatus: pushStatus,
+    // Slår notifikationer til (skal kaldes direkte fra et klik). Svarer status.
+    enablePush: async function () {
+      try { await enablePush(); } catch (e) { console.error('[auth] beskeder:', e); }
+      var st = await pushStatus();
+      refreshPushUI();
+      return st;
+    },
     ensureDisplayName: ensureDisplayName,
     // Kald efter login/logout - script.js hægtet shared-cart sync her.
     onSignedIn: null,

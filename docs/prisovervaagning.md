@@ -12,6 +12,17 @@ Status: **Live.** `RESEND_API_KEY` er sat som GitHub Actions-secret siden 31-07-
 4. Hver nat, som del af `updater.py`s `run_updater()`, tjekker `check_price_alerts()` alle alarmer med `notified_at IS NULL` mod nattens friske priser (samme kilde som prishistorikken, `collect_store_prices()` - laveste pris på tværs af alle butikker).
 5. Rammer prisen målprisen eller derunder, sendes en mail via **Resends HTTP API** (`_send_price_alert_email()`), og alarmen markeres `notified_at = now()` så den ikke sender igen. En ny alarm på samme vare nulstiller `notified_at` (RPC'en).
 
+## Beskeder på telefonen (push) - bygget 04-10-2026
+
+Skjult på madshopper.dk indtil den udgives i Feature-panelet (`app._FEATURES`, nøgle `push`); altid til på dev.madshopper.dk (`PUSH_ENABLED` i `build-pages.sh`) og i appens test-udgaver (`EXPO_PUBLIC_PUSH_ENABLED` i `eas.json`).
+
+- **Tilmelding:** under "Mine prisalarmer" trykker brugeren "Få besked på telefonen". Web (`static/js/auth.js::enablePush`, `static/sw.js`) bruger standard Web Push; appen (`apps/mobile/src/push/push.ts`) bruger Expos gratis push-tjeneste. Begge gemmer enheden via `register_push_device`-RPC'en i `push_devices` (`scripts/supabase-push.sql`, én række pr. enhed, højst 10 pr. bruger). Log ud afmelder enheden.
+- **Afsendelse:** `check_price_alerts()` i `updater.py` spørger `scripts/feature_flags.py` om `push` er udgivet. Er den det, sendes prisalarmer **kun** som besked (`push_notify.py`), aldrig som mail (Kalle 04-10-2026). Har brugeren ingen tilmeldt enhed, eller kom beskeden ikke frem, bliver alarmen stående (`notified_at` forbliver tom) og prøves igen næste nat. Derfor spørger appen om lov til notifikationer første gang den åbnes, og tilmelder telefonen automatisk ved login, så længe lov er givet ("Slå fra" under Mine prisalarmer huskes). Er notifikationer slået fra, viser "Overvåg pris" et overlay med "Slå notifikationer til" og "Åbn Indstillinger" i stedet for at sætte alarmen. Hjemmesiden gør det samme ved "Overvåg pris" (`script.js::showPushNotice`): uden notifikationer vises en boks med "Slå notifikationer til" (eller forklaring om blokeret browser / iPhone-hjemmeskærm) i stedet for formularen. Efter udgivelsen sender MadShopper altså ingen prisalarm-mails; de eneste mails er Supabase' egne login-mails (bekræft konto, nulstil adgangskode). Før udgivelsen sendes mail som hidtil. Enheder der er væk (404/410 / `DeviceNotRegistered`) slettes.
+- **Nøgler:** Web Push signeres med VAPID. Den offentlige nøgle står i `app.py::_VAPID_PUBLIC_KEY` og `push_notify.py`; den hemmelige er GitHub-secret `VAPID_PRIVATE_KEY`. Kryptering og signatur tjekkes af `scripts/test-push-crypto.py` (inkl. RFC 8291's officielle testeksempel).
+- **iPhone-appen** kræver at Apples push-nøgle ligger hos Expo (`eas credentials` → Push Notifications, eller sig ja når `eas build` spørger). **Android** kræver et gratis Firebase-projekt (`google-services.json` + FCM-nøgle i `eas credentials`), først relevant når appen kommer i Google Play.
+- **iPhone-hjemmesiden:** Safari kan kun modtage beskeder, når siden er lagt på hjemmeskærmen (iOS 16.4+). Knappen forklarer det.
+- **Test:** workflowet *Testbesked til telefonen (dev)* (`push-test.yml`) sender en testbesked til alle enheder tilmeldt på dev (`push_devices_dev`), aldrig til rigtige brugere.
+
 ## Forudsætninger (alle opfyldt pr. 18-08-2026)
 
 1. **`RESEND_API_KEY`-secret** i GitHub Actions (bruges af `cache-updater.yml` → `updater.py`) - sat 31-07-2026. Samme nøgle ligger i lokal `.env` til test.

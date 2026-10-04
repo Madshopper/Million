@@ -17,3 +17,6 @@ Pillow>=10.0
 imagehash>=4.3.1,<5
 gunicorn>=21.0
 rapidfuzz>=3.0.0,<4
+# Web Push (push_notify.py): kryptering og VAPID-signatur til beskeder på
+# telefonen. Kom tidligere kun med indirekte (via supabase), nu eksplicit.
+cryptography>=42

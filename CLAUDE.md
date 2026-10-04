@@ -53,6 +53,7 @@ Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `u
 - `supabase-cart-increment.sql` - `record_cart_activity`-RPC (SECURITY DEFINER, eneste skrivevej til `cart_events`)
 - `supabase-nutrition.sql`, `supabase-carts.sql`, `supabase-dev-tables.sql`
 - `supabase-user-savings.sql` - personlig månedlig besparelse (`get_personal_savings` / `record_compare_savings`)
+- `supabase-push.sql` - `push_devices` (+ `_dev`): telefoner/browsere der vil have prisalarmer som besked (`register_push_device` / `unregister_push_device`), se `docs/prisovervaagning.md`
 - `supabase-admin.sql` - admin-panelet `/admin`: `admin_users` + `is_admin()`, `admin_overview`, feedback-tabellen `feedback` + `submit_feedback`-RPC'en (eneste skrivevej for `/api/feedback`, med globalt loft) opskrift-moderering og kørselshistorikken `job_runs` + `admin_job_runs` (fyldes af `scripts/sync-job-runs.py` i `security-monitor.yml`). Skal køres FØR koden deployes, ellers giver feedback-formularen 503. Indsæt din konto i `admin_users` bagefter
 - `supabase-rls-audit.sql` (ren læsning), `supabase-lockdown.sql`, `supabase-hardening.sql` - sikkerhed/RLS
 

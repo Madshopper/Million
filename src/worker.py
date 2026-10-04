@@ -560,6 +560,7 @@ class Env(Protocol):
     ENABLE_PRICE_DB: str
     TABLE_SUFFIX: str
     RECIPES_ENABLED: str
+    PUSH_ENABLED: str
     STAGING_ACCESS_SECRET: str
     STAGING_ACCESS_EMAIL: str
     STAGING_ACCESS_PASSWORD: str

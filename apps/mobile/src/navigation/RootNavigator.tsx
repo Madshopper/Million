@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
   NavigationContainer,
+  createNavigationContainerRef,
   DarkTheme,
   DefaultTheme,
   type LinkingOptions,
 } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
+import * as Notifications from 'expo-notifications';
+import { askOnFirstLaunch, usePushFeature } from '../push/push';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +35,17 @@ import { recipesEnabled } from '../config/env';
 import type { RootStackParamList, TabParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Tryk på en prisalarm-besked (src/push/push.ts) åbner Profil, hvor
+// "Mine prisalarmer" står. Ref'en virker også før en skærm har fokus.
+const navRef = createNavigationContainerRef<RootStackParamList>();
+
+function openFromNotification(resp: Notifications.NotificationResponse | null) {
+  if (!resp || !navRef.isReady()) return;
+  // Ryd den, så næste opstart ikke åbner Profil igen for den samme besked.
+  void Notifications.clearLastNotificationResponseAsync().catch(() => {});
+  navRef.navigate('Tabs', { screen: 'Profile' });
+}
 const Tabs = createBottomTabNavigator<TabParamList>();
 
 /**
@@ -241,6 +255,15 @@ function MainTabs() {
 }
 
 export function RootNavigator() {
+  // Første gang appen åbnes: spørg om lov til notifikationer (Kalle 04-10-2026).
+  const pushFeature = usePushFeature();
+  useEffect(() => {
+    if (pushFeature) void askOnFirstLaunch();
+  }, [pushFeature]);
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener(openFromNotification);
+    return () => sub.remove();
+  }, []);
   const { colors, isDark } = useTheme();
   const navTheme = {
     ...(isDark ? DarkTheme : DefaultTheme),
@@ -255,7 +278,15 @@ export function RootNavigator() {
   };
 
   return (
-    <NavigationContainer theme={navTheme} linking={recoveryLinking}>
+    <NavigationContainer
+      ref={navRef}
+      theme={navTheme}
+      linking={recoveryLinking}
+      // Appen var lukket, da beskeden blev trykket: åbn Profil, når navigationen er klar.
+      onReady={() => {
+        void Notifications.getLastNotificationResponseAsync().then(openFromNotification);
+      }}
+    >
       <Stack.Navigator
         screenOptions={({ navigation }) => ({
           headerStyle: { backgroundColor: colors.surface },

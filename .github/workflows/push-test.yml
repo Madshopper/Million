@@ -1,0 +1,29 @@
+name: Testbesked til telefonen (dev)
+
+# Sender en testbesked til alle telefoner og browsere, der har slået
+# beskeder til på dev.madshopper.dk eller i appens test-udgave
+# (push_devices_dev). Rammer aldrig rigtige brugere. Se docs/prisovervaagning.md.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install "httpx>=0.27" "cryptography>=42"
+      - name: Tjek krypteringen
+        run: python scripts/test-push-crypto.py
+      - name: Send testbesked
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: python scripts/send-test-push.py
