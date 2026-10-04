@@ -36,7 +36,6 @@ import { setServerPushEnabled } from '../push/push';
 import type { RootStackParamList } from '../navigation/types';
 
 type HomeRow =
-  | { key: string; kind: 'hero' }
   | { key: string; kind: 'cats' }
   | { key: string; kind: 'filters' }
   | { key: string; kind: 'error'; message: string }
@@ -135,7 +134,6 @@ export function HomeScreen() {
 
   const rows = React.useMemo<HomeRow[]>(() => {
     const out: HomeRow[] = [
-      { key: 'hero', kind: 'hero' },
       { key: 'savings', kind: 'savings', savings },
       { key: 'cats', kind: 'cats' },
       { key: 'filters', kind: 'filters' },
@@ -170,7 +168,7 @@ export function HomeScreen() {
         style={{ height: listHeight }}
         data={rows}
         keyExtractor={(item) => item.key}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 40 }}
         scrollEnabled
         bounces
         showsVerticalScrollIndicator
@@ -179,14 +177,6 @@ export function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
         }
         renderItem={({ item }) => {
-          if (item.kind === 'hero') {
-            return (
-              <View style={styles.hero}>
-                <Text style={[styles.brand, { color: colors.text }]}>MadShopper</Text>
-              </View>
-            );
-          }
-
           if (item.kind === 'cats') {
             // Én knap i stedet for en vandret chip-bjælke (03-10-2026): man
             // så kun de første par kategorier og skulle swipe efter resten.
@@ -331,8 +321,6 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
-  hero: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
-  brand: { fontSize: 32, fontWeight: '800', letterSpacing: -0.5 },
   catsButton: {
     flexDirection: 'row',
     alignItems: 'center',

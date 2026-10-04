@@ -126,14 +126,18 @@ function Paragraph({
   return <Text style={[styles.paragraph, { color: colors.textMuted }]}>{children}</Text>;
 }
 
-export function LegalScreen({ route }: Props) {
+export function LegalScreen({ navigation, route }: Props) {
   const { kind } = route.params;
   const { colors } = useTheme();
 
+  // Titlen står kun i headeren; en ekstra overskrift i selve siden gav to
+  // næsten ens titler oven på hinanden (issue #16).
+  React.useLayoutEffect(() => {
+    navigation.setOptions({ title: TITLES[kind] });
+  }, [navigation, kind]);
+
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20 }}>
-      <Text style={[styles.title, { color: colors.text }]}>{TITLES[kind]}</Text>
-
       {kind === 'terms' ? <TermsBody colors={colors} /> : null}
       {kind === 'privacy' ? <PrivacyBody colors={colors} /> : null}
       {kind === 'about' ? <AboutBody colors={colors} /> : null}
@@ -156,7 +160,6 @@ export function LegalScreen({ route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 22, fontWeight: '800', marginBottom: 16 },
   paragraph: { fontSize: 14, lineHeight: 21, marginBottom: 14 },
   contactBox: { padding: 14, borderRadius: 12, borderWidth: 1, marginTop: 8 },
   webLink: { marginTop: 20, marginBottom: 32, alignItems: 'center' },

@@ -46,7 +46,6 @@ export function RouteScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
-      <Text style={[styles.h1, { color: colors.text }]}>Butiksrute</Text>
       <Text style={{ color: colors.textMuted, marginBottom: 12 }}>
         Billigste butik pr. vare, splittet på tværs af butikker
       </Text>
@@ -122,7 +121,6 @@ export function RouteScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  h1: { fontSize: 22, fontWeight: '800' },
   totalBox: { padding: 16, borderRadius: 12, marginBottom: 16 },
   storeBlock: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 },
   storeHead: {

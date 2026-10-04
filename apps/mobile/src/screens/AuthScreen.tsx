@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,6 +17,13 @@ import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
+
+const MODE_TITLES = {
+  login: 'Log ind',
+  signup: 'Opret konto',
+  reset: 'Nulstil adgangskode',
+  newpassword: 'Vælg ny adgangskode',
+} as const;
 
 type Mode = 'login' | 'signup' | 'reset' | 'newpassword';
 
@@ -44,6 +51,13 @@ export function AuthScreen({ navigation }: Props) {
   const [appleAvailable, setAppleAvailable] = useState(false);
 
   const [mode, setMode] = useState<Mode>('login');
+
+  // Headeren viser hvad man er ved at gøre, i stedet for "Konto" plus en
+  // stor overskrift i selve skærmen (issue #16).
+  const loggedIn = !!user && !recoveryActive;
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: loggedIn ? 'Konto' : MODE_TITLES[mode] });
+  }, [navigation, loggedIn, mode]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -183,13 +197,6 @@ export function AuthScreen({ navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
-        <Text style={[styles.title, { color: colors.text }]}>
-          {mode === 'login' && 'Log ind'}
-          {mode === 'signup' && 'Opret konto'}
-          {mode === 'reset' && 'Nulstil adgangskode'}
-          {mode === 'newpassword' && 'Vælg ny adgangskode'}
-        </Text>
-
         {mode === 'signup' ? (
           <>
             <TextInput
@@ -308,7 +315,6 @@ export function AuthScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
-  title: { fontSize: 22, fontWeight: '800', marginBottom: 16 },
   input: {
     borderWidth: 1,
     borderRadius: 12,
