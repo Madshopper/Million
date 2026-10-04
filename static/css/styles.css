@@ -3,7 +3,7 @@
      Samme værdier som appens primary/primaryDark/primaryMuted i
      apps/mobile/src/theme/colors.ts. Tilføj ikke flere grønne nuancer;
      gennemsigtige varianter skal bygge på rgba(5, 150, 105, x) = --green.
-     Tilbud er gule (#FFD500), aldrig grønne eller røde. */
+     Tilbud er gule (#DFA300), aldrig grønne eller røde. */
   --green: #059669;
   --green-dark: #047857;
   --green-light: #D6F5E3;
@@ -311,10 +311,7 @@ header {
 }
 
 .ac-price.ac-sale {
-  color: #1A1C19;
-  background: #FFD500;
-  padding: 1px 5px;
-  border-radius: 5px;
+  color: #DFA300;
 }
 
 .ac-footer {
@@ -1158,7 +1155,7 @@ main {
   position: absolute;
   top: 8px;
   left: 8px;
-  background: #FFD500;
+  background: #DFA300;
   color: #1A1C19;
   font-size: 0.65rem;
   font-weight: 800;
@@ -1209,10 +1206,6 @@ main {
 
 /* Solid, ikke rgba: badgen ligger oven på produktbilledet, og en gennemsigtig
    flade tog farve fra lyse billeder og blev ulæselig. */
-[data-theme="dark"] .sale-end-date {
-  color: #FACC15;
-}
-
 [data-theme="dark"] .store-badge {
   background: var(--white);
   color: var(--gray-800);
@@ -1308,7 +1301,7 @@ main {
 .price-sale {
   font-size: 1.35rem;
   font-weight: 900;
-  color: #1A1C19;
+  color: #DFA300;
   letter-spacing: -0.02em;
   line-height: 1;
 }
@@ -1718,7 +1711,7 @@ main {
 
 .sale-end-date {
   font-size: 0.8rem;
-  color: #A16207;
+  color: #DFA300;
   font-weight: 600;
 }
 
@@ -2415,7 +2408,7 @@ main {
 }
 
 .recipe-pill--sale {
-  background: #FFD500;
+  background: #DFA300;
   color: #1A1C19;
 }
 
@@ -2605,7 +2598,7 @@ main {
 }
 
 .recipe-ingredient-sale-tag {
-  background: #FFD500;
+  background: #DFA300;
   color: #1A1C19;
   font-size: 0.62rem;
   font-weight: 800;
@@ -3823,14 +3816,14 @@ footer {
 
 /* Tilbudspris: samme gule som SPAR-mærkatet (.sale-badge) og appens
    colors.deal, ikke rød. Rød er kun til fejl og slet. */
+/* Gul tekst på kortets egen baggrund, samme gule som SPAR-mærkatet i begge
+   tilstande (dæmpet guldgul, så den kan ses på både hvid og mørk); kun
+   mærkatet har gul flade (Kalle 04-10-2026). */
 .price.sale {
-  display: inline-block;
-  color: #1A1C19;
-  background: #FFD500;
+  color: #DFA300;
   font-weight: 900;
-  padding: 2px 6px;
-  border-radius: 6px;
 }
+
 
 .price:not(.sale):not(.original) {
   color: var(--gray-900);
@@ -3870,7 +3863,7 @@ footer {
 
 .comp-sale-tag {
   display: inline-block;
-  background: #FFD500;
+  background: #DFA300;
   color: #1A1C19;
   font-size: 0.65rem;
   font-weight: 700;

@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: '#FFD500',
+    backgroundColor: '#DFA300',
   },
   saleText: { color: '#1A1C19', fontSize: 11, fontWeight: '800', letterSpacing: 0.2 },
   name: { fontSize: 14, fontWeight: '600', minHeight: 36 },

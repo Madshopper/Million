@@ -31,7 +31,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Produktkort: mærke/navn/pris/tilbudsbadge | ✅ | ✅ | ✅ | ✅ | Complete |
 | Produktkort: vægt, "X stk", **kg-pris** | ✅ | ✅ | ✅ | ✅ | Complete *(app fik dem 19-08-2026)* |
 | "Kun hos <butik>"-badge | ✅ | ✅ | ✅ | ✅ | Complete |
-| Farver: tre grønne (#059669 / #047857 / #D6F5E3) + gul til alt tilbud, intet rødt tilbud, grønt butiksmærke i kurven | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; se `theme/colors.ts`)* |
+| Farver: tre grønne (#059669 / #047857 / #D6F5E3) + gul til alt tilbud (én gul #DFA300: flade på SPAR-mærket, tekst på tilbudsprisen), intet rødt tilbud, grønt butiksmærke i kurven | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; se `theme/colors.ts`)* |
 | Tom-tilstand ("ingen varer matcher") | ✅ | ✅ | – | ✅ | Complete |
 | Fejltilstand + "Prøv igen" | ✅ | ✅ | – | ⚠️ | Complete |
 

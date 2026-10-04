@@ -126,11 +126,7 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
                 {product.normal_price.toFixed(2)} kr
               </Text>
               <Text
-                style={[
-                  styles.price,
-                  styles.dealPrice,
-                  { backgroundColor: colors.deal, color: colors.dealText },
-                ]}
+                style={[styles.price, styles.dealPrice, { color: colors.dealInk }]}
               >
                 {product.price.toFixed(2)} kr
               </Text>
@@ -240,7 +236,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: '#FFD500',
+    backgroundColor: '#DFA300',
   },
   saleText: { color: '#1A1C19', fontSize: 11, fontWeight: '800', letterSpacing: 0.2 },
   storeBadge: {
@@ -273,17 +269,9 @@ const styles = StyleSheet.create({
   },
   original: { fontSize: 12, textDecorationLine: 'line-through' },
   price: { fontSize: 16, fontWeight: '700' },
-  // Gul tilbudspris som SPAR-mærkatet. overflow+borderRadius fordi iOS ellers
-  // tegner baggrunden på en Text uden runde hjørner.
-  dealPrice: {
-    alignSelf: 'flex-start',
-    fontWeight: '800',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    marginTop: 2,
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
+  // Tilbudspris: gul tekst på kortets egen baggrund. Kun SPAR-mærkatet har
+  // gul flade (Kalle 04-10-2026).
+  dealPrice: { fontWeight: '800' },
   addBtn: {
     position: 'absolute',
     right: 8,
