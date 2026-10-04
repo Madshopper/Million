@@ -10,6 +10,14 @@ import path from 'path';
 const FLAVOR = process.env.EXPO_PUBLIC_FLAVOR || 'production';
 const IS_PRODUCTION_FLAVOR = FLAVOR === 'production';
 
+// APP_VARIANT=test bygger "MadShopper Test": en separat iOS-app med egen
+// identitet, så den kan ligge ved siden af App Store-udgaven på Kalles egen
+// telefon. Den installeres kun direkte fra Mac'en (udviklingsprofil, kun
+// registrerede enheder) og sendes aldrig til TestFlight/App Store. Google-/
+// Apple-login, push og links ind i appen er bundet til den rigtige identitet
+// og virker derfor ikke i testappen, før de tilmeldes særskilt.
+const IS_TEST_APP = process.env.APP_VARIANT === 'test';
+
 // Offentlige værdier (samme som eas.json -> build.production.env). Supabase-
 // projektet og Google-klienterne er de samme på tværs af flavors, så de er
 // fallback for alle builds - også et Xcode-arkiv fra en ren checkout uden
@@ -86,7 +94,7 @@ const config = {
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
-  scheme: 'madshopper',
+  scheme: IS_TEST_APP ? 'madshopper-test' : 'madshopper',
   // Brandgrøn = samme #059669 som favicon/app-ikonet (scripts/build-icons.py).
   // Appens egne UI-grønne toner ligger i src/theme/colors.ts.
   primaryColor: '#059669',
@@ -94,9 +102,10 @@ const config = {
     // Portrait-first iPhone-app. `true` ville kræve iPad-screenshots i App Store
     // Connect og gøre iPad til en review-flade vi ikke tester på.
     supportsTablet: false,
-    bundleIdentifier: 'dk.madshopper.app',
-    associatedDomains: ['applinks:madshopper.dk'],
+    bundleIdentifier: IS_TEST_APP ? 'dk.madshopper.app.test' : 'dk.madshopper.app',
+    associatedDomains: IS_TEST_APP ? [] : ['applinks:madshopper.dk'],
     infoPlist: {
+      ...(IS_TEST_APP ? { CFBundleDisplayName: 'MadShopper Test' } : {}),
       CFBundleAllowMixedLocalizations: true,
       // Appen er på dansk. Uden disse to viste App Store sproget som
       // "EN English" (Expo sætter udviklingsregionen til engelsk som standard).
