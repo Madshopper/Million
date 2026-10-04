@@ -24,7 +24,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS push_devices_token_idx ON public.push_devices 
 CREATE INDEX IF NOT EXISTS push_devices_user_idx ON public.push_devices (user_id);
 ALTER TABLE public.push_devices ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.push_devices FROM anon, authenticated;
--- Brugeren må se om han selv har beskeder slået til (ingen policy for
+-- Brugeren må se sine egne enheder (ingen policy for
 -- INSERT/UPDATE/DELETE: det går kun via RPC'erne).
 GRANT SELECT ON public.push_devices TO authenticated;
 DROP POLICY IF EXISTS push_devices_own_select ON public.push_devices;

@@ -3161,7 +3161,7 @@ def check_price_alerts(products: list) -> None:
         hits.append((alert, price_now))
 
     # Beskeder på telefonen (Feature-panelet: 'push'). Har brugeren en app
-    # eller browser tilmeldt, får han en besked i stedet for en mail. Uden
+    # eller browser tilmeldt, kommer der en besked i stedet for en mail. Uden
     # tilmeldt enhed, eller hvis ingen besked kom frem, sendes mailen som før.
     devices_by_user = _push_devices_for(
         base, headers, {str(a.get('user_id')) for a, _ in hits if a.get('user_id')}
