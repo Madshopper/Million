@@ -311,10 +311,7 @@ header {
 }
 
 .ac-price.ac-sale {
-  color: #1A1C19;
-  background: #FFD500;
-  padding: 1px 5px;
-  border-radius: 5px;
+  color: #A16207;
 }
 
 .ac-footer {
@@ -1210,7 +1207,7 @@ main {
 /* Solid, ikke rgba: badgen ligger oven på produktbilledet, og en gennemsigtig
    flade tog farve fra lyse billeder og blev ulæselig. */
 [data-theme="dark"] .sale-end-date {
-  color: #FACC15;
+  color: #FFD500;
 }
 
 [data-theme="dark"] .store-badge {
@@ -1308,7 +1305,7 @@ main {
 .price-sale {
   font-size: 1.35rem;
   font-weight: 900;
-  color: #1A1C19;
+  color: #A16207;
   letter-spacing: -0.02em;
   line-height: 1;
 }
@@ -3824,12 +3821,16 @@ footer {
 /* Tilbudspris: samme gule som SPAR-mærkatet (.sale-badge) og appens
    colors.deal, ikke rød. Rød er kun til fejl og slet. */
 .price.sale {
-  display: inline-block;
-  color: #1A1C19;
-  background: #FFD500;
+  color: #A16207;
   font-weight: 900;
-  padding: 2px 6px;
-  border-radius: 6px;
+}
+
+/* Gul tekst på kortets egen baggrund; kun SPAR-mærkatet har gul flade
+   (Kalle 04-10-2026). Samme som appens colors.dealInk. */
+[data-theme="dark"] .price.sale,
+[data-theme="dark"] .price-sale,
+[data-theme="dark"] .ac-price.ac-sale {
+  color: #FFD500;
 }
 
 .price:not(.sale):not(.original) {

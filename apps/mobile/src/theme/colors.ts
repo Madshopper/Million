@@ -51,7 +51,7 @@ export const darkColors = {
   sale: '#EF9A9A',
   deal: '#FFD500',
   dealText: '#1A1C19',
-  dealInk: '#FACC15',
+  dealInk: '#FFD500',
   badge: '#059669',
   tabInactive: '#6B7268',
   warning: '#F5B94D',

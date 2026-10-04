@@ -407,11 +407,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
               {product.normal_price.toFixed(2)} kr
             </Text>
             <Text
-              style={[
-                styles.price,
-                styles.dealPrice,
-                { backgroundColor: colors.deal, color: colors.dealText },
-              ]}
+              style={[styles.price, { color: colors.dealInk }]}
             >
               {product.price.toFixed(2)} kr
             </Text>
@@ -735,14 +731,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', marginTop: 4 },
   original: { textDecorationLine: 'line-through', fontSize: 14 },
   price: { fontSize: 24, fontWeight: '800' },
-  dealPrice: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginTop: 2,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
   btnOutline: {
     marginTop: 12,
     padding: 12,
