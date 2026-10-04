@@ -176,6 +176,8 @@ const config = {
     favicon: './assets/favicon.png',
   },
   plugins: [
+    // iOS 27 kræver scene-opstart (ellers lukker appen ved start).
+    './plugins/withSceneLifecycle',
     // faceIDPermission: false fjerner NSFaceIDUsageDescription helt fra
     // Info.plist (compliance-audit 19-08-2026, GDPR-029). Ingen SecureStore-
     // kald i src/ bruger requireAuthentication, og der er ingen
