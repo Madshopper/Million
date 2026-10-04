@@ -21,12 +21,11 @@ export const lightColors = {
   primaryMuted: '#D6F5E3',
   // Kun til fejl og "slet"-handlinger. Tilbud er gule (deal*), ikke røde.
   sale: '#C62828',
-  // Tilbud: samme gule som SPAR-mærkatet (#FFD500) med mørk tekst ovenpå.
-  // dealInk er til tilbudstekst direkte på baggrunden, hvor ren gul ikke
-  // kan læses på hvidt.
+  // Tilbud: én gul (#FFD500) overalt, også som tekstfarve på hvidt (Kalle
+  // 04-10-2026: hellere én farve end en mørkere læsbar variant).
   deal: '#FFD500',
   dealText: '#1A1C19',
-  dealInk: '#A16207',
+  dealInk: '#FFD500',
   badge: '#047857',
   tabInactive: '#8A9184',
   // Web-paritet (styles.css --yellow/--yellow-light): samme advarselsfarve
