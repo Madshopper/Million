@@ -4184,6 +4184,41 @@ footer {
   color: var(--red);
 }
 
+/* "Notifikationer er slået fra" ved Overvåg pris (script.js::showPushNotice). */
+.price-alert-push {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-subtle, rgba(0, 0, 0, 0.03));
+  font-size: 0.88rem;
+  line-height: 1.45;
+  animation: slideDown 0.3s ease-out;
+}
+.price-alert-push-title { margin: 0 0 6px; font-weight: 700; }
+.price-alert-push p { margin: 0 0 10px; }
+.price-alert-push-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.price-alert-push-btn {
+  padding: 8px 16px;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+.price-alert-push-btn:disabled { opacity: 0.6; cursor: default; }
+.price-alert-push-close {
+  padding: 8px 16px;
+  background: none;
+  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .alert-form {
   margin-top: 16px;
   padding-top: 16px;

@@ -641,6 +641,22 @@
     }
   }
 
+  // Status til "Overvåg pris" (script.js): 'on', 'off' (kan slås til),
+  // 'denied' (blokeret i browseren), 'homescreen' (iPhone uden hjemmeskærm)
+  // eller 'unsupported'.
+  async function pushStatus() {
+    if (!_pushSupported()) return (_isIOS() && !_isStandalone()) ? 'homescreen' : 'unsupported';
+    if (Notification.permission === 'denied') return 'denied';
+    var sub = null;
+    try { sub = await _pushSubscription(); } catch (e) { /* ignorér */ }
+    pushActive = !!sub && Notification.permission === 'granted';
+    if (pushActive && SB && currentUser) {
+      // Sikr at adressen ligger hos den indloggede bruger.
+      try { await _savePushSubscription(sub); } catch (e) { /* ignorér */ }
+    }
+    return pushActive ? 'on' : 'off';
+  }
+
   async function enablePush() {
     var box = _pushBox();
     if (!box || !SB || !currentUser || !_pushSupported()) return;
@@ -1516,6 +1532,14 @@
     pushActive: function () { return pushActive; },
     // Sandt når "Beskeder på telefonen" er udgivet (blokken findes i siden).
     pushFeature: function () { return !!_pushBox(); },
+    pushStatus: pushStatus,
+    // Slår notifikationer til (skal kaldes direkte fra et klik). Svarer status.
+    enablePush: async function () {
+      try { await enablePush(); } catch (e) { console.error('[auth] beskeder:', e); }
+      var st = await pushStatus();
+      refreshPushUI();
+      return st;
+    },
     ensureDisplayName: ensureDisplayName,
     // Kald efter login/logout - script.js hægtet shared-cart sync her.
     onSignedIn: null,

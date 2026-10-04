@@ -460,6 +460,19 @@
               Overvåg pris
             </button>
             <p id="price-alert-msg" class="price-alert-msg" role="status" aria-live="polite" style="display:none;"></p>
+            {% if push_enabled %}
+            <!-- Prisalarmer sendes KUN som notifikation (Feature-panelet 'push').
+                 script.js::showPushNotice viser denne boks i stedet for formularen,
+                 når notifikationer ikke er slået til i browseren. -->
+            <div id="price-alert-push" class="price-alert-push" role="dialog" aria-labelledby="price-alert-push-title" style="display:none;">
+              <p id="price-alert-push-title" class="price-alert-push-title">Notifikationer er slået fra</p>
+              <p id="price-alert-push-text"></p>
+              <div class="price-alert-push-actions">
+                <button type="button" id="price-alert-push-btn" class="price-alert-push-btn">Slå notifikationer til</button>
+                <button type="button" class="price-alert-push-close" onclick="hidePushNotice()">Ikke nu</button>
+              </div>
+            </div>
+            {% endif %}
             <div id="alert-form" class="alert-form" style="display: none;">
               <p>Giv mig besked {% if not push_enabled %}på mail {% endif %}når prisen falder til:</p>
               <div class="alert-input-group">

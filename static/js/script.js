@@ -1231,7 +1231,50 @@ function setPriceAlertMsg(text, isError) {
     el.style.display = text ? '' : 'none';
 }
 
-function toggleAlertForm(event) {
+// Med "Beskeder på telefonen" udgivet sendes prisalarmer KUN som notifikation
+// (Kalle 04-10-2026). Er de ikke slået til i browseren, vises denne boks i
+// stedet for formularen - en alarm uden notifikationer når aldrig frem.
+const PUSH_NOTICE_TEXT = {
+    off: 'Prisalarmer sendes kun som notifikation. Slå notifikationer til, så får du besked, når prisen falder.',
+    denied: 'Du får ingen besked, når prisen falder, fordi notifikationer er slået fra for madshopper.dk i din browser. Slå dem til i browserens indstillinger (klik på ikonet til venstre for adressen), og prøv igen.',
+    homescreen: 'På iPhone kan hjemmesiden kun sende notifikationer, når MadShopper ligger på hjemmeskærmen. Tryk på Del og så "Føj til hjemmeskærm", og åbn MadShopper derfra. Eller hent MadShopper-appen.',
+    unsupported: 'Din browser kan ikke vise notifikationer, så du kan ikke få besked om prisen her. Brug MadShopper-appen eller en anden browser.',
+};
+
+function hidePushNotice() {
+    const box = document.getElementById('price-alert-push');
+    if (box) box.style.display = 'none';
+}
+
+function showPushNotice(status) {
+    const box = document.getElementById('price-alert-push');
+    if (!box) return;
+    const text = document.getElementById('price-alert-push-text');
+    const btn = document.getElementById('price-alert-push-btn');
+    if (text) text.textContent = PUSH_NOTICE_TEXT[status] || PUSH_NOTICE_TEXT.unsupported;
+    if (btn) {
+        btn.style.display = (status === 'off' || status === 'denied') ? '' : 'none';
+        btn.textContent = status === 'denied' ? 'Prøv igen' : 'Slå notifikationer til';
+        btn.disabled = false;
+        btn.onclick = async () => {
+            btn.disabled = true;
+            // Direkte fra klikket: browseren kræver det for at spørge om lov.
+            const st = await window.AuthBridge.enablePush();
+            if (st === 'on') {
+                hidePushNotice();
+                const form = document.getElementById('alert-form');
+                if (form) form.style.display = 'block';
+                return;
+            }
+            showPushNotice(st);
+        };
+    }
+    const form = document.getElementById('alert-form');
+    if (form) form.style.display = 'none';
+    box.style.display = 'block';
+}
+
+async function toggleAlertForm(event) {
     if (event) {
         event.preventDefault();
         event.stopPropagation();
@@ -1241,11 +1284,19 @@ function toggleAlertForm(event) {
     setPriceAlertMsg(isLoggedIn ? '' : 'Log ind for at bruge prisovervågning.', !isLoggedIn);
     if (!window.AuthBridge || !window.AuthBridge.requireAuth()) return;
     const form = document.getElementById('alert-form');
+    const bridge = window.AuthBridge;
+    if (form && form.style.display === 'none'
+        && typeof bridge.pushFeature === 'function' && bridge.pushFeature()) {
+        const status = await bridge.pushStatus();
+        if (status !== 'on') { showPushNotice(status); return; }
+    }
+    hidePushNotice();
     if (form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
 }
 
 function resetPriceAlertBox() {
     setPriceAlertMsg('');
+    hidePushNotice();
     const form = document.getElementById('alert-form');
     if (form) form.style.display = 'none';
     const input = document.getElementById('target-price-input');
