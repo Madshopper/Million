@@ -461,7 +461,7 @@
             </button>
             <p id="price-alert-msg" class="price-alert-msg" role="status" aria-live="polite" style="display:none;"></p>
             <div id="alert-form" class="alert-form" style="display: none;">
-              <p>Giv mig besked på mail når prisen falder til:</p>
+              <p>Giv mig besked {% if not push_enabled %}på mail {% endif %}når prisen falder til:</p>
               <div class="alert-input-group">
                 <input type="number" id="target-price-input" placeholder="Eks. 40" step="0.5">
                 <button type="button" id="price-alert-submit-btn" onclick="savePriceAlert()">Sæt alarm</button>

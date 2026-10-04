@@ -1608,8 +1608,8 @@ _FEATURES = (
         'name': 'Beskeder på telefonen',
         'env': 'PUSH_ENABLED',
         'desc': 'Prisalarmer som besked på telefonen i stedet for mail. '
-                'Har man ikke slået beskeder til, eller kommer beskeden ikke '
-                'frem, får man stadig en mail.',
+                'Når den er udgivet, sendes der ingen mails. Har man ikke slået '
+                'beskeder til, venter alarmen, til man gør det.',
         'app': 'Appen viser knappen, så snart den er udgivet her, men kun i '
                'en ny app-version, der har beskeder med.',
         'parts': (
@@ -1618,7 +1618,7 @@ _FEATURES = (
                      'siden er lagt på hjemmeskærmen.'},
             {'kind': 'job', 'name': 'Beskeder om natten',
              'desc': 'Nattens tjek af prisalarmer sender en besked i stedet '
-                     'for en mail til dem der har slået det til.'},
+                     'for en mail.'},
             {'kind': 'app', 'name': 'Beskeder i appen',
              'desc': 'Knappen under Mine prisalarmer og selve beskederne på '
                      'iPhone. Android kræver en gratis Firebase-opsætning.'},

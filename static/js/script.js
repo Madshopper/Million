@@ -1297,8 +1297,18 @@ async function savePriceAlert() {
             return;
         }
         const btn = document.querySelector('.alert-toggle-btn');
-        const viaPush = typeof window.AuthBridge.pushActive === 'function' && window.AuthBridge.pushActive();
-        if (btn) { btn.innerHTML = viaPush ? '✅ Alarm sat - du får en besked' : '✅ Alarm sat - du får en mail'; btn.disabled = true; }
+        // Med "Beskeder på telefonen" udgivet sendes prisalarmer KUN som besked.
+        const bridge = window.AuthBridge;
+        const pushFeature = typeof bridge.pushFeature === 'function' && bridge.pushFeature();
+        const viaPush = typeof bridge.pushActive === 'function' && bridge.pushActive();
+        if (btn) {
+            btn.innerHTML = !pushFeature ? '✅ Alarm sat - du får en mail'
+                : viaPush ? '✅ Alarm sat - du får en besked' : '✅ Alarm sat';
+            btn.disabled = true;
+        }
+        if (pushFeature && !viaPush) {
+            setPriceAlertMsg('Slå beskeder til under Mine prisalarmer, ellers får du ikke besked.', false);
+        }
         if (input) input.value = '';
         const form = document.getElementById('alert-form');
         if (form) form.style.display = 'none';

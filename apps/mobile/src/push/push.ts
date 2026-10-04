@@ -4,7 +4,8 @@
  * Appen henter en Expo-push-adresse (gratis tjeneste, der selv videregiver
  * til Apple/Google) og gemmer den via register_push_device-RPC'en
  * (scripts/supabase-push.sql). Nattens updater.py (push_notify.py) sender så
- * prisalarmen hertil i stedet for en mail. Webben har samme knap
+ * prisalarmen hertil. Når funktionen er udgivet, sendes ingen mails (Kalle
+ * 04-10-2026): uden tilmeldt enhed venter alarmen. Webben har samme knap
  * (static/js/auth.js::refreshPushUI).
  *
  * Synlig når buildet har EXPO_PUBLIC_PUSH_ENABLED=1 (test-udgaverne, som

@@ -174,8 +174,11 @@ export function PriceAlertsSection() {
 }
 
 const PUSH_TEXT: Record<PushState, { text: string; action: string | null }> = {
-  on: { text: 'Beskeder er slået til. Du får en besked i stedet for en mail.', action: 'Slå fra' },
-  off: { text: 'Få en besked på telefonen, når prisen falder, i stedet for en mail.', action: 'Slå til' },
+  on: { text: 'Beskeder er slået til. Du får besked, når prisen falder.', action: 'Slå fra' },
+  off: {
+    text: 'Slå beskeder til for at få besked, når prisen falder. Prisalarmer sendes kun som besked.',
+    action: 'Slå til',
+  },
   denied: {
     text: 'Beskeder er slået fra for MadShopper i telefonens indstillinger.',
     action: 'Indstillinger',

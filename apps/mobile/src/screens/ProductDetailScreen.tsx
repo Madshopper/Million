@@ -22,6 +22,7 @@ import { buildStorePrices } from '../cart/buildStorePrices';
 import { useAuth } from '../auth/AuthContext';
 import { getSupabase } from '../auth/supabase';
 import { rpcName } from '../config/env';
+import { enablePush, usePushFeature, type PushState } from '../push/push';
 import { useCart } from '../cart/CartContext';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
@@ -169,6 +170,10 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   const [targetPriceInput, setTargetPriceInput] = useState('');
   const [alertSaving, setAlertSaving] = useState(false);
   const [alertSet, setAlertSet] = useState(false);
+  // Med "Beskeder på telefonen" udgivet sendes prisalarmer KUN som besked
+  // (Kalle 04-10-2026), så appen beder om lov, når en alarm sættes.
+  const pushFeature = usePushFeature();
+  const [pushState, setPushState] = useState<PushState | null>(null);
 
   const onMonitorPress = () => {
     if (!user) {
@@ -203,6 +208,9 @@ export function ProductDetailScreen({ route, navigation }: Props) {
       }
       setAlertSet(true);
       setTargetPriceInput('');
+      if (pushFeature) {
+        setPushState(await enablePush().catch((): PushState => 'off'));
+      }
     } catch {
       Alert.alert('Fejl', 'Kunne ikke oprette prisalarm. Prøv igen.');
     } finally {
@@ -574,11 +582,19 @@ export function ProductDetailScreen({ route, navigation }: Props) {
               Prisovervågning
             </Text>
             {alertSet ? (
-              <Text style={{ color: colors.text }}>✅ Alarm sat - du får en mail</Text>
+              <Text style={{ color: colors.text }}>
+                {!pushFeature
+                  ? '✅ Alarm sat - du får en mail'
+                  : pushState === 'on'
+                    ? '✅ Alarm sat - du får en besked'
+                    : '✅ Alarm sat. Slå beskeder til under Profil, ellers får du ikke besked.'}
+              </Text>
             ) : (
               <>
                 <Text style={{ color: colors.textMuted, marginBottom: 12 }}>
-                  Giv mig besked på mail når prisen falder til:
+                  {pushFeature
+                    ? 'Giv mig besked når prisen falder til:'
+                    : 'Giv mig besked på mail når prisen falder til:'}
                 </Text>
                 <TextInput
                   value={targetPriceInput}

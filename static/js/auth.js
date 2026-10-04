@@ -555,7 +555,8 @@
      Feature-panelet 'push'. Blokken #auth-push findes kun i siden, når den
      er udgivet (eller på dev). Browseren giver en push-adresse + to nøgler,
      som gemmes via register_push_device-RPC'en (scripts/supabase-push.sql);
-     nattens updater.py sender så prisalarmen hertil i stedet for en mail.
+     nattens updater.py sender så prisalarmen hertil. Når funktionen er
+     udgivet, er det den ENESTE vej - der sendes ingen mails (Kalle 04-10-2026).
      static/sw.js viser beskeden. Den ligger under /static/ og styrer derfor
      ingen sider - derfor ventes der paa reg.active, ikke navigator.serviceWorker
      .ready (som kun svarer for en worker der styrer siden). */
@@ -616,7 +617,8 @@
           'hjemmeskærmen. Tryk på Del og så "Føj til hjemmeskærm", og åbn ' +
           'MadShopper derfra.', '');
       } else {
-        _setPush('Din browser kan ikke vise beskeder. Du får en mail i stedet.', '');
+        _setPush('Din browser kan ikke vise beskeder. Brug appen eller en anden ' +
+          'browser for at få besked om dine prisalarmer.', '');
       }
       return;
     }
@@ -630,10 +632,11 @@
     try { sub = await _pushSubscription(); } catch (e) { /* ignorér */ }
     pushActive = !!sub && Notification.permission === 'granted';
     if (pushActive) {
-      _setPush('Beskeder er slået til på denne enhed. Du får en besked i stedet for en mail.',
+      _setPush('Beskeder er slået til på denne enhed. Du får besked, når prisen falder.',
         'Slå beskeder fra');
     } else {
-      _setPush('Få en besked på telefonen, når prisen falder, i stedet for en mail.',
+      _setPush('Slå beskeder til for at få besked, når prisen falder. Prisalarmer ' +
+        'sendes kun som besked.',
         'Få besked på telefonen');
     }
   }
@@ -684,7 +687,7 @@
       var m = el('auth-push-msg');
       if (m && pushActive !== wasOn) {
         _setPush('', btn && btn.textContent,
-          pushActive ? 'Beskeder er slået til.' : 'Beskeder er slået fra. Du får en mail i stedet.', false);
+          pushActive ? 'Beskeder er slået til.' : 'Beskeder er slået fra. Du får ikke besked om dine prisalarmer.', false);
       }
     } catch (e) {
       console.error('[auth] beskeder:', e);
@@ -1511,6 +1514,8 @@
     getDisplayName: getDisplayName,
     // Sandt når beskeder er slået til i denne browser (script.js' "Alarm sat").
     pushActive: function () { return pushActive; },
+    // Sandt når "Beskeder på telefonen" er udgivet (blokken findes i siden).
+    pushFeature: function () { return !!_pushBox(); },
     ensureDisplayName: ensureDisplayName,
     // Kald efter login/logout - script.js hægtet shared-cart sync her.
     onSignedIn: null,

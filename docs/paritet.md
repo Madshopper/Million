@@ -92,7 +92,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Bot-tjek på signup (Turnstile) | ✅ | ✅ | ✅ Auth Hook | ❌ | Complete |
 | Vist navn (delt kurv) | ✅ | ✅ | ✅ RPC `set_my_display_name` | ❌ | Complete |
 | "Mine prisalarmer" (se/slet) | ✅ | ✅ | ✅ | ❌ | Complete |
-| Prisalarm som besked på telefonen (push) | ✅ | ✅ | ✅ RPC `register_push_device`, `push_notify.py` | ⚠️ `test-push-crypto.py` | Skjult *(04-10-2026; Feature-panelet 'push', til på dev. Web: knap under Mine prisalarmer, på iPhone kun fra hjemmeskærmen. App: samme knap, kræver ny app-version. Uden tilmeldt enhed sendes mail som før)* |
+| Prisalarm som besked på telefonen (push) | ✅ | ✅ | ✅ RPC `register_push_device`, `push_notify.py` | ⚠️ `test-push-crypto.py` | Skjult *(04-10-2026; Feature-panelet 'push', til på dev. Web: knap under Mine prisalarmer, på iPhone kun fra hjemmeskærmen. App: samme knap, kræver ny app-version. Når udgivet sendes ingen mails; uden tilmeldt enhed venter alarmen)* |
 | Slet konto | ✅ | ✅ | ✅ RPC `delete_own_account` | ❌ | Complete |
 | Profil-fane med "Fælles kurv" | ➖ | ✅ | ✅ (samme delt-kurv-RPC'er) | ❌ | **Bevidst forskel**: appens nederste fane hedder "Profil" (før "Indstillinger", ændret 02-10-2026) og samler konto, navn, "Fælles kurv" (alle medlemmer, start/stop deling) og prisalarmer; indstillinger (med slet konto) og feedback er tydelige rækker derfra (03-10-2026). Web har ingen fanebjælke - kontoen ligger i konto-menuen og indstillingerne i tandhjulspanelet, og medlemmerne vises i kurven |
 

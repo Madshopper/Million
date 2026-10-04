@@ -3139,7 +3139,7 @@ def check_price_alerts(products: list) -> None:
     cheapest = _cheapest_prices_by_id(products)
     triggered_ids = []
     unresolved = []  # alarmer hvis product_id ikke findes i nattens friske priser
-    unsent = []      # alarmer der udløste, men hvor både besked og mail fejlede
+    unsent = []      # alarmer der udløste, men hvor beskeden/mailen ikke kom frem
     hits = []        # (alarm, pris nu) for alarmer der er udløst i nat
     for alert in alerts:
         pid = str(alert.get('product_id') or '')
@@ -3160,26 +3160,35 @@ def check_price_alerts(products: list) -> None:
             continue
         hits.append((alert, price_now))
 
-    # Beskeder på telefonen (Feature-panelet: 'push'). Har brugeren en app
-    # eller browser tilmeldt, kommer der en besked i stedet for en mail. Uden
-    # tilmeldt enhed, eller hvis ingen besked kom frem, sendes mailen som før.
+    # Beskeder på telefonen (Feature-panelet: 'push'). Når den er udgivet,
+    # sendes prisalarmer KUN som besked - aldrig som mail (Kalle 04-10-2026).
+    # Har brugeren ingen telefon tilmeldt, eller kom beskeden ikke frem, bliver
+    # alarmen stående og prøves igen næste nat, så den når frem, så snart
+    # brugeren slår beskeder til. Før udgivelsen sendes mail som hidtil.
+    push_live = bool(hits) and _push_live()
     devices_by_user = _push_devices_for(
         base, headers, {str(a.get('user_id')) for a, _ in hits if a.get('user_id')}
-    ) if hits and _push_live() else {}
+    ) if push_live else {}
     pushed = 0
+    waiting = 0      # udløst, men ingen tilmeldt telefon/browser endnu
     gone_devices = []
     for alert, price_now in hits:
         target = float(alert['target_price'])
         name = alert.get('product_name') or ''
-        devices = devices_by_user.get(str(alert.get('user_id') or ''), [])
-        if devices:
+        if push_live:
+            devices = devices_by_user.get(str(alert.get('user_id') or ''), [])
+            if not devices:
+                waiting += 1
+                continue
             from push_notify import price_alert_message, send_to_devices
             delivered, gone = send_to_devices(devices, price_alert_message(name, target, price_now))
             gone_devices.extend(gone)
             if delivered:
                 pushed += 1
                 triggered_ids.append(alert['id'])
-                continue
+            else:
+                unsent.append(alert['id'])
+            continue
         if _send_price_alert_email(alert['email'], name, target, price_now):
             triggered_ids.append(alert['id'])
         else:
@@ -3189,6 +3198,9 @@ def check_price_alerts(products: list) -> None:
         _delete_push_devices(base, headers, gone_devices)
     if pushed:
         logger.info("Prisalarmer: %d sendt som besked på telefonen", pushed)
+    if waiting:
+        logger.info("Prisalarmer: %d udløst, men brugeren har ikke slået beskeder "
+                    "til endnu - venter", waiting)
 
     if unresolved:
         logger.warning(
@@ -3205,8 +3217,9 @@ def check_price_alerts(products: list) -> None:
         # forbliver notified_at=NULL og forsøges forgæves igen hver nat.
         # Aggregeret advarsel (produktionsrevision 18-08-2026, blokerer #6).
         logger.warning(
-            "Prisalarmer: %d udløst(e) alarm(er) kunne IKKE sendes (Resend-kald "
-            "fejlede eller RESEND_API_KEY mangler) - de forsøges igen næste nat: %s",
+            "Prisalarmer: %d udløst(e) alarm(er) kunne IKKE sendes (besked eller "
+            "mail fejlede, fx manglende VAPID_PRIVATE_KEY/RESEND_API_KEY) - de "
+            "forsøges igen næste nat: %s",
             len(unsent), unsent[:10])
 
     if not triggered_ids:
