@@ -41,6 +41,20 @@ function paramsFrom(url: string): URLSearchParams {
  * null, så de hverken kan skabe en session eller åbne en skærm.
  */
 export function parseRecoveryLink(url: string): RecoveryLink | null {
+  return parseTypedAuthLink(url, 'recovery');
+}
+
+/**
+ * Bekræftelseslinket fra oprettelses-mailen (`type=signup`). Samme form som
+ * recovery-linket, og samme regel: kun links der utvetydigt er mærket
+ * `type=signup` giver et resultat. Uden den her sendte mailen brugeren ind
+ * på hjemmesiden i stedet for appen.
+ */
+export function parseSignupLink(url: string): RecoveryLink | null {
+  return parseTypedAuthLink(url, 'signup');
+}
+
+function parseTypedAuthLink(url: string, wanted: 'recovery' | 'signup'): RecoveryLink | null {
   if (!url) return null;
   let params: URLSearchParams;
   try {
@@ -50,8 +64,8 @@ export function parseRecoveryLink(url: string): RecoveryLink | null {
   }
 
   const type = params.get('type');
-  const isRecovery = type === 'recovery' || url.includes('type=recovery');
-  if (!isRecovery) return null;
+  const matches = type === wanted || url.includes(`type=${wanted}`);
+  if (!matches) return null;
 
   const error = params.get('error_description') || params.get('error');
   if (error) return { kind: 'error', message: decodeURIComponent(error.replace(/\+/g, ' ')) };

@@ -751,7 +751,7 @@ Globals: `__SB_URL`, `__SB_KEY`, `__SB_CARTS`, `__SB_RPC_SUFFIX`, `__GOOGLE_CLIE
 
 | Flow | Adfærd |
 |---|---|
-| Email signup | `signUp` med `emailRedirectTo: origin`, `data.display_name` (max 40). Email-bekræftelse kan være slået fra (se `docs/email-bekraeftelse.md`) |
+| Email signup | `signUp` med `emailRedirectTo: origin` (web) / `madshopper://` (app, så bekræftelseslinket åbner appen), `data.display_name` (max 40). Email-bekræftelse kan være slået fra (se `docs/email-bekraeftelse.md`) |
 | Email login | `signInWithPassword` |
 | Google primær | Native Google Sign-In → ID-token + nonce (SHA-256) → `signInWithIdToken({ provider:'google', token, nonce })` |
 | Google fallback | OAuth redirect (valgfri) |
