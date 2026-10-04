@@ -22,6 +22,7 @@ on:
       - 'pyproject.toml'
       - 'scripts/build-pages.sh'
       - 'scripts/smoke-test.mjs'
+      - 'scripts/playwright-uptime-check.mjs'
       # Nyt 19-08-2026: Playwright-installationen er flyttet hertil, og en
       # aendring i den skal kunne proeves af med det samme.
       - 'scripts/install-playwright-ci.sh'
@@ -177,17 +178,27 @@ jobs:
       - name: Vent på CPU-budget efter warmup
         run: sleep 45
 
-      - name: Roegtest af staging (samtidige requests)
-        # Adgangsnoeglen sendes med (via miljøet, ikke længere som argument -
-        # compliance-audit 19-08-2026, GDPR-036: et argument står i /proc for
-        # enhver anden proces i samme job): staging er spaerret og svarer 404
-        # uden den, saa uden dette ville roegtesten maale sin egen spaerring i
-        # stedet for sitet. Noeglen bruges kun paa warmup-navigationen, som
-        # saetter en cookie resten af koerslen genbruger.
-        #
-        # Mildere end prod-defaults: staging har næsten ingen organisk cache-
-        # varme og deler free-planens CPU med warmup lige før. 2 runder med
-        # længere pause fanger stadig samtidige 500'ere uden selv at vælte.
+      # Samme funktionstjek som produktionen (deploy-edge.yml): én frisk
+      # søgning i en rigtig browser, der skal give varer. Nøglen sendes med på
+      # samme navigation (workeren sætter cookien og bevarer query'en).
+      #
+      # INGEN continue-on-error: kan trinnet ikke maale, skal deployet staa
+      # roedt.
+      - name: Funktionstjek - soegning giver varer (rigtig browser)
+        env:
+          STAGING_ACCESS_SECRET: ${{ secrets.STAGING_ACCESS_SECRET }}
+        run: node scripts/playwright-uptime-check.mjs "https://dev.madshopper.dk/search/results?q=m%C3%A6lk"
+
+      # Røgtesten med samtidige requests kan IKKE måle fra GitHub Actions:
+      # Bot Fight Mode lader kun browserens FØRSTE navigation igennem, alle
+      # efterfølgende får 403 (målt på hver eneste staging-deploy fra
+      # 02-10-2026 til 04-10-2026: 32 af 32 svar var 403, og deployet stod
+      # rødt hver gang, selvom sitet virkede). Den kører derfor kun til
+      # orientering, præcis som i deploy-edge.yml; funktionstjekket ovenfor er
+      # gaten. Samtidigheds-fejlklassen fra 2026-07-19 overvåges på rigtig
+      # trafik af degraded-/1101-alarmerne i security-monitor.yml.
+      - name: Roegtest af staging (samtidige requests, kun til orientering)
+        continue-on-error: true
         env:
           STAGING_ACCESS_SECRET: ${{ secrets.STAGING_ACCESS_SECRET }}
           SMOKE_ROUNDS: "2"
