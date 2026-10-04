@@ -3148,6 +3148,11 @@ def check_price_alerts(products: list) -> None:
         if not pid or not email or target is None:
             continue
         price_now = cheapest.get(pid)
+        if price_now is None and pid.startswith('product'):
+            # Hjemmesiden gemte indtil 04-10-2026 kortets DOM-id ("product" +
+            # varens id) i stedet for varens id, så de alarmer fandt aldrig
+            # varen. Rettet i script.js::savePriceAlert; dette fanger rester.
+            price_now = cheapest.get(pid[len('product'):])
         if price_now is None:
             # Var tidligere en STILLE, PERMANENT fejl: en alarm hvis
             # product_id ikke længere findes (fx fordi kortets ID skiftede
