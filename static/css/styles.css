@@ -4181,9 +4181,9 @@ footer {
 .price-alert-push {
   margin-top: 14px;
   padding: 14px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--gray-200);
   border-radius: 10px;
-  background: var(--bg-subtle, rgba(0, 0, 0, 0.03));
+  background: var(--gray-50);
   font-size: 0.88rem;
   line-height: 1.45;
   animation: slideDown 0.3s ease-out;
@@ -4206,7 +4206,7 @@ footer {
   padding: 8px 16px;
   background: none;
   color: inherit;
-  border: 1px solid var(--border);
+  border: 1px solid var(--gray-200);
   border-radius: 8px;
   font-family: inherit;
   cursor: pointer;
@@ -5905,15 +5905,44 @@ body[data-theme="dark"] {
 /* 4.14: prisalarm-boksen var det eneste i produkt-overlayet med haardkodede
    lyse farver, saa den stod som en hvid firkant i moerkt tema. */
 [data-theme="dark"] .price-alert-box {
-  background: var(--surface, #141d19);
-  border-color: var(--border, #26332c);
+  /* Samme grå som resten af produkt-overlayet (fik før en grønsort tone, der
+     ikke matchede, og lyse kanter - Kalle 04-10-2026). */
+  background: var(--white);
+  border-color: var(--gray-100);
+  box-shadow: none;
 }
 
-[data-theme="dark"] .alert-toggle-btn {
-  background: var(--surface-2, #1b2620);
-  color: var(--text, #e7efea);
+[data-theme="dark"] .price-alert-box:hover {
+  border-color: var(--gray-200);
 }
 
-[data-theme="dark"] .alert-input-group {
-  background: var(--surface-2, #1b2620);
+[data-theme="dark"] .alert-toggle-btn,
+[data-theme="dark"] .alert-toggle-btn:hover {
+  /* Samme dæmpede grønne som den aktive kategori-pill i mørkt tema. */
+  background: rgba(5, 150, 105, 0.22);
+  border-color: transparent;
+  color: var(--green-light);
+}
+
+[data-theme="dark"] .alert-form {
+  border-top-color: var(--gray-100);
+}
+
+[data-theme="dark"] .alert-form p {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .alert-input-group,
+[data-theme="dark"] .alert-input-group:focus-within {
+  background: var(--bg);
+  border-color: var(--gray-100);
+}
+
+[data-theme="dark"] .alert-input-group:focus-within {
+  border-color: var(--green);
+}
+
+[data-theme="dark"] .alert-input-group input {
+  /* Var #111827 (næsten sort) på mørk baggrund: tallet kunne ikke ses. */
+  color: var(--text-main);
 }
