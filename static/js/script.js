@@ -1328,7 +1328,9 @@ async function savePriceAlert() {
     setPriceAlertMsg('');
 
     const piEl = document.querySelector('.product-info');
-    const productId = piEl ? piEl.dataset.productId : '';
+    // dataset.productId er kortets DOM-id ("product" + varens id). Alarmen skal
+    // have varens eget id, ellers finder nattens tjek aldrig varen igen.
+    const productId = piEl ? (piEl.dataset.productId || '').replace(/^product/, '') : '';
     const currentPrice = parseFloat(piEl ? piEl.dataset.cheapestPrice : '') || 0;
     const productName = document.getElementById('overlay-title')?.innerText || '';
     if (!productId || !currentPrice) return;
