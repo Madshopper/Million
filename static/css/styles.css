@@ -5821,6 +5821,13 @@ body[data-theme="dark"] {
 }
 .auth-alert-del:hover:not(:disabled) { background: var(--red-light); }
 .auth-alert-del:disabled { opacity: 0.5; cursor: default; }
+/* Beskeder på telefonen (auth.js::refreshPushUI) under Mine prisalarmer. */
+.auth-push {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.auth-push .auth-sub { margin-bottom: 8px; }
 
 
 /* ===== TOMME TILSTANDE OG FEJL I LISTER ===== */

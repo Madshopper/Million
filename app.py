@@ -192,6 +192,8 @@ _EDGE_ENV_VARS = (
     'TABLE_SUFFIX',
     # Kun på staging (build-pages.sh): opskrifterne kan afprøves på dev-siden.
     'RECIPES_ENABLED',
+    # Kun på staging: beskeder på telefonen (_FEATURES 'push').
+    'PUSH_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -301,6 +303,12 @@ _EDGE_CACHE_SECONDS = 86400
 # praecis disse hosts) og mod de renderede sider. Tilfoejer en scraper en ny
 # butiks-CDN, skal den ind her - ellers vises den butiks billeder ikke
 # (varekortet fungerer stadig; img-onerror skjuler det tomme billede).
+# Offentlig nøgle til beskeder på hjemmesiden (Web Push, push_notify.py).
+# Samme værdi som push_notify.VAPID_PUBLIC_KEY (tjekkes af
+# scripts/test-push-crypto.py). Den hemmelige halvdel er GitHub-secret
+# VAPID_PRIVATE_KEY og bruges kun af nattens updater.py.
+_VAPID_PUBLIC_KEY = "BJ-6EyGJ8i36CgrtynD59AIkr57uidHCa7u_owJQMcPSi-js_xuZc3lqfEKZV9anQt8oqY6W8Dtau6VM7cvudQc"
+
 _IMG_HOSTS = (
     'https://rema-product-images.digital.rema1000.dk '
     'https://digitalassets.sallinggroup.com '
@@ -485,6 +493,9 @@ def _inject_site_meta():
         'rpc_suffix': _table_suffix(),
         # Header-ikonet til /opskrifter vises kun når featuren er slået til.
         'recipes_enabled': _recipes_enabled(),
+        # Beskeder på telefonen (Feature-panelet 'push'). Nøglen er offentlig.
+        'push_enabled': _feature_enabled('push'),
+        'vapid_public_key': _VAPID_PUBLIC_KEY,
         # Sandt naar SIDENS render byggede paa ufuldstaendige data (samme
         # isolate-kollision i D1-broen som saetter X-Data-Degraded-headeren,
         # se _mark_data_degraded). _build_search_listing/kategori-hentningen
@@ -1592,6 +1603,27 @@ _FEATURES = (
              'desc': 'Forslag til aftensmad ud fra ugens tilbudsvarer.'},
         ),
     },
+    {
+        'key': 'push',
+        'name': 'Beskeder på telefonen',
+        'env': 'PUSH_ENABLED',
+        'desc': 'Prisalarmer som besked på telefonen i stedet for mail. '
+                'Har man ikke slået beskeder til, eller kommer beskeden ikke '
+                'frem, får man stadig en mail.',
+        'app': 'Appen viser knappen, så snart den er udgivet her, men kun i '
+               'en ny app-version, der har beskeder med.',
+        'parts': (
+            {'kind': 'web', 'name': 'Knappen "Få besked på telefonen"',
+             'desc': 'Under Mine prisalarmer på hjemmesiden. På iPhone kun når '
+                     'siden er lagt på hjemmeskærmen.'},
+            {'kind': 'job', 'name': 'Beskeder om natten',
+             'desc': 'Nattens tjek af prisalarmer sender en besked i stedet '
+                     'for en mail til dem der har slået det til.'},
+            {'kind': 'app', 'name': 'Beskeder i appen',
+             'desc': 'Knappen under Mine prisalarmer og selve beskederne på '
+                     'iPhone. Android kræver en gratis Firebase-opsætning.'},
+        ),
+    },
 )
 
 # Projekter der ikke er færdige, men ikke har en knap (fx appen i butikkerne).
@@ -1652,14 +1684,6 @@ _PROJECTS = (
         'status': 'idea',
         'desc': 'Login, delt kurv, gemte lister og prisalarmer testes ikke '
                 'automatisk i dag, hverken på hjemmesiden eller i appen.',
-        'parts': (),
-    },
-    {
-        'key': 'push',
-        'name': 'Beskeder på telefonen',
-        'status': 'idea',
-        'desc': 'Prisalarmer som besked på telefonen i stedet for mail. '
-                'Skal bygges på serveren, hjemmesiden og i appen på én gang.',
         'parts': (),
     },
 )
@@ -4356,6 +4380,8 @@ def api_home():
             # teaser ("Kommer snart"), præcis som webforsiden (02-10-2026).
             'recipes': recipe_pool,
             'recipes_clickable': _recipes_enabled(),
+            # Appen viser "Beskeder på telefonen" når den er udgivet.
+            'push_enabled': _feature_enabled('push'),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
                 'available': False,

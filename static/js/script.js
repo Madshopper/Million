@@ -1297,7 +1297,8 @@ async function savePriceAlert() {
             return;
         }
         const btn = document.querySelector('.alert-toggle-btn');
-        if (btn) { btn.innerHTML = '✅ Alarm sat - du får en mail'; btn.disabled = true; }
+        const viaPush = typeof window.AuthBridge.pushActive === 'function' && window.AuthBridge.pushActive();
+        if (btn) { btn.innerHTML = viaPush ? '✅ Alarm sat - du får en besked' : '✅ Alarm sat - du får en mail'; btn.disabled = true; }
         if (input) input.value = '';
         const form = document.getElementById('alert-form');
         if (form) form.style.display = 'none';

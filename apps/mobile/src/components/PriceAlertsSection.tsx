@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getSupabase } from '../auth/supabase';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import { env } from '../config/env';
+import { disablePush, enablePush, getPushState, usePushFeature, type PushState } from '../push/push';
 
 type PriceAlert = {
   id: string;
@@ -167,6 +168,83 @@ export function PriceAlertsSection() {
           </View>
         ))
       )}
+      <PushRow />
+    </View>
+  );
+}
+
+const PUSH_TEXT: Record<PushState, { text: string; action: string | null }> = {
+  on: { text: 'Beskeder er slået til. Du får en besked i stedet for en mail.', action: 'Slå fra' },
+  off: { text: 'Få en besked på telefonen, når prisen falder, i stedet for en mail.', action: 'Slå til' },
+  denied: {
+    text: 'Beskeder er slået fra for MadShopper i telefonens indstillinger.',
+    action: 'Indstillinger',
+  },
+  unsupported: { text: 'Beskeder virker kun på en rigtig telefon, ikke i simulatoren.', action: null },
+};
+
+/** "Beskeder på telefonen" (Feature-panelet 'push', src/push/push.ts). */
+function PushRow() {
+  const { colors } = useTheme();
+  const featureOn = usePushFeature();
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(() => {
+    getPushState()
+      .then(setState)
+      .catch(() => setState('off'));
+  }, []);
+
+  useEffect(() => {
+    if (featureOn) refresh();
+  }, [featureOn, refresh]);
+  // Tilladelsen kan være ændret i telefonens indstillinger imens.
+  useFocusEffect(
+    useCallback(() => {
+      if (featureOn) refresh();
+    }, [featureOn, refresh]),
+  );
+
+  if (!featureOn || !state) return null;
+  const { text, action } = PUSH_TEXT[state];
+
+  const onPress = async () => {
+    if (state === 'denied') {
+      void Linking.openSettings();
+      return;
+    }
+    setBusy(true);
+    try {
+      if (state === 'on') {
+        await disablePush();
+        setState('off');
+      } else {
+        setState(await enablePush());
+      }
+    } catch {
+      Alert.alert('Fejl', 'Det lykkedes ikke at slå beskeder til. Prøv igen.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <Text style={{ color: colors.text, flex: 1, fontSize: 13 }}>{text}</Text>
+      {action ? (
+        <Pressable
+          onPress={() => void onPress()}
+          disabled={busy}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={state === 'on' ? 'Slå beskeder på telefonen fra' : 'Slå beskeder på telefonen til'}
+        >
+          <Text style={{ color: colors.primary, fontWeight: '700', opacity: busy ? 0.5 : 1 }}>
+            {busy ? 'Vent…' : action}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

@@ -18,6 +18,7 @@ type Extra = {
   flavor?: string;
   nonProdReleaseAllowed?: boolean;
   recipesEnabled?: boolean;
+  pushEnabled?: boolean;
 };
 
 const extra = (Constants.expoConfig?.extra || {}) as Extra;
@@ -64,6 +65,13 @@ if (!__DEV__ && env.flavor !== 'production' && !extra.nonProdReleaseAllowed) {
  * kryds (cirkulær import).
  */
 export const recipesEnabled = extra.recipesEnabled === true;
+
+/**
+ * Beskeder på telefonen: altid synlig i builds med EXPO_PUBLIC_PUSH_ENABLED=1
+ * (test-udgaverne i eas.json). Ellers styres den af Feature-panelet via
+ * /api/home's push_enabled - se src/push/push.ts.
+ */
+export const pushEnabledBuild = extra.pushEnabled === true;
 
 export function rpcName(base: string): string {
   // delete_own_account har ingen _dev-variant (docs/native-app.md §10.3)

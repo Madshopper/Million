@@ -72,9 +72,11 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
         <Text style={{ fontWeight: '700' }}>App-tilladelser: </Text>
         I stedet for cookies (som på vores hjemmeside) bruger app-versionen kun de
         systemtilladelser, du selv godkender ved installation eller første brug. Vi beder
-        ikke om adgang til kamera, kontakter, placering eller notifikationer - prisalarmer
-        sendes som e-mail, ikke som push-besked. Skulle det ændre sig, opdateres denne
-        tekst og din telefons indstillinger viser altid, hvilke tilladelser appen reelt har.
+        ikke om adgang til kamera, kontakter eller placering. Notifikationer beder vi kun
+        om, hvis du selv trykker "Slå til" under Mine prisalarmer: så får du prisalarmer
+        som besked på telefonen i stedet for e-mail, og vi gemmer en teknisk adresse til
+        din telefon, indtil du slår det fra, logger ud eller sletter kontoen. Din telefons
+        indstillinger viser altid, hvilke tilladelser appen reelt har.
       </Paragraph>
       <Paragraph colors={colors}>
         Du kan til enhver tid slette din konto direkte i appen under Indstillinger → Konto

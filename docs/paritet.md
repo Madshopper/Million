@@ -92,6 +92,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Bot-tjek på signup (Turnstile) | ✅ | ✅ | ✅ Auth Hook | ❌ | Complete |
 | Vist navn (delt kurv) | ✅ | ✅ | ✅ RPC `set_my_display_name` | ❌ | Complete |
 | "Mine prisalarmer" (se/slet) | ✅ | ✅ | ✅ | ❌ | Complete |
+| Prisalarm som besked på telefonen (push) | ✅ | ✅ | ✅ RPC `register_push_device`, `push_notify.py` | ⚠️ `test-push-crypto.py` | Skjult *(04-10-2026; Feature-panelet 'push', til på dev. Web: knap under Mine prisalarmer, på iPhone kun fra hjemmeskærmen. App: samme knap, kræver ny app-version. Uden tilmeldt enhed sendes mail som før)* |
 | Slet konto | ✅ | ✅ | ✅ RPC `delete_own_account` | ❌ | Complete |
 | Profil-fane med "Fælles kurv" | ➖ | ✅ | ✅ (samme delt-kurv-RPC'er) | ❌ | **Bevidst forskel**: appens nederste fane hedder "Profil" (før "Indstillinger", ændret 02-10-2026) og samler konto, navn, "Fælles kurv" (alle medlemmer, start/stop deling) og prisalarmer; indstillinger (med slet konto) og feedback er tydelige rækker derfra (03-10-2026). Web har ingen fanebjælke - kontoen ligger i konto-menuen og indstillingerne i tandhjulspanelet, og medlemmerne vises i kurven |
 
@@ -118,7 +119,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | # | Gap | Prioritet | Note |
 |---|---|---|---|
 | 1 | Ingen crash-/fejlrapportering i app'en | Høj | Ingen Sentry/Crashlytics. En fejl i produktion ses kun i App Store Connects crash-rapporter. En `ErrorBoundary` (19-08-2026) forhindrer nu hvid skærm, men rapporterer ikke videre. Kræver et leverandør- og privatlivsvalg. |
-| 2 | Push-beskeder og nyhedsbrev findes ikke | Lav | To døde kontakter blev fjernet fra web 19-08-2026 (de skrev til localStorage, som intet læste). Skal det bygges, skal det bygges i backend + web + app samtidigt. Prisalarm-mails er den notifikation der faktisk findes. |
+| 2 | Nyhedsbrev findes ikke | Lav | To døde kontakter blev fjernet fra web 19-08-2026 (de skrev til localStorage, som intet læste). Push-beskeder til prisalarmer er bygget på backend + web + app samtidigt (04-10-2026, se docs/prisovervaagning.md). |
 | 3 | Tyndt testdække på konto, delt kurv og prisalarmer | Høj | Kun `multiDeal`/`sco` (app) + listing-API-kontrakt (Python) + Playwright-røgtest. Ingen automatiserede tests af login, delt kurv, gemte lister eller prisalarmer på nogen af platformene. |
 | 4 | App'ens tilgængelighed er stadig ujævn | Medium | Ikon-/symbol-knapper fik etiketter 19-08-2026, men de fleste skærme har stadig ingen `accessibilityRole`/`accessibilityLabel`, og der er ingen VoiceOver-gennemgang. |
 | 5 | Ingen automatiseret web-a11y-kontrol | Medium | `scripts/audit-site.py` findes, men indgår ikke i deploy-workflowet. |

@@ -10,7 +10,8 @@
       "env": {
         "EXPO_PUBLIC_FLAVOR": "staging",
         "EXPO_PUBLIC_API_BASE_URL": "https://madshopper.dk",
-        "EXPO_PUBLIC_RPC_SUFFIX": "_dev"
+        "EXPO_PUBLIC_RPC_SUFFIX": "_dev",
+        "EXPO_PUBLIC_PUSH_ENABLED": "1"
       }
     },
     "preview": {
@@ -21,7 +22,8 @@
       "env": {
         "EXPO_PUBLIC_FLAVOR": "staging",
         "EXPO_PUBLIC_API_BASE_URL": "https://madshopper.dk",
-        "EXPO_PUBLIC_RPC_SUFFIX": "_dev"
+        "EXPO_PUBLIC_RPC_SUFFIX": "_dev",
+        "EXPO_PUBLIC_PUSH_ENABLED": "1"
       }
     },
     "production": {

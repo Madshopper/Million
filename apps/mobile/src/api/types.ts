@@ -71,6 +71,8 @@ export type HomeResponse = {
    * Falsk i produktion: sektionen vises stadig som ikke-klikbar teaser, præcis
    * som webforsiden - se recipe_card(clickable=...) i templates/macros/. */
   recipes_clickable?: boolean;
+  /** Er "Beskeder på telefonen" udgivet i Feature-panelet (src/push/push.ts)? */
+  push_enabled?: boolean;
   /** Stub — reel data hentes client-side via get_personal_savings (JWT). */
   personal_savings: { available: boolean; message: string };
   error?: string;

@@ -99,6 +99,20 @@
       </p>
       <ul id="auth-alerts-list" class="auth-alerts-list"></ul>
       <p id="auth-alerts-msg" class="auth-error" role="status" style="display:none;"></p>
+      {% if push_enabled %}
+      <!-- Beskeder på telefonen (Feature-panelet 'push'). auth.js::refreshPushUI
+           viser den rigtige tekst for browseren: slået til, kan slås til,
+           blokeret, eller (iPhone) "læg siden på hjemmeskærmen først". -->
+      <div id="auth-push" class="auth-push" data-vapid="{{ vapid_public_key }}"
+           data-sw="{{ url_for('static', filename='sw.js') }}">
+        <p id="auth-push-status" class="auth-sub">
+          Få en besked på telefonen, når prisen falder, i stedet for en mail.
+        </p>
+        <button type="button" id="auth-push-btn" class="auth-submit auth-submit-secondary"
+                onclick="authTogglePush()" style="display:none;">Få besked på telefonen</button>
+        <p id="auth-push-msg" class="auth-error" role="status" style="display:none;"></p>
+      </div>
+      {% endif %}
     </section>
 
     <button type="button" class="auth-submit auth-submit-secondary" onclick="authLogout()">Log ud</button>

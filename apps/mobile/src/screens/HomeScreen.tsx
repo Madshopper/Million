@@ -32,6 +32,7 @@ import {
 import { useStoreCatalog, storesParam } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { recipesEnabled } from '../config/env';
+import { setServerPushEnabled } from '../push/push';
 import type { RootStackParamList } from '../navigation/types';
 
 type HomeRow =
@@ -106,6 +107,7 @@ export function HomeScreen() {
         setSections(data.sections || []);
         setRecipes(data.recipes || []);
         setRecipesClickable(recipesEnabled && (data.recipes_clickable ?? true));
+        setServerPushEnabled(data.push_enabled);
         await loadSavings();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Kunne ikke hente forsiden');
