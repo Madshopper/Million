@@ -569,6 +569,8 @@ class Env(Protocol):
     CF_ANALYTICS_TOKEN: str
     CLOUDFLARE_ACCOUNT_ID: str
     STAGING_LINK_SECRET: str
+    APPLE_TEAM_ID: str
+    ANDROID_CERT_SHA256: str
 
 
 # Den tidligere login-side (mail + fælles adgangskode). Svarer nu samme 404
