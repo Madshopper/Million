@@ -37,7 +37,7 @@ Fuld tech stack, butiksliste og mappetræ: `README.md` § Tech Stack / Supported
 
 ## Data & tabeller
 
-**Supabase:** `app_cache` (produkt-cache i chunks), `produkter` (rå butiksdata), `price_history` (30 dage), `nutrition_data`, `cart_popularity` + `cart_events` (anonym kurv-aktivitet), `price_alerts`, `carts` (gemt kurv pr. bruger, RLS-låst), `user_monthly_savings` (personlig besparelse pr. måned, kun via RPC).
+**Supabase:** `app_cache` (produkt-cache i chunks), `produkter` (rå butiksdata), `price_history` (30 dage), `nutrition_data`, `cart_popularity` + `cart_events` (anonym kurv-aktivitet pr. time, 30 dage) + `stats_daily` (dagstotaler for altid), `price_alerts`, `carts` (gemt kurv pr. bruger, RLS-låst), `user_monthly_savings` (personlig besparelse pr. måned, kun via RPC).
 **Cloudflare D1:** read-only mirror af produkt-cachen (seedet nightly), `security_events`.
 **Cloudflare KV:** `cache_version` (bumpes ved hvert seed → invaliderer al edge-cache), `home_data_v1` (forudberegnede forsidepuljer, sparer ~4 D1/Supabase-kald pr. render), `d1_stats_v1` (optællinger), `features_v1` (Feature-panelet i `/admin`: hvilke funktioner der er udgivet på madshopper.dk; læses sammen med `cache_version` i `src/worker.py` og indgår i cache-nøglen, så et skift slår igennem inden for 5 min uden bump), `sidx_ver` + `sidx:<version>:<p|s>:<tegn>` (søgeindekset, se § D1-læsebudget).
 
@@ -55,6 +55,7 @@ Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `u
 - `supabase-user-savings.sql` - personlig månedlig besparelse (`get_personal_savings` / `record_compare_savings`)
 - `supabase-push.sql` - `push_devices` (+ `_dev`): telefoner/browsere der vil have prisalarmer som besked (`register_push_device` / `unregister_push_device`), se `docs/prisovervaagning.md`
 - `supabase-admin.sql` - admin-panelet `/admin`: `admin_users` + `is_admin()`, `admin_overview`, feedback-tabellen `feedback` + `submit_feedback`-RPC'en (eneste skrivevej for `/api/feedback`, med globalt loft) opskrift-moderering og kørselshistorikken `job_runs` + `admin_job_runs` (fyldes af `scripts/sync-job-runs.py` i `security-monitor.yml`). Skal køres FØR koden deployes, ellers giver feedback-formularen 503. Indsæt din konto i `admin_users` bagefter
+- `supabase-stats.sql` - varestatistik (Feature `stats`, fanen Varer i `/admin`): `stats_daily` (+ `_dev`) med én række pr. vare/søgeord pr. dag, ryddes aldrig; skrives af `record_cart_activity` (nu også `view`) og `record_search_activity`, læses af `admin_stats`. Kun tal, intet bruger-id. Loft på 5.000 nye rækker pr. døgn
 - `supabase-rls-audit.sql` (ren læsning), `supabase-lockdown.sql`, `supabase-hardening.sql` - sikkerhed/RLS
 
 ## Miljøer & deploy

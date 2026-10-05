@@ -228,7 +228,7 @@
   }
 
   /* ----------------------------------------------------------- navigation */
-  var SECTIONS = ['oversigt', 'trafik', 'feedback', 'scraping', 'korsler', 'opskrifter', 'feature', 'brugere', 'drift'];
+  var SECTIONS = ['oversigt', 'trafik', 'varer', 'feedback', 'scraping', 'korsler', 'opskrifter', 'feature', 'brugere', 'drift'];
 
   function showSection() {
     var name = (location.hash || '').replace('#', '');
@@ -854,6 +854,140 @@
     $('feature-modal-cancel').focus();
   }
 
+  /* ----------------------------------------------------------------- varer
+   * Varestatistik fra admin_stats() (scripts/supabase-stats.sql): dagstotaler
+   * pr. type, gemt for altid. Navnene slås op i kataloget via
+   * /api/admin/products, fordi statistikken kun gemmer produkt-id'er.
+   * Fanen findes kun, når Varestatistik er slået til (Feature-panelet). */
+  var STAT_KINDS = [
+    ['add', 'Lagt i kurven'], ['view', 'Kigget på'], ['compare', 'Prissammenlignet']
+  ];
+  var statsDays = 30;
+  var statsNames = {};
+  var statsHasPrev = false;   // findes der tal fra perioden før?
+
+  function statsBuckets(st) {
+    // Én række pr. dag op til 31 dage, ellers pr. uge (op til 1 år) eller måned.
+    var days = Math.min(st.days, st.first_day
+      ? Math.round((new Date(st.today) - new Date(st.first_day)) / 86400000) + 1 : st.days);
+    var unit = days <= 31 ? 'day' : days <= 366 ? 'week' : 'month';
+    var map = {};
+    (st.daily || []).forEach(function (r) {
+      if (r.kind === 'search') return;
+      var d = new Date(r.day + 'T12:00:00Z');
+      var key;
+      if (unit === 'day') key = r.day;
+      else if (unit === 'month') key = r.day.slice(0, 7) + '-01';
+      else {
+        var monday = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86400000);
+        key = monday.toISOString().slice(0, 10);
+      }
+      var b = map[key] || (map[key] = { key: key, add: 0, view: 0, compare: 0 });
+      b[r.kind] += r.events;
+    });
+    var list = Object.keys(map).sort().map(function (k) { return map[k]; });
+    return { unit: unit, list: list };
+  }
+
+  function bucketLabel(unit, key) {
+    var d = new Date(key + 'T12:00:00Z');
+    if (unit === 'month') return d.toLocaleDateString('da-DK', { month: 'short', year: 'numeric' });
+    if (unit === 'week') return 'uge fra ' + d.toLocaleDateString('da-DK', { day: 'numeric', month: 'short' });
+    return d.toLocaleDateString('da-DK', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  function trendPill(now, before) {
+    if (!statsHasPrev) return null;
+    if (!before) return el('span', { class: 'adm-trend up', text: 'ny' });
+    var pct = Math.round((now - before) * 100 / before);
+    if (pct === 0) return el('span', { class: 'adm-trend', text: '0 %' });
+    return el('span', { class: 'adm-trend ' + (pct > 0 ? 'up' : 'down'), text: (pct > 0 ? '+' : '') + pct + ' %' });
+  }
+
+  function prodCell(id) {
+    var p = statsNames[id];
+    if (!p) return el('div', { class: 'adm-prod' }, [el('span', { text: 'Udgået vare (' + id + ')' })]);
+    var img = /^https:\/\//.test(p.image || '') ? el('img', { src: p.image, alt: '', loading: 'lazy' }) : null;
+    return el('div', { class: 'adm-prod' }, [img, el('span', {}, [p.title || id, ' ', el('small', { text: p.store || '' })])]);
+  }
+
+  function renderStats(st) {
+    var top = (st && st.top) || [];
+    statsHasPrev = !!(st.first_day && st.first_day < st.since && st.days < 3650);
+    var sum = {};
+    (st.daily || []).forEach(function (r) { sum[r.kind] = (sum[r.kind] || 0) + r.events; });
+    var tiles = $('stats-tiles');
+    tiles.textContent = '';
+    STAT_KINDS.concat([['search', 'Søgninger']]).forEach(function (k) {
+      var n = top.filter(function (t) { return t.kind === k[0]; }).length;
+      tiles.appendChild(tile(k[1], nf(sum[k[0]] || 0),
+        k[0] === 'search' ? nf(n) + (n >= 50 ? '+' : '') + ' forskellige ord' : nf(n) + (n >= 50 ? '+' : '') + ' forskellige varer'));
+    });
+    $('stats-sub').textContent = 'Hvad folk kigger på, lægger i kurven og søger efter. Der gemmes kun tal pr. dag, intet om den enkelte bruger.'
+      + (st.first_day ? ' Data siden ' + new Date(st.first_day + 'T12:00:00Z').toLocaleDateString('da-DK', { day: 'numeric', month: 'long', year: 'numeric' }) + '.' : '');
+
+    var b = statsBuckets(st);
+    var max = b.list.reduce(function (a, x) { return Math.max(a, x.add + x.view + x.compare); }, 0) || 1;
+    var legend = el('div', { class: 'adm-stat-legend' }, STAT_KINDS.map(function (k) {
+      return el('span', {}, [el('i', { class: 'k-' + k[0] }), k[1]]);
+    }));
+    fill('stats-days', b.list.length ? el('div', {}, [legend, el('div', { class: 'adm-bars' }, b.list.map(function (x) {
+      var total = x.add + x.view + x.compare;
+      return el('div', { class: 'adm-bar-row', title: STAT_KINDS.map(function (k) { return k[1] + ': ' + nf(x[k[0]]); }).join(', ') }, [
+        el('span', { class: 'adm-bar-label', text: bucketLabel(b.unit, x.key) }),
+        el('span', { class: 'adm-bar stack' }, STAT_KINDS.map(function (k) {
+          return x[k[0]] ? el('span', { class: 'k-' + k[0], style: 'width:' + (x[k[0]] * 100 / max).toFixed(2) + '%' }) : null;
+        })),
+        el('span', { class: 'adm-bar-value', text: nf(total) })
+      ]);
+    }))]) : empty('Ingen tal i perioden endnu.'));
+
+    STAT_KINDS.forEach(function (k) {
+      var rows = top.filter(function (t) { return t.kind === k[0]; });
+      var head = k[0] === 'add' ? ['#', 'Vare', 'Gange', 'Stk.', 'Udvikling'] : ['#', 'Vare', 'Gange', 'Udvikling'];
+      fill('stats-top-' + k[0], rows.length ? table(head, rows.map(function (t, i) {
+        var r = [String(i + 1), prodCell(t.key), nf(t.events)];
+        if (k[0] === 'add') r.push(nf(t.qty));
+        r.push(trendPill(t.events, t.prev_events));
+        return r;
+      }), k[0] === 'add' ? [2, 3, 4] : [2, 3]) : empty(k[0] === 'view' && !sum.view
+        ? 'Tælles fra Varestatistik er udgivet i Feature.' : 'Ingen tal i perioden.'));
+    });
+    var searches = top.filter(function (t) { return t.kind === 'search'; });
+    fill('stats-top-search', searches.length ? table(['#', 'Søgeord', 'Gange', 'Udvikling'], searches.map(function (t, i) {
+      return [String(i + 1), t.key, nf(t.events), trendPill(t.events, t.prev_events)];
+    }), [2, 3]) : empty(sum.search ? 'Ingen tal i perioden.' : 'Tælles fra Varestatistik er udgivet i Feature.'));
+  }
+
+  function loadStats(tok) {
+    if (!$('stats-tiles')) return Promise.resolve();
+    var dev = window.__SB_RPC_SUFFIX === '_dev';
+    return rpc('admin_stats', { p_days: statsDays, p_dev: dev }).then(function (st) {
+      var ids = (st.top || []).filter(function (t) { return t.kind !== 'search' && !statsNames[t.key]; })
+        .map(function (t) { return t.key; });
+      var names = ids.length
+        ? (tok ? Promise.resolve(tok) : token()).then(function (t) { return post('/api/admin/products', t, { ids: ids }); })
+            .then(function (j) { Object.assign(statsNames, j.products || {}); })
+            .catch(function () { /* navne er pynt; tallene vises alligevel */ })
+        : Promise.resolve();
+      return names.then(function () { renderStats(st); });
+    }).catch(function (e) {
+      if (e && (e.code === 'PGRST202' || /admin_stats/.test(e.message || ''))) {
+        fill('stats-days', empty('Statistikken findes ikke i databasen endnu. Kør scripts/supabase-stats.sql.'));
+      } else {
+        fill('stats-days', empty('Kunne ikke hente statistikken: ' + ((e && e.message) || e)));
+      }
+    });
+  }
+
+  function setStatsDays(days) {
+    statsDays = days;
+    Array.prototype.forEach.call(document.querySelectorAll('#stats-period [data-days]'), function (b) {
+      b.setAttribute('aria-pressed', String(Number(b.getAttribute('data-days')) === days));
+    });
+    loadStats();
+  }
+
   /* ------------------------------------------------------------------ flow */
   function gate(text, showLogin) {
     $('admin-main').hidden = true;
@@ -900,7 +1034,8 @@
             showError('Kørselshistorikken kunne ikke hentes: ' + (e.message || e)); return null;
           }),
           traffic(session.access_token).then(function (j) { return j.traffic; }).catch(function () { return null; }),
-          loadFeatures(session.access_token)
+          loadFeatures(session.access_token),
+          loadStats(session.access_token)
         ]).then(function (r) {
           var ov = r[0] || {};
           var ed = r[2];
@@ -1002,6 +1137,9 @@
     $('fb-all').addEventListener('click', function () { setFilter(true); });
     $('users-pending').addEventListener('click', function () { setAccessFilter(false); });
     $('users-all').addEventListener('click', function () { setAccessFilter(true); });
+    Array.prototype.forEach.call(document.querySelectorAll('#stats-period [data-days]'), function (b) {
+      b.addEventListener('click', function () { setStatsDays(Number(b.getAttribute('data-days'))); });
+    });
     $('feature-modal-cancel').addEventListener('click', closeModal);
     $('feature-modal-ok').addEventListener('click', function () { if (modalOk) modalOk(); });
     $('feature-modal').addEventListener('click', function (e) {
