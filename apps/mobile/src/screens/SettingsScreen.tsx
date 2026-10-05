@@ -42,10 +42,16 @@ export function SettingsScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
-      <Text style={[styles.h, { color: colors.text }]}>Udseende</Text>
+      <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+        Udseende
+      </Text>
       {/* ThemeContext understøttede allerede "system" — kun UI'et manglede en
           vej til det (fundet under paritetsrevisionen 2026-08-17). */}
-      <View style={[styles.row, styles.themeRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Udseende"
+        style={[styles.row, styles.themeRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      >
         {(
           [
             ['system', 'Følg system'],
@@ -58,6 +64,8 @@ export function SettingsScreen() {
             <Pressable
               key={value}
               onPress={() => setMode(value)}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
               style={[
                 styles.themeOption,
                 { backgroundColor: active ? colors.primary : 'transparent' },
@@ -71,8 +79,16 @@ export function SettingsScreen() {
         })}
       </View>
 
-      <Text style={[styles.h, { color: colors.text }]}>Standardbutikker</Text>
-      <Pressable onPress={selectAll} style={{ marginBottom: 8 }}>
+      <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+        Standardbutikker
+      </Text>
+      <Pressable
+        onPress={selectAll}
+        style={{ marginBottom: 8, alignSelf: 'flex-start' }}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Vælg alle butikker"
+      >
         <Text style={{ color: colors.primary }}>Vælg alle</Text>
       </Pressable>
       {catalog.map((s) => (
@@ -80,10 +96,19 @@ export function SettingsScreen() {
           key={s.key}
           style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
         >
-          <Text style={{ color: colors.text, flex: 1 }}>{s.label}</Text>
+          {/* Navnet står ved siden af kontakten; uden etiket hører man kun
+              "kontakt, til" og ved ikke hvilken butik det gælder. */}
+          <Text
+            style={{ color: colors.text, flex: 1 }}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          >
+            {s.label}
+          </Text>
           <Switch
             value={selectedLabels.has(s.label)}
             onValueChange={() => toggleStore(s.label)}
+            accessibilityLabel={s.label}
           />
         </View>
       ))}
@@ -93,10 +118,16 @@ export function SettingsScreen() {
           Profil → Indstillinger → "Slet konto". */}
       {user ? (
         <>
-          <Text style={[styles.h, { color: colors.text }]}>Konto</Text>
+          <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+            Konto
+          </Text>
           <Pressable
             onPress={confirmDelete}
             disabled={deleting}
+            accessibilityRole="button"
+            accessibilityLabel={deleting ? 'Sletter konto' : 'Slet konto'}
+            accessibilityHint="Sletter permanent din konto, gemte kurv og besparelseshistorik"
+            accessibilityState={{ disabled: deleting, busy: deleting }}
             style={[
               styles.row,
               { backgroundColor: colors.surface, borderColor: colors.border, opacity: deleting ? 0.5 : 1 },

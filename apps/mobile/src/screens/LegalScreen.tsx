@@ -144,7 +144,12 @@ export function LegalScreen({ navigation, route }: Props) {
 
       <View style={[styles.contactBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={{ color: colors.text, fontWeight: '600', marginBottom: 4 }}>Spørgsmål?</Text>
-        <Pressable onPress={() => void Linking.openURL('mailto:kontakt@madshopper.dk')}>
+        <Pressable
+          onPress={() => void Linking.openURL('mailto:kontakt@madshopper.dk')}
+          accessibilityRole="link"
+          accessibilityLabel="Skriv til kontakt@madshopper.dk"
+          hitSlop={8}
+        >
           <Text style={{ color: colors.primary }}>kontakt@madshopper.dk</Text>
         </Pressable>
       </View>
@@ -152,6 +157,9 @@ export function LegalScreen({ navigation, route }: Props) {
       <Pressable
         onPress={() => void Linking.openURL(`${env.apiBaseUrl}${WEB_PATHS[kind]}`)}
         style={styles.webLink}
+        accessibilityRole="link"
+        accessibilityHint="Åbner siden i browseren"
+        hitSlop={8}
       >
         <Text style={{ color: colors.textMuted, fontSize: 12 }}>Se web-version</Text>
       </Pressable>

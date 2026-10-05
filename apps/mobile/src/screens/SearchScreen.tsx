@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   FlatList,
   Pressable,
@@ -18,6 +19,7 @@ import { TabScreenBody } from '../components/ScreenBody';
 import { useStoreCatalog, storesParam } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { Pager } from '../components/Pager';
+import { spokenKr } from '../a11y/speech';
 import { setServerStatsEnabled, trackSearch } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -204,6 +206,11 @@ export function SearchScreen() {
       setProducts(r.products || []);
       setTotal(r.total ?? 0);
       setTotalPages(r.total_pages || 1);
+      // Antallet står kun som tekst over listen. Seende ser det skifte;
+      // skærmlæseren skal have det sagt, ellers ved man ikke at søgningen kom.
+      AccessibilityInfo.announceForAccessibility(
+        r.total ? `${r.total} resultater` : 'Ingen varer matcher din søgning',
+      );
     } catch (e) {
       if (controller.signal.aborted) return;
       // Uden denne gren var offline/en serverfejl lig med en tom skærm, ikke
@@ -231,20 +238,32 @@ export function SearchScreen() {
         placeholder="Søg produkter…"
         placeholderTextColor={colors.textMuted}
         autoFocus
+        accessibilityLabel="Søg efter varer"
+        returnKeyType="search"
         style={[
           styles.input,
           { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
         ]}
       />
       {q.trim().length >= 2 && suggestions.length > 0 && !products.length ? (
-        <View style={{ paddingHorizontal: 12 }}>
-          <Pressable onPress={() => setQ(querySuggestion || q.trim())}>
+        <View style={{ paddingHorizontal: 12 }} accessibilityLabel="Forslag">
+          <Pressable
+            onPress={() => setQ(querySuggestion || q.trim())}
+            accessibilityRole="button"
+          >
             <Text style={{ color: colors.primary, paddingVertical: 8 }}>
               Søg efter {querySuggestion || q.trim()}
             </Text>
           </Pressable>
           {suggestions.map((s) => (
-            <Pressable key={s.name} onPress={() => setQ(s.name)} style={styles.sug}>
+            <Pressable
+              key={s.name}
+              onPress={() => setQ(s.name)}
+              style={styles.sug}
+              accessibilityRole="button"
+              accessibilityLabel={`${s.name}, ${spokenKr(s.price)}`}
+              accessibilityHint="Søger efter varen"
+            >
               <Text style={{ color: colors.text }}>{s.name}</Text>
               <Text style={{ color: colors.textMuted }}>{s.price.toFixed(2)} kr</Text>
             </Pressable>
@@ -259,11 +278,16 @@ export function SearchScreen() {
       ) : null}
       {error && !loading ? (
         <View style={{ padding: 24, alignItems: 'center', gap: 10 }}>
-          <Text style={{ color: colors.text, fontWeight: '600', textAlign: 'center' }}>
+          <Text
+            style={{ color: colors.text, fontWeight: '600', textAlign: 'center' }}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
             {error}
           </Text>
           <Pressable
             onPress={() => void load()}
+            accessibilityRole="button"
             style={{
               borderWidth: 1,
               borderColor: colors.border,
@@ -276,7 +300,11 @@ export function SearchScreen() {
           </Pressable>
         </View>
       ) : loading && !products.length ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+        <ActivityIndicator
+          color={colors.primary}
+          style={{ marginTop: 20 }}
+          accessibilityLabel="Søger"
+        />
       ) : (
         <FlatList
           style={{ flex: 1 }}
@@ -292,7 +320,7 @@ export function SearchScreen() {
           showsVerticalScrollIndicator
           ListHeaderComponent={
             showStarter ? (
-              <Text style={[styles.starterTitle, { color: colors.text }]}>
+              <Text style={[styles.starterTitle, { color: colors.text }]} accessibilityRole="header">
                 {starter!.title}
               </Text>
             ) : null

@@ -61,12 +61,16 @@ function ListingBody({
           data={[{ label: 'Alle', value: null as string | null }, ...subcategories.map((s) => ({ label: s, value: s }))]}
           keyExtractor={(i) => i.label}
           style={{ maxHeight: 48, marginVertical: 8, flexGrow: 0 }}
+          accessibilityLabel="Underkategorier"
           contentContainerStyle={{ paddingHorizontal: 12 }}
           renderItem={({ item }) => {
             const active = currentSub === item.value || (!currentSub && item.value === null);
             return (
               <Pressable
                 onPress={() => onSub(item.value)}
+                accessibilityRole="button"
+                accessibilityLabel={item.value === null ? 'Alle underkategorier' : item.label}
+                accessibilityState={{ selected: active }}
                 style={[
                   styles.chip,
                   {
@@ -85,12 +89,17 @@ function ListingBody({
       ) : null}
       {error && !loading ? (
         <View style={{ padding: 24, alignItems: 'center', gap: 10 }}>
-          <Text style={{ color: colors.text, fontWeight: '600', textAlign: 'center' }}>
+          <Text
+            style={{ color: colors.text, fontWeight: '600', textAlign: 'center' }}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
             {error}
           </Text>
           {onRetry ? (
             <Pressable
               onPress={onRetry}
+              accessibilityRole="button"
               style={{
                 borderWidth: 1,
                 borderColor: colors.border,
@@ -104,7 +113,11 @@ function ListingBody({
           ) : null}
         </View>
       ) : loading && !products.length ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
+        <ActivityIndicator
+          style={{ marginTop: 40 }}
+          color={colors.primary}
+          accessibilityLabel="Henter varer"
+        />
       ) : (
         <FlatList
           style={{ flex: 1 }}
@@ -121,7 +134,11 @@ function ListingBody({
             // Webben har haft hjælpeteksten hele tiden
             // (templates/partials/product_grid.html).
             !loading ? (
-              <View style={{ padding: 32, alignItems: 'center', gap: 6 }}>
+              <View
+                style={{ padding: 32, alignItems: 'center', gap: 6 }}
+                accessible
+                accessibilityLiveRegion="polite"
+              >
                 <Text style={{ color: colors.text, fontWeight: '600', textAlign: 'center' }}>
                   Ingen varer matcher dine valg.
                 </Text>

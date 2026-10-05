@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Linking,
   Alert,
@@ -35,6 +36,7 @@ import { useCart } from '../cart/CartContext';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { StoreDot } from '../components/StoreChip';
+import { joinLabel, spokenKr } from '../a11y/speech';
 import type { RootStackParamList } from '../navigation/types';
 import type { Product, StoreInfo } from '../api/types';
 
@@ -343,10 +345,18 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
   const displayedSeries = useMemo<PriceSeries[]>(() => {
     if (activeHistoryKey !== null) {
-      return [{ key: activeHistoryKey, color: colors.primary, points: displayedPoints }];
+      return [
+        {
+          key: activeHistoryKey,
+          label: labelByKey.get(activeHistoryKey),
+          color: colors.primary,
+          points: displayedPoints,
+        },
+      ];
     }
     return storeTabs.map((key) => ({
       key,
+      label: labelByKey.get(key),
       color: colorForStoreKey(key),
       points: patchToday(historyByStore[key] || [], currentPriceForKey(key)),
     }));
@@ -380,6 +390,9 @@ export function ProductDetailScreen({ route, navigation }: Props) {
     }).start();
     if (addedTimer.current) clearTimeout(addedTimer.current);
     addedTimer.current = setTimeout(() => setAdded(false), 1200);
+    AccessibilityInfo.announceForAccessibility(
+      qty > 1 ? `${qty} stk. ${product.name} lagt i kurven` : `${product.name} lagt i kurven`,
+    );
   };
 
   return (
@@ -393,10 +406,21 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         showsVerticalScrollIndicator
       >
       {product.image ? (
-        <Image source={{ uri: product.image }} style={styles.image} resizeMode="contain" />
+        <Image
+          source={{ uri: product.image }}
+          style={styles.image}
+          resizeMode="contain"
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={`Billede af ${product.name}`}
+        />
       ) : null}
+      {/* Navnet er skærmens overskrift, så VoiceOvers rotor kan hoppe dertil
+          og videre til Prissammenligning, Prishistorik og Næringsindhold. */}
       <Text style={[styles.brand, { color: colors.textMuted }]}>{product.brand}</Text>
-      <Text style={[styles.title, { color: colors.text }]}>{product.name}</Text>
+      <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
+        {product.name}
+      </Text>
       {product.description ? (
         <Text style={{ color: colors.textMuted, marginTop: 4 }}>{product.description}</Text>
       ) : null}
@@ -406,7 +430,15 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         </Text>
       ) : null}
 
-      <View style={{ marginTop: 12 }}>
+      <View
+        style={{ marginTop: 12 }}
+        accessible
+        accessibilityLabel={
+          product.is_sale
+            ? `Tilbudspris ${spokenKr(product.price)}, før ${spokenKr(product.normal_price)}`
+            : `Pris ${spokenKr(product.price)}`
+        }
+      >
         {product.is_sale ? (
           <>
             <Text style={[styles.original, { color: colors.textMuted }]}>
@@ -427,6 +459,8 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
       <Pressable
         onPress={() => void onMonitorPress()}
+        accessibilityRole="button"
+        accessibilityHint="Få besked når prisen falder"
         style={[styles.btnOutline, { borderColor: colors.border }]}
       >
         <Text style={{ color: colors.text }}>Overvåg pris</Text>
@@ -439,6 +473,8 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Færre"
+          accessibilityState={{ disabled: qty <= 1 }}
+          hitSlop={8}
           onPress={() => setQty((q) => Math.max(1, q - 1))}
         >
           <Text style={[styles.qtyBtn, { color: colors.primary }]}>−</Text>
@@ -452,25 +488,46 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Flere"
+          hitSlop={8}
           onPress={() => setQty((q) => q + 1)}
         >
           <Text style={[styles.qtyBtn, { color: colors.primary }]}>+</Text>
         </Pressable>
       </View>
 
-      <Pressable onPress={onAddToCart} style={[styles.btn, { backgroundColor: colors.primary }]}>
+      <Pressable
+        onPress={onAddToCart}
+        accessibilityRole="button"
+        accessibilityLabel={
+          added
+            ? 'Tilføjet til kurv'
+            : `Tilføj ${qty > 1 ? `${qty} stk. ` : ''}til kurv, ${product.store}`
+        }
+        style={[styles.btn, { backgroundColor: colors.primary }]}
+      >
         <Animated.Text style={[styles.btnText, { transform: [{ scale: addScale }] }]}>
           {added ? 'Tilføjet ✓' : `Tilføj til kurv · ${product.store}`}
         </Animated.Text>
       </Pressable>
 
-      <Text style={[styles.h, { color: colors.text }]}>Prissammenligning</Text>
+      <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+        Prissammenligning
+      </Text>
       {comparisons.length === 0 ? (
         <Text style={{ color: colors.textMuted }}>Ingen matchende butikker</Text>
       ) : (
         comparisons.map((c, i) => (
           <View
             key={c.label}
+            accessible
+            accessibilityLabel={joinLabel([
+              c.label,
+              c.isSale ? 'tilbud' : null,
+              spokenKr(c.price),
+              i === 0 ? 'billigst' : `${spokenKr(c.price - comparisons[0].price)} dyrere`,
+              c.kgPrice != null ? `${spokenKr(c.kgPrice)} pr. kilo` : null,
+              c.multiDeal,
+            ])}
             style={[styles.compare, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -498,15 +555,24 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         ))
       )}
 
-      <Text style={[styles.h, { color: colors.text }]}>Prishistorik</Text>
+      <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+        Prishistorik
+      </Text>
       {historyLoading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} />
+        <ActivityIndicator
+          color={colors.primary}
+          style={{ marginVertical: 12 }}
+          accessibilityLabel="Henter prishistorik"
+        />
       ) : (
         <>
           {storeTabs.length > 0 ? (
-            <View style={styles.histTabs}>
+            <View style={styles.histTabs} accessibilityRole="tablist">
               <Pressable
                 onPress={() => setActiveHistoryKey(null)}
+                accessibilityRole="tab"
+                accessibilityLabel="Alle butikker"
+                accessibilityState={{ selected: activeHistoryKey === null }}
                 style={[
                   styles.histTab,
                   {
@@ -525,6 +591,9 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                   <Pressable
                     key={key}
                     onPress={() => setActiveHistoryKey(key)}
+                    accessibilityRole="tab"
+                    accessibilityLabel={labelByKey.get(key) || key}
+                    accessibilityState={{ selected: active }}
                     style={[
                       styles.histTab,
                       styles.histTabRow,
@@ -579,14 +648,25 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         </>
       )}
 
-      <Text style={[styles.h, { color: colors.text }]}>Næringsindhold</Text>
+      <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+        Næringsindhold
+      </Text>
       {nutritionLoading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginVertical: 12 }} />
+        <ActivityIndicator
+          color={colors.primary}
+          style={{ marginVertical: 12 }}
+          accessibilityLabel="Henter næringsindhold"
+        />
       ) : nutrition ? (
         <View style={[styles.nutritionBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={{ color: colors.textMuted, marginBottom: 8 }}>Pr. {nutrition.per}</Text>
           {nutrition.rows.map((r) => (
-            <View key={r.label} style={styles.nutritionRow}>
+            <View
+              key={r.label}
+              style={styles.nutritionRow}
+              accessible
+              accessibilityLabel={`${r.label}: ${r.value}`}
+            >
               <Text style={{ color: colors.text }}>{r.label}</Text>
               <Text style={{ color: colors.text, fontWeight: '600' }}>{r.value}</Text>
             </View>
@@ -610,11 +690,14 @@ export function ProductDetailScreen({ route, navigation }: Props) {
       <Modal visible={monitorOpen} transparent animationType="fade" onRequestClose={() => setMonitorOpen(false)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
-            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 8 }}>
+            <Text
+              style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 8 }}
+              accessibilityRole="header"
+            >
               Prisovervågning
             </Text>
             {alertSet ? (
-              <Text style={{ color: colors.text }}>
+              <Text style={{ color: colors.text }} accessibilityLiveRegion="polite">
                 {!pushFeature
                   ? '✅ Alarm sat - du får en mail'
                   : pushState === 'on'
@@ -633,6 +716,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                   onChangeText={setTargetPriceInput}
                   placeholder="Eks. 40"
                   placeholderTextColor={colors.textMuted}
+                  accessibilityLabel="Ønsket pris i kroner"
                   keyboardType="decimal-pad"
                   style={[styles.alertInput, { borderColor: colors.border, color: colors.text }]}
                 />
@@ -641,6 +725,8 @@ export function ProductDetailScreen({ route, navigation }: Props) {
             <Pressable
               onPress={alertSet ? () => setMonitorOpen(false) : onSavePriceAlert}
               disabled={alertSaving}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: alertSaving, busy: alertSaving }}
               style={[
                 styles.btn,
                 { backgroundColor: colors.primary, marginTop: 16, opacity: alertSaving ? 0.6 : 1 },
@@ -653,6 +739,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
             {!alertSet ? (
               <Pressable
                 onPress={() => setMonitorOpen(false)}
+                accessibilityRole="button"
                 style={[styles.btnOutline, { marginTop: 8, borderColor: colors.border }]}
               >
                 <Text style={{ color: colors.text }}>Annuller</Text>
@@ -664,8 +751,17 @@ export function ProductDetailScreen({ route, navigation }: Props) {
       <Modal visible={pushOffOverlay} transparent animationType="fade" onRequestClose={() => setPushOffOverlay(false)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { backgroundColor: colors.surface, alignItems: 'center' }]}>
-            <Text style={{ fontSize: 28, marginBottom: 8 }}>🔕</Text>
-            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 6, textAlign: 'center' }}>
+            <Text
+              style={{ fontSize: 28, marginBottom: 8 }}
+              accessibilityElementsHidden
+              importantForAccessibility="no"
+            >
+              🔕
+            </Text>
+            <Text
+              style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 6, textAlign: 'center' }}
+              accessibilityRole="header"
+            >
               Notifikationer er slået fra
             </Text>
             <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>
@@ -699,8 +795,17 @@ export function ProductDetailScreen({ route, navigation }: Props) {
       <Modal visible={loginOverlay} transparent animationType="fade" onRequestClose={() => setLoginOverlay(false)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { backgroundColor: colors.surface, alignItems: 'center' }]}>
-            <Text style={{ fontSize: 28, marginBottom: 8 }}>🔒</Text>
-            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 6, textAlign: 'center' }}>
+            <Text
+              style={{ fontSize: 28, marginBottom: 8 }}
+              accessibilityElementsHidden
+              importantForAccessibility="no"
+            >
+              🔒
+            </Text>
+            <Text
+              style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 6, textAlign: 'center' }}
+              accessibilityRole="header"
+            >
               Log ind for at fortsætte
             </Text>
             <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>
@@ -709,6 +814,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
             <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
               <Pressable
                 onPress={() => setLoginOverlay(false)}
+                accessibilityRole="button"
                 style={[styles.btnOutline, { flex: 1, marginTop: 0, borderColor: colors.border }]}
               >
                 <Text style={{ color: colors.text }}>Luk</Text>
@@ -719,6 +825,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
                   // iOS afviser present, mens RN-Modalen stadig lukker.
                   setTimeout(() => navigation.navigate('Auth'), 400);
                 }}
+                accessibilityRole="button"
                 style={[styles.btn, { flex: 1, marginTop: 0, backgroundColor: colors.primary }]}
               >
                 <Text style={styles.btnText}>Log ind</Text>

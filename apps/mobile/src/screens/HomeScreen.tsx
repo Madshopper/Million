@@ -159,7 +159,7 @@ export function HomeScreen() {
   if (!ready || (loading && !sections.length)) {
     return (
       <View style={[styles.center, { backgroundColor: colors.bg, height: listHeight }]}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primary} accessibilityLabel="Henter forsiden" />
       </View>
     );
   }
@@ -209,7 +209,15 @@ export function HomeScreen() {
           }
 
           if (item.kind === 'error') {
-            return <Text style={[styles.error, { color: colors.sale }]}>{item.message}</Text>;
+            return (
+              <Text
+                style={[styles.error, { color: colors.sale }]}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+              >
+                {item.message}
+              </Text>
+            );
           }
 
           if (item.kind === 'savings') {
@@ -218,6 +226,8 @@ export function HomeScreen() {
               return (
                 <Pressable
                   onPress={() => navigation.navigate('Auth')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Personlig besparelse. Log ind for at følge, hvor meget du sparer"
                   style={styles.savingsBanner}
                 >
                   <View style={styles.savingsContent}>
@@ -231,7 +241,19 @@ export function HomeScreen() {
               );
             }
             return (
-              <View style={styles.savingsBanner}>
+              <View
+                style={styles.savingsBanner}
+                accessible
+                accessibilityLabel={[
+                  `Personlig besparelse. Du har sparet ${formatKr(s.amount)} kr denne måned`,
+                  s.show_prev && s.prev_amount > 0
+                    ? `I ${monthLabel(s.prev_month_key)} sparede du ${formatKr(s.prev_amount)} kr`
+                    : '',
+                  `Top ${s.top_pct} procent`,
+                ]
+                  .filter(Boolean)
+                  .join('. ')}
+              >
                 <View style={styles.savingsContent}>
                   <Text style={styles.savingsLabel}>Personlig besparelse</Text>
                   <Text style={styles.savingsAmount}>
@@ -254,9 +276,16 @@ export function HomeScreen() {
             return (
               <View style={styles.section}>
                 <View style={styles.sectionHead}>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Lækre opskrifter</Text>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]} accessibilityRole="header">
+                    Lækre opskrifter
+                  </Text>
                   {recipesClickable ? (
-                    <Pressable onPress={() => navigation.navigate('Tabs', { screen: 'Recipes' })}>
+                    <Pressable
+                      onPress={() => navigation.navigate('Tabs', { screen: 'Recipes' })}
+                      accessibilityRole="button"
+                      accessibilityLabel="Vis alle opskrifter"
+                      hitSlop={10}
+                    >
                       <Text style={{ color: colors.text, fontWeight: '600' }}>Vis alle</Text>
                     </Pressable>
                   ) : null}
@@ -280,13 +309,23 @@ export function HomeScreen() {
           return (
             <View style={styles.section}>
               <View style={styles.sectionHead}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>{section.title}</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]} accessibilityRole="header">
+                  {section.title}
+                </Text>
                 {section.href === '/ugens_tilbud' ? (
-                  <Pressable onPress={() => navigation.navigate('Sale')}>
+                  <Pressable
+                    onPress={() => navigation.navigate('Sale')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Vis alle i ${section.title}`}
+                    hitSlop={10}
+                  >
                     <Text style={{ color: colors.text, fontWeight: '600' }}>Vis alle</Text>
                   </Pressable>
                 ) : section.href ? (
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Vis alle i ${section.title}`}
+                    hitSlop={10}
                     onPress={() =>
                       navigation.navigate('Category', {
                         slug: section.href!.replace(/^\//, ''),

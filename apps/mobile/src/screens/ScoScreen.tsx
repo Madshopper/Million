@@ -28,6 +28,7 @@ import { recordCompareSavings } from '../savings/personalSavings';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { StoreDot } from '../components/StoreChip';
+import { joinLabel, spokenKr } from '../a11y/speech';
 
 /** Dedup pr. app-session — spejler web's `_comparedProductIds`. */
 const comparedProductIds = new Set<string>();
@@ -206,7 +207,7 @@ export function ScoScreen() {
   if (!ready || (loading && !result)) {
     return (
       <View style={[styles.center, { backgroundColor: colors.bg }]}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primary} accessibilityLabel="Sammenligner priser" />
       </View>
     );
   }
@@ -222,7 +223,10 @@ export function ScoScreen() {
   if (loadError) {
     return (
       <View style={[styles.center, { backgroundColor: colors.bg, padding: 24, gap: 12 }]}>
-        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, textAlign: 'center' }}>
+        <Text
+          style={{ color: colors.text, fontWeight: '700', fontSize: 16, textAlign: 'center' }}
+          accessibilityRole="alert"
+        >
           Kunne ikke sammenligne priser lige nu
         </Text>
         <Text style={{ color: colors.textMuted, textAlign: 'center' }}>
@@ -230,6 +234,7 @@ export function ScoScreen() {
         </Text>
         <Pressable
           onPress={() => void runSco()}
+          accessibilityRole="button"
           style={[styles.routeBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
         >
           <Text style={{ color: colors.primary, fontWeight: '700' }}>Prøv igen</Text>
@@ -257,6 +262,7 @@ export function ScoScreen() {
           en eneste vej derind - webbens SCO-overlay har netop denne knap. */}
       <Pressable
         onPress={() => navigation.navigate('Route')}
+        accessibilityRole="button"
         style={[styles.routeBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
       >
         <Text style={{ color: colors.primary, fontWeight: '700' }}>
@@ -266,6 +272,8 @@ export function ScoScreen() {
 
       <ScrollView
         horizontal
+        accessibilityRole="tablist"
+        accessibilityLabel="Butikker"
         showsHorizontalScrollIndicator={false}
         style={{ marginBottom: 16 }}
         contentContainerStyle={{ paddingTop: 10 }}
@@ -276,6 +284,14 @@ export function ScoScreen() {
             <Pressable
               key={s.name}
               onPress={() => setActiveStore(s.name)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={joinLabel([
+                s.name,
+                i === 0 ? 'billigst' : null,
+                spokenKr(s.totalPrice),
+                `har ${s.coverage} af ${s.totalItems} varer`,
+              ])}
               style={[
                 styles.storeCard,
                 {
@@ -311,10 +327,16 @@ export function ScoScreen() {
         <>
           {active.missingDetails.length > 0 ? (
             <View style={{ marginBottom: 20 }}>
-              <Text style={[styles.h2, { color: colors.text }]}>
+              <Text style={[styles.h2, { color: colors.text }]} accessibilityRole="header">
                 Mangler i {active.name} ({active.missingDetails.length})
               </Text>
-              {altLoading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: 8 }} /> : null}
+              {altLoading ? (
+                <ActivityIndicator
+                  color={colors.primary}
+                  style={{ marginVertical: 8 }}
+                  accessibilityLabel="Finder alternativer"
+                />
+              ) : null}
               {active.missingDetails.map((m) => {
                 const alt = alternatives[m.cart_id];
                 return (
@@ -325,7 +347,15 @@ export function ScoScreen() {
                     {m.image ? (
                       <Image source={{ uri: m.image }} style={styles.itemImg} resizeMode="contain" />
                     ) : null}
-                    <View style={{ flex: 1 }}>
+                    <View
+                      style={{ flex: 1 }}
+                      accessible
+                      accessibilityLabel={joinLabel([
+                        m.name,
+                        'ikke tilgængelig her',
+                        alt ? `alternativ: ${alt.alt_name}, ${spokenKr(alt.alt_price)}` : null,
+                      ])}
+                    >
                       <Text style={{ color: colors.text, fontWeight: '600' }} numberOfLines={2}>
                         {m.name}
                       </Text>
@@ -339,6 +369,8 @@ export function ScoScreen() {
                     {alt ? (
                       <Pressable
                         onPress={() => acceptAlternative(alt)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Vælg alternativ ${alt.alt_name} i stedet for ${m.name}`}
                         style={[styles.acceptBtn, { backgroundColor: colors.primary }]}
                       >
                         <Text style={styles.acceptBtnText}>Vælg alt.</Text>
@@ -350,13 +382,19 @@ export function ScoScreen() {
             </View>
           ) : null}
 
-          <Text style={[styles.h2, { color: colors.text }]}>
+          <Text style={[styles.h2, { color: colors.text }]} accessibilityRole="header">
             I kurven hos {active.name}
           </Text>
           {(result.matchedItemsPerStore[active.name] || []).map((m) => (
             <View
               key={m.cart_id}
               style={[styles.itemRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessible
+              accessibilityLabel={joinLabel([
+                m.name,
+                `${m.quantity} stk à ${spokenKr(m.price)}`,
+                `i alt ${spokenKr(m.price * m.quantity)}`,
+              ])}
             >
               {m.image ? <Image source={{ uri: m.image }} style={styles.itemImg} resizeMode="contain" /> : null}
               <View style={{ flex: 1 }}>
@@ -373,7 +411,11 @@ export function ScoScreen() {
             </View>
           ))}
 
-          <View style={[styles.totalBox, { backgroundColor: colors.primaryMuted }]}>
+          <View
+            style={[styles.totalBox, { backgroundColor: colors.primaryMuted }]}
+            accessible
+            accessibilityLabel={`Total hos ${active.name}: ${spokenKr(active.totalPrice)}, uden accepterede alternativers pris`}
+          >
             <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>
               Total hos {active.name}
             </Text>

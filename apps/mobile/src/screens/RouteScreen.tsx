@@ -5,6 +5,7 @@ import { useCart } from '../cart/CartContext';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { StoreChip } from '../components/StoreChip';
+import { joinLabel, spokenKr } from '../a11y/speech';
 
 export function RouteScreen() {
   const { colors } = useTheme();
@@ -29,7 +30,7 @@ export function RouteScreen() {
   if (!ready || loading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.bg }]}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primary} accessibilityLabel="Beregner rute" />
       </View>
     );
   }
@@ -50,7 +51,16 @@ export function RouteScreen() {
         Billigste butik pr. vare, splittet på tværs af butikker
       </Text>
 
-      <View style={[styles.totalBox, { backgroundColor: colors.primaryMuted }]}>
+      <View
+        style={[styles.totalBox, { backgroundColor: colors.primaryMuted }]}
+        accessible
+        accessibilityLabel={joinLabel([
+          `Rutens total: ${spokenKr(route.routeTotal)}`,
+          route.savings > 0.05 && route.singleCheapest
+            ? `Du sparer ${spokenKr(route.savings)} i forhold til kun ${route.singleCheapest.name}`
+            : null,
+        ])}
+      >
         <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Rutens total</Text>
         <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 22, marginTop: 4 }}>
           {route.routeTotal.toFixed(2)} kr
@@ -73,12 +83,26 @@ export function RouteScreen() {
             },
           ]}
         >
-          <View style={styles.storeHead}>
+          <View
+            style={styles.storeHead}
+            accessible
+            accessibilityRole="header"
+            accessibilityLabel={`${g.store}, ${spokenKr(g.subtotal)}`}
+          >
             <StoreChip store={g.store} size="md" />
             <Text style={{ color: colors.text, fontWeight: '700' }}>{g.subtotal.toFixed(2)} kr</Text>
           </View>
           {g.items.map((ri, idx) => (
-            <View key={`${ri.item.id}-${idx}`} style={styles.itemRow}>
+            <View
+              key={`${ri.item.id}-${idx}`}
+              style={styles.itemRow}
+              accessible
+              accessibilityLabel={joinLabel([
+                ri.displayName,
+                `${ri.item.quantity} stk à ${spokenKr(ri.price)}`,
+                `i alt ${spokenKr(ri.price * ri.item.quantity)}`,
+              ])}
+            >
               {ri.item.image ? (
                 <Image source={{ uri: ri.item.image }} style={styles.itemImg} resizeMode="contain" />
               ) : null}
@@ -100,7 +124,10 @@ export function RouteScreen() {
 
       {route.unavailable.length > 0 ? (
         <View style={[styles.storeBlock, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.storeName, { color: colors.text, marginBottom: 8 }]}>
+          <Text
+            style={[styles.storeName, { color: colors.text, marginBottom: 8 }]}
+            accessibilityRole="header"
+          >
             Ikke tilgængelig i dine valgte butikker
           </Text>
           {route.unavailable.map((item, idx) => (

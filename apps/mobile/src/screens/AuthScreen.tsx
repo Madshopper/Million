@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -66,9 +67,16 @@ export function AuthScreen({ navigation }: Props) {
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Skiftet ses kun i headeren, som VoiceOver ikke læser igen af sig selv.
+  const firstMode = React.useRef(true);
   useEffect(() => {
     setError(null);
     setInfo(null);
+    if (firstMode.current) {
+      firstMode.current = false;
+      return;
+    }
+    AccessibilityInfo.announceForAccessibility(MODE_TITLES[mode]);
   }, [mode]);
 
   // Recovery-linket har skabt en session: skift til "vælg ny adgangskode".
@@ -191,6 +199,7 @@ export function AuthScreen({ navigation }: Props) {
         </Text>
         <Pressable
           onPress={() => void logout()}
+          accessibilityRole="button"
           style={[styles.btnOutline, { borderColor: colors.border }]}
         >
           <Text style={{ color: colors.text }}>Log ud</Text>
@@ -212,6 +221,7 @@ export function AuthScreen({ navigation }: Props) {
               onChangeText={setDisplayName}
               placeholder="Dit navn"
               placeholderTextColor={colors.textMuted}
+              accessibilityLabel="Dit navn"
               style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
             />
             <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
@@ -226,6 +236,7 @@ export function AuthScreen({ navigation }: Props) {
             onChangeText={setEmail}
             placeholder="Email"
             placeholderTextColor={colors.textMuted}
+            accessibilityLabel="Email"
             autoCapitalize="none"
             keyboardType="email-address"
             style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
@@ -238,19 +249,46 @@ export function AuthScreen({ navigation }: Props) {
             onChangeText={setPassword}
             placeholder={mode === 'newpassword' ? 'Ny adgangskode' : 'Adgangskode'}
             placeholderTextColor={colors.textMuted}
+            accessibilityLabel={mode === 'newpassword' ? 'Ny adgangskode' : 'Adgangskode'}
+            accessibilityHint={mode === 'login' ? undefined : 'Mindst 8 tegn'}
             secureTextEntry
             style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
           />
         ) : null}
 
         {shownError ? (
-          <Text style={[styles.error, { color: colors.sale }]}>{shownError}</Text>
+          <Text
+            style={[styles.error, { color: colors.sale }]}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+          >
+            {shownError}
+          </Text>
         ) : null}
-        {shownInfo ? <Text style={[styles.info, { color: colors.badge }]}>{shownInfo}</Text> : null}
+        {shownInfo ? (
+          <Text
+            style={[styles.info, { color: colors.badge }]}
+            accessibilityLiveRegion="polite"
+          >
+            {shownInfo}
+          </Text>
+        ) : null}
 
         <Pressable
           onPress={() => void submit()}
           disabled={busy}
+          accessibilityRole="button"
+          // Under arbejdet vises kun en spinner; etiketten skal stadig sige hvad knappen er.
+          accessibilityLabel={
+            mode === 'login'
+              ? 'Log ind'
+              : mode === 'signup'
+                ? 'Opret konto'
+                : mode === 'reset'
+                  ? 'Send link'
+                  : 'Gem adgangskode'
+          }
+          accessibilityState={{ disabled: busy, busy }}
           style={[styles.btn, { backgroundColor: colors.primary, opacity: busy ? 0.7 : 1 }]}
         >
           {busy ? (
@@ -269,6 +307,8 @@ export function AuthScreen({ navigation }: Props) {
           <Pressable
             onPress={() => void submitGoogle()}
             disabled={busy}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
             style={[styles.btnOutline, { borderColor: colors.border, marginTop: 10 }]}
           >
             <Text style={{ color: colors.text, fontWeight: '600' }}>Fortsæt med Google</Text>
@@ -292,6 +332,7 @@ export function AuthScreen({ navigation }: Props) {
         <View style={styles.links}>
           {mode === 'newpassword' ? (
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
                 endRecovery();
                 setMode('login');
@@ -301,17 +342,17 @@ export function AuthScreen({ navigation }: Props) {
             </Pressable>
           ) : null}
           {mode !== 'login' && mode !== 'newpassword' ? (
-            <Pressable onPress={() => setMode('login')}>
+            <Pressable onPress={() => setMode('login')} accessibilityRole="button" hitSlop={8}>
               <Text style={{ color: colors.primary }}>Log ind</Text>
             </Pressable>
           ) : null}
           {mode !== 'signup' && mode !== 'newpassword' ? (
-            <Pressable onPress={() => setMode('signup')}>
+            <Pressable onPress={() => setMode('signup')} accessibilityRole="button" hitSlop={8}>
               <Text style={{ color: colors.primary }}>Opret konto</Text>
             </Pressable>
           ) : null}
           {mode !== 'reset' && mode !== 'newpassword' ? (
-            <Pressable onPress={() => setMode('reset')}>
+            <Pressable onPress={() => setMode('reset')} accessibilityRole="button" hitSlop={8}>
               <Text style={{ color: colors.primary }}>Glemt adgangskode?</Text>
             </Pressable>
           ) : null}

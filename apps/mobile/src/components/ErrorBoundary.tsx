@@ -45,7 +45,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
       // så useTheme er ikke til at stole på her.
       <View style={styles.wrap}>
         <ScrollView contentContainerStyle={styles.body}>
-          <Text style={styles.title}>Noget gik galt</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            Noget gik galt
+          </Text>
           <Text style={styles.text}>
             Der opstod en uventet fejl i appen. Dine varer i kurven er gemt - prøv igen.
           </Text>

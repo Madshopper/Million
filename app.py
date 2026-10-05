@@ -1712,8 +1712,9 @@ _PROJECTS = (
         'parts': (
             {'done': True, 'name': 'Knapper med ikoner har navne',
              'desc': 'Skærmlæseren kan læse ikon-knapperne op.'},
-            {'done': False, 'name': 'Resten af skærmene',
-             'desc': 'De fleste skærme mangler stadig beskrivelser til skærmlæseren.'},
+            {'done': True, 'name': 'Resten af skærmene',
+             'desc': 'Alle skærme har nu beskrivelser til skærmlæseren '
+                     '(05-10-2026). Kommer med i næste app-version.'},
             {'done': False, 'name': 'Gennemgang med VoiceOver',
              'desc': 'Hele appen prøvet af med skærmlæser på en iPhone.'},
         ),

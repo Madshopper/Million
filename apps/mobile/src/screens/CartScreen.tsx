@@ -21,6 +21,7 @@ import { cartItemTitle } from '../cart/stripStoreBrand';
 import { useTheme } from '../theme/ThemeContext';
 import { StackScreenBody } from '../components/ScreenBody';
 import { StoreChip } from '../components/StoreChip';
+import { joinLabel, spokenKr } from '../a11y/speech';
 import type { RootStackParamList } from '../navigation/types';
 
 type PromptMode = 'save' | 'share' | 'join' | 'rename' | null;
@@ -37,7 +38,9 @@ function PriceText({
 }) {
   const [kr, ore] = value.toFixed(2).split('.');
   return (
-    <View style={styles.priceRow}>
+    // "24" og "95" er to tekster; uden samlet etiket læser VoiceOver dem
+    // som to løse tal.
+    <View style={styles.priceRow} accessible accessibilityLabel={spokenKr(value)}>
       <Text style={{ color, fontSize: size, fontWeight: '800', letterSpacing: -0.3 }}>{kr}</Text>
       <Text
         style={{
@@ -194,7 +197,12 @@ export function CartScreen() {
       {/* Delt kurv: avatarer + handlinger */}
       {active ? (
         <View style={styles.sharedRow}>
-          <View style={styles.avatarStack}>
+          {/* Forbogstaverne siger intet oplæst; antallet står i teksten ved siden af. */}
+          <View
+            style={styles.avatarStack}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
             {members.slice(0, 4).map((m, i) => (
               <View
                 key={m.id || `${m.name}-${i}`}
@@ -212,20 +220,38 @@ export function CartScreen() {
               </View>
             ))}
           </View>
-          <Text style={{ color: colors.textMuted, fontSize: 12, flex: 1 }}>
+          <Text
+            style={{ color: colors.textMuted, fontSize: 12, flex: 1 }}
+            accessibilityLabel={`Delt liste, ${members.length} af ${maxMembers} medlemmer`}
+          >
             {members.length}/{maxMembers} medlemmer
           </Text>
-          <Pressable onPress={onInvite} hitSlop={8}>
+          <Pressable
+            onPress={onInvite}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Inviter til listen"
+          >
             <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>Inviter</Text>
           </Pressable>
-          <Pressable onPress={confirmLeaveShared} hitSlop={8} style={{ marginLeft: 12 }}>
+          <Pressable
+            onPress={confirmLeaveShared}
+            hitSlop={8}
+            style={{ marginLeft: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Forlad listen"
+          >
             <Text style={{ color: colors.sale, fontWeight: '600', fontSize: 13 }}>Forlad</Text>
           </Pressable>
         </View>
       ) : null}
 
       <View style={styles.titleRow}>
-        <Text style={[styles.listTitle, { color: colors.text }]} numberOfLines={2}>
+        <Text
+          style={[styles.listTitle, { color: colors.text }]}
+          numberOfLines={2}
+          accessibilityRole="header"
+        >
           {displayTitle}
         </Text>
         {!active ? (
@@ -255,7 +281,12 @@ export function CartScreen() {
 
       {menuOpen ? (
         <View style={[styles.menu, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Pressable onPress={onSavePress} style={styles.menuItem}>
+          <Pressable
+            onPress={onSavePress}
+            style={styles.menuItem}
+            accessibilityRole="button"
+            accessibilityLabel={user ? 'Gem liste' : 'Gem liste, kræver login'}
+          >
             <View style={styles.menuItemRow}>
               <Text style={{ color: colors.text }}>Gem liste</Text>
               {!user ? <Text style={styles.lockIcon}>🔒</Text> : null}
@@ -268,6 +299,12 @@ export function CartScreen() {
               setListsOpen(true);
             }}
             style={styles.menuItem}
+            accessibilityRole="button"
+            accessibilityLabel={joinLabel([
+              active ? 'Gruppens lister' : 'Mine lister',
+              savedLists.length ? `${savedLists.length} gemt` : null,
+              !user ? 'kræver login' : null,
+            ])}
           >
             <View style={styles.menuItemRow}>
               <Text style={{ color: colors.text }}>
@@ -279,13 +316,22 @@ export function CartScreen() {
           </Pressable>
           {!active ? (
             <>
-              <Pressable onPress={onSharePress} style={styles.menuItem}>
+              <Pressable
+                onPress={onSharePress}
+                style={styles.menuItem}
+                accessibilityRole="button"
+                accessibilityLabel={user ? 'Del kurv' : 'Del kurv, kræver login'}
+              >
                 <View style={styles.menuItemRow}>
                   <Text style={{ color: colors.text }}>Del kurv</Text>
                   {!user ? <Text style={styles.lockIcon}>🔒</Text> : null}
                 </View>
               </Pressable>
-              <Pressable onPress={() => openPrompt('join')} style={styles.menuItem}>
+              <Pressable
+                onPress={() => openPrompt('join')}
+                style={styles.menuItem}
+                accessibilityRole="button"
+              >
                 <Text style={{ color: colors.text }}>Tilslut kurv</Text>
               </Pressable>
             </>
@@ -297,6 +343,7 @@ export function CartScreen() {
                 clearCart();
               }}
               style={styles.menuItem}
+              accessibilityRole="button"
             >
               <Text style={{ color: colors.sale }}>Ryd kurv</Text>
             </Pressable>
@@ -306,6 +353,9 @@ export function CartScreen() {
 
       <Pressable
         onPress={goAddItem}
+        accessibilityRole="button"
+        accessibilityLabel="Tilføj vare"
+        accessibilityHint="Åbner søgning"
         style={[styles.addBar, { backgroundColor: colors.surface, borderColor: colors.border }]}
       >
         <Text style={{ color: colors.textMuted, fontSize: 16 }}>🔍</Text>
@@ -320,7 +370,12 @@ export function CartScreen() {
     // butik hver vare er fra (Kalle 03-10-2026).
     return (
       <View key={item.id} style={[styles.itemRow, { backgroundColor: colors.surface }]}>
-        <View style={styles.thumbWrap}>
+        {/* Billede og antals-mærkat er med i etiketten nedenfor. */}
+        <View
+          style={styles.thumbWrap}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
           {item.image ? (
             <Image source={{ uri: item.image }} style={styles.thumb} resizeMode="contain" />
           ) : (
@@ -332,24 +387,38 @@ export function CartScreen() {
         </View>
 
         <View style={styles.itemBody}>
-          {item.store || item.unitMeasure ? (
-            <View style={styles.storeRow}>
-              {item.store ? <StoreChip store={item.store} /> : null}
-              {item.unitMeasure ? (
-                <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                  {item.unitMeasure.toUpperCase()}
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-          <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
-            {cartItemTitle(item)}
-          </Text>
-          {item.kgPrice ? (
-            <Text style={[styles.itemMeta, { color: colors.textMuted }]}>{item.kgPrice}</Text>
-          ) : item.multiDeal ? (
-            <Text style={[styles.itemMeta, { color: colors.badge }]}>{item.multiDeal}</Text>
-          ) : null}
+          {/* Varens oplysninger som ét element; knapperne under er egne. */}
+          <View
+            accessible
+            accessibilityLabel={joinLabel([
+              cartItemTitle(item),
+              `${item.quantity} stk`,
+              item.store,
+              item.unitMeasure,
+              item.kgPrice ? item.kgPrice.replace('kr/kg', 'kr pr. kilo').replace('.', ',') : null,
+              !item.kgPrice ? item.multiDeal : null,
+              `i alt ${spokenKr(lineTotal)}`,
+            ])}
+          >
+            {item.store || item.unitMeasure ? (
+              <View style={styles.storeRow}>
+                {item.store ? <StoreChip store={item.store} /> : null}
+                {item.unitMeasure ? (
+                  <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                    {item.unitMeasure.toUpperCase()}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+            <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
+              {cartItemTitle(item)}
+            </Text>
+            {item.kgPrice ? (
+              <Text style={[styles.itemMeta, { color: colors.textMuted }]}>{item.kgPrice}</Text>
+            ) : item.multiDeal ? (
+              <Text style={[styles.itemMeta, { color: colors.badge }]}>{item.multiDeal}</Text>
+            ) : null}
+          </View>
 
           {/* Etiketterne naevner varen. En kurv med ti linjer har ellers ti
               identiske "minus"-knapper, og VoiceOver kan ikke skelne dem. */}
@@ -383,7 +452,11 @@ export function CartScreen() {
           </View>
         </View>
 
-        <View style={styles.itemPriceCol}>
+        <View
+          style={styles.itemPriceCol}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
           <PriceText value={lineTotal} color={colors.text} size={20} />
         </View>
       </View>
@@ -407,7 +480,13 @@ export function CartScreen() {
         contentContainerStyle={styles.listContent}
         renderItem={({ item: [cat, catItems] }) => (
           <View style={styles.section}>
-            <Text style={[styles.cat, { color: colors.textMuted }]}>{cat.toUpperCase()}</Text>
+            <Text
+              style={[styles.cat, { color: colors.textMuted }]}
+              accessibilityRole="header"
+              accessibilityLabel={cat}
+            >
+              {cat.toUpperCase()}
+            </Text>
             <View style={[styles.sectionCard, { backgroundColor: colors.surface }]}>
               {catItems.map((item, idx) => (
                 <View key={item.id}>
@@ -426,6 +505,9 @@ export function CartScreen() {
         <View style={[styles.footerPad, { backgroundColor: colors.bg }]}>
           <Pressable
             onPress={() => navigation.navigate('Sco')}
+            accessibilityRole="button"
+            accessibilityLabel={`Find billigste. ${count} varer, i alt ${spokenKr(footerTotal)}`}
+            accessibilityHint="Sammenligner kurven på tværs af butikker"
             style={[styles.cta, { backgroundColor: colors.primary }]}
           >
             <View style={styles.ctaCount}>
@@ -443,7 +525,10 @@ export function CartScreen() {
       <Modal visible={prompt !== null} transparent animationType="fade" onRequestClose={closePrompt}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
-            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 10 }}>
+            <Text
+              style={{ color: colors.text, fontWeight: '700', fontSize: 16, marginBottom: 10 }}
+              accessibilityRole="header"
+            >
               {prompt === 'save' && 'Gem liste'}
               {prompt === 'share' && 'Del kurv'}
               {prompt === 'join' && 'Tilslut delt kurv'}
@@ -463,17 +548,33 @@ export function CartScreen() {
               }
               placeholderTextColor={colors.textMuted}
               autoCapitalize={prompt === 'join' ? 'none' : 'sentences'}
+              accessibilityLabel={
+                prompt === 'save'
+                  ? 'Navn på liste'
+                  : prompt === 'share'
+                    ? 'Navn på kurv, valgfrit'
+                    : prompt === 'rename'
+                      ? 'Kurvens navn'
+                      : 'Invitationskode'
+              }
               style={[
                 styles.input,
                 { backgroundColor: colors.bg, color: colors.text, borderColor: colors.border },
               ]}
             />
             {promptError ? (
-              <Text style={{ color: colors.sale, marginBottom: 8 }}>{promptError}</Text>
+              <Text
+                style={{ color: colors.sale, marginBottom: 8 }}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+              >
+                {promptError}
+              </Text>
             ) : null}
             <View style={styles.modalActions}>
               <Pressable
                 onPress={closePrompt}
+                accessibilityRole="button"
                 style={[styles.modalBtn, { borderColor: colors.border }]}
               >
                 <Text style={{ color: colors.text }}>Annuller</Text>
@@ -481,6 +582,8 @@ export function CartScreen() {
               <Pressable
                 onPress={() => void submitPrompt()}
                 disabled={busy}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: busy, busy }}
                 style={[
                   styles.modalBtnPrimary,
                   { backgroundColor: colors.primary, opacity: busy ? 0.7 : 1 },
@@ -509,6 +612,7 @@ export function CartScreen() {
                 // Tom tilstand er centreret; overskriften følger med.
                 textAlign: savedLists.length ? 'left' : 'center',
               }}
+              accessibilityRole="header"
             >
               {active ? 'Gruppens lister' : 'Mine lister'}
             </Text>
@@ -523,7 +627,11 @@ export function CartScreen() {
               // Tom tilstand: før var det en grå tekstklump og en "Luk"-knap,
               // der blev klemt sammen (flex: 1 i en kolonne uden højde).
               <View style={styles.listsEmpty}>
-                <View style={[styles.listsEmptyIcon, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                <View
+                  style={[styles.listsEmptyIcon, { backgroundColor: colors.bg, borderColor: colors.border }]}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                >
                   <Text style={{ fontSize: 28 }}>📝</Text>
                 </View>
                 <Text style={[styles.listsEmptyTitle, { color: colors.text }]}>
@@ -541,7 +649,15 @@ export function CartScreen() {
                   key={list.id}
                   style={[styles.savedListRow, { borderColor: colors.border }]}
                 >
-                  <View style={{ flex: 1, paddingRight: 8 }}>
+                  <View
+                    style={{ flex: 1, paddingRight: 8 }}
+                    accessible
+                    accessibilityLabel={joinLabel([
+                      list.name,
+                      `${list.items.length} varer`,
+                      list.createdAt,
+                    ])}
+                  >
                     <Text style={{ color: colors.text, fontWeight: '600' }} numberOfLines={1}>
                       {list.name}
                     </Text>
@@ -554,6 +670,8 @@ export function CartScreen() {
                       loadList(list.id);
                       setListsOpen(false);
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Indlæs listen ${list.name}`}
                     style={[styles.savedListBtn, { borderColor: colors.border }]}
                     hitSlop={4}
                   >
@@ -573,7 +691,9 @@ export function CartScreen() {
                     disabled={listBusy === list.id}
                     style={[styles.savedListBtn, { borderColor: colors.border, opacity: listBusy === list.id ? 0.5 : 1 }]}
                     hitSlop={4}
+                    accessibilityRole="button"
                     accessibilityLabel={`Slet listen ${list.name}`}
+                    accessibilityState={{ disabled: listBusy === list.id, busy: listBusy === list.id }}
                   >
                     <Text style={{ color: colors.sale, fontWeight: '600', fontSize: 13 }}>Slet</Text>
                   </Pressable>
@@ -584,6 +704,7 @@ export function CartScreen() {
             <View style={[styles.modalActions, { marginTop: 12 }]}>
               <Pressable
                 onPress={() => setListsOpen(false)}
+                accessibilityRole="button"
                 style={[styles.modalBtn, { borderColor: colors.border }]}
               >
                 <Text style={{ color: colors.text }}>Luk</Text>
@@ -595,6 +716,7 @@ export function CartScreen() {
                     // iOS afviser at vise en ny Modal, mens den gamle lukker.
                     setTimeout(() => openPrompt('save'), 400);
                   }}
+                  accessibilityRole="button"
                   style={[styles.modalBtnPrimary, { backgroundColor: colors.primary }]}
                 >
                   <Text style={{ color: '#fff', fontWeight: '700' }}>Gem kurven</Text>
@@ -613,7 +735,13 @@ export function CartScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { backgroundColor: colors.surface, alignItems: 'center' }]}>
-            <Text style={{ fontSize: 28, marginBottom: 8 }}>🔒</Text>
+            <Text
+              style={{ fontSize: 28, marginBottom: 8 }}
+              accessibilityElementsHidden
+              importantForAccessibility="no"
+            >
+              🔒
+            </Text>
             <Text
               style={{
                 color: colors.text,
@@ -622,6 +750,7 @@ export function CartScreen() {
                 marginBottom: 6,
                 textAlign: 'center',
               }}
+              accessibilityRole="header"
             >
               Log ind for at fortsætte
             </Text>
@@ -638,6 +767,7 @@ export function CartScreen() {
             <View style={styles.modalActions}>
               <Pressable
                 onPress={() => setLoginOverlay(false)}
+                accessibilityRole="button"
                 style={[styles.modalBtn, { borderColor: colors.border }]}
               >
                 <Text style={{ color: colors.text }}>Luk</Text>
@@ -648,6 +778,7 @@ export function CartScreen() {
                   // iOS afviser present, mens RN-Modalen stadig lukker.
                   setTimeout(() => navigation.navigate('Auth'), 400);
                 }}
+                accessibilityRole="button"
                 style={[styles.modalBtnPrimary, { backgroundColor: colors.primary }]}
               >
                 <Text style={{ color: '#fff', fontWeight: '700' }}>Log ind</Text>

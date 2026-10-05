@@ -92,7 +92,11 @@ export function FeedbackScreen() {
   if (success) {
     return (
       <View style={[styles.center, { backgroundColor: colors.bg }]}>
-        <Text style={{ color: colors.badge, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>
+        <Text
+          style={{ color: colors.badge, fontSize: 18, fontWeight: '700', marginBottom: 8 }}
+          accessibilityRole="header"
+          accessibilityLiveRegion="polite"
+        >
           Tak for din feedback!
         </Text>
         <Text style={{ color: colors.textMuted, textAlign: 'center', marginBottom: 20 }}>
@@ -100,6 +104,7 @@ export function FeedbackScreen() {
         </Text>
         <Pressable
           onPress={() => setSuccess(false)}
+          accessibilityRole="button"
           style={[styles.btnOutline, { borderColor: colors.border }]}
         >
           <Text style={{ color: colors.text }}>Send mere feedback</Text>
@@ -118,13 +123,15 @@ export function FeedbackScreen() {
           Fortæl os hvad du synes, eller meld en fejl
         </Text>
 
-        <View style={styles.typeRow}>
+        <View style={styles.typeRow} accessibilityRole="radiogroup" accessibilityLabel="Type">
           {TYPE_OPTIONS.map((opt) => {
             const active = type === opt.value;
             return (
               <Pressable
                 key={opt.value}
                 onPress={() => setType(opt.value)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: active }}
                 style={[
                   styles.typeChip,
                   {
@@ -146,6 +153,7 @@ export function FeedbackScreen() {
           onChangeText={setName}
           placeholder="Navn (valgfrit)"
           placeholderTextColor={colors.textMuted}
+          accessibilityLabel="Navn, valgfrit"
           style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
         />
         <TextInput
@@ -153,6 +161,7 @@ export function FeedbackScreen() {
           onChangeText={setEmail}
           placeholder="Email (valgfrit)"
           placeholderTextColor={colors.textMuted}
+          accessibilityLabel="Email, valgfrit"
           autoCapitalize="none"
           keyboardType="email-address"
           style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
@@ -162,6 +171,7 @@ export function FeedbackScreen() {
           onChangeText={setSubject}
           placeholder="Emne (valgfrit)"
           placeholderTextColor={colors.textMuted}
+          accessibilityLabel="Emne, valgfrit"
           style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
         />
         <TextInput
@@ -169,6 +179,8 @@ export function FeedbackScreen() {
           onChangeText={setMessage}
           placeholder="Din besked (mindst 10 tegn)"
           placeholderTextColor={colors.textMuted}
+          accessibilityLabel="Din besked"
+          accessibilityHint="Mindst 10 tegn"
           multiline
           numberOfLines={6}
           style={[
@@ -177,15 +189,29 @@ export function FeedbackScreen() {
             { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
           ]}
         />
-        <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
+        <Text
+          style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}
+          accessibilityLabel={`${message.trim().length} af ${MAX_LEN} tegn`}
+        >
           {message.trim().length}/{MAX_LEN} tegn
         </Text>
 
-        {error ? <Text style={[styles.error, { color: colors.sale }]}>{error}</Text> : null}
+        {error ? (
+          <Text
+            style={[styles.error, { color: colors.sale }]}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+          >
+            {error}
+          </Text>
+        ) : null}
 
         <Pressable
           onPress={() => void submit()}
           disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel="Send feedback"
+          accessibilityState={{ disabled: busy, busy }}
           style={[styles.btn, { backgroundColor: colors.primary, opacity: busy ? 0.7 : 1 }]}
         >
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Send feedback</Text>}

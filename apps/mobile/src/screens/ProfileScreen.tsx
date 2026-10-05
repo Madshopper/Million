@@ -70,19 +70,37 @@ export function ProfileScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
       {user ? (
         <View style={[styles.row, card]}>
-          <View style={[styles.bigAvatar, { backgroundColor: colors.primary }]}>
+          <View
+            style={[styles.bigAvatar, { backgroundColor: colors.primary }]}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
             <Text style={styles.bigAvatarText}>{memberInitial(shownName)}</Text>
           </View>
-          <View style={{ flex: 1 }}>
+          <View
+            style={{ flex: 1 }}
+            accessible
+            accessibilityLabel={
+              shownName === user.email
+                ? `Logget ind som ${user.email}`
+                : `Logget ind som ${shownName}, ${user.email}`
+            }
+          >
             <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>{shownName}</Text>
             <Text style={{ color: colors.textMuted, fontSize: 12 }}>{user.email}</Text>
           </View>
-          <Pressable onPress={() => void logout()} hitSlop={8}>
+          <Pressable onPress={() => void logout()} hitSlop={8} accessibilityRole="button">
             <Text style={{ color: colors.sale, fontWeight: '600' }}>Log ud</Text>
           </Pressable>
         </View>
       ) : (
-        <Pressable onPress={() => navigation.navigate('Auth')} style={[styles.row, card]}>
+        <Pressable
+          onPress={() => navigation.navigate('Auth')}
+          style={[styles.row, card]}
+          accessibilityRole="button"
+          accessibilityLabel="Log ind eller opret konto"
+          accessibilityHint="Gem din kurv, del den med andre og få prisalarmer"
+        >
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.primary, fontWeight: '600' }}>Log ind / Opret konto</Text>
             <Text style={{ color: colors.textMuted, fontSize: 12 }}>
@@ -94,7 +112,13 @@ export function ProfileScreen() {
 
       {user ? (
         <View style={[styles.row, styles.column, card]}>
-          <Text style={{ color: colors.text, fontWeight: '600', marginBottom: 8 }}>Dit navn</Text>
+          <Text
+            style={{ color: colors.text, fontWeight: '600', marginBottom: 8 }}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          >
+            Dit navn
+          </Text>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <TextInput
               value={nameInput}
@@ -102,18 +126,27 @@ export function ProfileScreen() {
               placeholder="Vises for andre i en delt kurv"
               placeholderTextColor={colors.textMuted}
               maxLength={40}
+              accessibilityLabel="Dit navn"
+              accessibilityHint="Vises for andre i en delt kurv"
               style={[styles.nameInput, { color: colors.text, borderColor: colors.border }]}
             />
             <Pressable
               onPress={() => void onSaveName()}
               disabled={nameSaving}
+              accessibilityRole="button"
+              accessibilityLabel="Gem navn"
+              accessibilityState={{ disabled: nameSaving, busy: nameSaving }}
               style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: nameSaving ? 0.6 : 1 }]}
             >
               <Text style={{ color: '#fff', fontWeight: '700' }}>{nameSaving ? '…' : 'Gem'}</Text>
             </Pressable>
           </View>
           {nameMsg ? (
-            <Text style={{ color: nameMsg.error ? colors.sale : colors.badge, fontSize: 12, marginTop: 6 }}>
+            <Text
+              style={{ color: nameMsg.error ? colors.sale : colors.badge, fontSize: 12, marginTop: 6 }}
+              accessibilityLiveRegion="polite"
+              accessibilityRole={nameMsg.error ? 'alert' : undefined}
+            >
               {nameMsg.text}
             </Text>
           ) : null}
@@ -124,7 +157,9 @@ export function ProfileScreen() {
           giver kun mening for en logget ind bruger. */}
       {user ? (
         <>
-          <Text style={[styles.h, { color: colors.text }]}>Fælles kurv</Text>
+          <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+            Fælles kurv
+          </Text>
           <View style={[styles.row, styles.column, card]}>
             {active ? (
               <>
@@ -133,7 +168,12 @@ export function ProfileScreen() {
                   {members.length}/{maxMembers} personer deler kurven
                 </Text>
                 {members.map((m, i) => (
-                  <View key={m.id || `${m.name}-${i}`} style={styles.memberRow}>
+                  <View
+                    key={m.id || `${m.name}-${i}`}
+                    style={styles.memberRow}
+                    accessible
+                    accessibilityLabel={`${m.name || 'Ukendt'}${m.me ? ', dig' : ''}`}
+                  >
                     <View style={[styles.avatar, { backgroundColor: colors.border }]}>
                       <Text style={[styles.avatarText, { color: colors.text }]}>{memberInitial(m.name)}</Text>
                     </View>
@@ -150,14 +190,23 @@ export function ProfileScreen() {
                 ) : null}
                 <View style={styles.actions}>
                   {inviteUrl ? (
-                    <Pressable onPress={() => void Share.share({ message: inviteUrl })} hitSlop={8}>
+                    <Pressable
+                      onPress={() => void Share.share({ message: inviteUrl })}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Inviter til kurven"
+                    >
                       <Text style={{ color: colors.primary, fontWeight: '700' }}>Inviter</Text>
                     </Pressable>
                   ) : null}
-                  <Pressable onPress={() => navigation.navigate('Cart')} hitSlop={8}>
+                  <Pressable
+                    onPress={() => navigation.navigate('Cart')}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                  >
                     <Text style={{ color: colors.primary, fontWeight: '600' }}>Åbn kurven</Text>
                   </Pressable>
-                  <Pressable onPress={confirmLeave} hitSlop={8}>
+                  <Pressable onPress={confirmLeave} hitSlop={8} accessibilityRole="button">
                     <Text style={{ color: colors.textMuted, fontWeight: '600' }}>Stop deling</Text>
                   </Pressable>
                 </View>
@@ -169,7 +218,13 @@ export function ProfileScreen() {
                   Del kurven med familien, så I handler ind på den samme liste.
                 </Text>
                 <View style={styles.actions}>
-                  <Pressable onPress={() => void onStartShare()} disabled={sharing} hitSlop={8}>
+                  <Pressable
+                    onPress={() => void onStartShare()}
+                    disabled={sharing}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: sharing, busy: sharing }}
+                  >
                     <Text style={{ color: colors.primary, fontWeight: '700', opacity: sharing ? 0.5 : 1 }}>
                       {sharing ? 'Deler…' : 'Del kurv'}
                     </Text>
@@ -183,14 +238,23 @@ export function ProfileScreen() {
 
       <PriceAlertsSection />
 
-      <Text style={[styles.h, { color: colors.text }]}>Indstillinger og hjælp</Text>
+      <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+        Indstillinger og hjælp
+      </Text>
       {(
         [
           ['Indstillinger', 'Udseende, butikker og slet konto', 'settings-outline', () => navigation.navigate('Settings')],
           ['Feedback', 'Ris, ros eller en fejl? Skriv til os', 'chatbubble-ellipses-outline', () => navigation.navigate('Feedback')],
         ] as const
       ).map(([label, sub, icon, onPress]) => (
-        <Pressable key={label} onPress={onPress} style={[styles.row, card]} accessibilityRole="button">
+        <Pressable
+          key={label}
+          onPress={onPress}
+          style={[styles.row, card]}
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          accessibilityHint={sub}
+        >
           <Ionicons name={icon} size={20} color={colors.text} style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.text, fontWeight: '600' }}>{label}</Text>
@@ -200,7 +264,9 @@ export function ProfileScreen() {
         </Pressable>
       ))}
 
-      <Text style={[styles.h, { color: colors.text }]}>Om MadShopper</Text>
+      <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+        Om MadShopper
+      </Text>
       {(
         [
           ['Vilkår', 'document-text-outline', () => navigation.navigate('Legal', { kind: 'terms' })],

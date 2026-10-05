@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Recipe } from '../api/recipes';
 import { useTheme } from '../theme/ThemeContext';
+import { joinLabel, spokenKr } from '../a11y/speech';
 
 type Props = {
   recipe: Recipe;
@@ -18,6 +19,20 @@ type Props = {
 export function RecipeCard({ recipe, onPress, clickable = true }: Props) {
   const { colors, isDark } = useTheme();
   const salePct = recipe.sale_ratio > 0 ? Math.floor(recipe.sale_ratio * 100) : null;
+
+  // Ét samlet element for VoiceOver i stedet for fire løse tekster.
+  const a11yLabel = clickable
+    ? joinLabel([
+        recipe.title,
+        salePct ? `${salePct} procent på tilbud` : null,
+        recipe.total_ingredient_count
+          ? `${recipe.matched_ingredient_count} af ${recipe.total_ingredient_count} ingredienser fundet`
+          : null,
+        recipe.cheapest_total_price
+          ? `cirka ${spokenKr(recipe.cheapest_total_price)}`
+          : 'pris ukendt',
+      ])
+    : joinLabel([recipe.title, 'kommer snart']);
 
   const body = (
     <>
@@ -58,7 +73,11 @@ export function RecipeCard({ recipe, onPress, clickable = true }: Props) {
   // VoiceOver - svarer til at webben renderer <div> i stedet for <a>.
   if (!clickable) {
     return (
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View
+        accessible
+        accessibilityLabel={a11yLabel}
+        style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      >
         {body}
       </View>
     );
@@ -69,6 +88,9 @@ export function RecipeCard({ recipe, onPress, clickable = true }: Props) {
       activeOpacity={0.9}
       delayPressIn={80}
       onPress={() => onPress(recipe)}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityHint="Åbner opskriften"
       style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
     >
       {body}
