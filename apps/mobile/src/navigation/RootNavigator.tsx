@@ -125,7 +125,13 @@ function CartHeaderButton({ onPress }: { onPress: () => void }) {
 function CloseHeaderButton({ onPress }: { onPress: () => void }) {
   const { colors } = useTheme();
   return (
-    <Pressable onPress={onPress} hitSlop={12} style={{ paddingVertical: 4, paddingRight: 12 }}>
+    <Pressable
+      onPress={onPress}
+      hitSlop={12}
+      accessibilityRole="button"
+      accessibilityLabel="Luk"
+      style={{ paddingVertical: 4, paddingRight: 12 }}
+    >
       <Text style={{ color: colors.primary, fontWeight: '600' }}>Luk</Text>
     </Pressable>
   );

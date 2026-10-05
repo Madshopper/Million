@@ -27,6 +27,15 @@ const SORT_OPTIONS: Array<{ value: NonNullable<ListingParams['sort']>; label: st
   { value: 'name-asc', label: 'Navn A-Å' },
 ];
 
+/** Oplæst navn: pilene "↑" og "↓" læses ellers som "pil op". */
+const SORT_SPOKEN: Record<NonNullable<ListingParams['sort']>, string> = {
+  relevance: 'Relevans',
+  'price-asc': 'Pris, billigste først',
+  'price-desc': 'Pris, dyreste først',
+  'kg-price-asc': 'Kilopris, billigste først',
+  'name-asc': 'Navn, A til Å',
+};
+
 function countActiveFilters(values: FiltersValue): number {
   let n = 0;
   if (values.sort && values.sort !== 'relevance') n += 1;
@@ -75,6 +84,11 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
       <View style={styles.triggerRow}>
         <Pressable
           onPress={() => setOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={
+            activeCount > 0 ? `Filter, ${activeCount} valgt` : 'Filter'
+          }
+          accessibilityHint="Åbner filter og sortering"
           style={[
             styles.trigger,
             {
@@ -101,14 +115,30 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
         animationType="fade"
         onRequestClose={() => setOpen(false)}
       >
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+        {/* Baggrunden er kun til at trykke ved siden af. For VoiceOver er
+            den skjult, så fokus bliver i arket (Luk-knappen findes). */}
+        <Pressable
+          style={styles.backdrop}
+          onPress={() => setOpen(false)}
+          accessible={false}
+          importantForAccessibility="no"
+        >
           <Pressable
+            accessible={false}
+            accessibilityViewIsModal
             style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={(e) => e.stopPropagation?.()}
           >
             <View style={styles.sheetHead}>
-              <Text style={[styles.sheetTitle, { color: colors.text }]}>Filter & sortering</Text>
-              <Pressable onPress={() => setOpen(false)}>
+              <Text style={[styles.sheetTitle, { color: colors.text }]} accessibilityRole="header">
+                Filter og sortering
+              </Text>
+              <Pressable
+                onPress={() => setOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Luk filter"
+                hitSlop={10}
+              >
                 <Text style={{ color: colors.primary, fontWeight: '600' }}>Luk</Text>
               </Pressable>
             </View>
@@ -118,7 +148,9 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
               contentContainerStyle={{ paddingBottom: 4 }}
               keyboardShouldPersistTaps="handled"
             >
-            <Text style={[styles.groupLabel, { color: colors.textMuted }]}>Sortering</Text>
+            <Text style={[styles.groupLabel, { color: colors.textMuted }]} accessibilityRole="header">
+              Sortering
+            </Text>
             <View style={styles.chips}>
               {SORT_OPTIONS.map((opt) => {
                 const active = sort === opt.value;
@@ -126,6 +158,9 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
                   <Pressable
                     key={opt.value}
                     onPress={() => onChange({ ...values, sort: opt.value })}
+                    accessibilityRole="radio"
+                    accessibilityLabel={SORT_SPOKEN[opt.value]}
+                    accessibilityState={{ checked: active }}
                     style={[
                       styles.chip,
                       {
@@ -148,7 +183,9 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
               })}
             </View>
 
-            <Text style={[styles.groupLabel, { color: colors.textMuted }]}>Filtre</Text>
+            <Text style={[styles.groupLabel, { color: colors.textMuted }]} accessibilityRole="header">
+              Filtre
+            </Text>
             <View style={styles.chips}>
               <ToggleChip
                 label="Tilbud"
@@ -159,6 +196,7 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
               />
               <ToggleChip
                 label="Øko"
+                spoken="Økologisk"
                 active={!!values.organic}
                 activeColor={colors.primarySolid}
                 onPress={() => toggle('organic')}
@@ -176,7 +214,9 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
                 inputs at sætte det med - filteret var altså dødt kode i appen,
                 mens webben har haft de to talfelter hele tiden
                 (templates/partials/filters.html). */}
-            <Text style={[styles.groupLabel, { color: colors.textMuted }]}>Pris (kr)</Text>
+            <Text style={[styles.groupLabel, { color: colors.textMuted }]} accessibilityRole="header">
+              Pris i kroner
+            </Text>
             <View style={styles.priceRow}>
               <TextInput
                 value={values.min_price != null ? String(values.min_price) : ''}
@@ -191,7 +231,9 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
                   { borderColor: colors.border, color: colors.text, backgroundColor: colors.bg },
                 ]}
               />
-              <Text style={{ color: colors.textMuted }}>–</Text>
+              <Text style={{ color: colors.textMuted }} importantForAccessibility="no" accessibilityElementsHidden>
+                –
+              </Text>
               <TextInput
                 value={values.max_price != null ? String(values.max_price) : ''}
                 onChangeText={(t) => setPrice('max_price', t)}
@@ -212,12 +254,15 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
             <View style={styles.sheetActions}>
               <Pressable
                 onPress={reset}
+                accessibilityRole="button"
+                accessibilityLabel="Nulstil filtre"
                 style={[styles.secondaryBtn, { borderColor: colors.border }]}
               >
                 <Text style={{ color: colors.text, fontWeight: '600' }}>Nulstil</Text>
               </Pressable>
               <Pressable
                 onPress={() => setOpen(false)}
+                accessibilityRole="button"
                 style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
               >
                 <Text style={{ color: '#fff', fontWeight: '700' }}>Vis resultater</Text>
@@ -232,12 +277,14 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
 
 function ToggleChip({
   label,
+  spoken,
   active,
   activeColor,
   activeTextColor = '#fff',
   onPress,
 }: {
   label: string;
+  spoken?: string;
   active: boolean;
   activeColor: string;
   activeTextColor?: string;
@@ -247,6 +294,9 @@ function ToggleChip({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="checkbox"
+      accessibilityLabel={spoken || label}
+      accessibilityState={{ checked: active }}
       style={[
         styles.chip,
         {

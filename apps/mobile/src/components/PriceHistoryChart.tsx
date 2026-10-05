@@ -2,9 +2,16 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '../theme/ThemeContext';
+import { spokenKr } from '../a11y/speech';
 
 export type PricePoint = { date: string; price: number };
-export type PriceSeries = { key: string; color: string; points: PricePoint[] };
+export type PriceSeries = {
+  key: string;
+  color: string;
+  points: PricePoint[];
+  /** Butikkens navn til skærmlæseren (key er fx "foetex"). */
+  label?: string;
+};
 
 type Props = {
   series: PriceSeries[];
@@ -50,7 +57,7 @@ function normalizePoints(points: PricePoint[]): PricePoint[] {
 }
 
 type Coord = { x: number; y: number; price: number; date: string };
-type SeriesCoords = { key: string; color: string; coords: Coord[] };
+type SeriesCoords = { key: string; label?: string; color: string; coords: Coord[] };
 
 export function PriceHistoryChart({ series, height = 140 }: Props) {
   const { colors } = useTheme();
@@ -91,6 +98,7 @@ export function PriceHistoryChart({ series, height = 140 }: Props) {
     const priceRange = bounds.maxPrice - bounds.minPrice || 1;
     return normalizedSeries.map((s) => ({
       key: s.key,
+      label: s.label,
       color: s.color,
       coords: s.points.reduce<Coord[]>((acc, p) => {
         const ts = new Date(p.date).getTime();
@@ -132,11 +140,31 @@ export function PriceHistoryChart({ series, height = 140 }: Props) {
     );
   }
 
+  // En graf kan VoiceOver ikke se. Den får i stedet tallene som tekst: for
+  // hver butik laveste, højeste og seneste pris.
+  const a11yLabel =
+    'Prisgraf. ' +
+    seriesCoords
+      .filter((s) => s.coords.length > 0)
+      .map((s) => {
+        const prices = s.coords.map((c) => c.price);
+        const latest = s.coords[s.coords.length - 1].price;
+        return `${s.label || s.key}: laveste ${spokenKr(Math.min(...prices))}, højeste ${spokenKr(
+          Math.max(...prices),
+        )}, seneste ${spokenKr(latest)}`;
+      })
+      .join('. ');
+
   const showPoints = seriesCoords.length === 1;
   const totalHeight = height + LABEL_AREA_HEIGHT;
 
   return (
-    <View style={{ width: '100%' }}>
+    <View
+      style={{ width: '100%' }}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={a11yLabel}
+    >
       <Svg width="100%" height={totalHeight} viewBox={`0 0 ${width} ${totalHeight}`}>
         <Line
           x1={PADDING_X}

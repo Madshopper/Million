@@ -49,16 +49,21 @@ export function RecipesScreen() {
         onChangeText={setQ}
         placeholder="Søg efter opskrifter…"
         placeholderTextColor={colors.textMuted}
+        accessibilityLabel="Søg efter opskrifter"
         style={[
           styles.input,
           { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
         ]}
       />
       {loading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+        <ActivityIndicator
+          color={colors.primary}
+          style={{ marginTop: 20 }}
+          accessibilityLabel="Henter opskrifter"
+        />
       ) : filtered.length === 0 ? (
         <View style={{ padding: 16 }}>
-          <Text style={{ color: colors.textMuted }}>
+          <Text style={{ color: colors.textMuted }} accessibilityLiveRegion="polite">
             {q.trim() ? 'Ingen opskrifter matcher din søgning.' : 'Ingen opskrifter endnu.'}
           </Text>
         </View>

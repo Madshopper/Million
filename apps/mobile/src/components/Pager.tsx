@@ -38,12 +38,15 @@ export function Pager({
 
   const Btn = ({
     label,
+    spoken,
     disabled,
     onPress,
     active,
     wide,
   }: {
     label: string;
+    /** Oplæst navn: "«" og "‹" siger intet for VoiceOver. */
+    spoken: string;
     disabled?: boolean;
     onPress: () => void;
     active?: boolean;
@@ -53,7 +56,7 @@ export function Pager({
       disabled={disabled}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={spoken}
       accessibilityState={{ disabled: !!disabled, selected: !!active }}
       style={[
         styles.btn,
@@ -77,14 +80,21 @@ export function Pager({
   );
 
   return (
-    <View style={styles.row}>
-      <Btn label="«" disabled={atFirst} onPress={() => onPage(1)} />
-      <Btn label="‹" disabled={atFirst} onPress={() => onPage(page - 1)} />
+    <View style={styles.row} accessibilityRole="toolbar" accessibilityLabel="Sider">
+      <Btn label="«" spoken="Første side" disabled={atFirst} onPress={() => onPage(1)} />
+      <Btn label="‹" spoken="Forrige side" disabled={atFirst} onPress={() => onPage(page - 1)} />
       {numbers.map((p) => (
-        <Btn key={p} label={String(p)} active={p === page} onPress={() => onPage(p)} wide />
+        <Btn
+          key={p}
+          label={String(p)}
+          spoken={`Side ${p} af ${totalPages}`}
+          active={p === page}
+          onPress={() => onPage(p)}
+          wide
+        />
       ))}
-      <Btn label="›" disabled={atLast} onPress={() => onPage(page + 1)} />
-      <Btn label="»" disabled={atLast} onPress={() => onPage(totalPages)} />
+      <Btn label="›" spoken="Næste side" disabled={atLast} onPress={() => onPage(page + 1)} />
+      <Btn label="»" spoken="Sidste side" disabled={atLast} onPress={() => onPage(totalPages)} />
     </View>
   );
 }

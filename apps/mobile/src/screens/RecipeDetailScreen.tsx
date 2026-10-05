@@ -23,6 +23,7 @@ import {
 import { useCart } from '../cart/CartContext';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
+import { joinLabel, spokenKr } from '../a11y/speech';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
 
@@ -170,7 +171,7 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={[styles.center, { height: bodyHeight, backgroundColor: colors.bg }]}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primary} accessibilityLabel="Henter opskriften" />
       </View>
     );
   }
@@ -191,12 +192,34 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
         showsVerticalScrollIndicator
       >
         {recipe.image_url ? (
-          <Image source={{ uri: recipe.image_url }} style={styles.image} resizeMode="cover" />
+          <Image
+            source={{ uri: recipe.image_url }}
+            style={styles.image}
+            resizeMode="cover"
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={`Billede af ${recipe.title}`}
+          />
         ) : null}
-        <Text style={[styles.title, { color: colors.text }]}>{recipe.title}</Text>
+        <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
+          {recipe.title}
+        </Text>
 
         <View style={styles.pillRow}>
-          <View style={[styles.stepper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {/* Én justerbar kontrol for VoiceOver: stryg op eller ned for at
+              ændre antal personer, i stedet for to løse "minus"/"plus". */}
+          <View
+            style={[styles.stepper, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            accessible
+            accessibilityRole="adjustable"
+            accessibilityLabel="Antal personer"
+            accessibilityValue={{ text: `${servings} personer` }}
+            accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+            onAccessibilityAction={(e) => {
+              if (e.nativeEvent.actionName === 'increment') setServings((s) => s + 1);
+              if (e.nativeEvent.actionName === 'decrement') setServings((s) => Math.max(1, s - 1));
+            }}
+          >
             <Pressable
               onPress={() => setServings((s) => Math.max(1, s - 1))}
               disabled={servings <= 1}
@@ -212,7 +235,11 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
             </Pressable>
           </View>
           {recipe.total_time_minutes ? (
-            <View style={[styles.pill, { backgroundColor: colors.surface }]}>
+            <View
+              style={[styles.pill, { backgroundColor: colors.surface }]}
+              accessible
+              accessibilityLabel={`Tid: ${recipe.total_time_minutes} minutter`}
+            >
               <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600' }}>
                 {recipe.total_time_minutes} min
               </Text>
@@ -227,7 +254,12 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
         ) : null}
 
         <View style={[styles.ctaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.ctaAmount, { color: colors.text }]}>
+          <Text
+            style={[styles.ctaAmount, { color: colors.text }]}
+            accessibilityLabel={
+              displayedTotal ? `Pris i alt ${spokenKr(displayedTotal)}` : 'Prisen kunne ikke beregnes endnu'
+            }
+          >
             {displayedTotal ? `${displayedTotal.toFixed(2)} kr` : 'Prisen kunne ikke beregnes endnu'}
           </Text>
           {snapshot ? (
@@ -238,6 +270,8 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
           ) : null}
           <Pressable
             onPress={onAddAll}
+            accessibilityRole="button"
+            accessibilityLabel={addedLabel || 'Læg fundne varer i kurv'}
             style={[styles.btn, { backgroundColor: colors.primary, marginTop: 12 }]}
           >
             <Text style={styles.btnText}>
@@ -246,11 +280,26 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
           </Pressable>
         </View>
 
-        <Text style={[styles.h, { color: colors.text }]}>Ingredienser</Text>
+        <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+          Ingredienser
+        </Text>
         {computed.rows.map(({ ing, displayText, matchProduct, units }) => (
           <Pressable
             key={ing.id}
             disabled={!matchProduct?.api}
+            accessibilityRole={matchProduct?.api ? 'button' : 'text'}
+            accessibilityLabel={joinLabel([
+              displayText,
+              matchProduct
+                ? joinLabel([
+                    [matchProduct.unit_measure, matchProduct.name].filter(Boolean).join(' '),
+                    units > 1 ? `${units} stk` : null,
+                    spokenKr(matchProduct.price * units),
+                    matchProduct.is_sale ? 'tilbud' : null,
+                  ])
+                : 'ikke fundet i prissammenligningen',
+            ])}
+            accessibilityHint={matchProduct?.api ? 'Åbner varen' : undefined}
             onPress={() => {
               // matchProduct er den AKTUELT viste pakke (base-match eller en
               // kandidat, hvis personer-skalering har skiftet til en anden) -
@@ -286,7 +335,9 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
 
         {recipe.nutrition_source ? (
           <>
-            <Text style={[styles.h, { color: colors.text }]}>Næringsindhold</Text>
+            <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+              Næringsindhold
+            </Text>
             <View style={[styles.nutritionBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.nutritionRow}>
                 {recipe.nutrition_source.calories ? (
@@ -309,7 +360,9 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
           </>
         ) : recipe.nutrition_estimate ? (
           <>
-            <Text style={[styles.h, { color: colors.text }]}>Næringsindhold</Text>
+            <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+              Næringsindhold
+            </Text>
             <View style={[styles.nutritionBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.nutritionRow}>
                 <Text style={{ color: colors.text }}>
@@ -336,9 +389,16 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
 
         {recipe.instructions && recipe.instructions.length > 0 ? (
           <>
-            <Text style={[styles.h, { color: colors.text }]}>Fremgangsmåde</Text>
+            <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+              Fremgangsmåde
+            </Text>
             {recipe.instructions.map((step, i) => (
-              <View key={i} style={styles.stepRow}>
+              <View
+                key={i}
+                style={styles.stepRow}
+                accessible
+                accessibilityLabel={`Trin ${i + 1}: ${step}`}
+              >
                 <View style={[styles.stepNumber, { backgroundColor: colors.primaryMuted }]}>
                   <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 12 }}>{i + 1}</Text>
                 </View>
@@ -348,8 +408,15 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
           </>
         ) : recipe.source_url ? (
           <>
-            <Text style={[styles.h, { color: colors.text }]}>Fremgangsmåde</Text>
-            <Pressable onPress={() => Linking.openURL(recipe.source_url)}>
+            <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
+              Fremgangsmåde
+            </Text>
+            <Pressable
+              onPress={() => Linking.openURL(recipe.source_url)}
+              accessibilityRole="link"
+              accessibilityLabel={`Se hele fremgangsmåden hos ${recipe.source_name || 'kilden'}`}
+              accessibilityHint="Åbner siden i browseren"
+            >
               <Text style={{ color: colors.primary, fontWeight: '600' }}>
                 Se hele fremgangsmåden hos {recipe.source_name || 'kilden'} →
               </Text>

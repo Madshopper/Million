@@ -5,6 +5,7 @@ import { getSupabase } from '../auth/supabase';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import { env } from '../config/env';
+import { spokenKr } from '../a11y/speech';
 
 type PriceAlert = {
   id: string;
@@ -119,13 +120,28 @@ export function PriceAlertsSection() {
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.title, { color: colors.textMuted }]}>MINE PRISALARMER</Text>
+      <Text
+        style={[styles.title, { color: colors.textMuted }]}
+        accessibilityRole="header"
+        accessibilityLabel="Mine prisalarmer"
+      >
+        MINE PRISALARMER
+      </Text>
       {loading && !alerts.length ? (
-        <ActivityIndicator style={{ marginVertical: 12 }} color={colors.primary} />
+        <ActivityIndicator
+          style={{ marginVertical: 12 }}
+          color={colors.primary}
+          accessibilityLabel="Henter prisalarmer"
+        />
       ) : error ? (
         <View style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={{ color: colors.text, flex: 1 }}>{error}</Text>
-          <Pressable onPress={() => void load()} hitSlop={8}>
+          <Pressable
+            onPress={() => void load()}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Prøv igen"
+          >
             <Text style={{ color: colors.primary, fontWeight: '600' }}>Prøv igen</Text>
           </Pressable>
         </View>
@@ -139,7 +155,11 @@ export function PriceAlertsSection() {
             key={a.id}
             style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
-            <View style={{ flex: 1, minWidth: 0 }}>
+            <View
+              style={{ flex: 1, minWidth: 0 }}
+              accessible
+              accessibilityLabel={`${a.product_name || 'Ukendt vare'}, giver besked under ${spokenKr(Number(a.target_price))}`}
+            >
               <Text style={{ color: colors.text, fontWeight: '600' }} numberOfLines={1}>
                 {a.product_name || 'Ukendt vare'}
               </Text>
@@ -153,6 +173,7 @@ export function PriceAlertsSection() {
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={`Slet prisalarm for ${a.product_name || 'varen'}`}
+              accessibilityState={{ disabled: deletingId === a.id, busy: deletingId === a.id }}
             >
               <Text
                 style={{

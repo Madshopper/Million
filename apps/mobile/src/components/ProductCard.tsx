@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Animated,
   Image,
   StyleSheet,
@@ -13,6 +14,7 @@ import { useCart } from '../cart/CartContext';
 import { buildStorePrices } from '../cart/buildStorePrices';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { StoreDot } from './StoreChip';
+import { joinLabel, spokenKr } from '../a11y/speech';
 
 type Props = {
   product: Product;
@@ -36,16 +38,75 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
   }, []);
 
   const onSale = product.is_sale || product.is_any_sale;
+  const addToCart = () => {
+    const { storePrices, storeMultiDeals } = buildStorePrices(product, catalog);
+    addItem({
+      id: `product${product.id}`,
+      name: product.name,
+      description: product.description || '',
+      store: product.store,
+      price: product.price,
+      storePrices,
+      storeMultiDeals,
+      image: product.image,
+      category: product.category || 'Andre varer',
+      unitMeasure: product.unit_measure,
+      kgPrice: product.kg_price != null ? `${product.kg_price.toFixed(2)} kr/kg` : '',
+      multiDeal: product.multi_deal || undefined,
+    });
+    setAdded(true);
+    addScale.setValue(0.8);
+    Animated.spring(addScale, {
+      toValue: 1,
+      friction: 4,
+      tension: 140,
+      useNativeDriver: true,
+    }).start();
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setAdded(false), 900);
+    // Fluebenet er kun synligt; skærmlæseren skal også høre at det lykkedes.
+    AccessibilityInfo.announceForAccessibility(`${product.name} lagt i kurven`);
+  };
+
   const discountPct =
     product.is_sale && product.normal_price > product.price
       ? Math.round((1 - product.price / product.normal_price) * 100)
       : null;
+
+  // Hele kortet er ét element for VoiceOver: en knap der åbner varen, med alt
+  // det vigtige i én sætning. Kurv-knappen inde i kortet kan VoiceOver ikke
+  // fokusere på (kortet samler sine børn), så den ligger også som handling
+  // på kortet: stryg op eller ned og vælg "Tilføj til kurv".
+  const a11yLabel = joinLabel([
+    product.name,
+    product.brand,
+    product.description,
+    product.stk_count ? `${product.stk_count} stk` : null,
+    onSale ? (discountPct ? `Tilbud, spar ${discountPct} procent` : 'Tilbud') : null,
+    spokenKr(product.price),
+    product.is_sale && product.normal_price > product.price
+      ? `før ${spokenKr(product.normal_price)}`
+      : null,
+    product.kg_price != null && product.kg_price > 0
+      ? `${spokenKr(product.kg_price)} pr. kilo`
+      : null,
+    Object.keys(product.store_matches || {}).length === 0
+      ? `kun hos ${product.store}`
+      : `hos ${product.store}`,
+  ]);
 
   return (
     <TouchableOpacity
       activeOpacity={0.9}
       delayPressIn={80}
       onPress={() => onPress(product)}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityHint="Åbner varen"
+      accessibilityActions={[{ name: 'addToCart', label: 'Tilføj til kurv' }]}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'addToCart') addToCart();
+      }}
       style={[
         styles.card,
         variant === 'rail' ? styles.cardRail : styles.cardGrid,
@@ -140,38 +201,13 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
       </View>
       {/* Varenavnet SKAL med i etiketten: i et gitter med 60 kort hoerer
           VoiceOver ellers 60 identiske "Tilføj til kurv". Samme rettelse er
-          lavet i webbens produktkort-makro. */}
+          lavet i webbens produktkort-makro. På iOS samler kortet sine børn,
+          så her bruges handlingen på kortet; TalkBack kan nå knappen selv. */}
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel={`Tilføj ${product.name} til kurv`}
         activeOpacity={0.8}
-        onPress={() => {
-          const { storePrices, storeMultiDeals } = buildStorePrices(product, catalog);
-          addItem({
-            id: `product${product.id}`,
-            name: product.name,
-            description: product.description || '',
-            store: product.store,
-            price: product.price,
-            storePrices,
-            storeMultiDeals,
-            image: product.image,
-            category: product.category || 'Andre varer',
-            unitMeasure: product.unit_measure,
-            kgPrice: product.kg_price != null ? `${product.kg_price.toFixed(2)} kr/kg` : '',
-            multiDeal: product.multi_deal || undefined,
-          });
-          setAdded(true);
-          addScale.setValue(0.8);
-          Animated.spring(addScale, {
-            toValue: 1,
-            friction: 4,
-            tension: 140,
-            useNativeDriver: true,
-          }).start();
-          if (addedTimer.current) clearTimeout(addedTimer.current);
-          addedTimer.current = setTimeout(() => setAdded(false), 900);
-        }}
+        onPress={addToCart}
         style={[styles.addBtn, { backgroundColor: colors.primary }]}
       >
         <Animated.Text
