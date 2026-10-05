@@ -194,6 +194,8 @@ _EDGE_ENV_VARS = (
     'RECIPES_ENABLED',
     # Kun på staging: beskeder på telefonen (_FEATURES 'push').
     'PUSH_ENABLED',
+    # Kun på staging: varestatistik (_FEATURES 'stats').
+    'STATS_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -495,6 +497,9 @@ def _inject_site_meta():
         'recipes_enabled': _recipes_enabled(),
         # Beskeder på telefonen (Feature-panelet 'push'). Nøglen er offentlig.
         'push_enabled': _feature_enabled('push'),
+        # Varestatistik (Feature-panelet 'stats'): script.js tæller visninger
+        # og søgninger kun når den er slået til.
+        'stats_enabled': _feature_enabled('stats'),
         'vapid_public_key': _VAPID_PUBLIC_KEY,
         # Sandt naar SIDENS render byggede paa ufuldstaendige data (samme
         # isolate-kollision i D1-broen som saetter X-Data-Degraded-headeren,
@@ -1625,6 +1630,25 @@ _FEATURES = (
                      'Firebase-opsætning.'},
         ),
     },
+    {
+        'key': 'stats',
+        'name': 'Varestatistik',
+        'env': 'STATS_ENABLED',
+        'desc': 'Hvilke varer folk kigger på, lægger i kurven og søger efter, '
+                'dag for dag. Kurv og prissammenligning tælles allerede; '
+                'visninger og søgninger tælles først, når den er udgivet. '
+                'Der gemmes kun tal pr. dag, intet om den enkelte bruger.',
+        'parts': (
+            {'kind': 'web', 'name': 'Fanen Varer i admin',
+             'desc': 'Mest populære varer, udvikling over tid og de mest '
+                     'søgte ord.'},
+            {'kind': 'web', 'name': 'Tæller visninger og søgninger',
+             'desc': 'Hjemmesiden sender et samlet tal, når en vare åbnes, og '
+                     'når der søges. Ingen cookies.'},
+            {'kind': 'idea', 'name': 'Visninger og søgninger fra appen',
+             'desc': 'Appen tæller i dag kun kurv og prissammenligning.'},
+        ),
+    },
 )
 
 # Projekter der ikke er færdige, men ikke har en knap (fx appen i butikkerne).
@@ -2248,7 +2272,7 @@ def _parse_cart_items(data: dict) -> tuple[list[dict], str]:
     browser-cache fra før v22 fortsætter med at tælle korrekt."""
     raw_items = data.get('items')
     if isinstance(raw_items, list):
-        event_type = 'compare' if data.get('event') == 'compare' else 'add'
+        event_type = data.get('event') if data.get('event') in ('compare', 'view') else 'add'
         source = raw_items
     elif isinstance(data.get('product_ids'), list):
         event_type = 'compare'          # kun sammenligning sendte lister før v22
@@ -2275,6 +2299,40 @@ def _parse_cart_items(data: dict) -> tuple[list[dict], str]:
     return items, event_type
 
 
+# Søgeord til varestatistikken. Samme regler som record_search_activity i
+# scripts/supabase-stats.sql (SQL'en er det egentlige værn): små bogstaver,
+# 2-40 tegn, intet der ligner en mail eller et telefon-/CPR-nummer, så der
+# ikke gemmes noget der kan pege på en bestemt person.
+_SEARCH_TERMS_MAX = 10
+_SEARCH_TERM_BAD_RE = re.compile(r'@|\d{5,}')
+
+
+def _clean_search_terms(raw) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for t in raw[:_SEARCH_TERMS_MAX]:
+        if not isinstance(t, str):
+            continue
+        t = ' '.join(t.split()).lower()
+        if 2 <= len(t) <= 40 and not _SEARCH_TERM_BAD_RE.search(t):
+            out.append(t)
+    return out
+
+
+def _record_searches(raw_terms):
+    terms = _clean_search_terms(raw_terms)
+    if not terms:
+        return jsonify({'ok': False}), 400
+    if not _supabase_available() or not _feature_enabled('stats'):
+        return jsonify({'ok': True, 'persisted': False})
+    _, st = _supabase_rest(
+        "POST", "rpc/record_search_activity" + _table_suffix(),
+        json_body={"terms": terms}, prefer="return=minimal",
+    )
+    return jsonify({'ok': True, 'persisted': st in (200, 201, 204)})
+
+
 @app.route('/api/cart-event', methods=['POST'])
 @rate_limit(cart_event_limiter)
 def cart_event():
@@ -2285,11 +2343,24 @@ def cart_event():
         data = request.get_json(silent=True, force=True)
         if not isinstance(data, dict):
             return jsonify({'ok': False, 'error': 'Ugyldig body'}), 400
+        if data.get('event') == 'search':
+            return _record_searches(data.get('terms'))
         items, event_type = _parse_cart_items(data)
         if not items:
             return jsonify({'ok': False}), 400
         if not _supabase_available():
             return jsonify({'ok': True, 'persisted': False})
+        if event_type == 'view':
+            # Visninger tælles kun med til varestatistikken (_FEATURES
+            # 'stats') og aldrig i cart_popularity, så ingen fallback-kæde.
+            if not _feature_enabled('stats'):
+                return jsonify({'ok': True, 'persisted': False})
+            _, st = _supabase_rest(
+                "POST", "rpc/record_cart_activity" + _table_suffix(),
+                json_body={"items": items, "etype": "view"},
+                prefer="return=minimal",
+            )
+            return jsonify({'ok': True, 'persisted': st in (200, 201, 204)})
 
         product_ids = [it['pid'] for it in items]
 
@@ -3864,6 +3935,44 @@ def admin_edge():
             version = None
         out['cache_version'] = str(version) if version else None
     resp = jsonify(out)
+    resp.headers.update(_ADMIN_HEADERS)
+    return resp
+
+
+_ADMIN_NAMES_MAX = 300
+
+
+@app.route('/api/admin/products', methods=['GET', 'POST'])
+@rate_limit(api_limiter)
+def admin_products():
+    """Navn, butik og billede til varestatistikken i /admin. Statistikken
+    gemmer kun produkt-id'er; navnene slås op i kataloget (D1) ved visning.
+    Samme adgangsregler som /api/admin/edge: POST, kun admins, ellers 404.
+    Varer der ikke længere findes i kataloget mangler i svaret."""
+    if request.method != 'POST' or not _admin_request_ok():
+        abort(404)
+    body = request.get_json(silent=True, force=True)
+    ids = body.get('ids') if isinstance(body, dict) else None
+    ids = [str(i)[:64] for i in ids if isinstance(i, (str, int))] if isinstance(ids, list) else []
+    ids = list(dict.fromkeys(ids))[:_ADMIN_NAMES_MAX]
+    out = {}
+    try:
+        # D1 tillader højst 100 parametre pr. forespørgsel.
+        found = []
+        for i in range(0, len(ids), 90):
+            found.extend(load_products_by_ids(ids[i:i + 90]))
+        for p in found:
+            pid = str(p.get('/product/id', ''))
+            if not pid:
+                continue
+            out[pid] = {
+                'title': str(p.get('/product/title') or ''),
+                'store': str(p.get('/product/store') or ''),
+                'image': str(p.get('/product/imageLink') or p.get('/product/rema_image') or ''),
+            }
+    except Exception as e:
+        logger.warning("admin products lookup failed: %s", e)
+    resp = jsonify({'success': True, 'products': out})
     resp.headers.update(_ADMIN_HEADERS)
     return resp
 

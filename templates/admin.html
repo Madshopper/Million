@@ -55,6 +55,7 @@
         <a href="#oversigt" data-section="oversigt">Overblik</a>
         <a href="#trafik" data-section="trafik">Trafik</a>
         <a href="#app" data-section="app">App</a>
+        {% if stats_enabled %}<a href="#varer" data-section="varer">Varer</a>{% endif %}
         <a href="#feedback" data-section="feedback">Feedback <span class="adm-badge" id="badge-feedback" hidden></span></a>
         <a href="#scraping" data-section="scraping">Scraping <span class="adm-badge" id="badge-scraping" hidden></span></a>
         <a href="#korsler" data-section="korsler">Kørsler <span class="adm-badge" id="badge-korsler" hidden></span></a>
@@ -104,6 +105,30 @@
             <div class="adm-card"><h2>Serveren i dag</h2><div id="admin-traffic-worker"></div></div>
           </div>
         </section>
+
+        {% if stats_enabled %}
+        <section data-section="varer" hidden>
+          <div class="adm-head">
+            <h1>Varer</h1>
+            <span class="adm-seg" id="stats-period">
+              <button type="button" class="adm-btn" data-days="7" aria-pressed="false">7 dage</button>
+              <button type="button" class="adm-btn" data-days="30" aria-pressed="true">30 dage</button>
+              <button type="button" class="adm-btn" data-days="90" aria-pressed="false">90 dage</button>
+              <button type="button" class="adm-btn" data-days="365" aria-pressed="false">1 år</button>
+              <button type="button" class="adm-btn" data-days="3650" aria-pressed="false">Alt</button>
+            </span>
+          </div>
+          <p class="adm-sub adm-intro" id="stats-sub">Hvad folk kigger på, lægger i kurven og søger efter. Der gemmes kun tal pr. dag, intet om den enkelte bruger.</p>
+          <div class="adm-tiles" id="stats-tiles"></div>
+          <div class="adm-card"><h2>Over tid</h2><div id="stats-days"></div></div>
+          <div class="adm-grid">
+            <div class="adm-card"><h2>Lagt i kurven</h2><div id="stats-top-add"></div></div>
+            <div class="adm-card"><h2>Kigget på</h2><div id="stats-top-view"></div></div>
+            <div class="adm-card"><h2>Prissammenlignet</h2><div id="stats-top-compare"></div></div>
+            <div class="adm-card"><h2>Søgt efter</h2><div id="stats-top-search"></div></div>
+          </div>
+        </section>
+        {% endif %}
 
         <section data-section="app" hidden>
           <div class="adm-head"><h1>App</h1><span class="adm-sub" id="app-sub"></span></div>

@@ -58,6 +58,8 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   RECIPES_LINE='RECIPES_ENABLED = "1"'
   # Beskeder på telefonen (app.py::_FEATURES 'push') er altid til på dev.
   PUSH_LINE='PUSH_ENABLED = "1"'
+  # Varestatistik (app.py::_FEATURES 'stats') er altid til på dev.
+  STATS_LINE='STATS_ENABLED = "1"'
   # Custom domain så staging er nemmere at finde end workers.dev-URL'en
   # (samme adgangsspærring gælder stadig, se STAGING_ACCESS_SECRET nedenfor).
   ROUTES_BLOCK='
@@ -92,6 +94,7 @@ else
   RECIPES_LINE=""
   # Udgives fra Feature-panelet i /admin, ikke med en miljø-vare.
   PUSH_LINE=""
+  STATS_LINE=""
   # Produktion: ALDRIG overstyrbar. En glemt miljoevariabel i en terminal maa
   # ikke kunne saette beskyttelsen ud af kraft paa det rigtige site.
   RATE_LIMIT_PER_MIN=150
@@ -321,6 +324,7 @@ BUILD_ID = "${BUILD_ID_VALUE}"
 TABLE_SUFFIX = "${TABLE_SUFFIX_VALUE}"
 ${RECIPES_LINE}
 ${PUSH_LINE}
+${STATS_LINE}
 ${ANALYTICS_LINES}
 ${STAGING_LINK_LINE}
 ${STAGING_SECRET_LINE}

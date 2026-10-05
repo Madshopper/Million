@@ -1045,6 +1045,49 @@ window.addEventListener('pagehide', () => {
     if (_cartEventQueue.size) flushCartEvents(true);
 });
 
+// Varestatistik (Feature-panelet 'stats', kun når window.__STATS_ON):
+// hvilke varer der åbnes, og hvad der søges efter. Samles og sendes højst
+// hvert 15. sekund (og når siden lukkes) som ét kald, så det ikke æder af
+// cart-event-grænsen på 20/min. Kun tal: ingen cookies, intet bruger-id.
+const _statsViews = new Map();   // id -> antal åbninger
+const _statsSearches = [];
+const STATS_FLUSH_MS = 15000;
+let _statsTimer = null;
+
+function flushStats(keepalive) {
+    clearTimeout(_statsTimer);
+    _statsTimer = null;
+    const send = (body) => fetch('/api/cart-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        keepalive: !!keepalive
+    }).catch(() => {});
+    if (_statsViews.size) {
+        const items = Array.from(_statsViews, ([id, qty]) => ({ id: id, qty: qty })).slice(0, CART_EVENT_MAX_ITEMS);
+        _statsViews.clear();
+        send({ event: 'view', items: items });
+    }
+    if (_statsSearches.length) {
+        send({ event: 'search', terms: _statsSearches.splice(0, 10) });
+        _statsSearches.length = 0;
+    }
+}
+
+function queueStat(kind, value) {
+    if (!window.__STATS_ON || !value) return;
+    if (kind === 'view') {
+        _statsViews.set(String(value), (_statsViews.get(String(value)) || 0) + 1);
+    } else if (_statsSearches.length < 10) {
+        _statsSearches.push(String(value).trim().toLowerCase().slice(0, 40));
+    }
+    if (!_statsTimer) _statsTimer = setTimeout(() => flushStats(false), STATS_FLUSH_MS);
+}
+
+window.addEventListener('pagehide', () => {
+    if (_statsViews.size || _statsSearches.length) flushStats(true);
+});
+
 function addToCart(event, productElementOrId) {
     // Prevent event bubbling
     event.stopPropagation();
@@ -2590,6 +2633,7 @@ function fetchSearchResults(query, page, sporSoegning = true) {
                 attachProductEventListeners();
 
                 const resultCount = wrapper.querySelectorAll('.product').length;
+                if (sporSoegning) queueStat('search', query);
                 // Kun ved en REEL ny soegning - ellers taelles hver
                 // sidebladring og hvert filterskift som en soegning i GA4.
                 if (sporSoegning) trackEvent('search', {
@@ -2612,6 +2656,7 @@ function fetchSearchResults(query, page, sporSoegning = true) {
                 wrapper.innerHTML = '<div class="error">Der opstod en fejl under søgningen. Prøv igen om lidt.</div>';
             } else {
                 wrapper.innerHTML = '<div class="no-results">Ingen resultater fundet</div>';
+                if (sporSoegning) queueStat('search', query);
                 // Kun ved en REEL ny soegning - ellers taelles hver
                 // sidebladring og hvert filterskift som en soegning i GA4.
                 if (sporSoegning) trackEvent('search', {
@@ -3796,6 +3841,7 @@ function openOverlay(productElementOrId) {
     // Store current product ID for add to cart functionality
     const piEl = document.querySelector('.product-info');
     if (piEl) piEl.dataset.productId = productId;
+    queueStat('view', productId);
 
     // Billigste pris på tværs af brugerens valgte butikker - bruges som
     // current_price ved oprettelse af en prisalarm (kun til visning/logning,
