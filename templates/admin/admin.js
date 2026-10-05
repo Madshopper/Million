@@ -6,6 +6,8 @@
  *    is_admin() i SQL, så en ikke-admin får 403 uanset hvad denne fil gør.
  *  - POST /api/admin/edge (app.py) til D1, KV og D1-budgettet, med samme
  *    access-token som Bearer.
+ * Fanen App (admin_app_stats) er Apples tal, som app-stats.yml gemmer i
+ * Supabase via scripts/app-store-stats.py, plus egne brugertal.
  * Kørselshistorikken (admin_job_runs) er GitHub Actions-kørsler, som
  * et planlagt workflow gemmer i Supabase via scripts/sync-job-runs.py.
  *
@@ -228,7 +230,7 @@
   }
 
   /* ----------------------------------------------------------- navigation */
-  var SECTIONS = ['oversigt', 'trafik', 'varer', 'feedback', 'scraping', 'korsler', 'opskrifter', 'feature', 'brugere', 'drift'];
+  var SECTIONS = ['oversigt', 'trafik', 'app', 'varer', 'feedback', 'scraping', 'korsler', 'opskrifter', 'feature', 'brugere', 'drift'];
 
   function showSection() {
     var name = (location.hash || '').replace('#', '');
@@ -588,6 +590,132 @@
     var today = (tr.days || []).filter(function (d) { return d.date === tr.today; })[0] || { visits: 0, pageviews: 0 };
     $('admin-tiles').insertBefore(tile('Besøg i dag', nf(today.visits), nf(today.pageviews) + ' sidevisninger'),
       $('admin-tiles').firstChild);
+  }
+
+  /* ------------------------------------------------------------------- app */
+  // Tal fra Apple (scripts/app-store-stats.py, hentes hver dag af app-stats.yml)
+  // og egne brugertal, alt fra admin_app_stats() i scripts/supabase-app-stats.sql.
+  function barRows(items) {
+    var max = items.reduce(function (a, x) { return Math.max(a, x.value); }, 0) || 1;
+    return el('div', { class: 'adm-bars' }, items.map(function (x) {
+      return el('div', { class: 'adm-bar-row' }, [
+        el('span', { class: 'adm-bar-label', text: x.label }),
+        el('span', { class: 'adm-bar' }, [el('span', { style: 'width:' + Math.max(x.value ? 1 : 0, x.value * 100 / max).toFixed(1) + '%' })]),
+        el('span', { class: 'adm-bar-value', text: nf(x.value) })
+      ]);
+    }));
+  }
+
+  function dayLabel(iso) {
+    return new Date(iso + 'T12:00:00Z').toLocaleDateString('da-DK', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  function isoDaysAgo(n) {
+    return new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  }
+
+  function renderApp(st) {
+    var tiles = $('admin-app-tiles');
+    tiles.textContent = '';
+    if (!st) {
+      fill('admin-app-days', empty('App-tallene kunne ikke hentes. Er scripts/supabase-app-stats.sql kørt i Supabase?'));
+      ['store', 'users', 'weeks', 'crashes', 'reviews'].forEach(function (k) { fill('admin-app-' + k, empty('-')); });
+      $('app-sub').textContent = '';
+      return;
+    }
+    $('app-sub').textContent = st.synced_at
+      ? 'Fra Apple, hentet ' + when(st.synced_at) + '. Apples tal er altid en dag bagud.'
+      : 'Ingen tal fra Apple endnu. De hentes hver dag ved 19-tiden.';
+
+    // metric -> { dag -> værdi }
+    var m = {};
+    (st.daily || []).forEach(function (r) {
+      (m[r.metric] = m[r.metric] || {})[r.day] = Number(r.value) || 0;
+    });
+    function sum(metric, days) {
+      var from = isoDaysAgo(days);
+      var s = 0, any = false;
+      Object.keys(m[metric] || {}).forEach(function (d) {
+        if (d > from) { s += m[metric][d]; any = true; }
+      });
+      return any ? s : null;
+    }
+    var yesterday = isoDaysAgo(1);
+    var dl = m.downloads || {};
+    var tot = st.totals || {};
+    var rating = st.rating || {};
+    var u = st.users || {};
+
+    tiles.appendChild(tile('Downloads i går', dl[yesterday] != null ? nf(dl[yesterday]) : '-', 'nye installationer'));
+    tiles.appendChild(tile('Downloads 7 dage', nf(sum('downloads', 7)), nf(sum('redownloads', 7)) + ' hentet igen'));
+    tiles.appendChild(tile('Downloads 30 dage', nf(sum('downloads', 30)), nf(sum('updates', 30)) + ' opdateringer'));
+    tiles.appendChild(tile('Downloads i alt', nf(tot.downloads), 'siden vi begyndte at hente tal'));
+    tiles.appendChild(tile('Stjerner', rating.avg != null ? Number(rating.avg).toFixed(1).replace('.', ',') : '-',
+      rating.count != null ? nf(rating.count) + (Number(rating.count) === 1 ? ' bedømmelse' : ' bedømmelser') + ' i Danmark' : 'ingen endnu'));
+    tiles.appendChild(tile('Bruger appen', nf(u.app_30d), 'logget ind i appen, 30 dage'));
+
+    var days = [];
+    for (var i = 14; i >= 1; i--) {
+      var d = isoDaysAgo(i);
+      if (dl[d] != null) days.push({ label: dayLabel(d), value: dl[d] });
+    }
+    fill('admin-app-days', days.length ? barRows(days.reverse())
+      : empty(st.synced_at ? 'Ingen downloads hentet endnu. Mangler ASC_VENDOR_NUMBER i GitHub?' : 'Ingen tal endnu.'));
+
+    var imp = sum('impressions', 30), pv = sum('page_views', 30), dl30 = sum('downloads', 30);
+    var storeRows = [
+      ['Så appen i App Store (søgning, lister)', nf(imp)],
+      ['Åbnede appens side', nf(pv)],
+      ['Hentede appen', nf(dl30)],
+      ['Andel af sidebesøg der hentede', pv && dl30 != null ? Math.round(dl30 * 100 / pv) + ' %' : '-'],
+      ['Slettede appen', nf(sum('deletions', 30))],
+      ['Gange appen blev åbnet', nf(sum('sessions', 30))]
+    ];
+    fill('admin-app-store', imp == null && pv == null && sum('sessions', 30) == null
+      ? empty('Apple begynder at lave disse tal ca. to døgn efter første kørsel. Små tal kan mangle, fordi Apple skjuler dem af hensyn til privatliv.')
+      : table(['', ''], storeRows, [1]));
+
+    fill('admin-app-users', table(['', ''], [
+      ['Har brugt appen, 30 dage', nf(u.app_30d)],
+      ['Har brugt hjemmesiden, 30 dage', nf(u.web_30d)],
+      ['Har nogensinde logget ind i appen', nf(u.app_ever)],
+      ['Får prisalarmer i appen', nf(u.push_app)],
+      ['Får prisalarmer i browseren', nf(u.push_web)]
+    ], [1]));
+
+    var weeks = (u.weekly || []).map(function (w) {
+      return { label: 'Uge ' + weekNo(w.week), value: Number(w['new']) || 0 };
+    }).reverse();
+    fill('admin-app-weeks', weeks.length ? barRows(weeks) : empty('Ingen brugere endnu.'));
+
+    var versions = Object.keys(m).filter(function (k) { return k.indexOf('crashes:') === 0; }).map(function (k) {
+      return [k.slice(8), sum(k, 30) || 0];
+    }).filter(function (r) { return r[1]; }).sort(function (a, b) { return b[1] - a[1]; });
+    var crashes = sum('crashes', 30);
+    fill('admin-app-crashes', crashes == null ? empty('Ingen tal endnu. Kommer sammen med App Store-tallene.')
+      : !crashes ? empty('Ingen nedbrud de seneste 30 dage.')
+      : table(['Version', 'Nedbrud'], versions.length ? versions.map(function (r) { return [r[0], nf(r[1])]; })
+        : [['Alle', nf(crashes)]], [1]));
+
+    var reviews = st.reviews || [];
+    fill('admin-app-reviews', reviews.length ? el('div', {}, reviews.map(function (r) {
+      var stars = '★★★★★'.slice(0, r.rating || 0) + '☆☆☆☆☆'.slice(0, 5 - (r.rating || 0));
+      return el('div', { class: 'adm-fb' }, [
+        el('div', { class: 'adm-fb-head' }, [
+          el('span', { class: 'adm-stars', text: stars }),
+          el('span', { text: (r.author || 'Anonym') + (r.version ? ', version ' + r.version : '') + ', ' + when(r.created_at) })
+        ]),
+        r.title ? el('div', { class: 'adm-fb-subj', text: r.title }) : null,
+        el('div', { class: 'adm-fb-msg', text: r.body || '' })
+      ]);
+    })) : empty('Ingen skrevne anmeldelser i den danske App Store endnu.'));
+  }
+
+  function weekNo(iso) {
+    var d = new Date(iso + 'T12:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    var y = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d - y) / 86400000 + 1) / 7);
   }
 
   function renderTables(ov) {
@@ -1035,7 +1163,8 @@
           }),
           traffic(session.access_token).then(function (j) { return j.traffic; }).catch(function () { return null; }),
           loadFeatures(session.access_token),
-          loadStats(session.access_token)
+          loadStats(session.access_token),
+          rpc('admin_app_stats', { p_days: 90 }).catch(function () { return null; })
         ]).then(function (r) {
           var ov = r[0] || {};
           var ed = r[2];
@@ -1059,6 +1188,7 @@
           state.traffic = r[5];
           renderTraffic(r[5]);
           renderTrafficTile(r[5]);
+          renderApp(r[8]);
           $('admin-stamp').textContent = 'Opdateret ' + when(ov.generated_at || new Date().toISOString());
         });
       }, function (e) {

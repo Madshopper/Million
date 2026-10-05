@@ -1,0 +1,55 @@
+name: App-tal fra Apple
+
+# Henter appens tal fra Apple (downloads, visninger i App Store, sessioner,
+# nedbrud, stjerner og anmeldelser) til fanen App i /admin via
+# scripts/app-store-stats.py. Gemmes i Supabase (app_store_daily,
+# app_store_reviews), oprettet af scripts/supabase-app-stats.sql.
+#
+# Apples salgsrapport for i går er først klar om eftermiddagen (dansk tid),
+# så kørslen ligger sent. Den henter de seneste 35 dage hver gang, så en
+# forsinket eller sprunget kørsel retter sig selv næste dag.
+#
+# Rør ikke D1 - kun Supabase.
+
+on:
+  schedule:
+    - cron: '20 17 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-stats
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installér
+        run: pip install 'pyjwt[crypto]==2.10.1'
+
+      - name: Hent tal fra Apple
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          ASC_VENDOR_NUMBER: ${{ secrets.ASC_VENDOR_NUMBER }}
+          # Valgfri, kun til første gang (se scripts/app-store-stats.py).
+          ASC_ADMIN_KEY_ID: ${{ secrets.ASC_ADMIN_KEY_ID }}
+          ASC_ADMIN_PRIVATE_KEY: ${{ secrets.ASC_ADMIN_PRIVATE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: python scripts/app-store-stats.py
