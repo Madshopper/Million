@@ -155,7 +155,8 @@ def col(row: dict, *names: str):
 
 # ------------------------------------------------------------ salgsrapport
 def fetch_sales(metrics: dict) -> None:
-    vendor = (os.environ.get("ASC_VENDOR_NUMBER") or "").strip()
+    # Kun cifrene: tåler at navnet eller "#" er kopieret med.
+    vendor = re.sub(r"\D", "", os.environ.get("ASC_VENDOR_NUMBER") or "")
     if not vendor:
         raise RuntimeError("ASC_VENDOR_NUMBER mangler i GitHub, så downloads kan ikke hentes")
     today = datetime.now(timezone.utc).date()
