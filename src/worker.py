@@ -562,8 +562,6 @@ class Env(Protocol):
     RECIPES_ENABLED: str
     PUSH_ENABLED: str
     STAGING_ACCESS_SECRET: str
-    STAGING_ACCESS_EMAIL: str
-    STAGING_ACCESS_PASSWORD: str
     # Admin: D1-budget og Trafik-fanen (app.py::_cf_graphql). EdgeKit udleverer
     # KUN deklarerede navne - uden disse to linjer så appen aldrig nøglen,
     # selvom den lå på workeren (03-10-2026). scripts/test-edge-env.py tjekker
@@ -573,9 +571,11 @@ class Env(Protocol):
     STAGING_LINK_SECRET: str
 
 
-# Eneste sti hvor en uautentificeret besøgende ser andet end blankt 404 -
-# resten af _staging_blocked() nedenfor er uændret på det punkt.
-_STAGING_LOGIN_PATH = "/staging-login"
+# Den tidligere login-side (mail + fælles adgangskode). Svarer nu samme 404
+# som alt andet, så dev.madshopper.dk er lige så usynlig som /admin (Kalle,
+# 05-10-2026). Stien logger dog ikke staging_gate_denied: uptime-worker/
+# rammer den hvert 5. minut for at se at dev svarer OG er lukket.
+_STAGING_PROBE_PATH = "/staging-login"
 
 
 def _staging_session_token(secret: str) -> str:
@@ -584,10 +584,12 @@ def _staging_session_token(secret: str) -> str:
     ?k=-nøglen, og cookien kan i praksis ikke bruges til at genudlede
     secret'et (HMAC, ikke reversibel). Kan endnu ikke tilbagekaldes uden at
     rotere secret'et for alle (kræver server-side sessionslager - ude af
-    scope), men den rå hemmelighed forlader i det mindste aldrig serveren."""
+    scope), men den rå hemmelighed forlader i det mindste aldrig serveren.
+    -v2 (05-10-2026): skiftet da mail+adgangskode-login blev fjernet, så
+    cookies fra det fælles login holder op med at virke."""
     import hashlib
     import hmac as _hmac
-    return _hmac.new(secret.encode(), b"staging-session", hashlib.sha256).hexdigest()
+    return _hmac.new(secret.encode(), b"staging-session-v2", hashlib.sha256).hexdigest()
 
 
 def _staging_link_sig(secret: str, exp: int) -> str:
@@ -607,38 +609,6 @@ def _cookie_value(cookie_header: str, name: str) -> str:
         if part.startswith(name + "="):
             return part[len(name) + 1:]
     return ""
-
-
-def _staging_login_page(error: str | None = None) -> str:
-    error_html = (
-        f'<p class="err">{error}</p>' if error else ""
-    )
-    return f"""<!doctype html>
-<html lang="da"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>MadShopper staging</title>
-<style>
-body{{font-family:system-ui,sans-serif;background:#111;color:#eee;display:flex;
-  min-height:100vh;align-items:center;justify-content:center;margin:0}}
-form{{background:#1b1b1b;padding:2rem;border-radius:8px;width:min(320px,90vw)}}
-h1{{font-size:1.1rem;margin:0 0 1.2rem}}
-label{{display:block;font-size:.85rem;margin:.8rem 0 .3rem;color:#aaa}}
-input{{width:100%;box-sizing:border-box;padding:.6rem;border-radius:4px;
-  border:1px solid #333;background:#0d0d0d;color:#eee;font-size:1rem}}
-button{{margin-top:1.2rem;width:100%;padding:.6rem;border:0;border-radius:4px;
-  background:#10b981;color:#fff;font-size:1rem;cursor:pointer}}
-.err{{color:#f87171;font-size:.85rem;margin:.8rem 0 0}}
-</style></head><body>
-<form method="POST" action="{_STAGING_LOGIN_PATH}">
-<h1>MadShopper staging</h1>
-<label for="email">Mail</label>
-<input type="email" name="email" id="email" required autofocus>
-<label for="password">Adgangskode</label>
-<input type="password" name="password" id="password" required>
-<button type="submit">Log ind</button>
-{error_html}
-</form></body></html>"""
 
 
 class Default(WSGI[Env]):
@@ -665,11 +635,11 @@ class Default(WSGI[Env]):
         SAMME Supabase-projekt og samme auth.users som produktionen. Var'en
         sættes kun i staging-bygget, så produktionen aldrig rammer denne sti.
 
-        Returnerer et svar hvis requesten skal afvises, ellers None. 404 frem
-        for 401 på alt UNDTAGEN login-siden: et 401 bekræfter at der ER noget
-        bag, et 404 gør ikke. Login-siden på _STAGING_LOGIN_PATH er den ene
-        bevidste undtagelse - en menneskelig bruger skal kunne finde et
-        mail+adgangskode-login uden at kende en hex-nøgle udenad.
+        Returnerer et svar hvis requesten skal afvises, ellers None. Alle
+        uden adgang får det samme 404, ligesom /admin (Kalle, 05-10-2026):
+        et 401 eller en login-side bekræfter at der ER noget bag, et 404 gør
+        ikke. Der er kun to veje ind: engangslinket fra knappen "Se dev-siden"
+        i produktionens /admin (kun admins kan få det) og ?k=-nøglen til CI.
         """
         try:
             secret = getattr(self.raw_env, "STAGING_ACCESS_SECRET", None)
@@ -679,19 +649,7 @@ class Default(WSGI[Env]):
             # Korrekt for produktion, som ALDRIG sætter secret'et - denne
             # gren rammes derfor på hver eneste produktionsrequest, og må
             # IKKE logge der (se _sec_note-kommentaren om aggregeret,
-            # lav-volumen logning og nedbruddet 2026-07-19). EMAIL/PASSWORD
-            # sættes af build-pages.sh KUN når DEPLOY_ENV=staging, samtidig
-            # med SECRET - så "email/password sat, men secret mangler" kan
-            # kun ske i en fejlkonfigureret staging, aldrig i produktion.
-            # Det gør signalet billigt at skelne uden per-request-logning.
-            try:
-                email = getattr(self.raw_env, "STAGING_ACCESS_EMAIL", None)
-                password = getattr(self.raw_env, "STAGING_ACCESS_PASSWORD", None)
-                if email or password:
-                    _sec_note("staging_gate_unconfigured", request)
-                    _sec_flush(self.raw_env, self.ctx)
-            except Exception:
-                pass
+            # lav-volumen logning og nedbruddet 2026-07-19).
             return None
         secret = str(secret)
         try:
@@ -733,48 +691,11 @@ class Default(WSGI[Env]):
             ):
                 return None
 
-            if path == _STAGING_LOGIN_PATH:
-                email = getattr(self.raw_env, "STAGING_ACCESS_EMAIL", None)
-                password = getattr(self.raw_env, "STAGING_ACCESS_PASSWORD", None)
-                if not email or not password:
-                    return EdgeResponse.text("Not found", status=404,
-                                             headers={"Cache-Control": "no-store"})
-                error = None
-                if request.method == "POST":
-                    # Login-forsøg var tidligere helt uden rate limiting -
-                    # _rate_ok kaldes ellers kun senere i fetch() for andre
-                    # requesttyper. Genbruger samme (fail-open) limiter;
-                    # _rate_ok understøtter ikke en separat nøgle/bucket pr.
-                    # formål i dag, så dette deler bucket med den generelle
-                    # rate limit - en fremtidig udvidelse kunne give den sin
-                    # egen "staging_login:<ip>"-nøgle.
-                    if not await self._rate_ok(request):
-                        _sec_note("rate_limit", request)
-                        _sec_flush(self.raw_env, self.ctx)
-                        return _too_many(request)
-                    try:
-                        body = await request.text()
-                    except Exception:
-                        body = ""
-                    form = parse_qs(body or "")
-                    got_email = form.get("email", [""])[0]
-                    got_password = form.get("password", [""])[0]
-                    if got_email and got_password and hmac.compare_digest(
-                        got_email.encode(), str(email).encode()
-                    ) and hmac.compare_digest(
-                        got_password.encode(), str(password).encode()
-                    ):
-                        return self._staging_cookie_response(secret, "/")
-                    error = "Forkert mail eller adgangskode."
-                    _sec_note("staging_login_fail", request)
-                    _sec_flush(self.raw_env, self.ctx)
-                return EdgeResponse.text(
-                    _staging_login_page(error), status=200,
-                    headers={"content-type": "text/html; charset=utf-8",
-                             "Cache-Control": "no-store"},
-                )
+            if path == _STAGING_PROBE_PATH:
+                return EdgeResponse.text("Not found", status=404,
+                                         headers={"Cache-Control": "no-store"})
 
-            # Ingen gyldig ?k=, ingen gyldig cookie, og ikke login-siden -
+            # Ingen gyldigt link, ingen gyldig cookie -
             # requesten afvises. Eneste sti hvor gate'en reelt lukker nogen
             # ude, så det er her angrebsforsøg mod staging bliver synlige.
             _sec_note("staging_gate_denied", request)

@@ -939,8 +939,8 @@
     }).then(function () { loading = false; });
   }
 
-  /* Dev-siden: produktionen udsteder et engangslink (2 min.), så staging-
-   * spærringen ikke spørger om login. Fanen åbnes før kaldet, ellers blokerer
+  /* Dev-siden: produktionen udsteder et engangslink (2 min.). Det er den
+   * eneste vej ind for et menneske; dev svarer 404 til alle andre. Fanen åbnes før kaldet, ellers blokerer
    * browseren den som pop-up. */
   function openDev(path) {
     var win = window.open('about:blank', '_blank');
@@ -959,7 +959,7 @@
       return r.json();
     }).then(function (j) {
       if (!j.direct && note) {
-        note.textContent = 'Direkte adgang er ikke sat op her, så dev-siden beder om sit eget login.';
+        note.textContent = 'Direkte adgang er ikke sat op her (STAGING_LINK_SECRET mangler), så dev-siden svarer 404.';
         note.hidden = false;
       }
       if (win) { win.opener = null; win.location.href = j.url; }

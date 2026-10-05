@@ -174,40 +174,6 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   fi
 fi
 
-# Staging-login (mail+adgangskode): venligere indgang end secret'en ovenfor
-# til et menneske - se _STAGING_LOGIN_PATH i src/worker.py. Samme mønster:
-# sat env-var overstyrer, ellers génereres/genbruges en lokal værdi. Er
-# nogen af de to ikke sat, udelades linjerne helt, og login-siden falder
-# tilbage til det almindelige 404 (kun ?k=-nøglen virker så).
-STAGING_EMAIL_LINE=""
-STAGING_PASSWORD_LINE=""
-if [ "$DEPLOY_ENV" = "staging" ]; then
-  EMAIL_FILE="$ROOT/.staging-email"
-  if [ -n "${STAGING_ACCESS_EMAIL:-}" ]; then
-    printf '%s' "$STAGING_ACCESS_EMAIL" > "$EMAIL_FILE"
-  elif [ ! -f "$EMAIL_FILE" ]; then
-    printf '%s' "staging@madshopper.dk" > "$EMAIL_FILE"
-  fi
-  STAGING_ACCESS_EMAIL="$(cat "$EMAIL_FILE")"
-
-  PASSWORD_FILE="$ROOT/.staging-password"
-  if [ -n "${STAGING_ACCESS_PASSWORD:-}" ]; then
-    printf '%s' "$STAGING_ACCESS_PASSWORD" > "$PASSWORD_FILE"
-  elif [ ! -f "$PASSWORD_FILE" ]; then
-    openssl rand -hex 8 > "$PASSWORD_FILE"
-    echo "Genereret ny STAGING_ACCESS_PASSWORD (gemt i .staging-password)"
-  fi
-  STAGING_ACCESS_PASSWORD="$(cat "$PASSWORD_FILE")"
-
-  # Escapes: en adgangskode med " eller \ i sig brækkede før hele
-  # dist/wrangler.toml, og fejlen så ud som alt andet end en secret.
-  STAGING_EMAIL_LINE="STAGING_ACCESS_EMAIL = \"$(toml_escape "$STAGING_ACCESS_EMAIL")\""
-  STAGING_PASSWORD_LINE="STAGING_ACCESS_PASSWORD = \"$(toml_escape "$STAGING_ACCESS_PASSWORD")\""
-  if [ -z "${CI:-}" ]; then
-    echo "==> Login: ${SITE_URL_VALUE}/staging-login  (${STAGING_ACCESS_EMAIL} / ${STAGING_ACCESS_PASSWORD})"
-  fi
-fi
-
 echo "==> dist/ output"
 rm -rf dist
 mkdir -p dist
@@ -358,8 +324,6 @@ ${PUSH_LINE}
 ${ANALYTICS_LINES}
 ${STAGING_LINK_LINE}
 ${STAGING_SECRET_LINE}
-${STAGING_EMAIL_LINE}
-${STAGING_PASSWORD_LINE}
 ${API_RATE_LIMIT_LINE}
 ${ROUTES_BLOCK}
 WRANGLER
