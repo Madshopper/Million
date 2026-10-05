@@ -1,6 +1,7 @@
 """Midlertidigt tjek af App Store Connect API-nøglen (ASC_KEY_ID, ASC_ISSUER_ID,
 ASC_PRIVATE_KEY). Printer kun statuskoder og offentlige app-oplysninger, aldrig nøglen."""
 import os
+import re
 import sys
 import time
 
@@ -10,8 +11,17 @@ import requests
 BASE = "https://api.appstoreconnect.apple.com"
 
 
+def load_key(raw):
+    """Tåler at nøglen er indsat uden BEGIN/END-linjer eller på én linje."""
+    raw = raw.replace("\\n", "\n").strip()
+    body = "".join(re.sub(r"-----[A-Z ]+-----", "", raw).split())
+    print("Nøglens indhold:", len(body), "tegn (forventet ca. 184)")
+    lines = "\n".join(body[i:i + 64] for i in range(0, len(body), 64))
+    return f"-----BEGIN PRIVATE KEY-----\n{lines}\n-----END PRIVATE KEY-----\n"
+
+
 def token():
-    key = os.environ["ASC_PRIVATE_KEY"].strip().replace("\\n", "\n")
+    key = load_key(os.environ["ASC_PRIVATE_KEY"])
     now = int(time.time())
     return jwt.encode(
         {"iss": os.environ["ASC_ISSUER_ID"].strip(), "iat": now, "exp": now + 900,
