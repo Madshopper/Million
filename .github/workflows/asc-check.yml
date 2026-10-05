@@ -1,0 +1,18 @@
+name: asc-check (midlertidig)
+on:
+  push:
+    branches: [claude/project-thread-artbkp]
+    paths: [scripts/asc-check.py, .github/workflows/asc-check.yml]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install 'pyjwt[crypto]' requests
+      - run: python scripts/asc-check.py
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
