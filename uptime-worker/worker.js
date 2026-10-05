@@ -10,7 +10,7 @@
 // rører hverken D1 eller Supabase.
 //
 // Budget: kun sider der ligger i edge-cachen (forside, kategori, /api/home,
-// /api/stores) plus staging-login-siden, så hvert tjek koster et cache-hit,
+// /api/stores) plus dev-sidens 404, så hvert tjek koster et cache-hit,
 // ikke en render. Den friske søgning er undtagelsen og kører hver 2. time
 // (se SEARCH_CHECK): en ucachet søgning er en D1-tabelscanning på ~19k
 // rows_read, og 288 af dem i døgnet sprænger gratisplanens 5M. Ventetid på
@@ -71,12 +71,14 @@ const CHECKS = [
     expect: (body) => body.includes('"stores":[{'),
   },
   {
-    // Staging er spærret bag login. Login-siden er den eneste sti der svarer
-    // 200 uden adgang, og et GET dér logger ingen sikkerhedshændelse (det gør
-    // alle andre stier, se _staging_blocked i src/worker.py).
-    name: "Staging (dev.madshopper.dk)",
+    // Dev er skjult som /admin: alle uden adgang får 404 (05-10-2026). Det
+    // tjekker vi: workeren svarer, og spærringen er lukket. Netop denne sti
+    // logger ingen sikkerhedshændelse (se _STAGING_PROBE_PATH i src/worker.py).
+    // En 200 her betyder at dev står åben, og det er også en fejl.
+    name: "Dev (dev.madshopper.dk) svarer og er lukket",
     url: "https://dev.madshopper.dk/staging-login",
-    expect: (body) => body.includes("MadShopper staging"),
+    status: 404,
+    expect: (body) => body.trim() === "Not found",
   },
 ];
 
@@ -113,7 +115,8 @@ async function runCheck(check) {
     });
     const ms = Date.now() - started;
     const body = await resp.text();
-    if (resp.status !== 200) {
+    const wantStatus = check.status || 200;
+    if (resp.status !== wantStatus) {
       const busy = resp.headers.get("X-MadShopper-Busy") ? " (travlt)" : "";
       return { ok: false, detail: `HTTP ${resp.status}${busy} efter ${ms} ms` };
     }
@@ -123,9 +126,9 @@ async function runCheck(check) {
     const verdict = check.expect(body);
     if (verdict !== true) {
       const why = typeof verdict === "string" ? verdict : "forventet indhold mangler";
-      return { ok: false, detail: `200 men ${why} (${body.length} bytes) efter ${ms} ms` };
+      return { ok: false, detail: `${wantStatus} men ${why} (${body.length} bytes) efter ${ms} ms` };
     }
-    return { ok: true, detail: `200 på ${ms} ms` };
+    return { ok: true, detail: `${wantStatus} på ${ms} ms` };
   } catch (err) {
     const ms = Date.now() - started;
     const what = err && err.name === "TimeoutError" ? `timeout efter ${TIMEOUT_MS} ms` : String(err);

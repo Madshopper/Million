@@ -1,4 +1,4 @@
- https://dev.madshopper.dk/staging-login 
+ dev.madshopper.dk: brug knappen "Se dev-siden" i madshopper.dk/admin 
 
  cd /Users/kallekanin/Desktop/Million/Million-main/apps/mobile
 npx expo start --dev-client

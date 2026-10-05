@@ -3935,9 +3935,9 @@ def staging_link_sig(secret: str, exp: int) -> str:
 @app.route('/api/admin/staging-link', methods=['GET', 'POST'])
 @rate_limit(api_limiter)
 def admin_staging_link():
-    """Engangslink fra /admin til dev.madshopper.dk uden staging-login.
+    """Engangslink fra /admin til dev.madshopper.dk (eneste vej ind for et menneske).
     Samme adgangsregler som /api/admin/edge: POST, kun admins, ellers 404.
-    Uden STAGING_LINK_SECRET (lokalt, på staging) peges på login-siden."""
+    Uden STAGING_LINK_SECRET (lokalt, på staging) peges blot på dev-siden."""
     if request.method != 'POST' or not _admin_request_ok():
         abort(404)
     body = request.get_json(silent=True) or {}
@@ -3947,7 +3947,7 @@ def admin_staging_link():
         exp = int(time.time()) + _STAGING_LINK_TTL
         url = f'{_STAGING_URL}{path}?t={exp}.{staging_link_sig(secret, exp)}'
     else:
-        url = f'{_STAGING_URL}/staging-login'
+        url = f'{_STAGING_URL}{path}'
     resp = jsonify({'success': True, 'url': url, 'direct': bool(secret)})
     resp.headers.update(_ADMIN_HEADERS)
     return resp
