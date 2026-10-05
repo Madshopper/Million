@@ -1524,13 +1524,13 @@ function updateCartDisplay() {
                     </div>
                 </div>
             `;
-            // Swipe på telefonen (Kalle 05-10-2026): til venstre = én mere,
-            // til højre = hele varen ud. Knapperne virker som før.
+            // Swipe på telefonen (Kalle 05-10-2026): mod venstre = hele varen
+            // ud, mod højre = én mere. Knapperne virker som før.
             const swipe = document.createElement('div');
             swipe.className = 'cart-swipe';
             swipe.innerHTML = '<div class="cart-swipe-bg" aria-hidden="true">'
-                + '<span class="cart-swipe-remove">Fjern fra kurv</span>'
-                + '<span class="cart-swipe-add">Tilføj til kurv</span></div>';
+                + '<span class="cart-swipe-add">Tilføj til kurv</span>'
+                + '<span class="cart-swipe-remove">Fjern fra kurv</span></div>';
             swipe.appendChild(cartItem);
             attachCartSwipe(swipe, cartItem, index);
             cartItems.appendChild(swipe);
@@ -1629,7 +1629,7 @@ function updateCartDisplay() {
 
 /**
  * Swipe på en kurvlinje (kun touch; med mus bruges knapperne).
- * Til venstre: én mere af varen. Til højre: varen fjernes helt, alle stk.
+ * Mod venstre: varen fjernes helt, alle stk. Mod højre: én mere af varen.
  * Samme grænse som appen (SwipeableCartRow.tsx): 30 % af bredden, mindst 80 px.
  */
 function attachCartSwipe(wrap, el, index) {
@@ -1658,7 +1658,7 @@ function attachCartSwipe(wrap, el, index) {
         e.preventDefault();
         dx = mx;
         el.style.transform = `translateX(${dx}px)`;
-        wrap.dataset.dir = dx < 0 ? 'add' : dx > 0 ? 'remove' : '';
+        wrap.dataset.dir = dx < 0 ? 'remove' : dx > 0 ? 'add' : '';
         wrap.classList.toggle('past', Math.abs(dx) >= trigger());
     }, { passive: false });
 
@@ -1667,9 +1667,9 @@ function attachCartSwipe(wrap, el, index) {
         horizontal = null;
         const w = el.offsetWidth;
         el.style.transition = 'transform 0.18s ease';
-        if (!cancelled && dx >= trigger()) {
+        if (!cancelled && dx <= -trigger()) {
             const target = cart[index];
-            el.style.transform = `translateX(${w}px)`;
+            el.style.transform = `translateX(${-w}px)`;
             setTimeout(() => {
                 const current = cart.indexOf(target);
                 if (current !== -1) {
@@ -1681,7 +1681,7 @@ function attachCartSwipe(wrap, el, index) {
             return;
         }
         el.style.transform = '';
-        if (!cancelled && dx <= -trigger()) {
+        if (!cancelled && dx >= trigger()) {
             updateQuantity(index, 1);
             return;
         }
