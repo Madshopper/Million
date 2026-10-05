@@ -1671,6 +1671,9 @@ _PROJECTS = (
              'desc': 'ASC_VENDOR_NUMBER i GitHub, så downloads kan hentes.'},
             {'done': False, 'name': 'Tabeller i databasen',
              'desc': 'scripts/supabase-app-stats.sql køres én gang i Supabase.'},
+            {'done': False, 'name': 'Bed Apple om rapporter',
+             'desc': 'Visninger, sletninger og nedbrud kræver én gang en '
+                     'nøgle med rollen Admin. Den kan slettes bagefter.'},
             {'done': False, 'name': 'Første tal fra Apple',
              'desc': 'Downloads og stjerner kommer dagen efter. Visninger, '
                      'sletninger og nedbrud ca. to døgn senere.'},

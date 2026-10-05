@@ -55,6 +55,7 @@ Skrive-tabellerne (`cart_popularity`, `cart_events`, `price_alerts`, `carts`, `u
 - `supabase-user-savings.sql` - personlig månedlig besparelse (`get_personal_savings` / `record_compare_savings`)
 - `supabase-push.sql` - `push_devices` (+ `_dev`): telefoner/browsere der vil have prisalarmer som besked (`register_push_device` / `unregister_push_device`), se `docs/prisovervaagning.md`
 - `supabase-admin.sql` - admin-panelet `/admin`: `admin_users` + `is_admin()`, `admin_overview`, feedback-tabellen `feedback` + `submit_feedback`-RPC'en (eneste skrivevej for `/api/feedback`, med globalt loft) opskrift-moderering og kørselshistorikken `job_runs` + `admin_job_runs` (fyldes af `scripts/sync-job-runs.py` i `security-monitor.yml`). Skal køres FØR koden deployes, ellers giver feedback-formularen 503. Indsæt din konto i `admin_users` bagefter
+- `supabase-app-stats.sql` - fanen App i `/admin`: `app_store_daily` + `app_store_reviews` (fyldes dagligt af `app-stats.yml` / `scripts/app-store-stats.py` med Apples tal via App Store Connect-nøglen i GitHub-secrets `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_PRIVATE_KEY`, `ASC_VENDOR_NUMBER`) og `admin_app_stats()`. App eller hjemmeside afgøres af login-sessionens user_agent
 - `supabase-rls-audit.sql` (ren læsning), `supabase-lockdown.sql`, `supabase-hardening.sql` - sikkerhed/RLS
 
 ## Miljøer & deploy

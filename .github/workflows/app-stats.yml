@@ -15,8 +15,6 @@ on:
   schedule:
     - cron: '20 17 * * *'
   workflow_dispatch:
-  push:
-    branches: [claude/project-thread-artbkp]
 
 permissions:
   contents: read
@@ -49,7 +47,9 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
           ASC_VENDOR_NUMBER: ${{ secrets.ASC_VENDOR_NUMBER }}
+          # Valgfri, kun til første gang (se scripts/app-store-stats.py).
+          ASC_ADMIN_KEY_ID: ${{ secrets.ASC_ADMIN_KEY_ID }}
+          ASC_ADMIN_PRIVATE_KEY: ${{ secrets.ASC_ADMIN_PRIVATE_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
-          DRY_RUN: ${{ github.event_name == 'push' && '1' || '' }}
         run: python scripts/app-store-stats.py

@@ -20,7 +20,9 @@ så det ses i Kørsler i stedet for at stå grønt uden data.
 
 Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY, ASC_VENDOR_NUMBER,
 SUPABASE_URL, DEPLOY_KEY (service_role). Valgfri: ASC_APP_ID, SALES_DAYS,
-DRY_RUN=1 (hent og vis tallene uden at gemme).
+DRY_RUN=1 (hent og vis tallene uden at gemme), ASC_ADMIN_KEY_ID og
+ASC_ADMIN_PRIVATE_KEY (en nøgle med rollen Admin; kun Admin må bede Apple om
+Analytics-rapporterne første gang, og nøglen kan slettes bagefter).
 """
 import csv
 import gzip
@@ -74,30 +76,34 @@ def load_key(raw: str) -> str:
     return f"-----BEGIN PRIVATE KEY-----\n{lines}\n-----END PRIVATE KEY-----\n"
 
 
-_token: tuple[str, float] | None = None
+_tokens: dict = {}
 
 
-def asc_token() -> str:
-    global _token
+def asc_token(admin: bool = False) -> str:
+    """Adgangsbillet. admin=True bruger den valgfri Admin-nøgle
+    (ASC_ADMIN_KEY_ID/ASC_ADMIN_PRIVATE_KEY), som kun skal bruges én gang."""
+    prefix = "ASC_ADMIN_" if admin else "ASC_"
     now = time.time()
-    if _token and _token[1] > now + 60:
-        return _token[0]
+    cached = _tokens.get(prefix)
+    if cached and cached[1] > now + 60:
+        return cached[0]
     exp = int(now) + 1200   # Apple tillader højst 20 minutter
     tok = jwt.encode(
         {"iss": os.environ["ASC_ISSUER_ID"].strip(), "iat": int(now), "exp": exp,
          "aud": "appstoreconnect-v1"},
-        load_key(os.environ["ASC_PRIVATE_KEY"]), algorithm="ES256",
-        headers={"kid": os.environ["ASC_KEY_ID"].strip(), "typ": "JWT"})
-    _token = (tok, exp)
+        load_key(os.environ[prefix + "PRIVATE_KEY"]), algorithm="ES256",
+        headers={"kid": os.environ[prefix + "KEY_ID"].strip(), "typ": "JWT"})
+    _tokens[prefix] = (tok, exp)
     return tok
 
 
 def asc(path: str, params: dict | None = None, method: str = "GET",
-        body: dict | None = None, accept: str = "application/json") -> tuple[int, bytes]:
+        body: dict | None = None, accept: str = "application/json",
+        admin: bool = False) -> tuple[int, bytes]:
     url = path if path.startswith("http") else ASC + path
     if params:
         url += ("&" if "?" in url else "?") + urllib.parse.urlencode(params)
-    headers = {"Authorization": f"Bearer {asc_token()}", "Accept": accept}
+    headers = {"Authorization": f"Bearer {asc_token(admin)}", "Accept": accept}
     data = None
     if body is not None:
         headers["Content-Type"] = "application/json"
@@ -198,13 +204,19 @@ def ensure_request() -> str | None:
     live = [r for r in reqs if not (r.get("attributes") or {}).get("stoppedDueToInactivity")]
     if live:
         return live[0]["id"]
-    status, raw = asc("/v1/analyticsReportRequests", method="POST", body={
+    # Kun en Admin-nøgle må oprette anmodningen; Sales-nøglen kan læse bagefter.
+    admin = bool((os.environ.get("ASC_ADMIN_KEY_ID") or "").strip()
+                 and (os.environ.get("ASC_ADMIN_PRIVATE_KEY") or "").strip())
+    status, raw = asc("/v1/analyticsReportRequests", method="POST", admin=admin, body={
         "data": {
             "type": "analyticsReportRequests",
             "attributes": {"accessType": "ONGOING"},
             "relationships": {"app": {"data": {"type": "apps", "id": APP_ID}}},
         }
     })
+    if status == 403:
+        raise RuntimeError("nøglen må ikke bede Apple om rapporter. Læg en nøgle med "
+                           "rollen Admin i ASC_ADMIN_KEY_ID og ASC_ADMIN_PRIVATE_KEY én gang")
     if status not in (200, 201):
         raise RuntimeError(f"kunne ikke bede Apple om rapporter ({status}): {raw[:300]!r}")
     log("analytics: anmodning oprettet - Apple leverer de første tal om ca. to døgn")
