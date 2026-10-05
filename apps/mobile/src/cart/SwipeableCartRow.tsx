@@ -4,8 +4,8 @@ import { useTheme } from '../theme/ThemeContext';
 
 /**
  * En kurvlinje man kan swipe på (Kalle 05-10-2026):
- *  - til venstre: én mere af varen ("Tilføj til kurv", grøn)
- *  - til højre: hele varen ud af kurven, alle stk ("Fjern fra kurv", rød)
+ *  - til venstre: hele varen ud af kurven, alle stk ("Fjern fra kurv", rød)
+ *  - til højre: én mere af varen ("Tilføj til kurv", grøn)
  *
  * Knapperne på linjen virker som før; swipe er kun en ekstra vej. Bygget på
  * React Natives egen PanResponder, så appen ikke får et nyt indbygget modul.
@@ -45,9 +45,9 @@ export function SwipeableCartRow({ onAddOne, onRemoveAll, onSwipeActive, childre
       cb.current.onSwipeActive?.(false);
       const w = widthRef.current || 320;
       const trigger = Math.max(TRIGGER_MIN_PX, w * TRIGGER_SHARE);
-      if (dx >= trigger) {
+      if (dx <= -trigger) {
         Animated.timing(translateX, {
-          toValue: w,
+          toValue: -w,
           duration: 160,
           useNativeDriver: true,
         }).start(() => {
@@ -58,7 +58,7 @@ export function SwipeableCartRow({ onAddOne, onRemoveAll, onSwipeActive, childre
         });
         return;
       }
-      if (dx <= -trigger) cb.current.onAddOne();
+      if (dx >= trigger) cb.current.onAddOne();
       Animated.spring(translateX, {
         toValue: 0,
         useNativeDriver: true,
@@ -82,25 +82,25 @@ export function SwipeableCartRow({ onAddOne, onRemoveAll, onSwipeActive, childre
   const w = width || 320;
   // Teksten bag linjen tones frem i den side man swiper mod.
   const removeOpacity = translateX.interpolate({
-    inputRange: [0, 24],
-    outputRange: [0, 1],
+    inputRange: [-24, 0],
+    outputRange: [1, 0],
     extrapolate: 'clamp',
   });
   const addOpacity = translateX.interpolate({
-    inputRange: [-24, 0],
-    outputRange: [1, 0],
+    inputRange: [0, 24],
+    outputRange: [0, 1],
     extrapolate: 'clamp',
   });
   // Lidt større tekst når man er forbi grænsen, så man kan mærke det.
   const trigger = Math.max(TRIGGER_MIN_PX, w * TRIGGER_SHARE);
   const removeScale = translateX.interpolate({
-    inputRange: [trigger - 1, trigger],
-    outputRange: [1, 1.08],
+    inputRange: [-trigger, -trigger + 1],
+    outputRange: [1.08, 1],
     extrapolate: 'clamp',
   });
   const addScale = translateX.interpolate({
-    inputRange: [-trigger, -trigger + 1],
-    outputRange: [1.08, 1],
+    inputRange: [trigger - 1, trigger],
+    outputRange: [1, 1.08],
     extrapolate: 'clamp',
   });
 
@@ -121,7 +121,7 @@ export function SwipeableCartRow({ onAddOne, onRemoveAll, onSwipeActive, childre
         <Animated.View
           style={[
             StyleSheet.absoluteFill,
-            styles.bgLeft,
+            styles.bgRight,
             { backgroundColor: colors.saleSolid, opacity: removeOpacity },
           ]}
         >
@@ -132,7 +132,7 @@ export function SwipeableCartRow({ onAddOne, onRemoveAll, onSwipeActive, childre
         <Animated.View
           style={[
             StyleSheet.absoluteFill,
-            styles.bgRight,
+            styles.bgLeft,
             { backgroundColor: colors.primarySolid, opacity: addOpacity },
           ]}
         >

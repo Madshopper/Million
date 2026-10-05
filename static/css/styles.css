@@ -1928,11 +1928,11 @@ main {
 
 .cart-swipe-remove {
   background: var(--red);
+  justify-content: flex-end;
 }
 
 .cart-swipe-add {
   background: var(--green);
-  justify-content: flex-end;
 }
 
 .cart-swipe[data-dir="remove"] .cart-swipe-remove,
