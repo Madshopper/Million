@@ -20,6 +20,7 @@ import { useStoreCatalog, storesParam } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { Pager } from '../components/Pager';
 import { spokenKr } from '../a11y/speech';
+import { setServerStatsEnabled, trackSearch } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
 
 /**
@@ -75,6 +76,9 @@ export function SearchScreen() {
   // brugeren "mælk" og retter hurtigt til "mælkebøtte": to kald i luften,
   // uden dette vandt det langsomste, uanset hvilket der var nyest).
   const searchControllerRef = useRef<AbortController | null>(null);
+  // Sidst talte søgeord til varestatistikken: et sideskift eller filterskift
+  // på samme søgning må ikke tælle som en ny søgning (samme regel som webben).
+  const countedQueryRef = useRef('');
 
   function cancelAutocomplete() {
     if (acTimeoutRef.current) {
@@ -158,6 +162,7 @@ export function SearchScreen() {
     void fetchHome({ stores: storesParam(queryLabels, catalog) })
       .then((data) => {
         if (cancelled || !data.success) return;
+        setServerStatsEnabled(data.stats_enabled);
         // "Populære varer" passer bedst til en søgeskærm; ellers første
         // sektion med varer (fx "Ugens Tilbud").
         const withProducts = (data.sections || []).filter((s) => s.products?.length);
@@ -194,6 +199,10 @@ export function SearchScreen() {
         controller,
       );
       if (controller.signal.aborted) return;
+      if (countedQueryRef.current !== committedQuery) {
+        countedQueryRef.current = committedQuery;
+        trackSearch(committedQuery);
+      }
       setProducts(r.products || []);
       setTotal(r.total ?? 0);
       setTotalPages(r.total_pages || 1);

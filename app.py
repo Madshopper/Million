@@ -1645,8 +1645,9 @@ _FEATURES = (
             {'kind': 'web', 'name': 'Tæller visninger og søgninger',
              'desc': 'Hjemmesiden sender et samlet tal, når en vare åbnes, og '
                      'når der søges. Ingen cookies.'},
-            {'kind': 'idea', 'name': 'Visninger og søgninger fra appen',
-             'desc': 'Appen tæller i dag kun kurv og prissammenligning.'},
+            {'kind': 'app', 'name': 'Visninger og søgninger fra appen',
+             'desc': 'Appen sender de samme tal som hjemmesiden, når en vare '
+                     'åbnes, og når der søges. Virker fra næste appversion.'},
         ),
     },
 )
@@ -4554,6 +4555,9 @@ def api_home():
             'recipes_clickable': _recipes_enabled(),
             # Appen viser "Beskeder på telefonen" når den er udgivet.
             'push_enabled': _feature_enabled('push'),
+            # Varestatistik: appen tæller visninger og søgninger, når den er
+            # udgivet (apps/mobile/src/stats/stats.ts). cart_event tjekker igen.
+            'stats_enabled': _feature_enabled('stats'),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
                 'available': False,
