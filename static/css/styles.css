@@ -3504,6 +3504,49 @@ footer {
   text-align: center;
 }
 
+/* "Hent i App Store" i Apples eget badge-udtryk (sort, hvid tekst), tegnet
+   lokalt så CSP'en ikke skal tillade et eksternt billede. */
+.footer-appstore {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 11px;
+  border-radius: 9px;
+  background: #000;
+  color: #fff;
+  border: 1px solid #a6a6a6;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.footer-appstore:hover {
+  opacity: 0.85;
+}
+
+.footer-appstore svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.footer-appstore-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.footer-appstore-small {
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+.footer-appstore-big {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
 .footer-bottom p {
   font-size: 0.875rem;
   color: var(--gray-500);
