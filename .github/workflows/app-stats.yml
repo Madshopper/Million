@@ -15,6 +15,8 @@ on:
   schedule:
     - cron: '20 17 * * *'
   workflow_dispatch:
+  push:
+    branches: [claude/project-thread-artbkp]
 
 permissions:
   contents: read
