@@ -163,3 +163,4 @@
                     padding: 10px 12px; margin-bottom: 12px; }
 .adm-modal-remind p { margin: 4px 0 0; }
 .adm-modal-btns { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.adm-stars { color: var(--yellow); letter-spacing: 1px; }

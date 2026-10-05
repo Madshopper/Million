@@ -1658,6 +1658,25 @@ _PROJECTS = (
         ),
     },
     {
+        'key': 'admin_app_stats',
+        'name': 'Appens tal i admin',
+        'status': 'doing',
+        'desc': 'Fanen App i admin: downloads, visninger i App Store, '
+                'nedbrud, stjerner og anmeldelser fra Apple, og hvor mange '
+                'der bruger appen. Hentes hver dag ved 19-tiden.',
+        'parts': (
+            {'done': True, 'name': 'Nøgle til Apple',
+             'desc': 'App Store Connect-nøglen ligger i GitHub og virker.'},
+            {'done': False, 'name': 'Leverandørnummer',
+             'desc': 'ASC_VENDOR_NUMBER i GitHub, så downloads kan hentes.'},
+            {'done': False, 'name': 'Tabeller i databasen',
+             'desc': 'scripts/supabase-app-stats.sql køres én gang i Supabase.'},
+            {'done': False, 'name': 'Første tal fra Apple',
+             'desc': 'Downloads og stjerner kommer dagen efter. Visninger, '
+                     'sletninger og nedbrud ca. to døgn senere.'},
+        ),
+    },
+    {
         'key': 'app_a11y',
         'name': 'Appen for svagtseende',
         'status': 'doing',

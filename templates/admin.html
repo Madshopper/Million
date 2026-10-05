@@ -54,6 +54,7 @@
       <nav class="adm-nav" id="admin-nav">
         <a href="#oversigt" data-section="oversigt">Overblik</a>
         <a href="#trafik" data-section="trafik">Trafik</a>
+        <a href="#app" data-section="app">App</a>
         <a href="#feedback" data-section="feedback">Feedback <span class="adm-badge" id="badge-feedback" hidden></span></a>
         <a href="#scraping" data-section="scraping">Scraping <span class="adm-badge" id="badge-scraping" hidden></span></a>
         <a href="#korsler" data-section="korsler">Kørsler <span class="adm-badge" id="badge-korsler" hidden></span></a>
@@ -102,6 +103,19 @@
             <div class="adm-card"><h2>Browsere</h2><div id="admin-traffic-browsers"></div></div>
             <div class="adm-card"><h2>Serveren i dag</h2><div id="admin-traffic-worker"></div></div>
           </div>
+        </section>
+
+        <section data-section="app" hidden>
+          <div class="adm-head"><h1>App</h1><span class="adm-sub" id="app-sub"></span></div>
+          <div class="adm-tiles" id="admin-app-tiles"></div>
+          <div class="adm-card"><h2>Downloads pr. dag, seneste 14 dage</h2><div id="admin-app-days"></div></div>
+          <div class="adm-grid">
+            <div class="adm-card"><h2>App Store-siden, 30 dage</h2><div id="admin-app-store"></div></div>
+            <div class="adm-card"><h2>Brugere</h2><div id="admin-app-users"></div></div>
+            <div class="adm-card"><h2>Nye brugere pr. uge</h2><div id="admin-app-weeks"></div></div>
+            <div class="adm-card"><h2>Nedbrud, 30 dage</h2><div id="admin-app-crashes"></div></div>
+          </div>
+          <div class="adm-card"><h2>Anmeldelser</h2><div id="admin-app-reviews"></div></div>
         </section>
 
         <section data-section="feedback" hidden>
