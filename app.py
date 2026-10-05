@@ -3363,22 +3363,61 @@ def _build_search_listing(query: str, active_stores, args, page: int):
     page_items, page, total_pages, total = _paginate(all_products, page, per_page)
     return page_items, page, total_pages, total
 
+# Bots der henter sitet for at træne AI eller samle SEO-data. De giver os
+# ingen besøgende, så de bedes holde sig helt væk. Det er kun en høflig
+# besked: de ærlige følger den, en rigtig scraper ignorerer den. Det egentlige
+# værn ligger i Cloudflare (Bot Fight Mode, AI-crawlere blokeret, rate limit
+# i src/worker.py). Søgemaskiner (Googlebot, Bingbot, DuckDuckBot, Applebot)
+# står bevidst IKKE her, og det gør AI-søgning (ChatGPT-søgning, Perplexity)
+# heller ikke: de sender besøgende.
+_ROBOTS_BLOCKED_BOTS = (
+    'GPTBot', 'CCBot', 'ClaudeBot', 'Claude-Web', 'anthropic-ai',
+    'Google-Extended', 'Applebot-Extended', 'Bytespider',
+    'meta-externalagent', 'FacebookBot', 'Amazonbot', 'cohere-ai', 'Diffbot',
+    'omgili', 'ImagesiftBot', 'Timpibot', 'AhrefsBot', 'SemrushBot', 'MJ12bot',
+    'DotBot', 'BLEXBot', 'DataForSeoBot', 'PetalBot', 'serpstatbot',
+)
+
+# Stier søgemaskiner ikke skal hente. /search og filtrerede lister
+# (?sort=, ?stores=, ?min_price= ...) er uendeligt mange varianter, og hver
+# er en frisk render (CPU) og for søgning et D1-opslag. /api/ og /product/ er
+# JSON. /admin står med vilje IKKE her (den må ikke nævnes offentligt; den
+# svarer 404 og har selv noindex).
+_ROBOTS_DISALLOW = (
+    '/api/', '/search', '/product/', '/turnstile-challenge', '/*?',
+)
+# Undtagelser fra '/*?': sidetal og underkategorier er rigtige sider.
+_ROBOTS_ALLOW = ('/*?page=', '/*?subcategory=')
+
+
 @app.route('/robots.txt')
 def robots_txt():
     host = (request.host or '').split(':')[0].lower()
     if host.endswith('.workers.dev'):
         body = 'User-agent: *\nDisallow: /\n'
     else:
-        body = (f'User-agent: *\nAllow: /\n\n'
-                f'Sitemap: {SITE_URL}/sitemap.xml\n')
+        lines = ['User-agent: *', 'Allow: /']
+        lines += [f'Allow: {p}' for p in _ROBOTS_ALLOW]
+        lines += [f'Disallow: {p}' for p in _ROBOTS_DISALLOW]
+        lines.append('')
+        for bot in _ROBOTS_BLOCKED_BOTS:
+            lines += [f'User-agent: {bot}', 'Disallow: /', '']
+        lines.append(f'Sitemap: {SITE_URL}/sitemap.xml')
+        body = '\n'.join(lines) + '\n'
     return Response(body, mimetype='text/plain')
 
 
 @app.route('/sitemap.xml')
 def sitemap_xml():
+    # Kun offentlige sider. Opskrifter kommer først med, når de er udgivet i
+    # Feature-panelet (features_v1 indgår i edge-cache-nøglen, så skiftet slår
+    # igennem uden deploy). Ingen D1-opslag: listen er fast.
     paths = ['/', '/ugens_tilbud', *(
         f'/{slug}' for slug in _PUBLIC_CATEGORY_PATHS
-    ), '/about', '/feedback', '/terms-of-service', '/privatliv']
+    )]
+    if _recipes_enabled():
+        paths.append('/opskrifter')
+    paths += ['/about', '/feedback', '/terms-of-service', '/privatliv']
     urls = '\n'.join(
         f'  <url><loc>{SITE_URL}{path}</loc></url>' for path in paths
     )
@@ -3406,7 +3445,7 @@ def security_txt():
     )
     # Werkzeug tilføjer selv "; charset=utf-8" til text/plain - en charset her
     # ovenpå gav "text/plain; charset=utf-8; charset=utf-8" (fundet under
-    # QA-audit 2026-08-17). robots.txt (linje 2628) gør det allerede rigtigt.
+    # QA-audit 2026-08-17). robots_txt() ovenfor gør det allerede rigtigt.
     return Response(body, mimetype='text/plain')
 
 
