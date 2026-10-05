@@ -23,6 +23,7 @@ import { buildStorePrices } from '../cart/buildStorePrices';
 import { useAuth } from '../auth/AuthContext';
 import { getSupabase } from '../auth/supabase';
 import { rpcName } from '../config/env';
+import { trackView } from '../stats/stats';
 import {
   enablePush,
   getPushState,
@@ -262,6 +263,11 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   );
 
   const labelByKey = useMemo(() => new Map(catalog.map((s) => [s.key, s.label])), [catalog]);
+
+  // Varestatistik: én visning pr. åbnet vare (src/stats/stats.ts).
+  useEffect(() => {
+    trackView(product.id);
+  }, [product.id]);
 
   useEffect(() => {
     let cancelled = false;

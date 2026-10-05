@@ -73,6 +73,8 @@ export type HomeResponse = {
   recipes_clickable?: boolean;
   /** Er "Beskeder på telefonen" udgivet i Feature-panelet (src/push/push.ts)? */
   push_enabled?: boolean;
+  /** Er Varestatistik udgivet i Feature-panelet (src/stats/stats.ts)? */
+  stats_enabled?: boolean;
   /** Stub — reel data hentes client-side via get_personal_savings (JWT). */
   personal_savings: { available: boolean; message: string };
   error?: string;

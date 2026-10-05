@@ -71,6 +71,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Kurv gemt på server pr. bruger | ✅ | ✅ | ✅ `carts` + RLS | ❌ | Complete |
 | Kurv-synk web ↔ app | ✅ | ✅ | ✅ | ❌ | Complete |
 | Anonym kurv-statistik | ✅ | ✅ | ✅ RPC `record_cart_activity` | ❌ | Complete |
+| Varestatistik: visninger og søgninger (Feature `stats`) | ✅ | ✅ | ✅ `/api/cart-event` → `record_cart_activity` (view) / `record_search_activity` | ❌ | Samles og sendes højst hvert 15. sekund; appen sender kun når `/api/home` siger `stats_enabled`, og først fra næste appversion |
 | Gemte lister (maks. 10) | ✅ | ✅ | ✅ | ❌ | Complete |
 | Delt kurv (live, maks. 6 medlemmer) | ✅ | ✅ | ✅ 5 RPC'er | ❌ | Complete |
 | Invitationslink | ✅ | ✅ | ✅ | ❌ | Complete |
@@ -104,7 +105,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | "Følg system"-tema | ✅ | ✅ | – | ✅ | Complete *(web fik det 19-08-2026)* |
 | Standardbutikker | ✅ | ✅ | – | – | Complete |
 | Feedback / meld fejl | ✅ | ✅ | ✅ `/api/feedback` | ❌ | Complete |
-| Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren). Usynlig for alle andre end admins (almindelig 404; adgang tjekkes på serveren via HttpOnly-cookien `ms_session` fra `/api/session`). Eget layout med sidemenu; CSS/JS ligger i `templates/admin/` og indlejres, så intet admin-indhold er en offentlig fil. Brugere-sektionen godkender/fjerner adgang til det private site via `admin_list_users`/`admin_set_approved` (falder tilbage til nyeste brugere, hvis RPC'erne mangler). Kørselshistorik fra GitHub Actions gemt i Supabase `job_runs` (`scripts/sync-job-runs.py` i security-monitor). Fanen Varer (Feature `stats`): dagstotaler i `stats_daily` via `admin_stats`; webben tæller visninger og søgninger, appen kun kurv og prissammenligning (gap) |
+| Admin-panel (`/admin`) | ✅ | ➖ | ✅ `/api/admin/edge` + admin-RPC'er | ➖ | Web-only med vilje (kun ejeren). Usynlig for alle andre end admins (almindelig 404; adgang tjekkes på serveren via HttpOnly-cookien `ms_session` fra `/api/session`). Eget layout med sidemenu; CSS/JS ligger i `templates/admin/` og indlejres, så intet admin-indhold er en offentlig fil. Brugere-sektionen godkender/fjerner adgang til det private site via `admin_list_users`/`admin_set_approved` (falder tilbage til nyeste brugere, hvis RPC'erne mangler). Kørselshistorik fra GitHub Actions gemt i Supabase `job_runs` (`scripts/sync-job-runs.py` i security-monitor). Fanen Varer (Feature `stats`): dagstotaler i `stats_daily` via `admin_stats`; web og app tæller visninger og søgninger (appen via `apps/mobile/src/stats/stats.ts`, fra næste appversion) |
 | Vilkår / privatliv / om os | ✅ | ✅ | – | – | Complete |
 | Opskrifter (bag gate) | ✅ flag | ✅ flag | ✅ | ❌ | Gated - kun med `RECIPES_ENABLED=1` / `EXPO_PUBLIC_RECIPES_ENABLED=1` *(fra som standard; slået til på staging/dev.madshopper.dk via `build-pages.sh` 03-10-2026, aldrig i produktion)* |
 | Forsidens opskrift-teaser | ✅ ikke-klikbar "Kommer snart" | ✅ ikke-klikbar "Kommer snart" | ✅ `recipes_clickable` | ❌ | Begge viser teaseren altid; kortene er kun klikbare med `RECIPES_ENABLED=1` (app: også `EXPO_PUBLIC_RECIPES_ENABLED=1`) *(tilbage på web og app 02-10-2026)* |
