@@ -1524,7 +1524,16 @@ function updateCartDisplay() {
                     </div>
                 </div>
             `;
-            cartItems.appendChild(cartItem);
+            // Swipe på telefonen (Kalle 05-10-2026): til venstre = én mere,
+            // til højre = hele varen ud. Knapperne virker som før.
+            const swipe = document.createElement('div');
+            swipe.className = 'cart-swipe';
+            swipe.innerHTML = '<div class="cart-swipe-bg" aria-hidden="true">'
+                + '<span class="cart-swipe-remove">Fjern fra kurv</span>'
+                + '<span class="cart-swipe-add">Tilføj til kurv</span></div>';
+            swipe.appendChild(cartItem);
+            attachCartSwipe(swipe, cartItem, index);
+            cartItems.appendChild(swipe);
         });
     }
 
@@ -1616,6 +1625,74 @@ function updateCartDisplay() {
 
     // Update cart count
     updateCartCount();
+}
+
+/**
+ * Swipe på en kurvlinje (kun touch; med mus bruges knapperne).
+ * Til venstre: én mere af varen. Til højre: varen fjernes helt, alle stk.
+ * Samme grænse som appen (SwipeableCartRow.tsx): 30 % af bredden, mindst 80 px.
+ */
+function attachCartSwipe(wrap, el, index) {
+    let startX = 0, startY = 0, dx = 0, horizontal = null;
+    const trigger = () => Math.max(80, el.offsetWidth * 0.3);
+
+    el.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) { horizontal = false; return; }
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        dx = 0;
+        horizontal = null;
+    }, { passive: true });
+
+    el.addEventListener('touchmove', (e) => {
+        if (horizontal === false) return;
+        const mx = e.touches[0].clientX - startX;
+        const my = e.touches[0].clientY - startY;
+        if (horizontal === null) {
+            if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+            // Lodret bevægelse ruller kurven som før.
+            horizontal = Math.abs(mx) > Math.abs(my) * 1.5;
+            if (!horizontal) return;
+            el.style.transition = 'none';
+        }
+        e.preventDefault();
+        dx = mx;
+        el.style.transform = `translateX(${dx}px)`;
+        wrap.dataset.dir = dx < 0 ? 'add' : dx > 0 ? 'remove' : '';
+        wrap.classList.toggle('past', Math.abs(dx) >= trigger());
+    }, { passive: false });
+
+    const finish = (cancelled) => {
+        if (!horizontal) { horizontal = null; return; }
+        horizontal = null;
+        const w = el.offsetWidth;
+        el.style.transition = 'transform 0.18s ease';
+        if (!cancelled && dx >= trigger()) {
+            const target = cart[index];
+            el.style.transform = `translateX(${w}px)`;
+            setTimeout(() => {
+                const current = cart.indexOf(target);
+                if (current !== -1) {
+                    cart.splice(current, 1);
+                    saveCart();
+                }
+                updateCartDisplay();
+            }, 180);
+            return;
+        }
+        el.style.transform = '';
+        if (!cancelled && dx <= -trigger()) {
+            updateQuantity(index, 1);
+            return;
+        }
+        setTimeout(() => {
+            wrap.dataset.dir = '';
+            wrap.classList.remove('past');
+            el.style.transition = '';
+        }, 180);
+    };
+    el.addEventListener('touchend', () => finish(false));
+    el.addEventListener('touchcancel', () => finish(true));
 }
 
 function updateQuantity(index, change) {

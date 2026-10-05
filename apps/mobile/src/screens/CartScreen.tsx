@@ -21,6 +21,7 @@ import { cartItemTitle } from '../cart/stripStoreBrand';
 import { useTheme } from '../theme/ThemeContext';
 import { StackScreenBody } from '../components/ScreenBody';
 import { StoreChip } from '../components/StoreChip';
+import { SwipeableCartRow } from '../cart/SwipeableCartRow';
 import { joinLabel, spokenKr } from '../a11y/speech';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -77,6 +78,8 @@ export function CartScreen() {
   const [listsOpen, setListsOpen] = useState(false);
   const [listBusy, setListBusy] = useState<string | null>(null);
   const [loginOverlay, setLoginOverlay] = useState(false);
+  // Listen må ikke rulle, mens man swiper en vare til siden.
+  const [swiping, setSwiping] = useState(false);
 
   const displayTitle = active ? title || 'Fælles kurv' : listTitle;
 
@@ -369,97 +372,117 @@ export function CartScreen() {
     // Butikken vises som et grønt mærkat, så man med det samme kan se hvilken
     // butik hver vare er fra (Kalle 03-10-2026).
     return (
-      <View key={item.id} style={[styles.itemRow, { backgroundColor: colors.surface }]}>
-        {/* Billede og antals-mærkat er med i etiketten nedenfor. */}
-        <View
-          style={styles.thumbWrap}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        >
-          {item.image ? (
-            <Image source={{ uri: item.image }} style={styles.thumb} resizeMode="contain" />
-          ) : (
-            <View style={[styles.thumb, { backgroundColor: colors.border }]} />
-          )}
-          <View style={[styles.qtyBadge, { backgroundColor: colors.text }]}>
-            <Text style={[styles.qtyBadgeText, { color: colors.surface }]}>{item.quantity}</Text>
-          </View>
-        </View>
-
-        <View style={styles.itemBody}>
-          {/* Varens oplysninger som ét element; knapperne under er egne. */}
+      <SwipeableCartRow
+        key={item.id}
+        onAddOne={() => updateQuantity(item.id, item.quantity + 1)}
+        onRemoveAll={() => removeItem(item.id)}
+        onSwipeActive={setSwiping}
+      >
+        <View style={[styles.itemRow, { backgroundColor: colors.surface }]}>
+          {/* Billede og antals-mærkat er med i etiketten nedenfor. */}
           <View
-            accessible
-            accessibilityLabel={joinLabel([
-              cartItemTitle(item),
-              `${item.quantity} stk`,
-              item.store,
-              item.unitMeasure,
-              item.kgPrice ? item.kgPrice.replace('kr/kg', 'kr pr. kilo').replace('.', ',') : null,
-              !item.kgPrice ? item.multiDeal : null,
-              `i alt ${spokenKr(lineTotal)}`,
-            ])}
+            style={styles.thumbWrap}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
           >
-            {item.store || item.unitMeasure ? (
-              <View style={styles.storeRow}>
-                {item.store ? <StoreChip store={item.store} /> : null}
-                {item.unitMeasure ? (
-                  <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                    {item.unitMeasure.toUpperCase()}
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
-            <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
-              {cartItemTitle(item)}
-            </Text>
-            {item.kgPrice ? (
-              <Text style={[styles.itemMeta, { color: colors.textMuted }]}>{item.kgPrice}</Text>
-            ) : item.multiDeal ? (
-              <Text style={[styles.itemMeta, { color: colors.badge }]}>{item.multiDeal}</Text>
-            ) : null}
+            {item.image ? (
+              <Image source={{ uri: item.image }} style={styles.thumb} resizeMode="contain" />
+            ) : (
+              <View style={[styles.thumb, { backgroundColor: colors.border }]} />
+            )}
+            <View style={[styles.qtyBadge, { backgroundColor: colors.text }]}>
+              <Text style={[styles.qtyBadgeText, { color: colors.surface }]}>{item.quantity}</Text>
+            </View>
           </View>
 
-          {/* Etiketterne naevner varen. En kurv med ti linjer har ellers ti
-              identiske "minus"-knapper, og VoiceOver kan ikke skelne dem. */}
-          <View style={styles.qtyControls}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Færre ${item.name}`}
-              onPress={() => updateQuantity(item.id, item.quantity - 1)}
-              style={[styles.qtyCtrl, { borderColor: colors.border }]}
-              hitSlop={6}
+          <View style={styles.itemBody}>
+            {/* Varens oplysninger som ét element; knapperne under er egne. */}
+            {/* Samme to handlinger som swipe, så de også kan bruges med
+                VoiceOver/TalkBack (stryg op/ned og tryk to gange). */}
+            <View
+              accessible
+              accessibilityActions={[
+                { name: 'addOne', label: 'Tilføj én mere til kurven' },
+                { name: 'removeAll', label: 'Fjern fra kurv' },
+              ]}
+              onAccessibilityAction={(e) => {
+                if (e.nativeEvent.actionName === 'addOne') {
+                  updateQuantity(item.id, item.quantity + 1);
+                } else if (e.nativeEvent.actionName === 'removeAll') {
+                  removeItem(item.id);
+                }
+              }}
+              accessibilityLabel={joinLabel([
+                cartItemTitle(item),
+                `${item.quantity} stk`,
+                item.store,
+                item.unitMeasure,
+                item.kgPrice ? item.kgPrice.replace('kr/kg', 'kr pr. kilo').replace('.', ',') : null,
+                !item.kgPrice ? item.multiDeal : null,
+                `i alt ${spokenKr(lineTotal)}`,
+              ])}
             >
-              <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '600' }}>−</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Fjern ${item.name} fra kurven`}
-              onPress={() => removeItem(item.id)}
-              hitSlop={8}
-            >
-              <Text style={{ color: colors.textMuted, fontSize: 12 }}>Fjern</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Flere ${item.name}`}
-              onPress={() => updateQuantity(item.id, item.quantity + 1)}
-              style={[styles.qtyCtrl, { borderColor: colors.border }]}
-              hitSlop={6}
-            >
-              <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '600' }}>+</Text>
-            </Pressable>
+              {item.store || item.unitMeasure ? (
+                <View style={styles.storeRow}>
+                  {item.store ? <StoreChip store={item.store} /> : null}
+                  {item.unitMeasure ? (
+                    <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                      {item.unitMeasure.toUpperCase()}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+              <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
+                {cartItemTitle(item)}
+              </Text>
+              {item.kgPrice ? (
+                <Text style={[styles.itemMeta, { color: colors.textMuted }]}>{item.kgPrice}</Text>
+              ) : item.multiDeal ? (
+                <Text style={[styles.itemMeta, { color: colors.badge }]}>{item.multiDeal}</Text>
+              ) : null}
+            </View>
+
+            {/* Etiketterne naevner varen. En kurv med ti linjer har ellers ti
+                identiske "minus"-knapper, og VoiceOver kan ikke skelne dem. */}
+            <View style={styles.qtyControls}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Færre ${item.name}`}
+                onPress={() => updateQuantity(item.id, item.quantity - 1)}
+                style={[styles.qtyCtrl, { borderColor: colors.border }]}
+                hitSlop={6}
+              >
+                <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '600' }}>−</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Fjern ${item.name} fra kurven`}
+                onPress={() => removeItem(item.id)}
+                hitSlop={8}
+              >
+                <Text style={{ color: colors.textMuted, fontSize: 12 }}>Fjern</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Flere ${item.name}`}
+                onPress={() => updateQuantity(item.id, item.quantity + 1)}
+                style={[styles.qtyCtrl, { borderColor: colors.border }]}
+                hitSlop={6}
+              >
+                <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '600' }}>+</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <View
+            style={styles.itemPriceCol}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <PriceText value={lineTotal} color={colors.text} size={20} />
           </View>
         </View>
-
-        <View
-          style={styles.itemPriceCol}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        >
-          <PriceText value={lineTotal} color={colors.text} size={20} />
-        </View>
-      </View>
+      </SwipeableCartRow>
     );
   };
 
@@ -467,6 +490,7 @@ export function CartScreen() {
     <StackScreenBody style={{ backgroundColor: colors.bg }}>
       <FlatList
         style={{ flex: 1 }}
+        scrollEnabled={!swiping}
         data={groups}
         keyExtractor={([cat]) => cat}
         ListHeaderComponent={header}

@@ -68,6 +68,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Feature | Web | App | Backend | Tests | Status |
 |---|---|---|---|---|---|
 | Kurv: tilføj/fjern/antal | ✅ | ✅ | – | ✅ | Complete |
+| Kurv: swipe på en vare (venstre = én mere, højre = fjern alle stk) | ✅ kun touch | ✅ + skærmlæser-handlinger | ❌ | ❌ | Complete; i appen først fra næste appversion |
 | Kurv gemt på server pr. bruger | ✅ | ✅ | ✅ `carts` + RLS | ❌ | Complete |
 | Kurv-synk web ↔ app | ✅ | ✅ | ✅ | ❌ | Complete |
 | Anonym kurv-statistik | ✅ | ✅ | ✅ RPC `record_cart_activity` | ❌ | Complete |
