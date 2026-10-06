@@ -1532,7 +1532,8 @@ function updateCartDisplay() {
                 + '<span class="cart-swipe-add">Tilføj til kurv</span>'
                 + '<span class="cart-swipe-remove">Fjern fra kurv</span></div>';
             swipe.appendChild(cartItem);
-            attachCartSwipe(swipe, cartItem, index);
+            // Udgives fra Feature-panelet ('swipe') samtidig med appen.
+            if (window.__SWIPE_ON === true) attachCartSwipe(swipe, cartItem, index);
             cartItems.appendChild(swipe);
         });
     }

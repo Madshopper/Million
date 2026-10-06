@@ -71,6 +71,8 @@
     window.__SB_RPC_SUFFIX = {{ rpc_suffix|tojson }};
     // Varestatistik (Feature-panelet 'stats'): tæl visninger og søgninger.
     window.__STATS_ON = {{ 'true' if stats_enabled else 'false' }};
+    // Swipe i kurven (Feature-panelet 'swipe').
+    window.__SWIPE_ON = {{ 'true' if swipe_enabled else 'false' }};
     // Offentligt Google OAuth client-id (samme som i Supabase). Bruges af
     // Google Identity Services (ID-token-flow), så samtykkeskærmen viser
     // madshopper.dk i stedet for supabase.co-callback'en.

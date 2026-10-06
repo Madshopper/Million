@@ -22,6 +22,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { StackScreenBody } from '../components/ScreenBody';
 import { StoreChip } from '../components/StoreChip';
 import { SwipeableCartRow } from '../cart/SwipeableCartRow';
+import { useSwipeEnabled } from '../cart/swipeFlag';
 import { joinLabel, spokenKr } from '../a11y/speech';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -80,6 +81,7 @@ export function CartScreen() {
   const [loginOverlay, setLoginOverlay] = useState(false);
   // Listen må ikke rulle, mens man swiper en vare til siden.
   const [swiping, setSwiping] = useState(false);
+  const swipeEnabled = useSwipeEnabled();
 
   const displayTitle = active ? title || 'Fælles kurv' : listTitle;
 
@@ -377,6 +379,7 @@ export function CartScreen() {
         onAddOne={() => updateQuantity(item.id, item.quantity + 1)}
         onRemoveAll={() => removeItem(item.id)}
         onSwipeActive={setSwiping}
+        enabled={swipeEnabled}
       >
         <View style={[styles.itemRow, { backgroundColor: colors.surface }]}>
           {/* Billede og antals-mærkat er med i etiketten nedenfor. */}
@@ -401,10 +404,14 @@ export function CartScreen() {
                 VoiceOver/TalkBack (stryg op/ned og tryk to gange). */}
             <View
               accessible
-              accessibilityActions={[
-                { name: 'addOne', label: 'Tilføj én mere til kurven' },
-                { name: 'removeAll', label: 'Fjern fra kurv' },
-              ]}
+              accessibilityActions={
+                swipeEnabled
+                  ? [
+                      { name: 'addOne', label: 'Tilføj én mere til kurven' },
+                      { name: 'removeAll', label: 'Fjern fra kurv' },
+                    ]
+                  : undefined
+              }
               onAccessibilityAction={(e) => {
                 if (e.nativeEvent.actionName === 'addOne') {
                   updateQuantity(item.id, item.quantity + 1);

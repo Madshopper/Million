@@ -23,10 +23,18 @@ type Props = {
   onRemoveAll: () => void;
   /** Kaldes når et swipe starter/slutter, så listen kan holde op med at rulle. */
   onSwipeActive?: (active: boolean) => void;
+  /** Fra: linjen vises som før, uden swipe (Feature-panelet 'swipe'). */
+  enabled?: boolean;
   children: React.ReactNode;
 };
 
-export function SwipeableCartRow({ onAddOne, onRemoveAll, onSwipeActive, children }: Props) {
+export function SwipeableCartRow({
+  onAddOne,
+  onRemoveAll,
+  onSwipeActive,
+  enabled = true,
+  children,
+}: Props) {
   const { colors } = useTheme();
   const translateX = useRef(new Animated.Value(0)).current;
   const widthRef = useRef(0);
@@ -104,6 +112,8 @@ export function SwipeableCartRow({ onAddOne, onRemoveAll, onSwipeActive, childre
     outputRange: [1.08, 1],
     extrapolate: 'clamp',
   });
+
+  if (!enabled) return <View>{children}</View>;
 
   return (
     <View
