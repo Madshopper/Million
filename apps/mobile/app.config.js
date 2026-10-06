@@ -81,8 +81,10 @@ const config = {
   name: 'MadShopper',
   slug: 'madshopper',
   // 1.0.0 blev udgivet i App Store 25-09-2026 - hver ny butiksudgave skal
-  // have et højere nummer, ellers afviser Apple den.
-  version: '1.0.3',
+  // have et højere nummer, ellers afviser Apple den. 1.0.3 kom i App Store
+  // 05-10-2026 (bygget fra PR #53's gren). 1.0.4 er den første med swipe i
+  // kurven; app._FEATURES 'swipe' udgives på hjemmesiden, når den er ude.
+  version: '1.0.4',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
