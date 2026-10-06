@@ -103,16 +103,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   itemsRef.current = items;
 
   useEffect(() => {
-    AsyncStorage.getItem(CART_KEY).then((raw) => {
-      if (raw) {
+    // En defekt gemt værdi (ikke en liste) ville vælte kurven ved første
+    // .map, og en fejlet læsning lod `loaded` stå falsk for altid, så intet
+    // nyt i kurven blev gemt. Begge falder nu tilbage til en tom kurv.
+    AsyncStorage.getItem(CART_KEY)
+      .then((raw) => {
+        if (!raw) return;
         try {
-          setItems(JSON.parse(raw) as CartItem[]);
+          const parsed: unknown = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            setItems(parsed.filter((i) => i && typeof i.id === 'string') as CartItem[]);
+          }
         } catch {
           /* ignore */
         }
-      }
-      setLoaded(true);
-    });
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
   }, []);
 
   useEffect(() => {
