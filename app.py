@@ -1661,8 +1661,12 @@ _FEATURES = (
         'desc': 'Swipe på en vare i kurven: mod venstre fjerner varen helt '
                 '(alle stk), mod højre lægger én mere i. Knapperne virker som '
                 'før. Udgives samtidig på hjemmesiden og i appen.',
-        'app': 'Appen kan først swipe i en ny app-version med swipe. Udgiv '
-               'her, når den version er i App Store, så web og app følges ad.',
+        'app': 'Appen kan først swipe fra version 1.0.4. Udgives automatisk '
+               'her, når 1.0.4 er i App Store (feature-auto-publish.yml), så '
+               'web og app følges ad.',
+        # Udgives af scripts/auto-publish-features.py, når denne appversion
+        # er i App Store, medmindre den allerede er sat i panelet.
+        'with_app': '1.0.4',
         'parts': (
             {'kind': 'web', 'name': 'Swipe i kurven på hjemmesiden',
              'desc': 'Kun på telefon og tablet. Med mus bruges knapperne.'},
