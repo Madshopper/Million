@@ -62,6 +62,8 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   STATS_LINE='STATS_ENABLED = "1"'
   # Swipe i kurven (app.py::_FEATURES 'swipe') er altid til på dev.
   SWIPE_LINE='SWIPE_ENABLED = "1"'
+  # "Køl & Mejeri" (app.py::_FEATURES 'mejeri_navn') er altid til på dev.
+  MEJERI_NAVN_LINE='MEJERI_NAVN_ENABLED = "1"'
   # Støt MadShopper-abonnementet (app.py::_FEATURES 'subscription') er altid til på dev.
   SUBSCRIPTION_LINE='SUBSCRIPTION_ENABLED = "1"'
   # Custom domain så staging er nemmere at finde end workers.dev-URL'en
@@ -100,6 +102,7 @@ else
   PUSH_LINE=""
   STATS_LINE=""
   SWIPE_LINE=""
+  MEJERI_NAVN_LINE=""
   SUBSCRIPTION_LINE=""
   # Produktion: ALDRIG overstyrbar. En glemt miljoevariabel i en terminal maa
   # ikke kunne saette beskyttelsen ud af kraft paa det rigtige site.
@@ -332,6 +335,7 @@ ${RECIPES_LINE}
 ${PUSH_LINE}
 ${STATS_LINE}
 ${SWIPE_LINE}
+${MEJERI_NAVN_LINE}
 ${SUBSCRIPTION_LINE}
 ${ANALYTICS_LINES}
 ${STAGING_LINK_LINE}

@@ -57,10 +57,6 @@ _CATEGORY_SLUG_MAP = {
     'Koed_og_fisk': CAT_KOED_FISK,
     'Slik': CAT_SLIK,
 }
-# Visningsnavn når det afviger fra den interne kategori. CAT_MEJERI hedder
-# 'Køl' i data, men menuen siger "Køl & Mejeri" (Kalle 06-10-2026), så
-# overskriften skal sige det samme. Appen bruger samme tekst (categories.ts).
-_CATEGORY_DISPLAY_NAMES = {CAT_MEJERI: 'Køl & Mejeri'}
 _LISTING_PER_PAGE = 60
 _APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -202,6 +198,8 @@ _EDGE_ENV_VARS = (
     'STATS_ENABLED',
     # Kun på staging: swipe i kurven (_FEATURES 'swipe').
     'SWIPE_ENABLED',
+    # Kun på staging: "Køl & Mejeri" som kategorinavn (_FEATURES 'mejeri_navn').
+    'MEJERI_NAVN_ENABLED',
     # Kun på staging: "Støt MadShopper"-abonnementet i appen (_FEATURES 'subscription').
     'SUBSCRIPTION_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
@@ -510,6 +508,8 @@ def _inject_site_meta():
         'stats_enabled': _feature_enabled('stats'),
         # Swipe i kurven (Feature-panelet 'swipe').
         'swipe_enabled': _feature_enabled('swipe'),
+        # "Køl & Mejeri" i kategorimenuen (Feature-panelet 'mejeri_navn').
+        'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
         'vapid_public_key': _VAPID_PUBLIC_KEY,
         # Sandt naar SIDENS render byggede paa ufuldstaendige data (samme
         # isolate-kollision i D1-broen som saetter X-Data-Degraded-headeren,
@@ -1682,6 +1682,24 @@ _FEATURES = (
         ),
     },
     {
+        'key': 'mejeri_navn',
+        'name': 'Køl hedder Køl & Mejeri',
+        'env': 'MEJERI_NAVN_ENABLED',
+        'desc': 'Kategorien "Køl" hedder "Køl & Mejeri" i menuen og som '
+                'overskrift, så mejerivarerne er nemmere at finde. Adressen '
+                '/Mejeri er den samme.',
+        'app': 'Appen kan først vise det nye navn fra version 1.0.4. Udgives '
+               'automatisk her, når 1.0.4 er i App Store '
+               '(feature-auto-publish.yml), så web og app skifter samtidig.',
+        'with_app': '1.0.4',
+        'parts': (
+            {'kind': 'web', 'name': 'Nyt navn på hjemmesiden',
+             'desc': 'Menuen, mobilmenuen og overskriften på /Mejeri.'},
+            {'kind': 'app', 'name': 'Nyt navn i appens kategoriknap',
+             'desc': 'Appen skifter navn, når den er udgivet her.'},
+        ),
+    },
+    {
         'key': 'subscription',
         'name': 'Støt MadShopper (abonnement)',
         'env': 'SUBSCRIPTION_ENABLED',
@@ -1848,6 +1866,15 @@ def _feature_enabled(key: str) -> bool:
         return True
     entry = _feature_flags().get(key)
     return isinstance(entry, dict) and entry.get('on') is True
+
+
+def _category_display_name(category: str) -> str:
+    """Visningsnavn for en intern kategori. CAT_MEJERI hedder 'Køl' i data,
+    men "Køl & Mejeri" når Feature 'mejeri_navn' er udgivet (Kalle 06-10-2026),
+    samtidig med appen (categories.ts). base.html bruger samme flag."""
+    if category == CAT_MEJERI and _feature_enabled('mejeri_navn'):
+        return 'Køl & Mejeri'
+    return category
 
 
 def _supabase_rest_config():
@@ -4504,8 +4531,7 @@ def category(category_name):
                                    current_page=data['page'],
                                    total_pages=data['total_pages'])
         return render_template('category.html',
-                               category_name=_CATEGORY_DISPLAY_NAMES.get(
-                                   data['category_name'], data['category_name']),
+                               category_name=_category_display_name(data['category_name']),
                                products=data['products'],
                                current_page=data['page'],
                                total_pages=data['total_pages'],
@@ -4611,6 +4637,8 @@ def api_home():
             # Swipe i kurven: appen swiper kun, når den er udgivet, så
             # hjemmesiden og appen følges ad (Kalle 06-10-2026).
             'swipe_enabled': _feature_enabled('swipe'),
+            # "Køl & Mejeri": appen skifter kategorinavn samtidig med webben.
+            'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
             # "Støt MadShopper": appen viser abonnementet, når det er udgivet.
             'subscription_enabled': _feature_enabled('subscription'),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
