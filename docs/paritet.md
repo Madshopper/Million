@@ -68,6 +68,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Feature | Web | App | Backend | Tests | Status |
 |---|---|---|---|---|---|
 | Kurv: tilføj/fjern/antal | ✅ | ✅ | – | ✅ | Complete |
+| Kurv: swipe på en vare (venstre = fjern alle stk, højre = én mere), Feature `swipe` | ✅ kun touch | ✅ + skærmlæser-handlinger | ✅ `swipe_enabled` i sidekontekst og `/api/home` | ❌ | Skjult på madshopper.dk, til på dev; udgives fra Feature-panelet samtidig med appversionen, så web og app følges ad |
 | Kurv gemt på server pr. bruger | ✅ | ✅ | ✅ `carts` + RLS | ❌ | Complete |
 | Kurv-synk web ↔ app | ✅ | ✅ | ✅ | ❌ | Complete |
 | Anonym kurv-statistik | ✅ | ✅ | ✅ RPC `record_cart_activity` | ❌ | Complete |

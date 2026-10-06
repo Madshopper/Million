@@ -562,6 +562,7 @@ class Env(Protocol):
     RECIPES_ENABLED: str
     PUSH_ENABLED: str
     STATS_ENABLED: str
+    SWIPE_ENABLED: str
     STAGING_ACCESS_SECRET: str
     # Admin: D1-budget og Trafik-fanen (app.py::_cf_graphql). EdgeKit udleverer
     # KUN deklarerede navne - uden disse to linjer så appen aldrig nøglen,

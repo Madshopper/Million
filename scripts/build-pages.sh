@@ -60,6 +60,8 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   PUSH_LINE='PUSH_ENABLED = "1"'
   # Varestatistik (app.py::_FEATURES 'stats') er altid til på dev.
   STATS_LINE='STATS_ENABLED = "1"'
+  # Swipe i kurven (app.py::_FEATURES 'swipe') er altid til på dev.
+  SWIPE_LINE='SWIPE_ENABLED = "1"'
   # Custom domain så staging er nemmere at finde end workers.dev-URL'en
   # (samme adgangsspærring gælder stadig, se STAGING_ACCESS_SECRET nedenfor).
   ROUTES_BLOCK='
@@ -95,6 +97,7 @@ else
   # Udgives fra Feature-panelet i /admin, ikke med en miljø-vare.
   PUSH_LINE=""
   STATS_LINE=""
+  SWIPE_LINE=""
   # Produktion: ALDRIG overstyrbar. En glemt miljoevariabel i en terminal maa
   # ikke kunne saette beskyttelsen ud af kraft paa det rigtige site.
   RATE_LIMIT_PER_MIN=150
@@ -325,6 +328,7 @@ TABLE_SUFFIX = "${TABLE_SUFFIX_VALUE}"
 ${RECIPES_LINE}
 ${PUSH_LINE}
 ${STATS_LINE}
+${SWIPE_LINE}
 ${ANALYTICS_LINES}
 ${STAGING_LINK_LINE}
 ${STAGING_SECRET_LINE}

@@ -21,6 +21,9 @@ export const lightColors = {
   primaryMuted: '#D6F5E3',
   // Kun til fejl og "slet"-handlinger. Tilbud er gule (deal*), ikke røde.
   sale: '#C62828',
+  // Fast rød flade med hvid tekst, ens i lys og mørk tilstand ("Fjern fra
+  // kurv" bag en vare man swiper).
+  saleSolid: '#C62828',
   // Tilbud: én varm guldgul (#DFA300) overalt, som flade på SPAR-mærket
   // (mørk tekst) og som tekstfarve på tilbudsprisen. Valgt så den kan ses i
   // både lys og mørk tilstand (Kalle 04-10-2026).
@@ -49,6 +52,7 @@ export const darkColors = {
   primaryDark: '#D6F5E3',
   primaryMuted: '#047857',
   sale: '#EF9A9A',
+  saleSolid: '#C62828',
   deal: '#DFA300',
   dealText: '#1A1C19',
   dealInk: '#DFA300',

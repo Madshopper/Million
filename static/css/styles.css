@@ -1899,6 +1899,58 @@ main {
   transition: var(--transition);
 }
 
+/* Swipe på kurvlinjen: farvet tekst bag varen i den side man swiper mod. */
+.cart-swipe {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.cart-swipe-bg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  pointer-events: none;
+}
+
+.cart-swipe-bg span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  opacity: 0;
+  transition: font-size 0.12s ease;
+}
+
+.cart-swipe-remove {
+  background: var(--red);
+  justify-content: flex-end;
+}
+
+.cart-swipe-add {
+  background: var(--green);
+}
+
+.cart-swipe[data-dir="remove"] .cart-swipe-remove,
+.cart-swipe[data-dir="add"] .cart-swipe-add {
+  /* Hele baggrunden får den aktive farve, ikke kun halvdelen. */
+  opacity: 1;
+  flex: 1 0 100%;
+}
+
+.cart-swipe[data-dir="remove"] .cart-swipe-add,
+.cart-swipe[data-dir="add"] .cart-swipe-remove {
+  display: none;
+}
+
+.cart-swipe.past .cart-swipe-bg span {
+  font-size: 0.95rem;
+}
+
 .cart-item.removing {
   opacity: 0;
   transform: translateX(20px);

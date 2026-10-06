@@ -75,6 +75,7 @@ export type HomeResponse = {
   push_enabled?: boolean;
   /** Er Varestatistik udgivet i Feature-panelet (src/stats/stats.ts)? */
   stats_enabled?: boolean;
+  swipe_enabled?: boolean;
   /** Stub — reel data hentes client-side via get_personal_savings (JWT). */
   personal_savings: { available: boolean; message: string };
   error?: string;
