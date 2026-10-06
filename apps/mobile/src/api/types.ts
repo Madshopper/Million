@@ -76,6 +76,9 @@ export type HomeResponse = {
   /** Er Varestatistik udgivet i Feature-panelet (src/stats/stats.ts)? */
   stats_enabled?: boolean;
   swipe_enabled?: boolean;
+  mejeri_navn_enabled?: boolean;
+  /** Er "Støt MadShopper" udgivet i Feature-panelet (src/subscription/)? */
+  subscription_enabled?: boolean;
   /** Stub — reel data hentes client-side via get_personal_savings (JWT). */
   personal_savings: { available: boolean; message: string };
   error?: string;

@@ -30,6 +30,7 @@ import { RouteScreen } from '../screens/RouteScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { LegalScreen } from '../screens/LegalScreen';
+import { SupportScreen } from '../screens/SupportScreen';
 import { isRecoveryUrl, parseSignupLink } from '../auth/recoveryLink';
 import { recipesEnabled } from '../config/env';
 import type { RootStackParamList, TabParamList } from './types';
@@ -343,6 +344,8 @@ export function RootNavigator() {
         {/* Indstillinger var en fane indtil 02-10-2026; nu åbnes de fra Profil. */}
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Indstillinger' }} />
         <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: 'Feedback' }} />
+        {/* Kun nået fra Profil, når 'subscription' er udgivet (SupportScreen). */}
+        <Stack.Screen name="Support" component={SupportScreen} options={{ title: 'Støt MadShopper' }} />
         <Stack.Screen
           name="Legal"
           component={LegalScreen}

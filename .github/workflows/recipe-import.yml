@@ -17,6 +17,10 @@ on:
         description: 'Opskrift-URL til admin-import (tom = kør moderation af ventende bruger-opskrifter)'
         type: string
         default: ''
+      kun_priser:
+        description: 'Kun opskrifternes priser (ingen import/moderation)'
+        type: boolean
+        default: false
 
 concurrency:
   group: recipe-import
@@ -54,7 +58,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Kør opskrift-import/-moderation
-        if: ${{ github.event_name != 'schedule' || steps.feature.outputs.on == 'true' }}
+        if: ${{ !inputs.kun_priser && (github.event_name != 'schedule' || steps.feature.outputs.on == 'true') }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
@@ -75,4 +79,9 @@ jobs:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Manuel start skal regne priserne ud, også mens opskrifterne er
+          # skjult (ellers sprang recipe_pricing.py selv over, selvom
+          # workflowet lover at manuel start altid kører). Natten følger
+          # stadig knappen i Feature-panelet via trinnet ovenfor.
+          RECIPES_ENABLED: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
         run: python recipe_pricing.py

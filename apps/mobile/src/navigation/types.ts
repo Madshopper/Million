@@ -19,5 +19,6 @@ export type RootStackParamList = {
   Auth: undefined;
   Settings: undefined;
   Feedback: undefined;
+  Support: undefined;
   Legal: { kind: 'terms' | 'privacy' | 'about' };
 };
