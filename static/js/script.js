@@ -2669,11 +2669,15 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Function to perform AJAX search
-let searchTimeout = null;
 // Seneste søgeord vist i det flydende panel. Bruges af applyAllFilters til at
 // genhente panelets resultater med nye filtre - søgefeltets aktuelle indhold
 // kan være noget andet, hvis brugeren er begyndt at taste en ny søgning.
 let _lastSearchQuery = '';
+// Søgeord hvis side 1 er ved at blive hentet lige nu (se performSearch).
+let _searchInFlight = null;
+// Løbenummer på seneste hentning. Uden ventetiden kan to søgninger være i
+// luften samtidig; kun svaret på den nyeste må vises.
+let _searchSeq = 0;
 
 // Henter og indsætter en side af søgeresultater (inkl. samme paginerings-UI
 // som kategori-sider) i det flydende søgepanel. Genbruges af både den
@@ -2685,6 +2689,7 @@ function fetchSearchResults(query, page, sporSoegning = true) {
     if (!query) return;
 
     _lastSearchQuery = query;
+    const seq = ++_searchSeq;
     searchResults.style.display = 'block';
     searchTitle.textContent = `Søgeresultater for "${query}"`;
 
@@ -2706,6 +2711,7 @@ function fetchSearchResults(query, page, sporSoegning = true) {
     fetchWithDegradedRetry(`/search?${params.toString()}`)
         .then(response => response.json().then(data => ({ ok: response.ok, data })))
         .then(({ ok, data }) => {
+            if (seq !== _searchSeq) return; // en nyere søgning er sendt
             if (ok && data.html) {
                 wrapper.innerHTML = data.html;
                 attachProductEventListeners();
@@ -2744,8 +2750,12 @@ function fetchSearchResults(query, page, sporSoegning = true) {
             }
         })
         .catch(error => {
+            if (seq !== _searchSeq) return;
             console.error('Search error:', error);
             wrapper.innerHTML = '<div class="error">Der opstod en fejl under søgningen</div>';
+        })
+        .finally(() => {
+            if (_searchInFlight === query) _searchInFlight = null;
         });
 }
 
@@ -2753,10 +2763,6 @@ function performSearch() {
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
     const query = searchInput.value.trim();
-
-    if (searchTimeout) {
-        clearTimeout(searchTimeout);
-    }
 
     // Annullér en ventende/igangværende autocomplete FØR søgningen sendes.
     // Uden dette kan et Enter-tryk lige efter en tastetryks-pause sende
@@ -2781,7 +2787,13 @@ function performSearch() {
     // at browse) skal stå uændrede, så de stadig passer på listen bagved.
     resetFilterPanel(searchFilterPanel());
 
-    searchTimeout = setTimeout(() => fetchSearchResults(query, 1), 500);
+    // Søgningen sendes med det samme. Den startes kun af Enter eller et valgt
+    // forslag (ikke pr. tastetryk), så de 500 ms ventetid her før var ren
+    // forsinkelse på hver eneste søgning. Et ekstra Enter på samme søgning,
+    // mens den stadig hentes, sendes ikke igen.
+    if (query === _searchInFlight) return;
+    _searchInFlight = query;
+    fetchSearchResults(query, 1);
 }
 
 // Klik på sidetal/pil inde i søgepanelet skal blade i panelet i stedet for
