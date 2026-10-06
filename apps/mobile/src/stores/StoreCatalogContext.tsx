@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchStores } from '../api/listing';
 import type { StoreInfo } from '../api/types';
@@ -27,6 +28,12 @@ const STORE_REFRESH_DEBOUNCE_MS = 300;
 // netvaerksblip ved app-start gav ellers et tomt butikskatalog resten af
 // sessionen. /api/stores er statisk og rører ikke D1.
 const STORES_RETRY_DELAYS_MS = [500, 1500];
+
+// Startede appen uden net, blev kataloget staaende tomt resten af sessionen:
+// butikslisten i Indstillinger var tom, og "Vaelg alle" gemte en TOM liste,
+// saa alle butikker var fravalgt efter genstart. Nu proever vi igen, naar
+// appen kommer i forgrunden og med jævne mellemrum, indtil kataloget er hentet.
+const STORES_RELOAD_INTERVAL_MS = 15000;
 
 async function fetchStoresWithRetry(): ReturnType<typeof fetchStores> {
   for (let attempt = 0; ; attempt++) {
@@ -85,50 +92,74 @@ export function StoreCatalogProvider({ children }: { children: React.ReactNode }
     [],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await fetchStoresWithRetry();
-        if (cancelled) return;
-        setCatalog(data.stores);
-        setVersion(data.version);
-        const savedRaw = await AsyncStorage.getItem(STORES_KEY);
-        const savedVersion =
-          parseInt((await AsyncStorage.getItem(VERSION_KEY)) || '0', 10) || 0;
-        let labels: Set<string>;
-        if (savedRaw) {
-          try {
-            labels = new Set(JSON.parse(savedRaw) as string[]);
-          } catch {
-            labels = new Set(data.stores.map((s) => s.label));
-          }
-          for (const label of labelsAddedSince(
-            data.stores_added as Record<string, string[]>,
-            savedVersion,
-            data.version,
-          )) {
-            labels.add(label);
-          }
-        } else {
+  const mounted = useRef(true);
+  const loading = useRef(false);
+  const loaded = useRef(false);
+
+  const loadCatalog = useCallback(async () => {
+    if (loading.current || loaded.current) return;
+    loading.current = true;
+    const cancelled = () => !mounted.current;
+    try {
+      const data = await fetchStoresWithRetry();
+      if (cancelled()) return;
+      loaded.current = true;
+      setCatalog(data.stores);
+      setVersion(data.version);
+      const savedRaw = await AsyncStorage.getItem(STORES_KEY);
+      const savedVersion =
+        parseInt((await AsyncStorage.getItem(VERSION_KEY)) || '0', 10) || 0;
+      let labels: Set<string>;
+      if (savedRaw) {
+        try {
+          labels = new Set(JSON.parse(savedRaw) as string[]);
+        } catch {
           labels = new Set(data.stores.map((s) => s.label));
         }
-        setSelectedLabels(labels);
-        // Foerste indlaesning maa IKKE debounces - saa ville alle skaerme
-        // vente 300 ms ekstra paa deres foerste hentning.
-        setQueryLabels(new Set(labels));
-        await AsyncStorage.setItem(STORES_KEY, JSON.stringify([...labels]));
-        await AsyncStorage.setItem(VERSION_KEY, String(data.version));
-      } catch {
-        // Offline / API nede — tomt katalog; screens viser fejl
-      } finally {
-        if (!cancelled) setReady(true);
+        for (const label of labelsAddedSince(
+          data.stores_added as Record<string, string[]>,
+          savedVersion,
+          data.version,
+        )) {
+          labels.add(label);
+        }
+      } else {
+        labels = new Set(data.stores.map((s) => s.label));
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      // En tom gemt liste (fx "Vælg alle" mens kataloget manglede) betyder
+      // aldrig "ingen butikker": mindst én skal være valgt (se toggleStore).
+      if (labels.size === 0) labels = new Set(data.stores.map((s) => s.label));
+      setSelectedLabels(labels);
+      // Foerste indlaesning maa IKKE debounces - saa ville alle skaerme
+      // vente 300 ms ekstra paa deres foerste hentning.
+      setQueryLabels(new Set(labels));
+      await AsyncStorage.setItem(STORES_KEY, JSON.stringify([...labels]));
+      await AsyncStorage.setItem(VERSION_KEY, String(data.version));
+    } catch {
+      // Offline / API nede — tomt katalog; screens viser fejl, og vi
+      // proever igen (se STORES_RELOAD_INTERVAL_MS).
+    } finally {
+      loading.current = false;
+      if (!cancelled()) setReady(true);
+    }
   }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    void loadCatalog();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void loadCatalog();
+    });
+    const timer = setInterval(() => {
+      if (loaded.current) clearInterval(timer);
+      else void loadCatalog();
+    }, STORES_RELOAD_INTERVAL_MS);
+    return () => {
+      mounted.current = false;
+      sub.remove();
+      clearInterval(timer);
+    };
+  }, [loadCatalog]);
 
   const persist = useCallback(async (labels: Set<string>) => {
     setSelectedLabels(new Set(labels));
@@ -166,6 +197,8 @@ export function StoreCatalogProvider({ children }: { children: React.ReactNode }
   );
 
   const selectAll = useCallback(() => {
+    // Uden katalog (offline-start) ville det gemme en tom liste.
+    if (!catalog.length) return;
     void persist(new Set(catalog.map((s) => s.label)));
   }, [catalog, persist]);
 

@@ -24,6 +24,7 @@ import { useCart } from '../cart/CartContext';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
 import { joinLabel, spokenKr } from '../a11y/speech';
+import { StackScreenBody } from '../components/ScreenBody';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
 
@@ -185,9 +186,9 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
   }
 
   return (
-    <View style={{ height: bodyHeight, backgroundColor: colors.bg }}>
+    <StackScreenBody style={{ backgroundColor: colors.bg }}>
       <ScrollView
-        style={{ height: bodyHeight }}
+        style={{ flex: 1 }}
         contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
         showsVerticalScrollIndicator
       >
@@ -424,7 +425,7 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
           </>
         ) : null}
       </ScrollView>
-    </View>
+    </StackScreenBody>
   );
 }
 

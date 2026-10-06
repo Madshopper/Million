@@ -12,10 +12,8 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
-import { useHeaderHeight } from '@react-navigation/elements';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchNutrition, fetchPriceHistory, type Nutrition } from '../api/productExtras';
 import type { PricePoint, PriceSeries } from '../components/PriceHistoryChart';
@@ -39,6 +37,7 @@ import { StoreDot } from '../components/StoreChip';
 import { joinLabel, spokenKr } from '../a11y/speech';
 import type { RootStackParamList } from '../navigation/types';
 import type { Product, StoreInfo } from '../api/types';
+import { StackScreenBody } from '../components/ScreenBody';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetail'>;
 
@@ -160,9 +159,6 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   const { user } = useAuth();
   const { addItem } = useCart();
   const { catalog, selectedLabels } = useStoreCatalog();
-  const { height: windowHeight } = useWindowDimensions();
-  const headerHeight = useHeaderHeight();
-  const bodyHeight = Math.max(240, windowHeight - headerHeight);
 
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -396,9 +392,9 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   };
 
   return (
-    <View style={{ height: bodyHeight, backgroundColor: colors.bg }}>
+    <StackScreenBody style={{ backgroundColor: colors.bg }}>
       <ScrollView
-        style={{ height: bodyHeight }}
+        style={{ flex: 1 }}
         contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
         scrollEnabled
         bounces
@@ -834,7 +830,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
           </View>
         </View>
       </Modal>
-    </View>
+    </StackScreenBody>
   );
 }
 
