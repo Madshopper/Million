@@ -198,6 +198,8 @@ _EDGE_ENV_VARS = (
     'STATS_ENABLED',
     # Kun på staging: swipe i kurven (_FEATURES 'swipe').
     'SWIPE_ENABLED',
+    # Kun på staging: "Støt MadShopper"-abonnementet i appen (_FEATURES 'subscription').
+    'SUBSCRIPTION_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -1673,6 +1675,24 @@ _FEATURES = (
             {'kind': 'app', 'name': 'Swipe i kurven i appen',
              'desc': 'Med de samme to handlinger til skærmlæseren '
                      '(VoiceOver/TalkBack).'},
+        ),
+    },
+    {
+        'key': 'subscription',
+        'name': 'Støt MadShopper (abonnement)',
+        'env': 'SUBSCRIPTION_ENABLED',
+        'desc': 'Frivilligt månedligt abonnement i appen, betalt via Apple. '
+                'Alt i appen er stadig gratis; støtterne får et Støtter-mærke '
+                'på deres profil. Udgiv først, når produktet er oprettet og '
+                'godkendt i App Store Connect (docs/abonnement.md).',
+        'app': 'Kræver en ny app-version med abonnementet. Kun iPhone indtil '
+               'videre. Hjemmesiden sælger det ikke.',
+        'parts': (
+            {'kind': 'app', 'name': '"Støt MadShopper" på Profil',
+             'desc': 'Skærm med pris, køb, gendan køb og links til vilkår. '
+                     'Vises kun når den er udgivet her.'},
+            {'kind': 'app', 'name': 'Støtter-mærke',
+             'desc': 'Står under navnet på Profil, mens abonnementet er aktivt.'},
         ),
     },
 )
@@ -4586,6 +4606,8 @@ def api_home():
             # Swipe i kurven: appen swiper kun, når den er udgivet, så
             # hjemmesiden og appen følges ad (Kalle 06-10-2026).
             'swipe_enabled': _feature_enabled('swipe'),
+            # "Støt MadShopper": appen viser abonnementet, når det er udgivet.
+            'subscription_enabled': _feature_enabled('subscription'),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
                 'available': False,
