@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CATEGORY_LINKS } from '../categories/categories';
+import { CATEGORY_LINKS, useCategoryLinks } from '../categories/categories';
 import { useTheme } from '../theme/ThemeContext';
 
 type CategoryLink = (typeof CATEGORY_LINKS)[number];
@@ -33,6 +33,7 @@ type Props = {
 export function CategoriesDrawer({ visible, onClose, onSelect }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const categoryLinks = useCategoryLinks();
   const { width: windowWidth } = useWindowDimensions();
   const drawerWidth = Math.min(320, Math.round(windowWidth * 0.8));
 
@@ -108,7 +109,7 @@ export function CategoriesDrawer({ visible, onClose, onSelect }: Props) {
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={{ paddingVertical: 8, paddingBottom: insets.bottom + 16 }}>
-            {CATEGORY_LINKS.map((c) => {
+            {categoryLinks.map((c) => {
               const isSale = c.slug === 'sale';
               return (
                 <Pressable
