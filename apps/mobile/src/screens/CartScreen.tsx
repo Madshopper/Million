@@ -193,6 +193,21 @@ export function CartScreen() {
     );
   };
 
+  /** Samme bekræftelse som webbens clearCart() i script.js: et fejltryk
+   *  tømte ellers hele kurven (og i en delt kurv alle medlemmers). */
+  const confirmClearCart = () => {
+    Alert.alert(
+      'Tøm kurven?',
+      active
+        ? 'Det rammer hele gruppens fælles kurv og kan ikke fortrydes.'
+        : 'Det kan ikke fortrydes.',
+      [
+        { text: 'Annullér', style: 'cancel' },
+        { text: 'Tøm kurv', style: 'destructive', onPress: () => clearCart() },
+      ],
+    );
+  };
+
   const goAddItem = () => {
     navigation.navigate('Tabs', { screen: 'Search' });
   };
@@ -345,7 +360,7 @@ export function CartScreen() {
             <Pressable
               onPress={() => {
                 setMenuOpen(false);
-                clearCart();
+                confirmClearCart();
               }}
               style={styles.menuItem}
               accessibilityRole="button"

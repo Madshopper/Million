@@ -2245,17 +2245,44 @@ def _promote_match_to_product(product: dict, store_key: str, match: dict) -> dic
     return out
 
 
+def _promote_rema_to_product(product: dict, rema_price: float) -> dict:
+    """Vis kortet som Rema-varen. rema_price er Remas effektive pris (tilbud
+    indregnet); førprisen gemmes ikke, så kortet vises uden SPAR-beløb."""
+    out = dict(product)
+    out['/product/store'] = 'Rema 1000'
+    out['/product/price'] = rema_price
+    out['/product/sale_price'] = None
+    out['/product/multi_deal'] = ''
+    rema_img = str(product.get('/product/rema_image') or '').strip()
+    if rema_img and rema_img.lower() != 'nan':
+        out['/product/imageLink'] = rema_img
+    out['/product/cheapest_at'] = 'rema'
+    return out
+
+
 def product_for_active_stores(product: dict, active_stores: set | None) -> dict | None:
     if not product_available_at_active_stores(product, active_stores):
         return None
-    if active_stores is None or 'Rema 1000' in active_stores:
+    if active_stores is None:
         return product
     display_store = product.get('/product/store', 'Rema 1000')
     if display_store in active_stores:
         return product
+    # Visningsbutikken er fravalgt. Før returnerede vi kortet uændret, så snart
+    # Rema 1000 var valgt - men de fleste kort er Rema-varer, som updateren har
+    # "forfremmet" til den billigste butik (fx Føtex), så brugeren fik vist
+    # tilbud "hos Føtex" med Føtex fravalgt. Nu vælges den billigste VALGTE
+    # butik, med Rema-prisen som en af kandidaterne.
     matches = product.get('/product/store_matches') or {}
     best_key = None
     best_price = None
+    if 'Rema 1000' in active_stores:
+        try:
+            rema_price = float(product.get('/product/rema_price') or 0)
+        except (TypeError, ValueError):
+            rema_price = 0
+        if rema_price > 0:
+            best_key, best_price = 'rema', rema_price
     for key, match in matches.items():
         label = _STORE_CONFIGS.get(key, {}).get('label')
         if label not in active_stores:
@@ -2269,6 +2296,8 @@ def product_for_active_stores(product: dict, active_stores: set | None) -> dict 
         if best_price is None or price < best_price:
             best_price = price
             best_key = key
+    if best_key == 'rema':
+        return _promote_rema_to_product(product, best_price)
     if best_key:
         return _promote_match_to_product(product, best_key, matches[best_key])
     return None
