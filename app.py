@@ -57,6 +57,10 @@ _CATEGORY_SLUG_MAP = {
     'Koed_og_fisk': CAT_KOED_FISK,
     'Slik': CAT_SLIK,
 }
+# Visningsnavn når det afviger fra den interne kategori. CAT_MEJERI hedder
+# 'Køl' i data, men menuen siger "Køl & Mejeri" (Kalle 06-10-2026), så
+# overskriften skal sige det samme. Appen bruger samme tekst (categories.ts).
+_CATEGORY_DISPLAY_NAMES = {CAT_MEJERI: 'Køl & Mejeri'}
 _LISTING_PER_PAGE = 60
 _APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -4500,7 +4504,8 @@ def category(category_name):
                                    current_page=data['page'],
                                    total_pages=data['total_pages'])
         return render_template('category.html',
-                               category_name=data['category_name'],
+                               category_name=_CATEGORY_DISPLAY_NAMES.get(
+                                   data['category_name'], data['category_name']),
                                products=data['products'],
                                current_page=data['page'],
                                total_pages=data['total_pages'],

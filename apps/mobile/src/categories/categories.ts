@@ -14,7 +14,7 @@ type IconName = ComponentProps<typeof Ionicons>['name'];
 export const CATEGORY_LINKS: Array<{ label: string; slug: string; icon: IconName }> = [
   { label: 'Ugens Tilbud', slug: 'sale', icon: 'pricetag-outline' },
   { label: 'Kolonial', slug: 'Kolonial', icon: 'basket-outline' },
-  { label: 'Køl', slug: 'Mejeri', icon: 'egg-outline' },
+  { label: 'Køl & Mejeri', slug: 'Mejeri', icon: 'egg-outline' },
   { label: 'Kød & Fisk', slug: 'Koed_og_fisk', icon: 'fish-outline' },
   { label: 'Frugt & Grønt', slug: 'Frugt_og_groent', icon: 'nutrition-outline' },
   { label: 'Drikkevarer', slug: 'Drikkevarer', icon: 'wine-outline' },
