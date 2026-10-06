@@ -9,6 +9,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { env } from '../config/env';
 import { PriceAlertsSection } from '../components/PriceAlertsSection';
 import type { RootStackParamList } from '../navigation/types';
+import { useSupport } from '../subscription/subscription';
 
 /**
  * Profil-fanen (erstattede fanen "Indstillinger" 02-10-2026).
@@ -24,6 +25,7 @@ export function ProfileScreen() {
   const { user, displayName, logout, saveDisplayName } = useAuth();
   const { active, title, members, maxMembers, inviteUrl, createShared, leaveShared } = useSharedCart();
   const [sharing, setSharing] = React.useState(false);
+  const support = useSupport();
 
   // Samme standardnavn som kurvens "Del kurv" (CartScreen), så man kan starte
   // en fælles kurv direkte herfra uden at lede efter "···"-menuen.
@@ -87,6 +89,9 @@ export function ProfileScreen() {
             }
           >
             <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>{shownName}</Text>
+            {support.enabled && support.active ? (
+              <Text style={{ color: colors.primaryDark, fontSize: 12, fontWeight: '700' }}>Støtter</Text>
+            ) : null}
             <Text style={{ color: colors.textMuted, fontSize: 12 }}>{user.email}</Text>
           </View>
           <Pressable onPress={() => void logout()} hitSlop={8} accessibilityRole="button">
@@ -237,6 +242,27 @@ export function ProfileScreen() {
       ) : null}
 
       <PriceAlertsSection />
+
+      {/* "Støt MadShopper" (Feature-panelet 'subscription'): kun når den er
+          udgivet, og kun på iPhone, hvor den kan købes. */}
+      {support.enabled && support.available ? (
+        <Pressable
+          onPress={() => navigation.navigate('Support')}
+          style={[styles.row, card, { marginTop: 20 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Støt MadShopper"
+          accessibilityHint={support.active ? 'Du støtter allerede. Tak' : 'Månedligt bidrag via App Store'}
+        >
+          <Ionicons name="heart-outline" size={20} color={colors.primary} style={{ marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontWeight: '600' }}>Støt MadShopper</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+              {support.active ? 'Du støtter allerede. Tak' : 'Hjælp med at holde appen gratis'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
+      ) : null}
 
       <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
         Indstillinger og hjælp

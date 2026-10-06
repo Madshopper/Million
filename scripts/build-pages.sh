@@ -62,6 +62,8 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   STATS_LINE='STATS_ENABLED = "1"'
   # Swipe i kurven (app.py::_FEATURES 'swipe') er altid til på dev.
   SWIPE_LINE='SWIPE_ENABLED = "1"'
+  # Støt MadShopper-abonnementet (app.py::_FEATURES 'subscription') er altid til på dev.
+  SUBSCRIPTION_LINE='SUBSCRIPTION_ENABLED = "1"'
   # Custom domain så staging er nemmere at finde end workers.dev-URL'en
   # (samme adgangsspærring gælder stadig, se STAGING_ACCESS_SECRET nedenfor).
   ROUTES_BLOCK='
@@ -98,6 +100,7 @@ else
   PUSH_LINE=""
   STATS_LINE=""
   SWIPE_LINE=""
+  SUBSCRIPTION_LINE=""
   # Produktion: ALDRIG overstyrbar. En glemt miljoevariabel i en terminal maa
   # ikke kunne saette beskyttelsen ud af kraft paa det rigtige site.
   RATE_LIMIT_PER_MIN=150
@@ -329,6 +332,7 @@ ${RECIPES_LINE}
 ${PUSH_LINE}
 ${STATS_LINE}
 ${SWIPE_LINE}
+${SUBSCRIPTION_LINE}
 ${ANALYTICS_LINES}
 ${STAGING_LINK_LINE}
 ${STAGING_SECRET_LINE}
