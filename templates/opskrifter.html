@@ -7,6 +7,11 @@
   <div class="container-category">
     <h1 class="category-title">Opskrifter</h1>
 
+    {# Madplan: spørgsmål første gang + planen (static/js/madplan.js) #}
+    <div id="madplanRoot" class="mp-root"></div>
+
+    <div id="recipesListSection">
+    <h2 class="mp-list-title">Alle opskrifter</h2>
     <div class="recipe-search-bar">
       <span class="recipe-search-icon">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
@@ -20,9 +25,11 @@
 
     <div class="products" id="recipesGrid"></div>
     <p id="recipesEmptyState" class="recipes-empty-state" style="display:none;">Ingen opskrifter matcher din søgning.</p>
+    </div>
   </div>
 </div>
 
+<script src="{{ url_for('static', filename='js/madplan.js') }}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const grid = document.getElementById('recipesGrid');
@@ -94,6 +101,7 @@
         .then(function (data) {
           allRecipes = (data && data.recipes) || [];
           render(allRecipes);
+          startMadplan();
         })
         .catch(function () {
           if (attemptsLeft > 0) {
@@ -105,6 +113,17 @@
           emptyState.textContent = 'Kunne ikke hente opskrifter lige nu. Prøv at genindlæse siden.';
           emptyState.style.display = 'block';
         });
+    }
+
+    // Første gang: spørgsmålene fylder siden, og listen kommer frem, når
+    // planen er lavet. Bagefter står planen øverst over listen.
+    const listSection = document.getElementById('recipesListSection');
+    function startMadplan() {
+      if (!window.MadPlan || !allRecipes.length) return;
+      const hasPlan = window.MadPlan.init(document.getElementById('madplanRoot'), allRecipes, {
+        onPlan: function () { listSection.style.display = ''; }
+      });
+      if (!hasPlan) listSection.style.display = 'none';
     }
 
     loadRecipes(1);

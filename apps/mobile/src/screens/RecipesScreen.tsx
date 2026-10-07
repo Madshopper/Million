@@ -5,18 +5,37 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fetchRecipes, type Recipe } from '../api/recipes';
 import { RecipeCard } from '../components/RecipeCard';
 import { TabScreenBody } from '../components/ScreenBody';
+import { MealPlanWizard } from '../recipes/MealPlanWizard';
+import { MealPlanView } from '../recipes/MealPlanView';
+import { defaultPrefs, loadPrefs, savePrefs, type MealPrefs } from '../recipes/mealPlan';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
 
 /** Opskrift-fanen: EGEN søgning, adskilt fra SearchScreen (produkter).
  * Web-paritet med templates/opskrifter.html - søger kun i den allerede
- * hentede opskrift-liste (client-side substring på titel), aldrig produkter. */
+ * hentede opskrift-liste (client-side substring på titel), aldrig produkter.
+ *
+ * Madplan: første gang stilles spørgsmålene (MealPlanWizard), bagefter står
+ * planen øverst over listen (MealPlanView). Svarene gemmes kun på telefonen. */
 export function RecipesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
+  // undefined = henter stadig de gemte svar, null = ingen svar endnu.
+  const [prefs, setPrefs] = useState<MealPrefs | null | undefined>(undefined);
+  const [editing, setEditing] = useState(false);
+  const [thinking, setThinking] = useState(false);
+
+  useEffect(() => {
+    loadPrefs().then((p) => setPrefs(p && p.done ? p : null));
+  }, []);
+
+  const changePrefs = (p: MealPrefs) => {
+    setPrefs(p);
+    savePrefs(p);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -42,9 +61,56 @@ export function RecipesScreen() {
     return recipes.filter((r) => r.title.toLowerCase().includes(query));
   }, [recipes, q]);
 
-  return (
-    <TabScreenBody style={{ backgroundColor: colors.bg }}>
-      <TextInput
+  const openRecipe = (r: Recipe) => navigation.navigate('RecipeDetail', { recipeId: r.id });
+
+  if (loading || prefs === undefined) {
+    return (
+      <TabScreenBody style={{ backgroundColor: colors.bg }}>
+        <ActivityIndicator
+          color={colors.primary}
+          style={{ marginTop: 20 }}
+          accessibilityLabel="Henter opskrifter"
+        />
+      </TabScreenBody>
+    );
+  }
+
+  if (recipes.length && (prefs === null || editing)) {
+    return (
+      <TabScreenBody style={{ backgroundColor: colors.bg }}>
+        <MealPlanWizard
+          recipes={recipes}
+          initial={prefs || defaultPrefs()}
+          onCancel={prefs ? () => setEditing(false) : undefined}
+          onDone={(p) => {
+            changePrefs(p);
+            setEditing(false);
+            setThinking(true);
+            setTimeout(() => setThinking(false), 1100);
+          }}
+        />
+      </TabScreenBody>
+    );
+  }
+
+  if (thinking) {
+    return (
+      <TabScreenBody style={{ backgroundColor: colors.bg }}>
+        <View style={styles.thinking} accessibilityLiveRegion="polite">
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={[styles.thinkingTitle, { color: colors.text }]}>
+            Finder retter du vil kunne lide…
+          </Text>
+          <Text style={{ color: colors.textMuted, textAlign: 'center' }}>
+            Vi kigger opskrifterne igennem og regner priserne ud i butikkerne.
+          </Text>
+        </View>
+      </TabScreenBody>
+    );
+  }
+
+  const searchInput = (
+    <TextInput
         value={q}
         onChangeText={setQ}
         placeholder="Søg efter opskrifter…"
@@ -55,20 +121,41 @@ export function RecipesScreen() {
           { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
         ]}
       />
-      {loading ? (
-        <ActivityIndicator
-          color={colors.primary}
-          style={{ marginTop: 20 }}
-          accessibilityLabel="Henter opskrifter"
+  );
+
+  const header = (
+    <View>
+      {prefs ? (
+        <MealPlanView
+          recipes={recipes}
+          prefs={prefs}
+          onChange={changePrefs}
+          onEdit={() => setEditing(true)}
+          onOpen={openRecipe}
         />
-      ) : filtered.length === 0 ? (
+      ) : null}
+      {searchInput}
+    </View>
+  );
+
+  return (
+    <TabScreenBody style={{ backgroundColor: colors.bg }}>
+      {recipes.length === 0 ? (
         <View style={{ padding: 16 }}>
           <Text style={{ color: colors.textMuted }} accessibilityLiveRegion="polite">
-            {q.trim() ? 'Ingen opskrifter matcher din søgning.' : 'Ingen opskrifter endnu.'}
+            Ingen opskrifter endnu.
           </Text>
         </View>
       ) : (
         <FlatList
+          ListHeaderComponent={header}
+          ListEmptyComponent={
+            <View style={{ padding: 16 }}>
+              <Text style={{ color: colors.textMuted }} accessibilityLiveRegion="polite">
+                Ingen opskrifter matcher din søgning.
+              </Text>
+            </View>
+          }
           style={{ flex: 1 }}
           data={filtered}
           keyExtractor={(r) => String(r.id)}
@@ -77,12 +164,7 @@ export function RecipesScreen() {
           contentContainerStyle={{ padding: 4 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator
-          renderItem={({ item }) => (
-            <RecipeCard
-              recipe={item}
-              onPress={(r) => navigation.navigate('RecipeDetail', { recipeId: r.id })}
-            />
-          )}
+          renderItem={({ item }) => <RecipeCard recipe={item} onPress={openRecipe} />}
         />
       )}
     </TabScreenBody>
@@ -90,6 +172,8 @@ export function RecipesScreen() {
 }
 
 const styles = StyleSheet.create({
+  thinking: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  thinkingTitle: { fontSize: 22, fontWeight: '800', textAlign: 'center' },
   input: {
     margin: 12,
     borderWidth: 1,
