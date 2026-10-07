@@ -579,6 +579,7 @@ def types_compatible(type_a: str | None, type_b: str | None) -> bool:
 
 
 
+# Kalles liste over kædernes egne mærker (07-10-2026) er indarbejdet her.
 _PRIVATE_LABEL_BRANDS: frozenset = frozenset({
     # Rema 1000 – basisbrand + øvrige egne mærker
     'rema 1000', 'rema',
@@ -588,6 +589,7 @@ _PRIVATE_LABEL_BRANDS: frozenset = frozenset({
     # Salling Group – basisbrand + øvrige egne mærker
     'salling', 'salling øko', 'øgo', 'ogo', 'næmt', 'salling nu', 'salling princip',
     'budget', 'princip', 'levevis', 'vrs', 'spir', 'nemt', 'hello sensitive',
+    'salling fri', 'netto', 'føtex', 'foetex', 'bilka',
     # Salling Group – kød-private labels
     'slagteren', 'bornholmer slagteren', 'den grønne slagter',
     # Coop – kædemærker og egne mærker
@@ -603,6 +605,8 @@ _PRIVATE_LABEL_BRANDS: frozenset = frozenset({
     'meny', 'spar', 'min kobmand', 'min købmand', 'let-kob', 'let-køb',
     # Lidl – egne mærker
     'lidl', 'milbona', 'crownfield', 'combino', 'deluxe', 'harvest basket',
+    'pilos', 'fin carré', 'fin carre', 'alesto', 'sondey', 'freeway', 'freshona',
+    'chef select',
     # Løvbjerg / ABC Lavpris
     'lovbjerg', 'løvbjerg', 'abc lavpris', 'abc',
     'vita d\'or', 'snack day', 'madværket', 'italiamo', 'belbake', 'parkside',
@@ -616,6 +620,8 @@ _PRIVATE_LABEL_PREFIXES: tuple = (
     'vores ', 'karma ', 'cirkel ',
     'omhu ', 'spicefield ', 'banderos ', 'praktisk ',
     'milbona ', 'crownfield ', 'combino ', 'deluxe ', 'harvest basket ',
+    'pilos ', 'fin carré ', 'alesto ', 'sondey ', 'freeway ', 'freshona ',
+    'chef select ',
     'vita d\'or ', 'madværket ', 'italiamo ',
 )
 
