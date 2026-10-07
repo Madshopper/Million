@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import type { Recipe } from '../api/recipes';
-import { DAYS, MAX_PEOPLE, MOODS, krRound, krText, makePlan, type MealPrefs } from './mealPlan';
+import { DAYS, MAX_PEOPLE, MOODS, krRound, krText, makePlan, weeklyBudget, type MealPrefs } from './mealPlan';
 
 type Props = {
   recipes: Recipe[];
@@ -16,15 +16,16 @@ type Props = {
 export function MealPlanView({ recipes, prefs: p, onChange, onEdit, onOpen }: Props) {
   const { colors } = useTheme();
   const plan = useMemo(() => makePlan(recipes, p), [recipes, p]);
-  const pct = Math.min(100, Math.round((plan.total / p.budget) * 100));
-  const over = plan.total > p.budget;
+  const week = weeklyBudget(p);
+  const pct = Math.min(100, Math.round((plan.total / week) * 100));
+  const over = plan.total > week;
 
   let note = '';
   if (!plan.meals.length) {
     note = plan.eligible
       ? 'Ingen retter passer inden for budgettet. Prøv at sætte budgettet op.'
       : 'Ingen af vores opskrifter passer til dine svar endnu. Der kommer flere opskrifter løbende.';
-  } else if (plan.meals.length < DAYS.length) {
+  } else if (plan.meals.length < p.days) {
     note = `Vi fandt ${plan.meals.length} ${plan.meals.length === 1 ? 'ret' : 'retter'} der passer. Der kommer flere opskrifter løbende.`;
   }
 
@@ -49,15 +50,20 @@ export function MealPlanView({ recipes, prefs: p, onChange, onEdit, onOpen }: Pr
         <View
           style={[styles.sumCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
           accessible
-          accessibilityLabel={`Cirka pris ${krText(plan.total)} af et budget på ${krRound(p.budget)}`}
+          accessibilityLabel={`Cirka pris ${krText(plan.total)} af et budget på ${krRound(week)} om ugen`}
         >
           <Text style={[styles.label, { color: colors.textMuted }]}>CA. PRIS</Text>
           <Text>
             <Text style={[styles.sumPrice, { color: over ? colors.warning : colors.primaryDark }]}>
               {krText(plan.total)}
             </Text>
-            <Text style={{ color: colors.textMuted }}> / {krRound(p.budget)}</Text>
+            <Text style={{ color: colors.textMuted }}> / {krRound(week)}</Text>
           </Text>
+          {p.budgetPeriod === 'maaned' ? (
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
+              Ugens del af {krRound(p.budget)} om måneden
+            </Text>
+          ) : null}
           <View style={[styles.bar, { backgroundColor: colors.border }]}>
             <View style={{ width: `${pct}%`, height: '100%', backgroundColor: colors.primary }} />
           </View>

@@ -2898,7 +2898,9 @@ _RP_NEEDS = (
                              r'\bsimr|\bbrun(e|es)? |til stegning')),
     ('blender', re.compile(r'blender|stavblender|foodprocessor|purér|purere|'
                            r'blend')),
-    ('roeremaskine', re.compile(r'røremaskine|elpisker|elpiskeren')),
+    ('roeremaskine', re.compile(r'røremaskine|elpisker|elpiskeren|håndmixer')),
+    ('grill', re.compile(r'\bgrill(?!steg|kylling|pølse|krydder)|grillen|på grill')),
+    ('slowcooker', re.compile(r'slowcooker|slow cooker|trykkoger')),
     ('airfryer', re.compile(r'airfryer')),
     ('mikroovn', re.compile(r'mikroovn|mikrobølge')),
 )

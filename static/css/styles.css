@@ -6187,3 +6187,27 @@ body[data-theme="dark"] {
   width: 84px; height: 84px; flex-shrink: 0; border-radius: var(--radius-md);
   background: var(--green-light); display: flex; align-items: center; justify-content: center; font-size: 2rem;
 }
+.mp-seg { display: flex; background: var(--gray-100); border-radius: 999px; padding: 4px; max-width: 320px; margin: 0 auto; }
+.mp-seg-btn {
+  flex: 1; border: none; background: none; border-radius: 999px; padding: 9px 12px; cursor: pointer;
+  font-family: var(--font-sans); font-weight: 600; font-size: .92rem; color: var(--gray-600);
+}
+.mp-seg-btn.is-selected { background: var(--white); color: var(--green-dark); box-shadow: var(--shadow-sm); }
+[data-theme="dark"] .mp-seg-btn.is-selected { color: var(--green-light); }
+.mp-month { display: block; font-size: .78rem; margin-top: 2px; }
+.mp-counter {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin-bottom: 12px;
+  background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-lg);
+}
+.mp-counter-icon { font-size: 1.8rem; width: 44px; height: 44px; border-radius: 50%; background: var(--green-light); display: flex; align-items: center; justify-content: center; }
+.mp-counter-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.mp-counter-text strong { color: var(--gray-900); font-size: 1rem; }
+.mp-counter .mp-round { width: 38px; height: 38px; font-size: 1.2rem; }
+.mp-counter-val { font-size: 1.4rem; font-weight: 800; color: var(--gray-900); min-width: 26px; text-align: center; }
+.mp-loading-icon { font-size: 3rem; width: 88px; height: 88px; margin: 0 auto 16px; border-radius: 50%; background: var(--green-light); display: flex; align-items: center; justify-content: center; animation: mp-pulse 1.2s ease-in-out infinite; }
+@keyframes mp-pulse { 50% { transform: scale(1.08); } }
+.mp-checklist { list-style: none; padding: 0; margin: 18px auto 0; max-width: 320px; text-align: left; }
+.mp-checklist li { padding: 8px 0 8px 32px; position: relative; color: var(--gray-700); opacity: 0; animation: mp-in .4s forwards; }
+.mp-checklist li::before { content: '✓'; position: absolute; left: 0; top: 7px; width: 22px; height: 22px; border-radius: 50%; background: var(--green); color: #fff; font-size: .75rem; display: flex; align-items: center; justify-content: center; }
+@keyframes mp-in { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mp-loading-icon { animation: none; } .mp-checklist li { animation: none; opacity: 1; } }

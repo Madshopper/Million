@@ -97,13 +97,23 @@ export function RecipesScreen() {
     return (
       <TabScreenBody style={{ backgroundColor: colors.bg }}>
         <View style={styles.thinking} accessibilityLiveRegion="polite">
-          <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={[styles.thinkingTitle, { color: colors.text }]}>
-            Finder retter du vil kunne lide…
-          </Text>
-          <Text style={{ color: colors.textMuted, textAlign: 'center' }}>
-            Vi kigger opskrifterne igennem og regner priserne ud i butikkerne.
-          </Text>
+          <View style={[styles.thinkingIcon, { backgroundColor: colors.primaryMuted }]}>
+            <Text style={{ fontSize: 40 }}>🛒</Text>
+          </View>
+          <Text style={[styles.thinkingTitle, { color: colors.text }]}>Vi laver din madplan</Text>
+          {[
+            'Finder opskrifter der passer til jer',
+            'Tjekker priserne i butikkerne',
+            'Holder planen inden for budgettet',
+          ].map((t) => (
+            <View key={t} style={styles.thinkingRow}>
+              <View style={[styles.thinkingCheck, { backgroundColor: colors.primarySolid }]}>
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>✓</Text>
+              </View>
+              <Text style={{ color: colors.text, fontSize: 15 }}>{t}</Text>
+            </View>
+          ))}
+          <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} />
         </View>
       </TabScreenBody>
     );
@@ -173,7 +183,10 @@ export function RecipesScreen() {
 
 const styles = StyleSheet.create({
   thinking: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
-  thinkingTitle: { fontSize: 22, fontWeight: '800', textAlign: 'center' },
+  thinkingTitle: { fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
+  thinkingIcon: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
+  thinkingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'stretch', paddingHorizontal: 24 },
+  thinkingCheck: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   input: {
     margin: 12,
     borderWidth: 1,
