@@ -60,6 +60,7 @@ export const CACHEABLE_ENDPOINTS = new Set([
   'terms_of_service', 'privacy_policy', 'about', 'feedback_page',
   'api_home', 'api_category', 'api_sale', 'api_search',
   'get_price_history', 'get_nutrition',
+  'get_recipes', 'get_recipe', 'get_recipe_page', 'recipes_page',
 ])
 const STORE_DEPENDENT_ENDPOINTS = new Set([
   'home', 'category', 'ugens_tilbud', 'search_page', 'search', 'autocomplete',
@@ -69,6 +70,7 @@ const CACHEABLE_JSON_ENDPOINTS = new Set([
   'get_stores', 'get_separate_products', 'get_product_info',
   'get_price_history', 'get_nutrition',
   'api_home', 'api_category', 'api_sale', 'api_search', 'autocomplete',
+  'get_recipes', 'get_recipe',
 ])
 
 export function getCookie(request: Request, name: string): string | null {

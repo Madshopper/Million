@@ -12,32 +12,53 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CategoryRouteImport } from './routes/$category'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as FeedbackRouteImport } from './routes/feedback'
 import { Route as FeedbackDothtmlRouteImport } from './routes/feedback[.]html'
 import { Route as IndexDothtmlRouteImport } from './routes/index[.]html'
 import { Route as OmOsRouteImport } from './routes/om-os'
 import { Route as OmOsDothtmlRouteImport } from './routes/om-os[.]html'
+import { Route as OpskrifterRouteImport } from './routes/opskrifter'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PrivatlivRouteImport } from './routes/privatliv'
 import { Route as PrivatlivDothtmlRouteImport } from './routes/privatliv[.]html'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SaleDothtmlRouteImport } from './routes/sale[.]html'
+import { Route as SecurityDottxtRouteImport } from './routes/security[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
+import { Route as TurnstileChallengeRouteImport } from './routes/turnstile-challenge'
 import { Route as Ugens_tilbudRouteImport } from './routes/ugens_tilbud'
 import { Route as VilkaarDothtmlRouteImport } from './routes/vilkaar[.]html'
+import { Route as DotwellKnownAppleAppSiteAssociationRouteImport } from './routes/[.]well-known/apple-app-site-association'
+import { Route as DotwellKnownAssetlinksDotjsonRouteImport } from './routes/[.]well-known/assetlinks[.]json'
+import { Route as DotwellKnownSecurityDottxtRouteImport } from './routes/[.]well-known/security[.]txt'
+import { Route as ApiAlternativesRouteImport } from './routes/api/alternatives'
 import { Route as ApiAutocompleteRouteImport } from './routes/api/autocomplete'
+import { Route as ApiCartEventRouteImport } from './routes/api/cart-event'
+import { Route as ApiFeedbackRouteImport } from './routes/api/feedback'
 import { Route as ApiHomeRouteImport } from './routes/api/home'
 import { Route as ApiProductsRouteImport } from './routes/api/products'
+import { Route as ApiRecipeClickRouteImport } from './routes/api/recipe-click'
+import { Route as ApiRefreshCacheRouteImport } from './routes/api/refresh-cache'
 import { Route as ApiSaleRouteImport } from './routes/api/sale'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
+import { Route as ApiSessionRouteImport } from './routes/api/session'
 import { Route as ApiStoresRouteImport } from './routes/api/stores'
+import { Route as OpskriftRecipeIdRouteImport } from './routes/opskrift/$recipeId'
 import { Route as ProductProductIdRouteImport } from './routes/product/$productId'
 import { Route as SearchIndexRouteImport } from './routes/search/index'
 import { Route as SearchResultsRouteImport } from './routes/search/results'
+import { Route as ApiAdminEdgeRouteImport } from './routes/api/admin/edge'
+import { Route as ApiAdminFeaturesRouteImport } from './routes/api/admin/features'
+import { Route as ApiAdminProductsRouteImport } from './routes/api/admin/products'
+import { Route as ApiAdminStagingLinkRouteImport } from './routes/api/admin/staging-link'
+import { Route as ApiAdminTrafficRouteImport } from './routes/api/admin/traffic'
 import { Route as ApiCategorySlugRouteImport } from './routes/api/category/$slug'
 import { Route as ApiNutritionProductIdRouteImport } from './routes/api/nutrition/$productId'
 import { Route as ApiPriceHistoryProductIdRouteImport } from './routes/api/price-history/$productId'
+import { Route as ApiRecipesIndexRouteImport } from './routes/api/recipes/index'
+import { Route as ApiRecipesRecipeIdRouteImport } from './routes/api/recipes/$recipeId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +73,11 @@ const CategoryRoute = CategoryRouteImport.update({
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeedbackRoute = FeedbackRouteImport.update({
@@ -79,6 +105,11 @@ const OmOsDothtmlRoute = OmOsDothtmlRouteImport.update({
   path: '/om-os.html',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OpskrifterRoute = OpskrifterRouteImport.update({
+  id: '/opskrifter',
+  path: '/opskrifter',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -104,6 +135,11 @@ const SaleDothtmlRoute = SaleDothtmlRouteImport.update({
   path: '/sale.html',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SecurityDottxtRoute = SecurityDottxtRouteImport.update({
+  id: '/security.txt',
+  path: '/security.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -112,6 +148,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
   id: '/terms-of-service',
   path: '/terms-of-service',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TurnstileChallengeRoute = TurnstileChallengeRouteImport.update({
+  id: '/turnstile-challenge',
+  path: '/turnstile-challenge',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Ugens_tilbudRoute = Ugens_tilbudRouteImport.update({
@@ -124,9 +165,42 @@ const VilkaarDothtmlRoute = VilkaarDothtmlRouteImport.update({
   path: '/vilkaar.html',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownAppleAppSiteAssociationRoute =
+  DotwellKnownAppleAppSiteAssociationRouteImport.update({
+    id: '/.well-known/apple-app-site-association',
+    path: '/.well-known/apple-app-site-association',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DotwellKnownAssetlinksDotjsonRoute =
+  DotwellKnownAssetlinksDotjsonRouteImport.update({
+    id: '/.well-known/assetlinks.json',
+    path: '/.well-known/assetlinks.json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DotwellKnownSecurityDottxtRoute =
+  DotwellKnownSecurityDottxtRouteImport.update({
+    id: '/.well-known/security.txt',
+    path: '/.well-known/security.txt',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiAlternativesRoute = ApiAlternativesRouteImport.update({
+  id: '/api/alternatives',
+  path: '/api/alternatives',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAutocompleteRoute = ApiAutocompleteRouteImport.update({
   id: '/api/autocomplete',
   path: '/api/autocomplete',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCartEventRoute = ApiCartEventRouteImport.update({
+  id: '/api/cart-event',
+  path: '/api/cart-event',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFeedbackRoute = ApiFeedbackRouteImport.update({
+  id: '/api/feedback',
+  path: '/api/feedback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHomeRoute = ApiHomeRouteImport.update({
@@ -139,6 +213,16 @@ const ApiProductsRoute = ApiProductsRouteImport.update({
   path: '/api/products',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRecipeClickRoute = ApiRecipeClickRouteImport.update({
+  id: '/api/recipe-click',
+  path: '/api/recipe-click',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRefreshCacheRoute = ApiRefreshCacheRouteImport.update({
+  id: '/api/refresh-cache',
+  path: '/api/refresh-cache',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSaleRoute = ApiSaleRouteImport.update({
   id: '/api/sale',
   path: '/api/sale',
@@ -149,9 +233,19 @@ const ApiSearchRoute = ApiSearchRouteImport.update({
   path: '/api/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSessionRoute = ApiSessionRouteImport.update({
+  id: '/api/session',
+  path: '/api/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStoresRoute = ApiStoresRouteImport.update({
   id: '/api/stores',
   path: '/api/stores',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpskriftRecipeIdRoute = OpskriftRecipeIdRouteImport.update({
+  id: '/opskrift/$recipeId',
+  path: '/opskrift/$recipeId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProductProductIdRoute = ProductProductIdRouteImport.update({
@@ -167,6 +261,31 @@ const SearchIndexRoute = SearchIndexRouteImport.update({
 const SearchResultsRoute = SearchResultsRouteImport.update({
   id: '/search/results',
   path: '/search/results',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminEdgeRoute = ApiAdminEdgeRouteImport.update({
+  id: '/api/admin/edge',
+  path: '/api/admin/edge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminFeaturesRoute = ApiAdminFeaturesRouteImport.update({
+  id: '/api/admin/features',
+  path: '/api/admin/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminProductsRoute = ApiAdminProductsRouteImport.update({
+  id: '/api/admin/products',
+  path: '/api/admin/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminStagingLinkRoute = ApiAdminStagingLinkRouteImport.update({
+  id: '/api/admin/staging-link',
+  path: '/api/admin/staging-link',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminTrafficRoute = ApiAdminTrafficRouteImport.update({
+  id: '/api/admin/traffic',
+  path: '/api/admin/traffic',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCategorySlugRoute = ApiCategorySlugRouteImport.update({
@@ -185,100 +304,173 @@ const ApiPriceHistoryProductIdRoute =
     path: '/api/price-history/$productId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiRecipesIndexRoute = ApiRecipesIndexRouteImport.update({
+  id: '/api/recipes/',
+  path: '/api/recipes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRecipesRecipeIdRoute = ApiRecipesRecipeIdRouteImport.update({
+  id: '/api/recipes/$recipeId',
+  path: '/api/recipes/$recipeId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$category': typeof CategoryRoute
   '/about': typeof AboutRoute
+  '/admin': typeof AdminRoute
   '/feedback': typeof FeedbackRoute
   '/feedback.html': typeof FeedbackDothtmlRoute
   '/index.html': typeof IndexDothtmlRoute
   '/om-os': typeof OmOsRoute
   '/om-os.html': typeof OmOsDothtmlRoute
+  '/opskrifter': typeof OpskrifterRoute
   '/privacy': typeof PrivacyRoute
   '/privatliv': typeof PrivatlivRoute
   '/privatliv.html': typeof PrivatlivDothtmlRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sale.html': typeof SaleDothtmlRoute
+  '/security.txt': typeof SecurityDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
+  '/turnstile-challenge': typeof TurnstileChallengeRoute
   '/ugens_tilbud': typeof Ugens_tilbudRoute
   '/vilkaar.html': typeof VilkaarDothtmlRoute
+  '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
+  '/.well-known/assetlinks.json': typeof DotwellKnownAssetlinksDotjsonRoute
+  '/.well-known/security.txt': typeof DotwellKnownSecurityDottxtRoute
+  '/api/alternatives': typeof ApiAlternativesRoute
   '/api/autocomplete': typeof ApiAutocompleteRoute
+  '/api/cart-event': typeof ApiCartEventRoute
+  '/api/feedback': typeof ApiFeedbackRoute
   '/api/home': typeof ApiHomeRoute
   '/api/products': typeof ApiProductsRoute
+  '/api/recipe-click': typeof ApiRecipeClickRoute
+  '/api/refresh-cache': typeof ApiRefreshCacheRoute
   '/api/sale': typeof ApiSaleRoute
   '/api/search': typeof ApiSearchRoute
+  '/api/session': typeof ApiSessionRoute
   '/api/stores': typeof ApiStoresRoute
+  '/opskrift/$recipeId': typeof OpskriftRecipeIdRoute
   '/product/$productId': typeof ProductProductIdRoute
   '/search/results': typeof SearchResultsRoute
   '/search/': typeof SearchIndexRoute
+  '/api/admin/edge': typeof ApiAdminEdgeRoute
+  '/api/admin/features': typeof ApiAdminFeaturesRoute
+  '/api/admin/products': typeof ApiAdminProductsRoute
+  '/api/admin/staging-link': typeof ApiAdminStagingLinkRoute
+  '/api/admin/traffic': typeof ApiAdminTrafficRoute
   '/api/category/$slug': typeof ApiCategorySlugRoute
   '/api/nutrition/$productId': typeof ApiNutritionProductIdRoute
   '/api/price-history/$productId': typeof ApiPriceHistoryProductIdRoute
+  '/api/recipes/$recipeId': typeof ApiRecipesRecipeIdRoute
+  '/api/recipes/': typeof ApiRecipesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$category': typeof CategoryRoute
   '/about': typeof AboutRoute
+  '/admin': typeof AdminRoute
   '/feedback': typeof FeedbackRoute
   '/feedback.html': typeof FeedbackDothtmlRoute
   '/index.html': typeof IndexDothtmlRoute
   '/om-os': typeof OmOsRoute
   '/om-os.html': typeof OmOsDothtmlRoute
+  '/opskrifter': typeof OpskrifterRoute
   '/privacy': typeof PrivacyRoute
   '/privatliv': typeof PrivatlivRoute
   '/privatliv.html': typeof PrivatlivDothtmlRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sale.html': typeof SaleDothtmlRoute
+  '/security.txt': typeof SecurityDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
+  '/turnstile-challenge': typeof TurnstileChallengeRoute
   '/ugens_tilbud': typeof Ugens_tilbudRoute
   '/vilkaar.html': typeof VilkaarDothtmlRoute
+  '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
+  '/.well-known/assetlinks.json': typeof DotwellKnownAssetlinksDotjsonRoute
+  '/.well-known/security.txt': typeof DotwellKnownSecurityDottxtRoute
+  '/api/alternatives': typeof ApiAlternativesRoute
   '/api/autocomplete': typeof ApiAutocompleteRoute
+  '/api/cart-event': typeof ApiCartEventRoute
+  '/api/feedback': typeof ApiFeedbackRoute
   '/api/home': typeof ApiHomeRoute
   '/api/products': typeof ApiProductsRoute
+  '/api/recipe-click': typeof ApiRecipeClickRoute
+  '/api/refresh-cache': typeof ApiRefreshCacheRoute
   '/api/sale': typeof ApiSaleRoute
   '/api/search': typeof ApiSearchRoute
+  '/api/session': typeof ApiSessionRoute
   '/api/stores': typeof ApiStoresRoute
+  '/opskrift/$recipeId': typeof OpskriftRecipeIdRoute
   '/product/$productId': typeof ProductProductIdRoute
   '/search/results': typeof SearchResultsRoute
   '/search': typeof SearchIndexRoute
+  '/api/admin/edge': typeof ApiAdminEdgeRoute
+  '/api/admin/features': typeof ApiAdminFeaturesRoute
+  '/api/admin/products': typeof ApiAdminProductsRoute
+  '/api/admin/staging-link': typeof ApiAdminStagingLinkRoute
+  '/api/admin/traffic': typeof ApiAdminTrafficRoute
   '/api/category/$slug': typeof ApiCategorySlugRoute
   '/api/nutrition/$productId': typeof ApiNutritionProductIdRoute
   '/api/price-history/$productId': typeof ApiPriceHistoryProductIdRoute
+  '/api/recipes/$recipeId': typeof ApiRecipesRecipeIdRoute
+  '/api/recipes': typeof ApiRecipesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$category': typeof CategoryRoute
   '/about': typeof AboutRoute
+  '/admin': typeof AdminRoute
   '/feedback': typeof FeedbackRoute
   '/feedback.html': typeof FeedbackDothtmlRoute
   '/index.html': typeof IndexDothtmlRoute
   '/om-os': typeof OmOsRoute
   '/om-os.html': typeof OmOsDothtmlRoute
+  '/opskrifter': typeof OpskrifterRoute
   '/privacy': typeof PrivacyRoute
   '/privatliv': typeof PrivatlivRoute
   '/privatliv.html': typeof PrivatlivDothtmlRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sale.html': typeof SaleDothtmlRoute
+  '/security.txt': typeof SecurityDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms-of-service': typeof TermsOfServiceRoute
+  '/turnstile-challenge': typeof TurnstileChallengeRoute
   '/ugens_tilbud': typeof Ugens_tilbudRoute
   '/vilkaar.html': typeof VilkaarDothtmlRoute
+  '/.well-known/apple-app-site-association': typeof DotwellKnownAppleAppSiteAssociationRoute
+  '/.well-known/assetlinks.json': typeof DotwellKnownAssetlinksDotjsonRoute
+  '/.well-known/security.txt': typeof DotwellKnownSecurityDottxtRoute
+  '/api/alternatives': typeof ApiAlternativesRoute
   '/api/autocomplete': typeof ApiAutocompleteRoute
+  '/api/cart-event': typeof ApiCartEventRoute
+  '/api/feedback': typeof ApiFeedbackRoute
   '/api/home': typeof ApiHomeRoute
   '/api/products': typeof ApiProductsRoute
+  '/api/recipe-click': typeof ApiRecipeClickRoute
+  '/api/refresh-cache': typeof ApiRefreshCacheRoute
   '/api/sale': typeof ApiSaleRoute
   '/api/search': typeof ApiSearchRoute
+  '/api/session': typeof ApiSessionRoute
   '/api/stores': typeof ApiStoresRoute
+  '/opskrift/$recipeId': typeof OpskriftRecipeIdRoute
   '/product/$productId': typeof ProductProductIdRoute
   '/search/results': typeof SearchResultsRoute
   '/search/': typeof SearchIndexRoute
+  '/api/admin/edge': typeof ApiAdminEdgeRoute
+  '/api/admin/features': typeof ApiAdminFeaturesRoute
+  '/api/admin/products': typeof ApiAdminProductsRoute
+  '/api/admin/staging-link': typeof ApiAdminStagingLinkRoute
+  '/api/admin/traffic': typeof ApiAdminTrafficRoute
   '/api/category/$slug': typeof ApiCategorySlugRoute
   '/api/nutrition/$productId': typeof ApiNutritionProductIdRoute
   '/api/price-history/$productId': typeof ApiPriceHistoryProductIdRoute
+  '/api/recipes/$recipeId': typeof ApiRecipesRecipeIdRoute
+  '/api/recipes/': typeof ApiRecipesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -286,126 +478,210 @@ export interface FileRouteTypes {
     | '/'
     | '/$category'
     | '/about'
+    | '/admin'
     | '/feedback'
     | '/feedback.html'
     | '/index.html'
     | '/om-os'
     | '/om-os.html'
+    | '/opskrifter'
     | '/privacy'
     | '/privatliv'
     | '/privatliv.html'
     | '/robots.txt'
     | '/sale.html'
+    | '/security.txt'
     | '/sitemap.xml'
     | '/terms-of-service'
+    | '/turnstile-challenge'
     | '/ugens_tilbud'
     | '/vilkaar.html'
+    | '/.well-known/apple-app-site-association'
+    | '/.well-known/assetlinks.json'
+    | '/.well-known/security.txt'
+    | '/api/alternatives'
     | '/api/autocomplete'
+    | '/api/cart-event'
+    | '/api/feedback'
     | '/api/home'
     | '/api/products'
+    | '/api/recipe-click'
+    | '/api/refresh-cache'
     | '/api/sale'
     | '/api/search'
+    | '/api/session'
     | '/api/stores'
+    | '/opskrift/$recipeId'
     | '/product/$productId'
     | '/search/results'
     | '/search/'
+    | '/api/admin/edge'
+    | '/api/admin/features'
+    | '/api/admin/products'
+    | '/api/admin/staging-link'
+    | '/api/admin/traffic'
     | '/api/category/$slug'
     | '/api/nutrition/$productId'
     | '/api/price-history/$productId'
+    | '/api/recipes/$recipeId'
+    | '/api/recipes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/$category'
     | '/about'
+    | '/admin'
     | '/feedback'
     | '/feedback.html'
     | '/index.html'
     | '/om-os'
     | '/om-os.html'
+    | '/opskrifter'
     | '/privacy'
     | '/privatliv'
     | '/privatliv.html'
     | '/robots.txt'
     | '/sale.html'
+    | '/security.txt'
     | '/sitemap.xml'
     | '/terms-of-service'
+    | '/turnstile-challenge'
     | '/ugens_tilbud'
     | '/vilkaar.html'
+    | '/.well-known/apple-app-site-association'
+    | '/.well-known/assetlinks.json'
+    | '/.well-known/security.txt'
+    | '/api/alternatives'
     | '/api/autocomplete'
+    | '/api/cart-event'
+    | '/api/feedback'
     | '/api/home'
     | '/api/products'
+    | '/api/recipe-click'
+    | '/api/refresh-cache'
     | '/api/sale'
     | '/api/search'
+    | '/api/session'
     | '/api/stores'
+    | '/opskrift/$recipeId'
     | '/product/$productId'
     | '/search/results'
     | '/search'
+    | '/api/admin/edge'
+    | '/api/admin/features'
+    | '/api/admin/products'
+    | '/api/admin/staging-link'
+    | '/api/admin/traffic'
     | '/api/category/$slug'
     | '/api/nutrition/$productId'
     | '/api/price-history/$productId'
+    | '/api/recipes/$recipeId'
+    | '/api/recipes'
   id:
     | '__root__'
     | '/'
     | '/$category'
     | '/about'
+    | '/admin'
     | '/feedback'
     | '/feedback.html'
     | '/index.html'
     | '/om-os'
     | '/om-os.html'
+    | '/opskrifter'
     | '/privacy'
     | '/privatliv'
     | '/privatliv.html'
     | '/robots.txt'
     | '/sale.html'
+    | '/security.txt'
     | '/sitemap.xml'
     | '/terms-of-service'
+    | '/turnstile-challenge'
     | '/ugens_tilbud'
     | '/vilkaar.html'
+    | '/.well-known/apple-app-site-association'
+    | '/.well-known/assetlinks.json'
+    | '/.well-known/security.txt'
+    | '/api/alternatives'
     | '/api/autocomplete'
+    | '/api/cart-event'
+    | '/api/feedback'
     | '/api/home'
     | '/api/products'
+    | '/api/recipe-click'
+    | '/api/refresh-cache'
     | '/api/sale'
     | '/api/search'
+    | '/api/session'
     | '/api/stores'
+    | '/opskrift/$recipeId'
     | '/product/$productId'
     | '/search/results'
     | '/search/'
+    | '/api/admin/edge'
+    | '/api/admin/features'
+    | '/api/admin/products'
+    | '/api/admin/staging-link'
+    | '/api/admin/traffic'
     | '/api/category/$slug'
     | '/api/nutrition/$productId'
     | '/api/price-history/$productId'
+    | '/api/recipes/$recipeId'
+    | '/api/recipes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CategoryRoute: typeof CategoryRoute
   AboutRoute: typeof AboutRoute
+  AdminRoute: typeof AdminRoute
   FeedbackRoute: typeof FeedbackRoute
   FeedbackDothtmlRoute: typeof FeedbackDothtmlRoute
   IndexDothtmlRoute: typeof IndexDothtmlRoute
   OmOsRoute: typeof OmOsRoute
   OmOsDothtmlRoute: typeof OmOsDothtmlRoute
+  OpskrifterRoute: typeof OpskrifterRoute
   PrivacyRoute: typeof PrivacyRoute
   PrivatlivRoute: typeof PrivatlivRoute
   PrivatlivDothtmlRoute: typeof PrivatlivDothtmlRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SaleDothtmlRoute: typeof SaleDothtmlRoute
+  SecurityDottxtRoute: typeof SecurityDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
+  TurnstileChallengeRoute: typeof TurnstileChallengeRoute
   Ugens_tilbudRoute: typeof Ugens_tilbudRoute
   VilkaarDothtmlRoute: typeof VilkaarDothtmlRoute
+  DotwellKnownAppleAppSiteAssociationRoute: typeof DotwellKnownAppleAppSiteAssociationRoute
+  DotwellKnownAssetlinksDotjsonRoute: typeof DotwellKnownAssetlinksDotjsonRoute
+  DotwellKnownSecurityDottxtRoute: typeof DotwellKnownSecurityDottxtRoute
+  ApiAlternativesRoute: typeof ApiAlternativesRoute
   ApiAutocompleteRoute: typeof ApiAutocompleteRoute
+  ApiCartEventRoute: typeof ApiCartEventRoute
+  ApiFeedbackRoute: typeof ApiFeedbackRoute
   ApiHomeRoute: typeof ApiHomeRoute
   ApiProductsRoute: typeof ApiProductsRoute
+  ApiRecipeClickRoute: typeof ApiRecipeClickRoute
+  ApiRefreshCacheRoute: typeof ApiRefreshCacheRoute
   ApiSaleRoute: typeof ApiSaleRoute
   ApiSearchRoute: typeof ApiSearchRoute
+  ApiSessionRoute: typeof ApiSessionRoute
   ApiStoresRoute: typeof ApiStoresRoute
+  OpskriftRecipeIdRoute: typeof OpskriftRecipeIdRoute
   ProductProductIdRoute: typeof ProductProductIdRoute
   SearchResultsRoute: typeof SearchResultsRoute
   SearchIndexRoute: typeof SearchIndexRoute
+  ApiAdminEdgeRoute: typeof ApiAdminEdgeRoute
+  ApiAdminFeaturesRoute: typeof ApiAdminFeaturesRoute
+  ApiAdminProductsRoute: typeof ApiAdminProductsRoute
+  ApiAdminStagingLinkRoute: typeof ApiAdminStagingLinkRoute
+  ApiAdminTrafficRoute: typeof ApiAdminTrafficRoute
   ApiCategorySlugRoute: typeof ApiCategorySlugRoute
   ApiNutritionProductIdRoute: typeof ApiNutritionProductIdRoute
   ApiPriceHistoryProductIdRoute: typeof ApiPriceHistoryProductIdRoute
+  ApiRecipesRecipeIdRoute: typeof ApiRecipesRecipeIdRoute
+  ApiRecipesIndexRoute: typeof ApiRecipesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -429,6 +705,13 @@ declare module '@tanstack/react-router' {
       path: '/about'
       fullPath: '/about'
       preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/feedback': {
@@ -466,6 +749,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OmOsDothtmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/opskrifter': {
+      id: '/opskrifter'
+      path: '/opskrifter'
+      fullPath: '/opskrifter'
+      preLoaderRoute: typeof OpskrifterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
@@ -501,6 +791,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SaleDothtmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/security.txt': {
+      id: '/security.txt'
+      path: '/security.txt'
+      fullPath: '/security.txt'
+      preLoaderRoute: typeof SecurityDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -513,6 +810,13 @@ declare module '@tanstack/react-router' {
       path: '/terms-of-service'
       fullPath: '/terms-of-service'
       preLoaderRoute: typeof TermsOfServiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/turnstile-challenge': {
+      id: '/turnstile-challenge'
+      path: '/turnstile-challenge'
+      fullPath: '/turnstile-challenge'
+      preLoaderRoute: typeof TurnstileChallengeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ugens_tilbud': {
@@ -529,11 +833,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VilkaarDothtmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.well-known/apple-app-site-association': {
+      id: '/.well-known/apple-app-site-association'
+      path: '/.well-known/apple-app-site-association'
+      fullPath: '/.well-known/apple-app-site-association'
+      preLoaderRoute: typeof DotwellKnownAppleAppSiteAssociationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/assetlinks.json': {
+      id: '/.well-known/assetlinks.json'
+      path: '/.well-known/assetlinks.json'
+      fullPath: '/.well-known/assetlinks.json'
+      preLoaderRoute: typeof DotwellKnownAssetlinksDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/security.txt': {
+      id: '/.well-known/security.txt'
+      path: '/.well-known/security.txt'
+      fullPath: '/.well-known/security.txt'
+      preLoaderRoute: typeof DotwellKnownSecurityDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/alternatives': {
+      id: '/api/alternatives'
+      path: '/api/alternatives'
+      fullPath: '/api/alternatives'
+      preLoaderRoute: typeof ApiAlternativesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/autocomplete': {
       id: '/api/autocomplete'
       path: '/api/autocomplete'
       fullPath: '/api/autocomplete'
       preLoaderRoute: typeof ApiAutocompleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cart-event': {
+      id: '/api/cart-event'
+      path: '/api/cart-event'
+      fullPath: '/api/cart-event'
+      preLoaderRoute: typeof ApiCartEventRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/feedback': {
+      id: '/api/feedback'
+      path: '/api/feedback'
+      fullPath: '/api/feedback'
+      preLoaderRoute: typeof ApiFeedbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/home': {
@@ -550,6 +896,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/recipe-click': {
+      id: '/api/recipe-click'
+      path: '/api/recipe-click'
+      fullPath: '/api/recipe-click'
+      preLoaderRoute: typeof ApiRecipeClickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/refresh-cache': {
+      id: '/api/refresh-cache'
+      path: '/api/refresh-cache'
+      fullPath: '/api/refresh-cache'
+      preLoaderRoute: typeof ApiRefreshCacheRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/sale': {
       id: '/api/sale'
       path: '/api/sale'
@@ -564,11 +924,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/session': {
+      id: '/api/session'
+      path: '/api/session'
+      fullPath: '/api/session'
+      preLoaderRoute: typeof ApiSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/stores': {
       id: '/api/stores'
       path: '/api/stores'
       fullPath: '/api/stores'
       preLoaderRoute: typeof ApiStoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/opskrift/$recipeId': {
+      id: '/opskrift/$recipeId'
+      path: '/opskrift/$recipeId'
+      fullPath: '/opskrift/$recipeId'
+      preLoaderRoute: typeof OpskriftRecipeIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/product/$productId': {
@@ -592,6 +966,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SearchResultsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/edge': {
+      id: '/api/admin/edge'
+      path: '/api/admin/edge'
+      fullPath: '/api/admin/edge'
+      preLoaderRoute: typeof ApiAdminEdgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/features': {
+      id: '/api/admin/features'
+      path: '/api/admin/features'
+      fullPath: '/api/admin/features'
+      preLoaderRoute: typeof ApiAdminFeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/products': {
+      id: '/api/admin/products'
+      path: '/api/admin/products'
+      fullPath: '/api/admin/products'
+      preLoaderRoute: typeof ApiAdminProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/staging-link': {
+      id: '/api/admin/staging-link'
+      path: '/api/admin/staging-link'
+      fullPath: '/api/admin/staging-link'
+      preLoaderRoute: typeof ApiAdminStagingLinkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/traffic': {
+      id: '/api/admin/traffic'
+      path: '/api/admin/traffic'
+      fullPath: '/api/admin/traffic'
+      preLoaderRoute: typeof ApiAdminTrafficRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/category/$slug': {
       id: '/api/category/$slug'
       path: '/api/category/$slug'
@@ -613,6 +1022,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPriceHistoryProductIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/recipes/': {
+      id: '/api/recipes/'
+      path: '/api/recipes'
+      fullPath: '/api/recipes/'
+      preLoaderRoute: typeof ApiRecipesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/recipes/$recipeId': {
+      id: '/api/recipes/$recipeId'
+      path: '/api/recipes/$recipeId'
+      fullPath: '/api/recipes/$recipeId'
+      preLoaderRoute: typeof ApiRecipesRecipeIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -620,32 +1043,54 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CategoryRoute: CategoryRoute,
   AboutRoute: AboutRoute,
+  AdminRoute: AdminRoute,
   FeedbackRoute: FeedbackRoute,
   FeedbackDothtmlRoute: FeedbackDothtmlRoute,
   IndexDothtmlRoute: IndexDothtmlRoute,
   OmOsRoute: OmOsRoute,
   OmOsDothtmlRoute: OmOsDothtmlRoute,
+  OpskrifterRoute: OpskrifterRoute,
   PrivacyRoute: PrivacyRoute,
   PrivatlivRoute: PrivatlivRoute,
   PrivatlivDothtmlRoute: PrivatlivDothtmlRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SaleDothtmlRoute: SaleDothtmlRoute,
+  SecurityDottxtRoute: SecurityDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
+  TurnstileChallengeRoute: TurnstileChallengeRoute,
   Ugens_tilbudRoute: Ugens_tilbudRoute,
   VilkaarDothtmlRoute: VilkaarDothtmlRoute,
+  DotwellKnownAppleAppSiteAssociationRoute:
+    DotwellKnownAppleAppSiteAssociationRoute,
+  DotwellKnownAssetlinksDotjsonRoute: DotwellKnownAssetlinksDotjsonRoute,
+  DotwellKnownSecurityDottxtRoute: DotwellKnownSecurityDottxtRoute,
+  ApiAlternativesRoute: ApiAlternativesRoute,
   ApiAutocompleteRoute: ApiAutocompleteRoute,
+  ApiCartEventRoute: ApiCartEventRoute,
+  ApiFeedbackRoute: ApiFeedbackRoute,
   ApiHomeRoute: ApiHomeRoute,
   ApiProductsRoute: ApiProductsRoute,
+  ApiRecipeClickRoute: ApiRecipeClickRoute,
+  ApiRefreshCacheRoute: ApiRefreshCacheRoute,
   ApiSaleRoute: ApiSaleRoute,
   ApiSearchRoute: ApiSearchRoute,
+  ApiSessionRoute: ApiSessionRoute,
   ApiStoresRoute: ApiStoresRoute,
+  OpskriftRecipeIdRoute: OpskriftRecipeIdRoute,
   ProductProductIdRoute: ProductProductIdRoute,
   SearchResultsRoute: SearchResultsRoute,
   SearchIndexRoute: SearchIndexRoute,
+  ApiAdminEdgeRoute: ApiAdminEdgeRoute,
+  ApiAdminFeaturesRoute: ApiAdminFeaturesRoute,
+  ApiAdminProductsRoute: ApiAdminProductsRoute,
+  ApiAdminStagingLinkRoute: ApiAdminStagingLinkRoute,
+  ApiAdminTrafficRoute: ApiAdminTrafficRoute,
   ApiCategorySlugRoute: ApiCategorySlugRoute,
   ApiNutritionProductIdRoute: ApiNutritionProductIdRoute,
   ApiPriceHistoryProductIdRoute: ApiPriceHistoryProductIdRoute,
+  ApiRecipesRecipeIdRoute: ApiRecipesRecipeIdRoute,
+  ApiRecipesIndexRoute: ApiRecipesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { featureEnabled } from '~/lib/features'
 import { json } from '~/lib/http'
+import { cartEventLimiter, rateLimited } from '~/lib/rate-limit'
 import { parseRecipeClickId, readJsonSilent, recordRecipeClick, supabaseAvailable, werkzeugMethodNotAllowed } from '~/lib/recipes'
 
 // app.py::record_recipe_click_endpoint - ét anonymt opskrift-klik via
@@ -14,6 +15,9 @@ export const Route = createFileRoute('/api/recipe-click')({
       GET: () => werkzeugMethodNotAllowed('OPTIONS, POST'),
       POST: async ({ request }) => {
         const endpoint = 'record_recipe_click_endpoint'
+        // @rate_limit(cart_event_limiter) - før alt andet, som i app.py.
+        const limited = rateLimited(cartEventLimiter, request, endpoint)
+        if (limited) return limited
         if (!(await featureEnabled('recipes'))) return json(endpoint, { success: false }, 404)
         const recipeId = parseRecipeClickId(await readJsonSilent(request))
         if (recipeId === null) return json(endpoint, { success: false }, 400)

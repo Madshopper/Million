@@ -10,6 +10,16 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": false, "logs": { "enabled": false }, "traces": { "enabled": false } },
   "kv_namespaces": [{ "binding": "CACHE_KV", "id": "b879e69c3a1f477c9c69bbc7e7b041df" }],
+  // Gratis native rate limiting (fail-open i src/lib/worker-guard.ts) - samme
+  // tal og namespace-id'er som scripts/build-pages.sh giver Python-workeren:
+  // RATE_LIMITER dækker alle non-GET og cache-miss GET, CART_RATE_LIMITER er
+  // den ekstra globale grænse for /api/cart-event og /api/recipe-click.
+  // STAGING_ACCESS_SECRET og CACHE_REFRESH_SECRET er secrets og står bevidst
+  // ikke her (spærringen er slået fra lokalt; sæt dem i .dev.vars ved behov).
+  "ratelimits": [
+    { "name": "RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 150, "period": 60 } },
+    { "name": "CART_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 20, "period": 60 } }
+  ],
   "d1_databases": [
     { "binding": "DB", "database_name": "madshopper-dev", "database_id": "fa7fab55-a5e8-485a-9084-068890e9c8c5" }
   ],

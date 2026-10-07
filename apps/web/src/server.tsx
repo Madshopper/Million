@@ -1,14 +1,21 @@
-// Worker-entry. Erstatter src/worker.py: edge-cache (Cache API, versioneret
-// nøgle), single-flight ved cache-miss og headers. Det meste af worker.py
-// eksisterede for at beskytte Pyodide-broen (_render_exclusive,
-// release_stale_sync_bridge) og CPU-budgettet pr. isolate; i en JS-worker er
-// D1/KV almindelige async kald, så den fejlklasse findes ikke.
+// Worker-entry. Erstatter src/worker.py: staging-spærring, rate limiting
+// (RATE_LIMITER + CART_RATE_LIMITER), edge-cache (Cache API, versioneret
+// nøgle), single-flight ved cache-miss, headers, aggregeret sikkerhedslogning
+// til D1 security_events og et sidste sikkerhedsnet mod ufangede fejl.
+//
+// BEVIDST UDELADT: CPU-budgettet, render-køen/_render_exclusive ("travlt"-
+// svaret) og release_stale_sync_bridge. De beskytter Pyodide-broen, hvor hver
+// D1/KV-kald suspenderer en synkron Flask-render; i en JS-worker er D1/KV
+// almindelige async kald, så den fejlklasse findes ikke. Se lib/worker-guard.ts.
 import { createStartHandler } from '@tanstack/react-start/server'
 import { RouterServer, getSsrStatus } from '@tanstack/react-router/ssr/server'
 import { renderToString } from 'react-dom/server'
 import { restoreRawAttrs } from './components/jinja'
 import { applyResponseHeaders } from './lib/headers'
 import { reqState, runWithRequestState, type RequestState } from './lib/request-state'
+import { secFlush, secNote } from './lib/security-log'
+import { stagingBlocked } from './lib/staging-gate'
+import { CART_EVENT_PATHS, cartRateOk, rateOk, tooMany, workerCrashFallback } from './lib/worker-guard'
 
 const reqStateStatus = () => reqState().status
 
@@ -79,33 +86,88 @@ async function render(request: Request, url: URL, env: Cloudflare.Env): Promise<
   return applyResponseHeaders(request, url, response, state.endpoint, state.degraded, !env.LOCAL_DEV)
 }
 
+/** Render med sidste sikkerhedsnet (worker.py::_worker_crash_fallback) og
+ * aggregeret optælling af 5xx/degraderede svar - aldrig en log pr. request. */
+async function renderGuarded(request: Request, url: URL, env: Cloudflare.Env, ctx: ExecutionContext): Promise<Response> {
+  let response: Response
+  try {
+    response = await render(request, url, env)
+  } catch (e) {
+    console.error('Ufanget fejl i render', (e as Error)?.name || e)
+    secNote('server_error', request)
+    secFlush(env, ctx)
+    return workerCrashFallback(request)
+  }
+  if (response.status >= 500) secNote('server_error', request)
+  if (response.headers.get('X-Data-Degraded')) secNote('degraded', request)
+  secFlush(env, ctx)
+  return response
+}
+
+/** Generel rate limit; null = tilladt. */
+async function rateLimit(request: Request, env: Cloudflare.Env, ctx: ExecutionContext, cart = false): Promise<Response | null> {
+  if (await rateOk(env, request)) {
+    // Ekstra GLOBAL grænse oveni (aldrig i stedet for) for cart-event/recipe-click.
+    if (!cart || (await cartRateOk(env, request))) return null
+  }
+  secNote('rate_limit', request)
+  secFlush(env, ctx)
+  return tooMany(request)
+}
+
 export default {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url)
-    const isAjax = request.headers.get('X-Requested-With') === 'XMLHttpRequest'
-    const useCache = request.method === 'GET' && !isAjax && env.EDGE_CACHE !== 'off'
-    if (!useCache) return render(request, url, env)
+    // Staging: afvis alt uden adgang FØR der laves noget arbejde.
+    const blocked = await stagingBlocked(request, env, ctx)
+    if (blocked) return blocked
 
-    const cache = (caches as unknown as { default: Cache }).default
-    const key = await cacheKey(url, env)
-    const hit = await cache.match(key)
-    if (hit) return hit
+    const url = new URL(request.url)
+    // Ikke-GET (POST mv.) er skrivende/dyre: rate limit før arbejde. HEAD
+    // følger GET-vejen, så link-previews og crawlere rammer cachen.
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      const limited = await rateLimit(request, env, ctx, CART_EVENT_PATHS.has(url.pathname))
+      return limited ?? renderGuarded(request, url, env, ctx)
+    }
+
+    // AJAX-fragmenter deler URL med den fulde side, men mangler <head>; de må
+    // derfor hverken læse eller skrive edge-cachen.
+    const isAjax = request.headers.get('X-Requested-With') === 'XMLHttpRequest'
+    let cache: Cache | null = null
+    let key: Request | null = null
+    if (!isAjax && env.EDGE_CACHE !== 'off') {
+      try {
+        cache = (caches as unknown as { default: Cache }).default
+        key = await cacheKey(url, env)
+        const hit = await cache.match(key)
+        if (hit) return hit
+      } catch {
+        cache = null
+        key = null
+      }
+    }
+    if (!cache || !key) {
+      // Rate limit KUN cache-miss-stien - cache-hits returnerede ovenfor.
+      return (await rateLimit(request, env, ctx)) ?? renderGuarded(request, url, env, ctx)
+    }
 
     // Single-flight: samtidige misses på samme nøgle venter på den første.
     const pending = inflight.get(key.url)
     if (pending) {
       await pending
-      const again = await cache.match(key)
+      const again = await cache.match(key).catch(() => undefined)
       if (again) return again
     }
     let done!: () => void
     inflight.set(key.url, new Promise<void>((r) => (done = r)))
     try {
-      const response = await render(request, url, env)
+      const limited = await rateLimit(request, env, ctx)
+      if (limited) return limited
+      const response = await renderGuarded(request, url, env, ctx)
       const cdn = response.headers.get('CDN-Cache-Control') || ''
-      if (cdn.includes('public') && !cdn.includes('no-store')) {
+      if (request.method === 'GET' && cdn.includes('public') && !cdn.includes('no-store')) {
+        // Await put FØR single-flight slippes, så ventende rammer cachen.
         const put = cache.put(key, response.clone())
-        ctx.waitUntil(put)
+        ctx.waitUntil(put.catch(() => undefined))
         await put.catch(() => undefined)
       }
       return response

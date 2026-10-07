@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import { cloudflare } from '@cloudflare/vite-plugin'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
@@ -18,7 +19,10 @@ const clientStubs = {
 }
 
 export default defineConfig({
-  server: { port: 5002 },
+  // ~/ -> src/ (samme som tsconfig paths). fs.allow: /admin indlejrer
+  // templates/admin/*.css|js?raw fra repo-roden, uden for app-mappen.
+  resolve: { alias: { '~': fileURLToPath(new URL('./src', import.meta.url)) } },
+  server: { port: 5002, fs: { allow: ['../..'] } },
   // /static/* serveres som assets fra repoets fælles static/-mappe (samme filer
   // som Python-workeren), via symlinket public/static.
   publicDir: 'public',
