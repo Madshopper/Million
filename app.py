@@ -1812,6 +1812,34 @@ _PROJECTS = (
         ),
     },
     {
+        'key': 'store_flyers',
+        'name': 'Butikkernes tilbudsaviser',
+        'status': 'idea',
+        'desc': 'Kalles idé (07-10-2026): butikkernes egne tilbudsaviser skal '
+                'kunne ses direkte hos os, både i appen og på hjemmesiden. '
+                'Ikke et link videre til butikken, men avisen vist inde hos '
+                'os. Sådan virker det (Kalle): man ser butikkens logo, '
+                'trykker på det, og avisen åbner som et overlay oven på '
+                'siden. Man forlader aldrig appen eller hjemmesiden. '
+                'Kun en idé, intet er bygget. Vi henter allerede '
+                'tilbuddene fra de fleste aviser (Tjek), så vi ved hvilke '
+                'aviser der findes. Værd at tjekke først: 1) Ret til '
+                'billederne. Avisens sider er butikkens materiale, så vi '
+                'skal have lov, fx via Tjek eller butikken selv. 2) '
+                'Plads og gratisgrænser. Avissider er store billeder; '
+                'gemmer vi dem selv, fylder det hurtigt. Bedst er at vise '
+                'billederne fra kilden i stedet for at gemme dem. 3) Nye '
+                'billedadresser skal tillades på hjemmesiden.',
+        'parts': (
+            {'done': False, 'name': 'Hjemmesiden',
+             'desc': 'Butikkernes logoer; tryk åbner ugens avis som overlay, '
+                     'hvor man blader i siderne.'},
+            {'done': False, 'name': 'Appen',
+             'desc': 'Samme logoer og overlay i appen. Når først brugerne med en ny '
+                     'app-version.'},
+        ),
+    },
+    {
         'key': 'tests',
         'name': 'Flere automatiske tests',
         'status': 'idea',
