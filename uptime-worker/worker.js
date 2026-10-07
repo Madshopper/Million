@@ -136,17 +136,24 @@ async function runCheck(check) {
   }
 }
 
+// Tjekkene køres ét ad gangen, aldrig samtidig. Ved et cache-skift (ny UTC-
+// dato i cache-nøglen ved midnat, eller et cache_version-bump) er alle fire
+// prod-sider kolde på én gang, og fire samtidige renders i samme isolate gav
+// 1102 (CPU) efterfulgt af en isolate der svarede 1101 på hvert eneste tjek:
+// målt 06-10-2026 02:20-08:10 UTC og 07-10-2026 00:05-00:50 UTC, begge gange
+// startet af præcis et uptime-tick i Chicago (ORD). Ventetid tæller ikke mod
+// workerens CPU, og cache-hits tager få ms, så det koster intet i drift.
 async function runAll(checks) {
   const results = new Map();
-  await Promise.all(checks.map(async (c) => results.set(c.name, await runCheck(c))));
+  for (const c of checks) results.set(c.name, await runCheck(c));
   const failing = checks.filter((c) => !results.get(c.name).ok);
   if (failing.length) {
     await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-    await Promise.all(failing.map(async (c) => {
+    for (const c of failing) {
       const first = results.get(c.name);
       const again = await runCheck(c);
       results.set(c.name, again.ok ? again : { ok: false, detail: `${first.detail}; igen: ${again.detail}` });
-    }));
+    }
   }
   return results;
 }
