@@ -87,6 +87,11 @@
       {% if product.is_sale %}
       <div class="price-original price original">{{ "%.2f"|format(product.price) }} kr</div>
       <div class="price-sale price sale">{{ "%.2f"|format(product.sale_price) }} kr</div>
+      {%- elif (product.store_matches[product.cheapest_at].is_sale if product.cheapest_at in product.store_matches else (product.cheapest_at == 'rema' and product.rema_is_sale)) %}
+      {# Tilbud uden førpris (fx multikøb): butikken på kortet har tilbud, men
+         oplyser ikke normalprisen. Prisen skal stadig være gul, så den passer
+         til Tilbud-mærket. Samme regel i appens ProductCard.tsx. #}
+      <div class="price-sale price sale">{{ "%.2f"|format(product.price) }} kr</div>
       {% else %}
       <div class="price-main price">{{ "%.2f"|format(product.price) }} kr</div>
       {% endif %}
