@@ -1610,6 +1610,9 @@ _FEATURES = (
              'desc': 'Regnes ud hver nat efter butikkernes nye priser.'},
             {'kind': 'job', 'name': 'Import af opskrifter',
              'desc': 'Kører hver morgen og tjekker nye opskrifter fra brugerne.'},
+            {'kind': 'job', 'name': 'Egne opskrifter',
+             'desc': '30 opskrifter på kendte retter, skrevet af os selv, så vi '
+                     'må vise hele fremgangsmåden. Lægges ind af importen.'},
             {'kind': 'app', 'name': 'Opskrifter i appen',
              'desc': 'Fanen og opskrifterne i iPhone- og Android-appen.'},
             {'kind': 'idea', 'name': 'Gem opskrifter',

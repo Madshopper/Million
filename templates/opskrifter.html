@@ -44,6 +44,9 @@
         .replace(/'/g, '&#39;');
     }
 
+    // Egne opskrifter (data/egne_opskrifter.json) har intet foto.
+    const RECIPE_PLACEHOLDER_IMG = {{ url_for('static', filename='images/opskrift-standard.svg') | tojson }};
+
     function renderRecipeCard(r) {
       const saleBadge = r.sale_ratio > 0
         ? '<span class="sale-badge">' + Math.floor(r.sale_ratio * 100) + '% på tilbud</span>'
@@ -56,7 +59,7 @@
         : '';
       return '<a href="/opskrift/' + r.id + '" class="recipe-card" id="recipe' + r.id + '">' +
         '<div class="product-image-container">' + saleBadge +
-        '<img src="' + escapeHtml(r.image_url || '') + '" alt="' + escapeHtml(r.title) + '" class="product-image" loading="lazy"></div>' +
+        '<img src="' + escapeHtml(r.image_url || RECIPE_PLACEHOLDER_IMG) + '" alt="' + escapeHtml(r.title) + '" class="product-image" loading="lazy"></div>' +
         '<div class="product-content"><h3>' + escapeHtml(r.title) + '</h3>' + matchHtml + '</div>' +
         '<div class="product-footer"><div class="product-price">' + priceHtml + '</div></div></a>';
     }
