@@ -12,6 +12,15 @@
     'use strict';
 
     const TJEK_API = 'https://squid-api.tjek.com/v2';
+    // Kun aviser med mad (Kalle 07-10-2026): ingen legetøj, Halloween-kostumer,
+    // skønhed, elektronik osv. Tjek giver alle butikkens aviser samme kategori
+    // ("groceries"), så det afgøres på avisens navn. Samme liste i
+    // apps/mobile/src/flyers/flyers.ts.
+    const NON_FOOD_WORDS = ['legetøj', 'halloween', 'nonfood', 'non-food', 'skønhed', 'velvære', 'prosonic', 'elektronik', 'tekstil', 'kostume'];
+    const isFoodCatalog = (c) => {
+        const label = (c.label || '').toLowerCase();
+        return !NON_FOOD_WORDS.some(w => label.includes(w));
+    };
     const section = document.getElementById('flyersSection');
     if (!section) return;
 
@@ -51,6 +60,7 @@
         (Array.isArray(data) ? data : []).forEach(c => {
             if (!c || !c.dealer_id || !(c.page_count > 0)) return;
             if (!(c.types || []).includes('paged')) return;
+            if (!isFoodCatalog(c)) return;
             if (Date.parse(c.run_till) < now) return;
             (byDealer[c.dealer_id] = byDealer[c.dealer_id] || []).push(c);
         });
