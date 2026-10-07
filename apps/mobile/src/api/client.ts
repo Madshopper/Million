@@ -69,7 +69,12 @@ export function busyRetryDelayMs(res: Pick<Response, 'headers'>, random: () => n
 async function fetchWithTimeout(url: string, init: RequestInit | undefined, controller: AbortController): Promise<Response> {
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    // MadShopper Test mod dev.madshopper.dk: nøglen der lukker appen ind
+    // forbi dev-sidens spærring (src/worker.py::_staging_blocked).
+    const headers = env.stagingAppKey
+      ? { ...(init?.headers as Record<string, string> | undefined), 'X-MadShopper-Test-App': env.stagingAppKey }
+      : init?.headers;
+    return await fetch(url, { ...init, headers, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
