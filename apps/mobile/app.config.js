@@ -235,6 +235,10 @@ const config = {
     // opskrifter fra madshopper.dk med testnøglen (app.py::get_recipes_preview).
     // Står aldrig i eas.json eller git.
     recipesPreviewKey: process.env.EXPO_PUBLIC_RECIPES_PREVIEW_KEY || '',
+    // Kun i Kalles lokale build af MadShopper Test mod dev.madshopper.dk:
+    // sendes som X-MadShopper-Test-App, så dev-sidens spærring lukker appen
+    // ind (src/worker.py::_staging_blocked). Står aldrig i eas.json eller git.
+    stagingAppKey: process.env.EXPO_PUBLIC_STAGING_APP_KEY || '',
     // Beskeder på telefonen (src/push/push.ts) - altid til i test-udgaverne.
     pushEnabled: process.env.EXPO_PUBLIC_PUSH_ENABLED === '1',
     googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || PUBLIC_DEFAULTS.googleClientId,
