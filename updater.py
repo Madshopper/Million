@@ -1236,6 +1236,28 @@ _PHOTO_REJECT_MAX_DIST = 20
 # de samme varer, men for 7,8 % af de forskellige.
 _KG_PRICE_MAX_RATIO = 3.0
 
+# Pris-sanity: samme vare koster ikke 5 gange mere i en anden butik. Mangler
+# vægten på den ene side, kan vægt-gaten ikke se, at det er to størrelser
+# (Rema "APPELSINJUICE, BRIK" 25 cl til 4,50 kr mod Gestus 1 liter til
+# 16,95 kr), så dér er grænsen 3 gange. Løsvarer er undtaget: stykpris mod
+# kilopris giver store forskelle uden at være en anden vare.
+_PRICE_MAX_RATIO = 5.0
+_PRICE_MAX_RATIO_WEIGHTLESS = 3.0
+
+
+def prices_plausible(price_a, price_b, weightless: bool = False,
+                     produce: bool = False) -> bool:
+    """False når to priser er for langt fra hinanden til at være samme vare."""
+    try:
+        a, b = float(price_a), float(price_b)
+    except (TypeError, ValueError):
+        return True
+    if a <= 0 or b <= 0:
+        return True
+    limit = (_PRICE_MAX_RATIO_WEIGHTLESS if weightless and not produce
+             else _PRICE_MAX_RATIO)
+    return max(a, b) / min(a, b) <= limit
+
 
 def photo_distance(base_p: dict, cand_p: dict) -> int | None:
     """Hamming-afstand mellem to produktfotos, eller None hvis en mangler."""
@@ -1867,14 +1889,13 @@ def cross_store_pair_verdict(base_p: dict, target_p: dict, base_norm: str,
         if not evidence and name_score < _WEIGHTLESS_NAME_FLOOR:
             return False, name_score, 'vægtløst par'
 
-    # Pris-sanity: samme vare koster ikke 5× mere i en anden butik.
-    try:
-        base_price = float(base_p['price'])
-        target_price = float(target_p['price'])
-        if target_price > 5.0 * base_price or target_price * 5.0 < base_price:
-            return False, name_score, 'pris'
-    except (TypeError, ValueError, KeyError):
-        pass
+    # Pris-sanity (se prices_plausible): strammere når vægten mangler.
+    if not prices_plausible(
+            base_p.get('price'), target_p.get('price'),
+            weightless=not base_weight or not target_weight,
+            produce=(base_type == CAT_FRUGT_GROENT
+                     and target_type == CAT_FRUGT_GROENT)):
+        return False, name_score, 'pris'
 
     # Kg-pris: enhedsnormaliseret pris. Modsat pris-sanityen ovenfor er den
     # uafhængig af pakkestørrelse, så den fanger par hvor navnene passer, men
@@ -1976,7 +1997,7 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
        tolerance (20g floor / 8% relative / 25%-scaled for small items) are
        skipped. Moved here (before name score) since it doesn't need it.
     10. Quantity: skip when both sides have _stk_count and they differ.
-    11. Price sanity: reject if store price is >5x or <1/5x the Rema price.
+    11. Price sanity: reject if store price is >5x or <1/5x the Rema price (3x when either weight is unknown, produce excepted).
     -- name_score computed here --
     12. Type: product category must match unless name_score >= 0.80 (store
         categories are noisy, e.g. the same jam under "Kolonial"/"Frost").
@@ -2180,15 +2201,13 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
         # Gate C: Price sanity - tosidet. En kandidat >5× dyrere ELLER >5× billigere
         # er ikke samme vare (fx Rema 6-pak øl 48 kr mod Menys enkeltdåse 7,95 kr -
         # Dagrofa-varer mangler ofte vægt, så vægt-gaten fanger det ikke).
-        if rema_price and rema_price > 0:
-            try:
-                p_price = float(p.get('price', 0))
-                if p_price > 5.0 * float(rema_price):
-                    continue
-                if p_price > 0 and p_price * 5.0 < float(rema_price):
-                    continue
-            except (TypeError, ValueError):
-                pass
+        # Mangler vægten på en af siderne, er grænsen 3 gange (prices_plausible).
+        if rema_price and not prices_plausible(
+                rema_price, p.get('price'),
+                weightless=not rema_weight_g or not p.get('_weight_g'),
+                produce=(rema_type == CAT_FRUGT_GROENT
+                         and p['_type'] == CAT_FRUGT_GROENT)):
+            continue
 
         # 1. Name similarity - bedste af titel og beskrivelse. Rema-titlen er ofte
         # generisk (fx "PROTEIN DRIK"), mens smag/variant kun står i beskrivelsen
@@ -3913,8 +3932,36 @@ def fetch_and_parse_xml():
                                 and (rema_stk is None or hit.get('_stk_count') is None
                                      or rema_stk == hit.get('_stk_count'))
                                 and _percents_match(rema_pcts, hit.get('_pcts', frozenset()))
-                                and _variants_compatible(rema_variants, hit.get('_variants', _NO_VARIANT_FLAGS))):
+                                and _variants_compatible(rema_variants, hit.get('_variants', _NO_VARIANT_FLAGS))
+                                # Pris-sanity også her: samme stregkode koster
+                                # det samme overalt, men Rema-varen kan være en
+                                # anden størrelse end den stregkode, der blev fundet.
+                                and prices_plausible(
+                                    rema_effective, hit.get('price'),
+                                    weightless=not rema_w or not hit.get('_weight_g'),
+                                    produce=(unify_category(str(product.get('/product/product_type') or ''), str(product.get('/product/title') or ''), str(product.get('/product/brand') or '')) == CAT_FRUGT_GROENT
+                                             and hit.get('_type') == CAT_FRUGT_GROENT))):
                             matches[key] = hit
+
+            # Eget mærke mod mærkevare, set gennem stregkoden: et fuzzy-match
+            # med et tavst mærkefelt ("A.B.") kan via stregkoden trække
+            # mærkevaren ind fra en butik, der kender mærket ("Anthon Berg").
+            # Samme stregkode er samme vare, så hele gruppen droppes. Kun når
+            # Rema selv skriver sit navn på varen: rema_brand_class gætter
+            # 'pl' for alt med et ukendt mærke ("PÅLÆKKER", "FLASKE"), og
+            # det gæt må ikke smide hele stregkode-grupper ud.
+            rema_desc = normalize_name(str(product.get('/product/description') or ''))
+            rema_strong_pl = (
+                is_private_label(str(product.get('/product/brand') or ''),
+                                 str(product.get('/product/title') or ''))
+                or normalize_name(str(product.get('/product/brand') or '')).replace(' ', '') == 'rema1000'
+                or rema_desc.replace(' ', '').startswith('rema1000'))
+            clash_eans = {m.get('ean') for m in matches.values()
+                          if rema_strong_pl and m.get('ean')
+                          and m.get('_brand_cls') == 'nat'}
+            if clash_eans:
+                matches = {k: m for k, m in matches.items()
+                           if m.get('ean') not in clash_eans}
 
             # Store matches and track IDs
             product['/product/store_matches'] = {}
