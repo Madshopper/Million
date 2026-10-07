@@ -19,6 +19,7 @@ type Extra = {
   nonProdReleaseAllowed?: boolean;
   recipesEnabled?: boolean;
   recipesPreviewKey?: string;
+  stagingAppKey?: string;
   pushEnabled?: boolean;
 };
 
@@ -37,6 +38,8 @@ export const env = {
   googleClientId: extra.googleClientId || '',
   googleIosClientId: extra.googleIosClientId || '',
   googleAndroidClientId: extra.googleAndroidClientId || '',
+  /** Kun MadShopper Test mod dev.madshopper.dk (se app.config.js). */
+  stagingAppKey: extra.stagingAppKey || '',
 };
 
 /**

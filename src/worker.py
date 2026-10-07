@@ -583,6 +583,7 @@ class Env(Protocol):
     SUBSCRIPTION_ENABLED: str
     FLYERS_ENABLED: str
     STAGING_ACCESS_SECRET: str
+    STAGING_APP_KEY: str
     # Admin: D1-budget og Trafik-fanen (app.py::_cf_graphql). EdgeKit udleverer
     # KUN deklarerede navne - uden disse to linjer så appen aldrig nøglen,
     # selvom den lå på workeren (03-10-2026). scripts/test-edge-env.py tjekker
@@ -705,6 +706,18 @@ class Default(WSGI[Env]):
                     sig.encode(), _staging_link_sig(secret, int(exp_s)).encode()
                 ):
                     return self._staging_cookie_response(secret, path)
+
+            # Testappen MadShopper Test (dk.madshopper.app.test) på Kalles
+            # telefon: en app kan ikke klikke på admin-linket, så den sender
+            # sin egen nøgle i en header. Worker-secret STAGING_APP_KEY sættes
+            # kun på madshopper-dev (wrangler secret put), aldrig i git, og
+            # uden en nøgle på mindst 24 tegn er vejen lukket.
+            app_key = str(getattr(self.raw_env, "STAGING_APP_KEY", None) or "")
+            got_app = request.headers.get("X-MadShopper-Test-App") or ""
+            if len(app_key) >= 24 and got_app and hmac.compare_digest(
+                got_app.encode(), app_key.encode()
+            ):
+                return None
 
             cookie = request.headers.get("Cookie") or ""
             got_token = _cookie_value(cookie, "ms_staging")

@@ -1839,8 +1839,8 @@ _PROJECTS = (
             {'done': True, 'name': 'Tabeller i databasen',
              'desc': 'scripts/supabase-app-stats.sql køres én gang i Supabase.'},
             {'done': True, 'name': 'Bed Apple om rapporter',
-             'desc': 'Gjort 05-10-2026 med en Admin-nøgle. Den kan slettes '
-                     'nu (og ASC_ADMIN_* i GitHub).'},
+             'desc': 'Gjort 05-10-2026 med en Admin-nøgle. Nøglen og '
+                     'ASC_ADMIN_* i GitHub er slettet igen.'},
             {'done': False, 'name': 'Første tal fra Apple',
              'desc': 'Downloads og stjerner kommer dagen efter. Visninger, '
                      'sletninger og nedbrud ca. to døgn senere.'},
@@ -1868,6 +1868,26 @@ _PROJECTS = (
         'desc': 'Når appen går ned hos en bruger, ser vi det i dag kun i '
                 'Apples egne rapporter. Kræver valg af en gratis tjeneste.',
         'parts': (),
+    },
+    {
+        'key': 'matching',
+        'name': 'Bedre sammenligning af varer',
+        'status': 'doing',
+        'desc': 'Varer med samme stregkode sammenlignes sikkert. Resten '
+                'gættes ud fra navn, vægt, pris og billede, og her er ca. '
+                '15 % forkerte, mens mange varer slet ikke bliver '
+                'sammenlignet (målt 07-10-2026).',
+        'parts': (
+            {'done': True, 'name': 'Strammere regler for gæt',
+             'desc': 'Kædernes egne mærker, pris uden vægt, mærke i navnet '
+                     'og multipak holdes adskilt (07-10-2026).'},
+            {'done': False, 'name': 'Is og chokolade holdes adskilt',
+             'desc': 'Fx Skildpadde-chokolade mod Skildpadde-is. Klar til '
+                     'merge.'},
+            {'done': False, 'name': 'Flere Rema-varer sammenlignes',
+             'desc': 'En oprydning smider i dag mange rigtige Rema-'
+                     'sammenligninger væk, så ca. 580 Rema-varer står alene.'},
+        ),
     },
     {
         'key': 'dagrofa_backup',
