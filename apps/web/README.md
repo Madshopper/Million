@@ -25,6 +25,8 @@ npx tsx test/parity/live-pages.ts  # hele sider: Python-worker på :5003 mod Tan
 
 Fixtures genereres med `python3 test/parity/gen_support_fixtures.py` og `gen_template_fixtures.py` fra repo-roden.
 
+Opskrifterne har egne fixtures (`gen_recipe_fixtures.py` -> `recipes.test.tsx`, Supabase/D1 mocket) og en live-sammenligning af sider + JSON-API'er: `TANSTACK_PORT=5002 npx tsx test/parity/live-recipes.ts` (kun læsninger; `/api/recipe-click` får kun ugyldige payloads, så RPC'en aldrig kaldes).
+
 ## Måling
 
 `node scripts/bench.mjs python=http://127.0.0.1:5003 tanstack=http://127.0.0.1:5002` måler p50/p95 og CPU pr. request (fra `/proc` for workerd-processerne). Python-workeren startes fra `dist/` efter `DEPLOY_ENV=staging bash scripts/build-pages.sh` med `wrangler dev --local --persist-to ../apps/web/.wrangler-state`, så begge læser samme lokale D1/KV. `vite preview` proxyer til en workerd på tilfældig port; angiv dens pid med `TANSTACK_PIDS=<pid>`. En `.dev.vars` (gitignoret) med `EDGE_CACHE=off` slår edge-cachen fra, så hver request renderes.
