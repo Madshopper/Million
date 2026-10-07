@@ -12,7 +12,6 @@ import type { Recipe } from '../api/recipes';
 const STORAGE_KEY = 'ms_recipe_prefs_v1';
 
 export const DAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
-export const DAYS_MIN = 2;
 /** Budget om ugen eller om måneden (knap på budget-spørgsmålet). Planen er
  * for én uge, så et månedsbudget regnes om til ugens andel. */
 export type BudgetPeriod = 'uge' | 'maaned';
@@ -96,8 +95,6 @@ export type MealPrefs = {
   v: 1;
   done: boolean;
   people: number;
-  /** Aftener om ugen, planen dækker (DAYS_MIN-7). */
-  days: number;
   budget: number;
   budgetPeriod: BudgetPeriod;
   moods: string[];
@@ -110,7 +107,7 @@ export type MealPrefs = {
 
 export function defaultPrefs(): MealPrefs {
   return {
-    v: 1, done: false, people: 2, days: 5, budget: 500, budgetPeriod: 'uge', moods: [], diets: [],
+    v: 1, done: false, people: 2, budget: 500, budgetPeriod: 'uge', moods: [], diets: [],
     blocked: [], kitchen: ['ovn', 'kogeplade'], pinned: [], seed: 1,
   };
 }
@@ -123,7 +120,6 @@ export async function loadPrefs(): Promise<MealPrefs | null> {
     if (!p || p.v !== 1) return null;
     const merged: MealPrefs = { ...defaultPrefs(), ...p };
     if (!BUDGET[merged.budgetPeriod]) merged.budgetPeriod = 'uge';
-    merged.days = Math.min(DAYS.length, Math.max(DAYS_MIN, Math.floor(merged.days) || 5));
     return merged;
   } catch {
     return null;
@@ -190,7 +186,7 @@ export function makePlan(recipes: Recipe[], p: MealPrefs): MealPlan {
   const meals: PlannedMeal[] = [];
   let total = 0;
   for (const x of [...pinned, ...rest]) {
-    if (meals.length >= p.days) break;
+    if (meals.length >= DAYS.length) break;
     if (!p.pinned.includes(x.recipe.id) && total + x.price > weeklyBudget(p)) continue;
     meals.push({ recipe: x.recipe, price: x.price });
     total += x.price;

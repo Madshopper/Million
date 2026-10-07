@@ -14,8 +14,6 @@ import { useTheme } from '../theme/ThemeContext';
 import type { Recipe } from '../api/recipes';
 import {
   BUDGET,
-  DAYS,
-  DAYS_MIN,
   DIETS,
   KITCHEN,
   MAX_PEOPLE,
@@ -119,26 +117,15 @@ export function MealPlanWizard({ recipes, initial, onCancel, onDone }: Props) {
         <Text style={[styles.sub, { color: colors.textMuted }]}>{titles[name][1]}</Text>
 
         {name === 'people' && (
-          <>
-            <Counter
-              icon="👥"
-              label="Personer"
-              unit={p.people === 1 ? 'person' : 'personer'}
-              value={p.people}
-              min={1}
-              max={MAX_PEOPLE}
-              onChange={(people) => update({ people })}
-            />
-            <Counter
-              icon="📅"
-              label="Aftener om ugen"
-              unit="aftensmåltider"
-              value={p.days}
-              min={DAYS_MIN}
-              max={DAYS.length}
-              onChange={(days) => update({ days })}
-            />
-          </>
+          <Counter
+            icon="👥"
+            label="Personer"
+            unit={p.people === 1 ? 'person' : 'personer'}
+            value={p.people}
+            min={1}
+            max={MAX_PEOPLE}
+            onChange={(people) => update({ people })}
+          />
         )}
 
         {name === 'budget' && (
