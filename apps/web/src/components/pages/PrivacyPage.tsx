@@ -1,0 +1,225 @@
+// Port af templates/privacy.html.
+import type { RequestInfo, SiteContext } from '../context'
+import { urlFor } from '../context'
+import { Layout } from '../Layout'
+
+export interface PrivacyPageProps {
+  site: SiteContext
+  req: RequestInfo
+}
+
+export function PrivacyPage({ site, req }: PrivacyPageProps) {
+  return (
+    <Layout site={site} req={req} title={'Privatlivspolitik - MadShopper'}>
+      <div className="page-wrap">
+        <article className="static-page">
+          <h1>Privatlivspolitik</h1>
+          <p className="static-page-lead">Her kan du læse, hvilke oplysninger MadShopper behandler, hvorfor, og hvilke rettigheder du har.</p>
+          <p className="static-page-updated">Sidst opdateret: 2. oktober 2026</p>
+          <section>
+            <h2>Dataansvarlig</h2>
+            <p>
+              {" MadShopper drives af mig som privatperson og studerende - ikke som virksomhed. Har du spørgsmål om dine data, så "}
+              <a href={urlFor('feedback_page')}>skriv via feedback-siden</a>
+              {" eller send en mail til "}
+              <a href="mailto:kontakt@madshopper.dk">kontakt@madshopper.dk</a>
+              {". "}
+            </p>
+          </section>
+          <section>
+            <h2>Du kan bruge siden uden konto</h2>
+            <p>Du behøver ikke oprette en konto for at søge, sammenligne priser eller bruge indkøbskurven. Uden konto ligger det meste kun lokalt i din browser:</p>
+            <ul>
+              <li>Dit foretrukne tema</li>
+              <li>Hvilke butikker du har valgt</li>
+              <li>Din indkøbskurv og gemte indkøbslister</li>
+            </ul>
+            <p>Det lokale indhold kan jeg ikke se. Du kan slette det via din browsers indstillinger.</p>
+          </section>
+          <section>
+            <h2>Anonym statistik om kurv-aktivitet</h2>
+            <p>
+              {" Siden gemmer "}
+              <strong>anonym</strong>
+              {" statistik om, hvilke produkter der lægges i kurv eller indgår i en prissammenligning (kun produkt-id, antal og time - ikke dig som person). Det bruges til at vise \"Populære varer\" og til at forbedre siden. "}
+            </p>
+          </section>
+          <section>
+            <h2>Feedback</h2>
+            <p>Hvis du sender feedback, gemmes det, du selv skriver (besked og eventuelt navn og e-mail), så jeg kan svare dig. Beskeden gemmes i sidens egen database, hvor kun jeg kan læse den i et adgangsbeskyttet administrationspanel, og jeg rydder selv op i den løbende. Feedback er ikke koblet til en eventuel konto og fjernes derfor ikke automatisk, hvis du senere sletter kontoen - kontakt mig, hvis du selv vil have en besked fjernet.</p>
+          </section>
+          <section>
+            <h2>Brugerkonti (valgfrit)</h2>
+            <p>Vælger du at oprette en konto, er det for at få din indkøbskurv gemt, så du kan se den på tværs af dine enheder. Til det gemmer jeg:</p>
+            <ul>
+              <li>Din e-mailadresse (eller din Google-konto, hvis du logger ind med Google)</li>
+              <li>
+                {" Dit visningsnavn - foreslået ud fra din e-mail eller dit Google-navn, men du kan ændre det selv. Det bruges kun ét sted: så de andre i en "}
+                <em>delt kurv</em>
+                {" (se nedenfor) kan se, hvem der er med "}
+              </li>
+              <li>Din indkøbskurv: vare-id, antal, og til visning også navn, billede, butik og senest kendte pris. Sammenligningspriser hentes friske, når du åbner dem - der gemmes ikke en fuld prishistorik pr. bruger</li>
+              <li>Din personlige besparelse: når du er logget ind og sammenligner priser for en kurv, gemmes forskellen mellem den dyreste og billigste butik som en månedlig total på din konto. Tallet er beregnet af din egen enhed (ikke slået op igen af mig) og bruges til din besparelsesoversigt på forsiden og til en anonym rangering (Top X % blandt brugere samme måned - uden at vise dig for andre)</li>
+              <li>
+                <strong>Delt kurv (valgfrit):</strong>
+                {" opretter eller tilslutter du dig en delt kurv med op til 5 andre, ser de gruppens varer, gemte lister og alle medlemmers visningsnavne - og du ser tilsvarende deres. Et invitationslink giver adgang til gruppen; del det kun med dem, du reelt vil dele kurven med "}
+              </li>
+              <li>
+                <strong>Prisalarm (valgfrit):</strong>
+                {" opretter du en alarm på en vare, gemmes din e-mailadresse sammen med alarmen, så en udbyder af e-mailudsendelse på mine vegne kan sende dig én mail, når prisen er nået. Når \"besked på telefonen\" er slået til på sitet, kommer alarmen i stedet kun som en besked, og der gemmes en teknisk adresse til din telefon eller browser, indtil du slår det fra, logger ud eller sletter kontoen. Alarmen bruges ikke, og adressen gemmes ikke til andet "}
+              </li>
+            </ul>
+            <p>Konto, kurv og delt kurv håndteres af en ekstern database- og loginudbyder på mine vegne. Jeg deler ikke dine kontooplysninger med andre og bruger dem ikke til markedsføring - se afsnittet "Hvem behandler data på mine vegne" for den fulde liste.</p>
+            <p>
+              {" Du kan når som helst slette din konto under kontomenuen (person-ikonet øverst) → "}
+              <strong>"Slet min konto"</strong>
+              {". Det fjerner med det samme din konto, din gemte kurv, din besparelsesoversigt, dine prisalarmer og din plads i en eventuel delt kurv (er du ejer af en delt kurv med andre medlemmer, overdrages ejerskabet automatisk til et andet medlem i stedet for at slette kurven under dem). Feedback du har sendt, mens du var logget ind, er en "}
+              <em>separat</em>
+              {" henvendelse (se \"Feedback\" ovenfor) og fjernes ikke automatisk af en kontosletning. "}
+            </p>
+          </section>
+          <section>
+            <h2>Cookies og samtykke</h2>
+            <p>Første gang du besøger MadShopper, får du vist en cookie-banner, hvor du kan vælge, hvad du giver samtykke til. Du kan altid ændre dit valg senere via linket "Cookie-indstillinger" nederst på siden.</p>
+            <p>
+              <strong>Nødvendige cookies</strong>
+              {" sættes altid, uanset dit valg. De bruges til at huske dit samtykke og til grundlæggende drift og sikkerhed af siden. "}
+            </p>
+            <p>
+              <strong>Analyse-cookies</strong>
+              {" sættes kun, hvis du aktivt siger ja til det. De bruges til at måle trafik på siden. Med dit samtykke kan oplysninger som enheds-ID, IP-adresse og adfærd på siden deles med en udbyder af trafikmåling. "}
+            </p>
+            <p>
+              <strong>Funktionelle cookies</strong>
+              {" sættes kun, hvis du aktivt siger ja til det. De bruges til at huske dine valg på siden, fx hvilke butikker du har valgt at sammenligne priser i, så du ikke skal vælge dem igen ved hvert besøg. "}
+            </p>
+            <p>
+              {" Konkret sætter siden i dag cookien "}
+              <code>madshopper_stores</code>
+              {" (dit butiksvalg, 1 år) og en tilhørende versionscookie, begge kun med funktionelt samtykke og begge fjernet med det samme, hvis du trækker samtykket tilbage. Selve samtykkebanneret leveres af min hostingudbyders indbyggede samtykkeværktøj, som sætter sin egen cookie til at huske dit valg. "}
+            </p>
+            <p>Min hostingudbyder tæller desuden anonymt, hvor mange der besøger siderne, og hvor hurtigt de indlæses. Det sker uden cookies og uden at genkende dig fra besøg til besøg, og derfor kræver det ikke samtykke.</p>
+            <p>Login-formularen og feedback-formularen bruger desuden en usynlig bot-test fra samme hostingudbyder, der ikke kræver samtykke, fordi den udelukkende bruges til sikkerhed (at forhindre automatiseret misbrug), ikke til sporing eller markedsføring. Scriptet indlæses kun, når du rent faktisk åbner login/opret konto eller feedback-siden.</p>
+          </section>
+          <section>
+            <h2>MadShopper-appen (iOS og Android)</h2>
+            <p>Appen behandler de samme data som siden, men på et par punkter er den anderledes:</p>
+            <ul>
+              <li>
+                <strong>Ingen cookies og ingen cookie-banner.</strong>
+                {" Dit tema, dine butiksvalg og din kurv gemmes lokalt på selve enheden. Er du logget ind, gemmes din login-nøgle i enhedens sikre nøglelager (Keychain på iOS, Keystore på Android) "}
+              </li>
+              <li>
+                <strong>Ingen sporing og ingen annoncer.</strong>
+                {" Appen indeholder ingen reklame- eller analyse-SDK'er og bruger ikke enhedens annonce-id (IDFA/AAID). Der deles ingen data med tredjeparter til markedsføring "}
+              </li>
+              <li>
+                <strong>Login</strong>
+                {" kan ske med e-mail, Google eller Apple. Vælger du Apple og skjuler din mail, ser jeg kun Apples videresendelsesadresse "}
+              </li>
+              <li>
+                <strong>Ingen adgang til kamera, kontakter eller placering.</strong>
+                {" Appen beder ikke om de tilladelser "}
+              </li>
+              <li>Den anonyme kurv-statistik virker som på siden - kun produkt-id, antal og tidspunkt, aldrig knyttet til dig</li>
+              <li>Delt kurv og prisalarmer virker som beskrevet under "Brugerkonti" ovenfor - samme data, samme databehandlere</li>
+            </ul>
+            <p>
+              {" Du sletter din konto i appen under "}
+              <strong>Profil → Indstillinger → "Slet konto"</strong>
+              {". Det fjerner din konto, din gemte kurv, din besparelsesoversigt, dine prisalarmer og din plads i en eventuel delt kurv, præcis som beskrevet under \"Brugerkonti\" ovenfor. "}
+            </p>
+          </section>
+          <section>
+            <h2>Tekniske logfiler og sikkerhed</h2>
+            <p>For at beskytte siden mod misbrug logges begrænsede, aggregerede sikkerhedshændelser (fx mistænkelig trafik) - aldrig din IP-adresse eller andre personhenførbare oplysninger, kun antal og hvilken type sti der er ramt. Loggene bruges ikke til markedsføring og gemmes kun så længe, det er nødvendigt for drift og sikkerhed.</p>
+            <p>Sidens tekniske cache hos hostingudbyderen gemmer også søgeresultater i op til 24 timer, så samme søgning ikke skal genberegnes for hver besøgende - det gælder selve søgeordet, ikke dig som person, og formålet er udelukkende hastighed.</p>
+          </section>
+          <section>
+            <h2>Hvem behandler data på mine vegne</h2>
+            <p>
+              {" Jeg bruger eksterne leverandører til at drive de tekniske dele af MadShopper - samme praksis som stort set enhver moderne hjemmeside. Nedenfor står, hvilken "}
+              <em>type</em>
+              {" leverandør der behandler hvad, og til hvilket formål. Flere af kategorierne dækkes af selskaber med hjemsted uden for EU/EØS; overførsel af data til dem sker på det pågældende selskabs eget databeskyttelsesgrundlag. "}
+            </p>
+            <ul>
+              <li>
+                <strong>Database- og loginudbyder</strong>
+                {" - konto, login, kurv, delt kurv, prisalarmer, besparelsesoversigt, feedback"}
+              </li>
+              <li>
+                <strong>Hosting- og sikkerhedsudbyder</strong>
+                {" - drift af siden, teknisk cache, anonym besøgsstatistik uden cookies, botbeskyttelse ved login/feedback, og selve cookiesamtykke-værktøjet"}
+              </li>
+              <li>
+                <strong>Udbyder af e-mailudsendelse</strong>
+                {" - afsendelse af prisalarm-mails"}
+              </li>
+              <li>
+                <strong>Udbydere af push-beskeder</strong>
+                {" (Expo, Apple, Google eller din browsers egen tjeneste) - kun hvis du selv slår beskeder på telefonen til"}
+              </li>
+              <li>
+                <strong>Udbyder af trafikmåling</strong>
+                {" - kun med dit analyse-samtykke (se cookieafsnittet)"}
+              </li>
+              <li>
+                <strong>Udbyder af automatiserede driftsjobs</strong>
+                {" - de bagvedliggende jobs der bl.a. opdaterer priser"}
+              </li>
+              <li>
+                <strong>Google eller Apple</strong>
+                {" - kun hvis du selv aktivt vælger at logge ind med en Google- eller Apple-konto"}
+              </li>
+            </ul>
+            <p>Ønsker du de konkrete firmanavne bag disse kategorier, kan du få dem ved at skrive til mig - se kontaktoplysningerne øverst.</p>
+            <p>Herudover henter varekortenes billeder direkte fra den enkelte butiks egen billed-server (fx Rema 1000, Salling-kæderne), som derfor ser din IP-adresse i det øjeblik, du får vist et produktbillede - på samme måde som når du besøger butikkens egen hjemmeside.</p>
+          </section>
+          <section>
+            <h2>Retsgrundlag</h2>
+            <p>Behandling sker på baggrund af:</p>
+            <ul>
+              <li>
+                <strong>Samtykke</strong>
+                {" - analyse- og funktionelle cookies (du kan trække samtykket tilbage når som helst) "}
+              </li>
+              <li>
+                <strong>Kontrakt / din anmodning</strong>
+                {" - konto, gemt kurv og feedback, du selv sender "}
+              </li>
+              <li>
+                <strong>Legitim interesse</strong>
+                {" - anonym kurv-statistik, drift og sikkerhed af siden "}
+              </li>
+            </ul>
+          </section>
+          <section>
+            <h2>Dine rettigheder</h2>
+            <p>
+              {" Du har ret til at få indsigt i de personoplysninger, jeg har om dig, få dem rettet eller slettet, og i visse tilfælde begrænse behandlingen eller gøre indsigelse. Du kan også klage til Datatilsynet ("}
+              <a href="https://www.datatilsynet.dk" rel="noopener noreferrer" target="_blank">datatilsynet.dk</a>
+              {"). "}
+            </p>
+            <p>
+              {" Den hurtigste vej til sletning er \"Slet min konto\" i kontomenuen. Ellers kontakt mig via feedback eller "}
+              <a href="mailto:kontakt@madshopper.dk">kontakt@madshopper.dk</a>
+              {". "}
+            </p>
+          </section>
+          <section>
+            <h2>Ændringer</h2>
+            <p>Denne privatlivspolitik kan blive opdateret efterhånden som siden udvikler sig. Den nyeste version er altid den, der ligger her - med dato for hvornår den sidst blev ændret.</p>
+          </section>
+          <section>
+            <h2>Se også</h2>
+            <p>
+              {" Reglerne for brug af siden står i "}
+              <a href={urlFor('terms_of_service')}>vilkår og betingelser</a>
+              {". "}
+            </p>
+          </section>
+        </article>
+      </div>
+    </Layout>
+  )
+}

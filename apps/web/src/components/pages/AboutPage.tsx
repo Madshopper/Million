@@ -1,0 +1,79 @@
+// Port af templates/about.html.
+import type { RequestInfo, SiteContext } from '../context'
+import { urlFor } from '../context'
+import { Layout } from '../Layout'
+
+export interface AboutPageProps {
+  site: SiteContext
+  req: RequestInfo
+}
+
+export function AboutPage({ site, req }: AboutPageProps) {
+  return (
+    <Layout site={site} req={req} title={'Om MadShopper - MadShopper'}>
+      <div className="page-wrap">
+        <article className="static-page">
+          <h1>Om MadShopper</h1>
+          <p className="static-page-lead">MadShopper hjælper dig med at finde de bedste dagligvarepriser - hurtigt, gratis og uden at du skal oprette en konto.</p>
+          <p className="static-page-updated">Sidst opdateret: 25. juli 2026</p>
+          <section>
+            <h2>Hvad er MadShopper?</h2>
+            <p>MadShopper er et dansk hobbyprojekt, jeg har bygget som studerende. Du kan søge efter produkter og sammenligne priser på tværs af de store danske dagligvarekæder - helt gratis.</p>
+            <p>Jeg sælger ikke varer og tjener ingen provision på dine køb. Priserne er vejledende, så tjek altid den endelige pris i butikken inden du handler.</p>
+          </section>
+          <section>
+            <h2>Hvilke butikker?</h2>
+            <p>MadShopper sammenligner priser fra flere danske kæder, blandt andet Rema 1000, Bilka, Netto, Føtex, Meny, Spar og Min Købmand. Der er også varer fra SuperBrugsen, Brugsen, Kvickly, 365 Discount, Lidl, Løvbjerg og ABC Lavpris - dækningen er dog ikke lige stærk i alle kæder, og sortimentet vokser løbende.</p>
+            <p>Du vælger selv hvilke butikker der vises, via butiksfilteret eller under Indstillinger (i appen: Profil → Indstillinger).</p>
+          </section>
+          <section>
+            <h2>Find varer</h2>
+            <ul>
+              <li>Søg efter produkter med forslag, mens du skriver</li>
+              <li>{"Browse kategorier som Køl, Kød & Fisk, Frugt & Grønt, Brød & Kager, Kolonial, Frost, Drikkevarer og Slik"}</li>
+              <li>Filtrér på tilbud, pris, vægt og meget mere</li>
+              <li>Se Ugens Tilbud og Populære varer på forsiden</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Sammenlign og spar</h2>
+            <ul>
+              <li>Se priser fra dine valgte butikker side om side</li>
+              <li>Find hurtigt ud af, hvor varen er billigst</li>
+              <li>Se enhedspris i kr./kg, så du kan sammenligne pakkestørrelser fair</li>
+              <li>Følg prisudviklingen over tid med historiske diagrammer</li>
+              <li>Opret en prisalarm med din ønskede målpris på en vare (under udvikling, men på vej)</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Planlæg dit indkøb</h2>
+            <ul>
+              <li>Tilføj varer til en digital indkøbskurv</li>
+              <li>Se hvad kurven samlet koster fordelt på kategorier</li>
+              <li>Gem indkøbslister, du kan genbruge</li>
+              <li>Se, hvad du kan spare ved at vælge billigere alternativer</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Hvem står bag?</h2>
+            <p>
+              {" En studerende med interesse for gennemsigtighed og en nemmere hverdag. Har du en idé, fundet en fejl eller vil du bare sige hej? "}
+              <a href={urlFor('feedback_page')}>Skriv til mig via feedback-siden</a>
+              {". "}
+            </p>
+          </section>
+          <section>
+            <h2>Vilkår og privatliv</h2>
+            <p>
+              {" Vil du vide mere om hvad der gemmes og hvad du må bruge siden til? Læs "}
+              <a href={urlFor('privacy_policy')}>privatlivspolitikken</a>
+              {" og "}
+              <a href={urlFor('terms_of_service')}>vilkår og betingelser</a>
+              {". "}
+            </p>
+          </section>
+        </article>
+      </div>
+    </Layout>
+  )
+}

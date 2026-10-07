@@ -1,0 +1,29 @@
+// TanStack Start-PoC. Bindings peger BEVIDST på staging-ressourcerne
+// (madshopper-dev D1/KV), aldrig produktion. PoC'en deployes ikke - lokalt
+// bruger `vite dev`/`vite preview` en lokal kopi i .wrangler-state (se
+// scripts/seed-local.py).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "madshopper-start-poc",
+  "main": "src/server.tsx",
+  "compatibility_date": "2026-07-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": false, "logs": { "enabled": false }, "traces": { "enabled": false } },
+  "kv_namespaces": [{ "binding": "CACHE_KV", "id": "b879e69c3a1f477c9c69bbc7e7b041df" }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "madshopper-dev", "database_id": "fa7fab55-a5e8-485a-9084-068890e9c8c5" }
+  ],
+  "vars": {
+    "SITE_URL": "https://madshopper.dk",
+    "SUPABASE_URL": "https://oxzxingkbsnqzpmjtktr.supabase.co",
+    "SUPABASE_KEY": "sb_publishable_Jt8N0XezmzfZJSzzSwBBKQ_uGbNoq8f",
+    "TABLE_SUFFIX": "_dev",
+    // Alt er slået til på staging (CLAUDE.md) - samme som build-pages.sh.
+    "RECIPES_ENABLED": "1",
+    "PUSH_ENABLED": "1",
+    "STATS_ENABLED": "1",
+    "SWIPE_ENABLED": "1",
+    "MEJERI_NAVN_ENABLED": "1",
+    "SUBSCRIPTION_ENABLED": "1"
+  }
+}
