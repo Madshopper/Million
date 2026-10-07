@@ -231,6 +231,10 @@ const config = {
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || PUBLIC_DEFAULTS.supabaseAnonKey,
     rpcSuffix: process.env.EXPO_PUBLIC_RPC_SUFFIX || '',
     recipesEnabled: process.env.EXPO_PUBLIC_RECIPES_ENABLED === '1',
+    // Kun i Kalles lokale build af MadShopper Test: henter de skjulte
+    // opskrifter fra madshopper.dk med testnøglen (app.py::get_recipes_preview).
+    // Står aldrig i eas.json eller git.
+    recipesPreviewKey: process.env.EXPO_PUBLIC_RECIPES_PREVIEW_KEY || '',
     // Beskeder på telefonen (src/push/push.ts) - altid til i test-udgaverne.
     pushEnabled: process.env.EXPO_PUBLIC_PUSH_ENABLED === '1',
     googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || PUBLIC_DEFAULTS.googleClientId,

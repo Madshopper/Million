@@ -208,6 +208,10 @@ _EDGE_ENV_VARS = (
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
     'STAGING_LINK_SECRET',
+    # Testnøgle til MadShopper Test-appen: skjulte opskrifter via
+    # /api/recipes-preview/<nøgle> (se get_recipes_preview). Worker-secret i
+    # produktion, aldrig i git.
+    'RECIPES_PREVIEW_KEY',
 )
 
 
@@ -2708,15 +2712,43 @@ def get_nutrition(product_id):
         return jsonify(success=False, nutrition=None)
 
 
+def _recipes_preview_ok(key: str) -> bool:
+    """Testnøglen til MadShopper Test-appen (dk.madshopper.app.test), så
+    opskrifterne kan prøves på telefonen, før de er udgivet i Feature-panelet.
+    Appen henter fra madshopper.dk, og dev-siden er lukket for alt andet end
+    admins i en browser. Uden en nøgle på mindst 24 tegn er stien bare 404."""
+    expected = str(_edge_var('RECIPES_PREVIEW_KEY') or '')
+    return len(expected) >= 24 and hmac.compare_digest(
+        (key or '').encode(), expected.encode())
+
+
+# Stierne er IKKE i _CACHEABLE_ENDPOINTS: de må aldrig ligge i den delte
+# edge-cache (worker'ens cache-nøgle ville ellers kun indeholde stien, og den
+# indeholder nøglen, men et ikke-cachet svar er det sikre valg). Det koster en
+# render pr. kald, og det er kun Kalles testapp der kalder dem.
+@app.route('/api/recipes-preview/<key>')
+def get_recipes_preview(key):
+    if not _recipes_preview_ok(key):
+        abort(404)
+    return get_recipes(_force=True)
+
+
+@app.route('/api/recipes-preview/<key>/<int:recipe_id>')
+def get_recipe_preview(key, recipe_id):
+    if not _recipes_preview_ok(key):
+        abort(404)
+    return get_recipe(recipe_id, _force=True)
+
+
 @app.route('/api/recipes')
-def get_recipes():
+def get_recipes(_force: bool = False):
     """Godkendte opskrifter + deres forudberegnede prissnapshot (recipe_pricing.py,
     kørt nightly i cache-updater.yml) - opslag, ikke live-beregning, se
     docs/Features.md og scripts/supabase-recipes.sql.
 
     Featuren er stadig under test og må ikke være tilgængelig på madshopper.dk,
-    se _recipes_enabled()."""
-    if not _recipes_enabled() or not _supabase_available():
+    se _recipes_enabled(). _force: kun fra get_recipes_preview (testnøglen)."""
+    if not (_force or _recipes_enabled()) or not _supabase_available():
         return jsonify(success=True, recipes=[])
     try:
         rows, status = _supabase_rest(
@@ -3145,10 +3177,10 @@ def _fetch_recipe_detail(recipe_id):
 
 
 @app.route('/api/recipes/<int:recipe_id>')
-def get_recipe(recipe_id):
+def get_recipe(recipe_id, _force: bool = False):
     """Featuren er stadig under test og må ikke være tilgængelig på
-    madshopper.dk, se _recipes_enabled()."""
-    if not _recipes_enabled() or not _supabase_available():
+    madshopper.dk, se _recipes_enabled(). _force: kun fra get_recipe_preview."""
+    if not (_force or _recipes_enabled()) or not _supabase_available():
         return jsonify(success=True, recipe=None)
     try:
         recipe, ingredients, snapshot = _fetch_recipe_detail(recipe_id)
