@@ -26,6 +26,7 @@ export type FlyerCatalog = {
   run_from: string;
   run_till: string;
   page_count: number;
+  offer_count?: number;
   types?: string[];
 };
 
@@ -45,7 +46,7 @@ export function pickWeekly(list: FlyerCatalog[], now: number): FlyerCatalog[] {
       Date.parse(c.run_till) - from(c) <= 16 * DAY_MS && !/indstik|weekend/i.test(c.label || ''),
   );
   // Hedder butikkens aviser "Uge 42" o.l., er det kun dem. ABC Lavpris
-  // kalder sine aviser efter byen og beholdes derfor alle.
+  // kalder sine aviser efter byen (se oneOf).
   if (weekly.some((c) => weekNo.test(c.label || ''))) {
     weekly = weekly.filter((c) => weekNo.test(c.label || ''));
   }
@@ -54,9 +55,23 @@ export function pickWeekly(list: FlyerCatalog[], now: number): FlyerCatalog[] {
   const newest = Math.max(...active.map(from));
   const next = Math.min(...upcoming.map(from));
   return [
-    ...active.filter((c) => from(c) === newest),
-    ...upcoming.filter((c) => from(c) === next),
-  ];
+    oneOf(active.filter((c) => from(c) === newest)),
+    oneOf(upcoming.filter((c) => from(c) === next)),
+  ].filter((c): c is FlyerCatalog => !!c);
+}
+
+/**
+ * ABC Lavpris har én avis pr. by med (næsten) samme tilbud (målt
+ * 07-10-2026: 14 af 16 byer ens). Kalle vil kun se én: den hvis antal
+ * tilbud flest byer deler, altså den almindelige udgave.
+ */
+function oneOf(group: FlyerCatalog[]): FlyerCatalog | undefined {
+  if (group.length < 2) return group[0];
+  const count: Record<number, number> = {};
+  for (const c of group) count[c.offer_count ?? 0] = (count[c.offer_count ?? 0] || 0) + 1;
+  return group.reduce((best, c) =>
+    count[c.offer_count ?? 0] > count[best.offer_count ?? 0] ? c : best,
+  );
 }
 
 /** Alle aktuelle og kommende aviser for butikkerne, pr. forhandler-id. */
