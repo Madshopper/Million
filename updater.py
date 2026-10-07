@@ -22,7 +22,7 @@ from app_support import (
     parse_weight_to_grams, parse_stk_count, weights_compatible,
     ean_looks_valid, ean_key, eans_conflict,
     _PLACEHOLDER_IMGS,
-    CAT_ANDET, CAT_FRUGT_GROENT, unify_category, is_age_restricted,
+    CAT_ANDET, CAT_FROST, CAT_FRUGT_GROENT, unify_category, is_age_restricted,
     compute_image_hash, phash_hex_to_int, hash_candidate_indices,
     _HASH_CANDIDATE_MAX_DIST,
     is_organic, is_lactose_free, is_sugar_free, is_gluten_free, is_alcohol_free,
@@ -861,6 +861,45 @@ def get_product_form(text: str) -> set:
     return _extract_keywords(text.lower(), _FORM_PATTERNS)
 
 
+# Is-gate: "Toms Skildpadde" findes både som chokolade og som is (Spar kalder
+# isen præcis det), og uden EAN var vægt-gaten eneste værn - blind når den ene
+# side mangler vægt (Lidl, tilbudsaviser). Type-gaten springes over ved
+# name_score >= 0.80, så den redder det heller ikke.
+#
+# Is kan ikke bare være endnu en form i _FORM_KEYWORDS: Dagrofa navngiver is
+# efter mærket ("Magnum Euphoria", "B&J Half Baked"), mens Salling skriver
+# "Mælkeis m. ...". En symmetrisk form-gate ville afvise de sande par. Derfor
+# afvises kun når den ene side siger is, og den anden side hverken siger is
+# eller ligger i Frost - mærkenavngivet is ligger i Frost hos Dagrofa.
+#
+# Bart "is" kræver ordgrænse i BEGGE ender: den halve grænse fra
+# _compile_keyword_patterns ville fange "ris", "melis", "Chablis", "Beauvais",
+# "iste" og "isotonisk". Sammensætningerne er hver for sig entydige; "iskage"
+# er bevidst udeladt ("riskage"), og smagsord som "vaniljeis" ligeså
+# ("Energidrik m. vaniljeis- og papayasmag" - Monster Rio Punch).
+_ICE_COMPOUNDS = (
+    'flødeis', 'mælkeis', 'limonadeis', 'sorbetis', 'sojais', 'havreis',
+    'yoghurtis', 'skildpaddeis', 'astronautis', 'islagkage', 'isvaf',
+    'ispind', 'isbåd', 'sorbet', 'softice', 'gelato',
+)
+_ICE_PATTERNS = _compile_keyword_patterns((kw, 'is') for kw in _ICE_COMPOUNDS) + [
+    (re.compile(r'(?<![a-zæøå])is(?![a-zæøå])'), ('is',)),
+]
+
+
+def is_ice_text(text: str) -> bool:
+    """True hvis produktteksten eksplicit siger is (flødeis, ispinde, "is")."""
+    return bool(_extract_keywords(text.lower(), _ICE_PATTERNS))
+
+
+def _ice_conflict(a_ice: bool, a_type, b_ice: bool, b_type) -> bool:
+    """Is mod ikke-is: kun når den side der IKKE siger is, heller ikke er Frost."""
+    if a_ice == b_ice:
+        return False
+    other_type = b_type if a_ice else a_type
+    return other_type != CAT_FROST
+
+
 def _flavors_match(base_flavors: set, cand_flavors: set) -> bool:
     """Smags-gate: kun hård afvisning hvis KANDIDATEN nævner en smag, basen ikke har.
 
@@ -950,6 +989,7 @@ def annotate_match_signals(product: dict) -> dict | None:
     # der lægger varetypen i producent-feltet.
     product['_meats'] = get_meat_types(text_with_brand)
     product['_forms'] = get_product_form(text_with_brand)
+    product['_ice'] = is_ice_text(text_with_brand)
     product['_pcts'] = get_product_percents(text_with_brand)
     # Farve og trin-tal: to varer kan vaere ens paa navn, vaegt, maerke,
     # kategori OG foto, og alligevel vaere forskellige varer, fordi
@@ -1412,6 +1452,9 @@ def cross_store_pair_verdict(base_p: dict, target_p: dict, base_norm: str,
         return False, 0.0, 'smag'
     if base_p['_forms'] != target_p['_forms']:
         return False, 0.0, 'form'
+    if _ice_conflict(base_p.get('_ice', False), base_p.get('_type'),
+                     target_p.get('_ice', False), target_p.get('_type')):
+        return False, 0.0, 'is'
     if not _meats_match(base_p['_meats'], target_p['_meats']):
         return False, 0.0, 'kødtype'
     if not _mills_match(base_p.get('_mill') or '', target_p.get('_mill') or ''):
@@ -1605,6 +1648,9 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
        and photo relaxation as flavor (see _forms_match). Prevents e.g. an
        Arla Protein DRINK from matching an Arla Protein PUDDING just
        because both share generic tokens like "arla"/"protein"/"choko".
+    8b. Ice: reject ice vs non-ice when the side that does not say "is"
+       isn't Frost either (see _ice_conflict) - skildpadde-chokolade vs
+       skildpadde-is. Same photo relaxation.
     9. Weight: candidates whose unit weight differs beyond weights_compatible's
        tolerance (20g floor / 8% relative / 25%-scaled for small items) are
        skipped. Moved here (before name score) since it doesn't need it.
@@ -1658,6 +1704,7 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
     # smag", og afviste dermed korrekte matches mod butikker med fyldigere navne.
     rema_flavors = get_product_flavors(f"{rema_title} {rema_description} {rema_brand}")
     rema_forms = get_product_form(f"{rema_title} {rema_description} {rema_brand}")
+    rema_ice = is_ice_text(f"{rema_title} {rema_description} {rema_brand}")
     # Brandfeltet SKAL med, præcis som på kandidatsiden (se '_pcts' ovenfor).
     # Rema lægger ofte procenten dér og kun dér ("ALKOHOLFRI 0,0%",
     # "CARLSBERG 0,0%"), så uden brand var rema_pcts tom, procent-gaten
@@ -1792,6 +1839,11 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
 
         # Gate: Produktform (drik ≠ budding ≠ mousse osv.)
         if not near_identical_photo and not _forms_match(rema_forms, p['_forms']):
+            continue
+
+        # Gate: Is mod ikke-is (skildpadde-chokolade ≠ skildpadde-is)
+        if not near_identical_photo and _ice_conflict(
+                rema_ice, rema_type, p.get('_ice', False), p['_type']):
             continue
 
         # Gate B/B2/C flyttet hertil, FØR den dyre navne-score beregnes
@@ -3892,7 +3944,7 @@ def fetch_and_parse_xml():
 
         # Fjern interne precompute-felter fra store_matches, så de ikke fylder
         # i app_cache/D1 (sets kan desuden ikke serialiseres pænt til JSON).
-        _transient_keys = ('_type', '_flavors', '_forms', '_variants', '_is_pl', '_pcts', '_meats', '_cross_match_tokens')
+        _transient_keys = ('_type', '_flavors', '_forms', '_ice', '_variants', '_is_pl', '_pcts', '_meats', '_cross_match_tokens')
         for _p in final_products:
             for _m in (_p.get('/product/store_matches') or {}).values():
                 if isinstance(_m, dict):
