@@ -313,6 +313,11 @@
       renderLoading();
       return toTop();
     }
+    if (act === 'plan-people-' || act === 'plan-people+') {
+      p.people = Math.min(8, Math.max(1, p.people + (act === 'plan-people+' ? 1 : -1)));
+      savePrefs(p);
+      return renderPlan();
+    }
     if (act === 'regen') {
       p.seed = (p.seed || 1) + 1;
       savePrefs(p);
@@ -368,7 +373,9 @@
         .map(function (m) { return '<span class="mp-tag">' + MOOD_LABEL[m].icon + ' ' + esc(MOOD_LABEL[m].label) + '</span>'; }).join('');
       return '<div class="mp-day">' + DAYS[i] + '</div>' +
         '<div class="mp-meal"><a class="mp-meal-link" href="/opskrift/' + r.id + '">' +
-        '<img src="' + esc(r.image_url || '') + '" alt="" loading="lazy">' +
+        // Egne opskrifter har (endnu) intet billede: vis en tallerken i stedet.
+        (r.image_url ? '<img src="' + esc(r.image_url) + '" alt="" loading="lazy">'
+                     : '<span class="mp-noimg" aria-hidden="true">🍽️</span>') +
         '<div class="mp-meal-info"><h3>' + esc(r.title) + '</h3>' +
         '<div class="mp-tags"><span class="mp-tag">🍽️ Aftensmad</span>' + tags + '</div>' +
         '<div class="mp-muted mp-meal-meta">👤 ' + p.people + ' · ca. ' + kr(x.price) + '</div></div></a>' +
@@ -393,8 +400,13 @@
       '<span class="mp-sum-price' + (plan.total > p.budget ? ' is-over' : '') + '">' + kr(plan.total) +
       '</span><span class="mp-muted"> / ' + krRound(p.budget) + '</span>' +
       '<div class="mp-bar"><span style="width:' + pct + '%"></span></div></div>' +
-      '<div class="mp-sum-card"><span class="mp-label">Retter</span><span class="mp-sum-price">' + plan.meals.length +
-      '</span><span class="mp-muted"> til ' + p.people + (p.people === 1 ? ' person' : ' personer') + '</span></div></div>' +
+      // Antal personer kan skrues direkte her (fx ved gæster) uden at svare på
+      // alle spørgsmålene igen. Det nye antal bliver standarden.
+      '<div class="mp-sum-card"><span class="mp-label">Personer</span><div class="mp-people">' +
+      '<button type="button" class="mp-mini" data-act="plan-people-" aria-label="Færre personer"' + (p.people <= 1 ? ' disabled' : '') + '>−</button>' +
+      '<span class="mp-sum-price" aria-live="polite">' + p.people + '</span>' +
+      '<button type="button" class="mp-mini" data-act="plan-people+" aria-label="Flere personer"' + (p.people >= 8 ? ' disabled' : '') + '>+</button></div>' +
+      '<span class="mp-muted">' + plan.meals.length + (plan.meals.length === 1 ? ' ret' : ' retter') + '</span></div></div>' +
       (note ? '<p class="mp-note">' + esc(note) + '</p>' : '') +
       (plan.meals.length ? '<p class="mp-muted mp-hint">Lås de retter du kan lide, og lav resten om.</p>' : '') +
       meals +

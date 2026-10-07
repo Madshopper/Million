@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import type { Recipe } from '../api/recipes';
-import { DAYS, MOODS, krRound, krText, makePlan, type MealPrefs } from './mealPlan';
+import { DAYS, MAX_PEOPLE, MOODS, krRound, krText, makePlan, type MealPrefs } from './mealPlan';
 
 type Props = {
   recipes: Recipe[];
@@ -62,16 +62,33 @@ export function MealPlanView({ recipes, prefs: p, onChange, onEdit, onOpen }: Pr
             <View style={{ width: `${pct}%`, height: '100%', backgroundColor: colors.primary }} />
           </View>
         </View>
-        <View
-          style={[styles.sumCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          accessible
-        >
-          <Text style={[styles.label, { color: colors.textMuted }]}>RETTER</Text>
-          <Text>
-            <Text style={[styles.sumPrice, { color: colors.primaryDark }]}>{plan.meals.length}</Text>
-            <Text style={{ color: colors.textMuted }}>
-              {' '}til {p.people} {p.people === 1 ? 'person' : 'personer'}
+        {/* Antal personer kan skrues direkte her (fx ved gæster) uden at svare
+            på alle spørgsmålene igen. Det nye antal bliver standarden. */}
+        <View style={[styles.sumCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.label, { color: colors.textMuted }]}>PERSONER</Text>
+          <View style={styles.people}>
+            <MiniButton
+              label="−"
+              a11y="Færre personer"
+              disabled={p.people <= 1}
+              onPress={() => onChange({ ...p, people: Math.max(1, p.people - 1) })}
+            />
+            <Text
+              style={[styles.sumPrice, { color: colors.primaryDark }]}
+              accessibilityLiveRegion="polite"
+              accessibilityLabel={`${p.people} ${p.people === 1 ? 'person' : 'personer'}`}
+            >
+              {p.people}
             </Text>
+            <MiniButton
+              label="+"
+              a11y="Flere personer"
+              disabled={p.people >= MAX_PEOPLE}
+              onPress={() => onChange({ ...p, people: Math.min(MAX_PEOPLE, p.people + 1) })}
+            />
+          </View>
+          <Text style={{ color: colors.textMuted }}>
+            {plan.meals.length} {plan.meals.length === 1 ? 'ret' : 'retter'}
           </Text>
         </View>
       </View>
@@ -154,6 +171,32 @@ export function MealPlanView({ recipes, prefs: p, onChange, onEdit, onOpen }: Pr
   );
 }
 
+function MiniButton({
+  label,
+  a11y,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  a11y: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      hitSlop={6}
+      style={[styles.mini, { borderColor: colors.border, backgroundColor: colors.bg, opacity: disabled ? 0.4 : 1 }]}
+    >
+      <Text style={{ color: colors.text, fontSize: 18, lineHeight: 20 }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function Tag({ text }: { text: string }) {
   const { colors } = useTheme();
   return (
@@ -170,6 +213,8 @@ const styles = StyleSheet.create({
   sumCard: { flex: 1, borderWidth: 1, borderRadius: 16, padding: 12 },
   label: { fontSize: 11, letterSpacing: 0.8, marginBottom: 2 },
   sumPrice: { fontSize: 20, fontWeight: '800' },
+  people: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 2 },
+  mini: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   bar: { height: 5, borderRadius: 99, marginTop: 8, overflow: 'hidden' },
   note: { borderRadius: 12, padding: 12, marginTop: 12 },
   hint: { textAlign: 'center', fontSize: 13, marginTop: 14, marginBottom: 2 },

@@ -6177,3 +6177,13 @@ body[data-theme="dark"] {
   .mp-wizard { border: none; box-shadow: none; padding: 8px 0 16px; min-height: 0; background: transparent; }
   .mp-pop { grid-template-columns: repeat(3, 1fr); }
 }
+.mp-people { display: flex; align-items: center; gap: 12px; }
+.mp-mini {
+  width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--gray-200);
+  background: var(--gray-100); color: var(--gray-800); font-size: 1.1rem; line-height: 1; cursor: pointer;
+}
+.mp-mini:disabled { opacity: .4; cursor: default; }
+.mp-noimg {
+  width: 84px; height: 84px; flex-shrink: 0; border-radius: var(--radius-md);
+  background: var(--green-light); display: flex; align-items: center; justify-content: center; font-size: 2rem;
+}
