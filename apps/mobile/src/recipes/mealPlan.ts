@@ -11,10 +11,35 @@ import type { Recipe } from '../api/recipes';
 
 const STORAGE_KEY = 'ms_recipe_prefs_v1';
 
-export const DAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag'];
-export const BUDGET_MIN = 200;
-export const BUDGET_MAX = 1500;
-export const BUDGET_STEP = 50;
+export const DAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
+/** Budget om ugen eller om måneden (knap på budget-spørgsmålet). Planen er
+ * for én uge, så et månedsbudget regnes om til ugens andel. */
+export type BudgetPeriod = 'uge' | 'maaned';
+export const BUDGET: Record<BudgetPeriod, { min: number; max: number; step: number; label: string }> = {
+  uge: { min: 200, max: 1500, step: 50, label: 'om ugen' },
+  maaned: { min: 800, max: 6500, step: 100, label: 'om måneden' },
+};
+const WEEKS_PER_MONTH = 52 / 12;
+
+export function weeklyBudget(p: MealPrefs): number {
+  return p.budgetPeriod === 'maaned' ? Math.round(p.budget / WEEKS_PER_MONTH) : p.budget;
+}
+
+export function clampBudget(v: number, period: BudgetPeriod): number {
+  const b = BUDGET[period];
+  return Math.min(b.max, Math.max(b.min, Math.round(v / b.step) * b.step));
+}
+
+/** Skift periode men behold samme beløb omregnet. */
+export function switchPeriod(p: MealPrefs, period: BudgetPeriod): MealPrefs {
+  if (period === p.budgetPeriod) return p;
+  const weekly = weeklyBudget(p);
+  return {
+    ...p,
+    budgetPeriod: period,
+    budget: clampBudget(period === 'maaned' ? weekly * WEEKS_PER_MONTH : weekly, period),
+  };
+}
 export const MAX_PEOPLE = 8;
 
 export type Choice = { key: string; label: string; icon: string };
@@ -50,16 +75,28 @@ export const KITCHEN: Choice[] = [
   { key: 'airfryer', label: 'Airfryer', icon: '🍟' },
   { key: 'mikroovn', label: 'Mikroovn', icon: '📟' },
   { key: 'blender', label: 'Blender eller foodprocessor', icon: '🥤' },
+  { key: 'stavblender', label: 'Stavblender', icon: '🪄' },
   { key: 'roeremaskine', label: 'Røremaskine', icon: '🎂' },
+  { key: 'haandmixer', label: 'Håndmixer', icon: '🥣' },
+  { key: 'grill', label: 'Grill', icon: '🔥' },
+  { key: 'slowcooker', label: 'Slowcooker eller trykkoger', icon: '🍲' },
   { key: 'elkedel', label: 'Elkedel', icon: '🫖' },
   { key: 'broedrister', label: 'Brødrister', icon: '🍞' },
 ];
+
+/** Udstyr der kan klare det samme (stavblender purerer, håndmixer kan det
+ * meste af en røremaskines arbejde). */
+const KITCHEN_OK: Record<string, string[]> = {
+  blender: ['blender', 'stavblender'],
+  roeremaskine: ['roeremaskine', 'haandmixer'],
+};
 
 export type MealPrefs = {
   v: 1;
   done: boolean;
   people: number;
   budget: number;
+  budgetPeriod: BudgetPeriod;
   moods: string[];
   diets: string[];
   blocked: string[];
@@ -70,7 +107,7 @@ export type MealPrefs = {
 
 export function defaultPrefs(): MealPrefs {
   return {
-    v: 1, done: false, people: 2, budget: 500, moods: [], diets: [],
+    v: 1, done: false, people: 2, budget: 500, budgetPeriod: 'uge', moods: [], diets: [],
     blocked: [], kitchen: ['ovn', 'kogeplade'], pinned: [], seed: 1,
   };
 }
@@ -80,7 +117,10 @@ export async function loadPrefs(): Promise<MealPrefs | null> {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const p = JSON.parse(raw);
-    return p && p.v === 1 ? { ...defaultPrefs(), ...p } : null;
+    if (!p || p.v !== 1) return null;
+    const merged: MealPrefs = { ...defaultPrefs(), ...p };
+    if (!BUDGET[merged.budgetPeriod]) merged.budgetPeriod = 'uge';
+    return merged;
   } catch {
     return null;
   }
@@ -122,7 +162,7 @@ function fits(r: Recipe, p: MealPrefs): boolean {
   const plan = r.plan;
   if (!plan || !plan.meal || r.cheapest_total_price == null) return false;
   if (!p.diets.every((d) => plan.diet.includes(d))) return false;
-  if (!plan.needs.every((n) => p.kitchen.includes(n))) return false;
+  if (!plan.needs.every((n) => (KITCHEN_OK[n] || [n]).some((k) => p.kitchen.includes(k)))) return false;
   return !isBlocked(r, p.blocked);
 }
 
@@ -147,7 +187,7 @@ export function makePlan(recipes: Recipe[], p: MealPrefs): MealPlan {
   let total = 0;
   for (const x of [...pinned, ...rest]) {
     if (meals.length >= DAYS.length) break;
-    if (!p.pinned.includes(x.recipe.id) && total + x.price > p.budget) continue;
+    if (!p.pinned.includes(x.recipe.id) && total + x.price > weeklyBudget(p)) continue;
     meals.push({ recipe: x.recipe, price: x.price });
     total += x.price;
   }

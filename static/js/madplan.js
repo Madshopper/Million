@@ -17,8 +17,24 @@
   'use strict';
 
   var STORAGE_KEY = 'ms_recipe_prefs_v1';
-  var DAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag'];
-  var BUDGET_MIN = 200, BUDGET_MAX = 1500, BUDGET_STEP = 50;
+  var DAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
+  var PEOPLE_MAX = 8;
+  // Budget kan angives om ugen eller om måneden (knap på budget-spørgsmålet).
+  // Planen er for én uge, så et månedsbudget regnes om til ugens andel.
+  var BUDGET = {
+    uge: { min: 200, max: 1500, step: 50, label: 'om ugen' },
+    maaned: { min: 800, max: 6500, step: 100, label: 'om måneden' }
+  };
+  var WEEKS_PER_MONTH = 52 / 12;
+
+  function weeklyBudget(p) {
+    return p.budgetPeriod === 'maaned' ? Math.round(p.budget / WEEKS_PER_MONTH) : p.budget;
+  }
+
+  function clampBudget(v, period) {
+    var b = BUDGET[period];
+    return Math.min(b.max, Math.max(b.min, Math.round(v / b.step) * b.step));
+  }
 
   var MOODS = [
     { key: 'hurtig', label: 'Hurtige retter', icon: '⏱️' },
@@ -48,14 +64,24 @@
     { key: 'airfryer', label: 'Airfryer', icon: '🍟' },
     { key: 'mikroovn', label: 'Mikroovn', icon: '📟' },
     { key: 'blender', label: 'Blender eller foodprocessor', icon: '🥤' },
+    { key: 'stavblender', label: 'Stavblender', icon: '🪄' },
     { key: 'roeremaskine', label: 'Røremaskine', icon: '🎂' },
+    { key: 'haandmixer', label: 'Håndmixer', icon: '🥣' },
+    { key: 'grill', label: 'Grill', icon: '🔥' },
+    { key: 'slowcooker', label: 'Slowcooker eller trykkoger', icon: '🍲' },
     { key: 'elkedel', label: 'Elkedel', icon: '🫖' },
     { key: 'broedrister', label: 'Brødrister', icon: '🍞' }
   ];
+  // Udstyr der kan klare det samme: en stavblender kan purere, og en
+  // håndmixer kan det meste af en røremaskines arbejde.
+  var KITCHEN_OK = {
+    blender: ['blender', 'stavblender'],
+    roeremaskine: ['roeremaskine', 'haandmixer']
+  };
   var STEPS = ['people', 'budget', 'moods', 'diets', 'blocked', 'kitchen'];
 
   function defaults() {
-    return { v: 1, done: false, people: 2, budget: 500, moods: [], diets: [],
+    return { v: 1, done: false, people: 2, budget: 500, budgetPeriod: 'uge', moods: [], diets: [],
              blocked: [], kitchen: ['ovn', 'kogeplade'], pinned: [], seed: 1 };
   }
 
@@ -64,7 +90,10 @@
       var raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       var p = JSON.parse(raw);
-      return p && p.v === 1 ? Object.assign(defaults(), p) : null;
+      if (!p || p.v !== 1) return null;
+      p = Object.assign(defaults(), p);
+      if (!BUDGET[p.budgetPeriod]) p.budgetPeriod = 'uge';
+      return p;
     } catch (e) { return null; }
   }
 
@@ -115,7 +144,9 @@
     var plan = r.plan;
     if (!plan || !plan.meal || r.cheapest_total_price == null) return false;
     if (!p.diets.every(function (d) { return plan.diet.indexOf(d) !== -1; })) return false;
-    if (!plan.needs.every(function (n) { return p.kitchen.indexOf(n) !== -1; })) return false;
+    if (!plan.needs.every(function (n) {
+      return (KITCHEN_OK[n] || [n]).some(function (k) { return p.kitchen.indexOf(k) !== -1; });
+    })) return false;
     return !isBlocked(r, p.blocked);
   }
 
@@ -133,7 +164,7 @@
     pinned.concat(rest).forEach(function (x) {
       if (meals.length >= DAYS.length) return;
       var isPinned = p.pinned.indexOf(x.r.id) !== -1;
-      if (!isPinned && total + x.price > p.budget) { overBudget++; return; }
+      if (!isPinned && total + x.price > weeklyBudget(p)) { overBudget++; return; }
       meals.push(x);
       total += x.price;
     });
@@ -158,22 +189,23 @@
 
   function stepHtml(name, p) {
     if (name === 'people') {
-      var plates = '';
-      for (var i = 0; i < p.people; i++) plates += '<span>🍽️</span>';
-      return head('Hvor mange laver du mad til?', 'Vi tilpasser planen og budgettet.') +
-        '<div class="mp-table" aria-hidden="true">' + plates + '</div>' +
-        '<div class="mp-stepper">' +
-        '<button type="button" class="mp-round" data-act="people-" aria-label="Færre"' + (p.people <= 1 ? ' disabled' : '') + '>−</button>' +
-        '<span class="mp-big" aria-live="polite">' + p.people + '</span>' +
-        '<button type="button" class="mp-round mp-round--dark" data-act="people+" aria-label="Flere"' + (p.people >= 8 ? ' disabled' : '') + '>+</button></div>';
+      return head('Hvem laver du mad til?', 'Så passer mængder og priser til jer.') +
+        counter('👥', 'Personer', p.people === 1 ? 'person' : 'personer', p.people, 'people', 1, PEOPLE_MAX);
     }
     if (name === 'budget') {
-      return head('Hvad er dit budget om ugen?', 'Træk til det beløb du gerne vil bruge.') +
+      var b = BUDGET[p.budgetPeriod];
+      var seg = function (key, label) {
+        var on = p.budgetPeriod === key;
+        return '<button type="button" class="mp-seg-btn' + (on ? ' is-selected' : '') + '" data-period="' + key +
+          '" aria-pressed="' + on + '">' + label + '</button>';
+      };
+      return head('Hvad er dit madbudget?', 'Træk til det beløb du gerne vil bruge.') +
+        '<div class="mp-seg" role="group" aria-label="Budget pr.">' + seg('uge', 'Om ugen') + seg('maaned', 'Om måneden') + '</div>' +
         '<div class="mp-budget"><span class="mp-big" id="mpBudgetVal">' + krRound(p.budget) + '</span>' +
-        '<span class="mp-muted">om ugen</span></div>' +
-        '<input type="range" class="mp-range" id="mpBudget" min="' + BUDGET_MIN + '" max="' + BUDGET_MAX +
-        '" step="' + BUDGET_STEP + '" value="' + p.budget + '" aria-label="Budget om ugen">' +
-        '<div class="mp-range-labels"><span>' + krRound(BUDGET_MIN) + '</span><span>' + krRound(BUDGET_MAX) + '</span></div>';
+        '<span class="mp-muted">' + b.label + '</span></div>' +
+        '<input type="range" class="mp-range" id="mpBudget" min="' + b.min + '" max="' + b.max +
+        '" step="' + b.step + '" value="' + p.budget + '" aria-label="Budget ' + b.label + '">' +
+        '<div class="mp-range-labels"><span>' + krRound(b.min) + '</span><span>' + krRound(b.max) + '</span></div>';
     }
     if (name === 'moods') {
       return head('Hvad har du lyst til?', 'Vælg op til 3.') + '<div class="mp-grid">' +
@@ -206,6 +238,15 @@
         return '<button type="button" class="mp-chip' + (on ? ' is-selected' : '') + '" data-group="kitchen" data-key="' + k.key +
           '" aria-pressed="' + on + '"><span aria-hidden="true">' + k.icon + '</span> ' + esc(k.label) + '</button>';
       }).join('') + '</div>';
+  }
+
+  // Én række med ikon, tekst og plus/minus (antal personer, aftener).
+  function counter(icon, label, unit, value, key, min, max) {
+    return '<div class="mp-counter"><span class="mp-counter-icon" aria-hidden="true">' + icon + '</span>' +
+      '<div class="mp-counter-text"><strong>' + esc(label) + '</strong><span class="mp-muted">' + value + ' ' + esc(unit) + '</span></div>' +
+      '<button type="button" class="mp-round" data-act="' + key + '-" aria-label="Færre ' + esc(label.toLowerCase()) + '"' + (value <= min ? ' disabled' : '') + '>−</button>' +
+      '<span class="mp-counter-val" aria-live="polite">' + value + '</span>' +
+      '<button type="button" class="mp-round mp-round--dark" data-act="' + key + '+" aria-label="Flere ' + esc(label.toLowerCase()) + '"' + (value >= max ? ' disabled' : '') + '>+</button></div>';
   }
 
   function head(title, sub) {
@@ -241,7 +282,7 @@
     var input = document.getElementById('mpBudget');
     var val = document.getElementById('mpBudgetVal');
     input.addEventListener('input', function () {
-      state.prefs.budget = parseInt(input.value, 10) || 500;
+      state.prefs.budget = parseInt(input.value, 10) || BUDGET[state.prefs.budgetPeriod].min;
       val.textContent = krRound(state.prefs.budget);
     });
   }
@@ -301,7 +342,7 @@
     var p = state.prefs;
     var act = t.getAttribute('data-act');
     if (act === 'people-') { p.people = Math.max(1, p.people - 1); return renderWizard(); }
-    if (act === 'people+') { p.people = Math.min(8, p.people + 1); return renderWizard(); }
+    if (act === 'people+') { p.people = Math.min(PEOPLE_MAX, p.people + 1); return renderWizard(); }
     if (act === 'back') {
       if (state.step > 0) { state.step--; renderWizard(); return toTop(); }
       return renderPlan();  // "Ret mine svar" fortrudt: tilbage til planen
@@ -312,6 +353,11 @@
       savePrefs(p);
       renderLoading();
       return toTop();
+    }
+    if (act === 'plan-people-' || act === 'plan-people+') {
+      p.people = Math.min(PEOPLE_MAX, Math.max(1, p.people + (act === 'plan-people+' ? 1 : -1)));
+      savePrefs(p);
+      return renderPlan();
     }
     if (act === 'regen') {
       p.seed = (p.seed || 1) + 1;
@@ -335,6 +381,16 @@
       if (group === 'kitchen') toggleIn(p.kitchen, key);
       return renderWizard();
     }
+    if (t.hasAttribute('data-period')) {
+      var period = t.getAttribute('data-period');
+      if (period !== p.budgetPeriod) {
+        // Behold samme beløb omregnet, så skiftet ikke nulstiller budgettet.
+        var weekly = weeklyBudget(p);
+        p.budgetPeriod = period;
+        p.budget = clampBudget(period === 'maaned' ? weekly * WEEKS_PER_MONTH : weekly, period);
+      }
+      return renderWizard();
+    }
     if (t.hasAttribute('data-block')) return toggleBlock(t.getAttribute('data-block'));
     if (t.hasAttribute('data-unblock')) return toggleBlock(t.getAttribute('data-unblock'));
   }
@@ -345,61 +401,90 @@
     el.classList.add('mp-shake');
   }
 
+  // MadShoppers egen "tænker"-skærm: tre trin der krydses af, så man kan se
+  // hvad der sker (opskrifter, priser, budget).
   function renderLoading() {
-    var imgs = state.recipes.filter(function (r) { return r.image_url; }).slice(0, 8);
+    var steps = ['Finder opskrifter der passer til jer', 'Tjekker priserne i butikkerne', 'Holder planen inden for budgettet'];
     state.root.innerHTML = '<div class="mp-loading" role="status">' +
-      '<div class="mp-loading-strip" aria-hidden="true">' +
-      imgs.concat(imgs).map(function (r) { return '<img src="' + esc(r.image_url) + '" alt="">'; }).join('') +
-      '</div><h2 class="mp-title">Finder retter du vil kunne lide...</h2>' +
-      '<p class="mp-muted">Vi kigger opskrifterne igennem og regner priserne ud i butikkerne.</p></div>';
-    setTimeout(renderPlan, 1200);
+      '<div class="mp-loading-icon" aria-hidden="true">🛒</div>' +
+      '<h2 class="mp-title">Vi laver din madplan</h2><ul class="mp-checklist">' +
+      steps.map(function (t, i) { return '<li style="animation-delay:' + (i * 0.35) + 's">' + esc(t) + '</li>'; }).join('') +
+      '</ul></div>';
+    setTimeout(renderPlan, 1400);
   }
 
   var MOOD_LABEL = {};
   MOODS.forEach(function (m) { MOOD_LABEL[m.key] = m; });
 
+  // Opskrifter uden billede får en farvet flade med en ret-emoji, så kortene
+  // ikke står grå. Farve og emoji følger id'et, så de ikke skifter.
+  var PLACEHOLDER = ['🍲', '🥘', '🍝', '🥗', '🌮', '🍛'];
+
+  function mealCard(x, i, p) {
+    var r = x.r, pinned = p.pinned.indexOf(r.id) !== -1;
+    var tags = r.plan.moods.filter(function (m) { return p.moods.indexOf(m) !== -1; }).slice(0, 2)
+      .map(function (m) { return '<span class="mp-tag">' + MOOD_LABEL[m].icon + ' ' + esc(MOOD_LABEL[m].label) + '</span>'; }).join('');
+    var img = r.image_url
+      ? '<img src="' + esc(r.image_url) + '" alt="" loading="lazy">'
+      : '<span class="mp-ph mp-ph-' + (r.id % 4) + '" aria-hidden="true">' + PLACEHOLDER[r.id % PLACEHOLDER.length] + '</span>';
+    return '<article class="mp-mcard' + (pinned ? ' is-pinned' : '') + '" style="animation-delay:' + (i * 0.06) + 's">' +
+      '<a class="mp-mcard-link" href="/opskrift/' + r.id + '" aria-label="' + DAYS[i] + ': ' + esc(r.title) + ', ca. ' + kr(x.price) + '">' +
+      '<div class="mp-mcard-img' + (r.image_url ? ' has-img' : '') + '">' + img +
+      '<span class="mp-mcard-day">' + DAYS[i] + '</span>' +
+      '<span class="mp-mcard-price">ca. ' + krRound(x.price) + '</span></div>' +
+      '<div class="mp-mcard-body"><h3>' + esc(r.title) + '</h3>' +
+      (tags ? '<div class="mp-tags">' + tags + '</div>' : '') + '</div></a>' +
+      '<button type="button" class="mp-mcard-pin' + (pinned ? ' is-selected' : '') + '" data-act="pin" data-id="' + r.id +
+      '" aria-pressed="' + pinned + '" aria-label="' + (pinned ? 'Lås op: ' : 'Lås: ') + esc(r.title) + '">' +
+      (pinned ? '🔒' : '🔓') + '</button></article>';
+  }
+
   function renderPlan() {
     var p = state.prefs;
     var plan = makePlan(state.recipes, p);
-    var pct = Math.min(100, Math.round((plan.total / p.budget) * 100));
-    var meals = plan.meals.map(function (x, i) {
-      var r = x.r, pinned = p.pinned.indexOf(r.id) !== -1;
-      var tags = r.plan.moods.filter(function (m) { return p.moods.indexOf(m) !== -1; }).slice(0, 2)
-        .map(function (m) { return '<span class="mp-tag">' + MOOD_LABEL[m].icon + ' ' + esc(MOOD_LABEL[m].label) + '</span>'; }).join('');
-      return '<div class="mp-day">' + DAYS[i] + '</div>' +
-        '<div class="mp-meal"><a class="mp-meal-link" href="/opskrift/' + r.id + '">' +
-        '<img src="' + esc(r.image_url || '') + '" alt="" loading="lazy">' +
-        '<div class="mp-meal-info"><h3>' + esc(r.title) + '</h3>' +
-        '<div class="mp-tags"><span class="mp-tag">🍽️ Aftensmad</span>' + tags + '</div>' +
-        '<div class="mp-muted mp-meal-meta">👤 ' + p.people + ' · ca. ' + kr(x.price) + '</div></div></a>' +
-        '<button type="button" class="mp-pin' + (pinned ? ' is-selected' : '') + '" data-act="pin" data-id="' + r.id +
-        '" aria-pressed="' + pinned + '" aria-label="' + (pinned ? 'Lås op: ' : 'Lås: ') + esc(r.title) + '">' +
-        (pinned ? '🔒' : '🔓') + '</button></div>';
-    }).join('');
+    var week = weeklyBudget(p);
+    var pct = Math.min(100, Math.round((plan.total / week) * 100));
+    var over = plan.total > week;
+    var left = week - plan.total;
+    var n = plan.meals.length;
     var note = '';
-    if (!plan.meals.length) {
+    if (!n) {
       note = plan.eligible
         ? 'Ingen retter passer inden for budgettet. Prøv at sætte budgettet op.'
         : 'Ingen af vores opskrifter passer til dine svar endnu. Der kommer flere opskrifter løbende.';
-    } else if (plan.meals.length < DAYS.length) {
-      note = 'Vi fandt ' + plan.meals.length + (plan.meals.length === 1 ? ' ret' : ' retter') +
-        ' der passer. Der kommer flere opskrifter løbende.';
+    } else if (n < DAYS.length) {
+      note = 'Vi fandt ' + n + (n === 1 ? ' ret' : ' retter') +
+        ' der passer til dine svar og dit budget. Der kommer flere opskrifter løbende.';
     }
+    // Ugens 7 dage som prikker: fyldt = der er en ret den dag.
+    var dots = DAYS.map(function (d, i) {
+      return '<span class="mp-dot' + (i < n ? ' is-on' : '') + '" title="' + d + '">' + d.charAt(0) + '</span>';
+    }).join('');
     state.root.innerHTML =
       '<section class="mp-plan" aria-label="Din madplan">' +
-      '<div class="mp-plan-head"><h2 class="mp-title">Din madplan er klar</h2>' +
-      '<button type="button" class="mp-link" data-act="edit">Ret mine svar</button></div>' +
-      '<div class="mp-summary"><div class="mp-sum-card"><span class="mp-label">Ca. pris</span>' +
-      '<span class="mp-sum-price' + (plan.total > p.budget ? ' is-over' : '') + '">' + kr(plan.total) +
-      '</span><span class="mp-muted"> / ' + krRound(p.budget) + '</span>' +
-      '<div class="mp-bar"><span style="width:' + pct + '%"></span></div></div>' +
-      '<div class="mp-sum-card"><span class="mp-label">Retter</span><span class="mp-sum-price">' + plan.meals.length +
-      '</span><span class="mp-muted"> til ' + p.people + (p.people === 1 ? ' person' : ' personer') + '</span></div></div>' +
+      '<div class="mp-hero' + (over ? ' is-over' : '') + '">' +
+      '<div class="mp-hero-top"><span class="mp-hero-kicker">Ugens madplan</span>' +
+      '<button type="button" class="mp-hero-edit" data-act="edit">✏️ Ret svar</button></div>' +
+      '<div class="mp-hero-main">' +
+      '<div class="mp-ring" style="--pct:' + pct + '" role="img" aria-label="' + pct + ' procent af budgettet brugt">' +
+      '<div class="mp-ring-in"><strong>' + pct + '%</strong><span>af budget</span></div></div>' +
+      '<div class="mp-hero-text"><div class="mp-hero-price">' + krRound(plan.total) + '</div>' +
+      '<div class="mp-hero-sub">for ' + n + (n === 1 ? ' ret' : ' retter') + ' · budget ' + krRound(week) + '</div>' +
+      (p.budgetPeriod === 'maaned' ? '<div class="mp-hero-sub">Ugens del af ' + krRound(p.budget) + ' om måneden</div>' : '') +
+      (n ? '<div class="mp-hero-left">' + (over ? '⚠️ ' + krRound(-left) + ' over budget' : '🎉 ' + krRound(left) + ' tilbage') + '</div>' : '') +
+      '</div></div>' +
+      '<div class="mp-hero-foot">' +
+      // Antal personer kan skrues direkte her (fx ved gæster) uden at svare på
+      // alle spørgsmålene igen. Det nye antal bliver standarden.
+      '<div class="mp-guests"><button type="button" class="mp-mini" data-act="plan-people-" aria-label="Færre personer"' + (p.people <= 1 ? ' disabled' : '') + '>−</button>' +
+      '<span aria-live="polite">👥 <strong>' + p.people + '</strong> ' + (p.people === 1 ? 'person' : 'personer') + '</span>' +
+      '<button type="button" class="mp-mini" data-act="plan-people+" aria-label="Flere personer"' + (p.people >= PEOPLE_MAX ? ' disabled' : '') + '>+</button></div>' +
+      '<div class="mp-dots" aria-hidden="true">' + dots + '</div></div></div>' +
       (note ? '<p class="mp-note">' + esc(note) + '</p>' : '') +
-      (plan.meals.length ? '<p class="mp-muted mp-hint">Lås de retter du kan lide, og lav resten om.</p>' : '') +
-      meals +
+      (n ? '<p class="mp-muted mp-hint">Tryk 🔓 på de retter du vil beholde, og bland resten.</p>' : '') +
+      '<div class="mp-meals">' + plan.meals.map(function (x, i) { return mealCard(x, i, p); }).join('') + '</div>' +
+      '<button type="button" class="mp-shuffle" data-act="regen">🎲 Bland ugen</button>' +
       '<p class="mp-muted mp-hint">Prisen er for hele pakker i den billigste butik. Har du noget i forvejen, bliver det billigere.</p>' +
-      '<div class="mp-actions"><button type="button" class="mp-secondary" data-act="regen">↻ Lav ny plan</button></div>' +
       '</section>';
     if (state.hooks.onPlan) state.hooks.onPlan();
   }

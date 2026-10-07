@@ -13,9 +13,7 @@ import {
 import { useTheme } from '../theme/ThemeContext';
 import type { Recipe } from '../api/recipes';
 import {
-  BUDGET_MAX,
-  BUDGET_MIN,
-  BUDGET_STEP,
+  BUDGET,
   DIETS,
   KITCHEN,
   MAX_PEOPLE,
@@ -23,6 +21,8 @@ import {
   POPULAR,
   allIngredientNames,
   krRound,
+  switchPeriod,
+  type BudgetPeriod,
   type Choice,
   type MealPrefs,
 } from './mealPlan';
@@ -60,8 +60,8 @@ export function MealPlanWizard({ recipes, initial, onCancel, onDone }: Props) {
   };
 
   const titles: Record<(typeof STEPS)[number], [string, string]> = {
-    people: ['Hvor mange laver du mad til?', 'Vi tilpasser planen og budgettet.'],
-    budget: ['Hvad er dit budget om ugen?', 'Træk til det beløb du gerne vil bruge.'],
+    people: ['Hvem laver du mad til?', 'Så passer mængder og priser til jer.'],
+    budget: ['Hvad er dit madbudget?', 'Træk til det beløb du gerne vil bruge.'],
     moods: ['Hvad har du lyst til?', 'Vælg op til 3.'],
     diets: ['Har du særlige kostbehov?', 'Spring over, hvis du spiser alt.'],
     blocked: [
@@ -117,47 +117,36 @@ export function MealPlanWizard({ recipes, initial, onCancel, onDone }: Props) {
         <Text style={[styles.sub, { color: colors.textMuted }]}>{titles[name][1]}</Text>
 
         {name === 'people' && (
-          <>
-            <View style={[styles.table, { backgroundColor: colors.primaryMuted }]} accessible={false}>
-              <Text style={{ fontSize: 30, textAlign: 'center' }}>
-                {'🍽️'.repeat(p.people)}
-              </Text>
-            </View>
-            <View style={styles.stepper}>
-              <RoundButton
-                label="−"
-                a11y="Færre"
-                disabled={p.people <= 1}
-                onPress={() => update({ people: Math.max(1, p.people - 1) })}
-              />
-              <Text
-                style={[styles.big, { color: colors.text }]}
-                accessibilityLiveRegion="polite"
-                accessibilityLabel={`${p.people} ${p.people === 1 ? 'person' : 'personer'}`}
-              >
-                {p.people}
-              </Text>
-              <RoundButton
-                label="+"
-                a11y="Flere"
-                solid
-                disabled={p.people >= MAX_PEOPLE}
-                onPress={() => update({ people: Math.min(MAX_PEOPLE, p.people + 1) })}
-              />
-            </View>
-          </>
+          <Counter
+            icon="👥"
+            label="Personer"
+            unit={p.people === 1 ? 'person' : 'personer'}
+            value={p.people}
+            min={1}
+            max={MAX_PEOPLE}
+            onChange={(people) => update({ people })}
+          />
         )}
 
         {name === 'budget' && (
           <>
-            <View style={{ alignItems: 'center', marginVertical: 32 }}>
+            <Segment
+              value={p.budgetPeriod}
+              onChange={(period) => setP((prev) => switchPeriod(prev, period))}
+            />
+            <View style={{ alignItems: 'center', marginVertical: 28 }}>
               <Text style={[styles.big, { color: colors.text }]}>{krRound(p.budget)}</Text>
-              <Text style={{ color: colors.textMuted }}>om ugen</Text>
+              <Text style={{ color: colors.textMuted }}>{BUDGET[p.budgetPeriod].label}</Text>
             </View>
-            <BudgetSlider value={p.budget} onChange={(budget) => update({ budget })} />
+            <BudgetSlider
+              key={p.budgetPeriod}
+              period={p.budgetPeriod}
+              value={p.budget}
+              onChange={(budget) => update({ budget })}
+            />
             <View style={styles.rangeLabels}>
-              <Text style={{ color: colors.textMuted }}>{krRound(BUDGET_MIN)}</Text>
-              <Text style={{ color: colors.textMuted }}>{krRound(BUDGET_MAX)}</Text>
+              <Text style={{ color: colors.textMuted }}>{krRound(BUDGET[p.budgetPeriod].min)}</Text>
+              <Text style={{ color: colors.textMuted }}>{krRound(BUDGET[p.budgetPeriod].max)}</Text>
             </View>
           </>
         )}
@@ -222,18 +211,103 @@ export function MealPlanWizard({ recipes, initial, onCancel, onDone }: Props) {
   );
 }
 
+/** Ugentligt / månedligt budget. */
+function Segment({ value, onChange }: { value: BudgetPeriod; onChange: (v: BudgetPeriod) => void }) {
+  const { colors } = useTheme();
+  const opts: [BudgetPeriod, string][] = [
+    ['uge', 'Om ugen'],
+    ['maaned', 'Om måneden'],
+  ];
+  return (
+    <View style={[styles.seg, { backgroundColor: colors.border }]} accessibilityRole="radiogroup">
+      {opts.map(([key, label]) => {
+        const on = value === key;
+        return (
+          <Pressable
+            key={key}
+            onPress={() => onChange(key)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+            style={[styles.segBtn, on && { backgroundColor: colors.surface }]}
+          >
+            <Text style={{ color: on ? colors.primaryDark : colors.textMuted, fontWeight: '700' }}>{label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Ikon, tekst og plus/minus på én række (personer, aftener). */
+function Counter({
+  icon,
+  label,
+  unit,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  icon: string;
+  label: string;
+  unit: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.counter, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.counterIcon, { backgroundColor: colors.primaryMuted }]}>
+        <Text style={{ fontSize: 24 }}>{icon}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>{label}</Text>
+        <Text style={{ color: colors.textMuted }}>
+          {value} {unit}
+        </Text>
+      </View>
+      <RoundButton
+        label="−"
+        a11y={`Færre ${label.toLowerCase()}`}
+        disabled={value <= min}
+        onPress={() => onChange(Math.max(min, value - 1))}
+        small
+      />
+      <Text
+        style={[styles.counterVal, { color: colors.text }]}
+        accessibilityLiveRegion="polite"
+        accessibilityLabel={`${value} ${unit}`}
+      >
+        {value}
+      </Text>
+      <RoundButton
+        label="+"
+        a11y={`Flere ${label.toLowerCase()}`}
+        solid
+        disabled={value >= max}
+        onPress={() => onChange(Math.min(max, value + 1))}
+        small
+      />
+    </View>
+  );
+}
+
 function RoundButton({
   label,
   a11y,
   onPress,
   disabled,
   solid,
+  small,
 }: {
   label: string;
   a11y: string;
   onPress: () => void;
   disabled?: boolean;
   solid?: boolean;
+  small?: boolean;
 }) {
   const { colors } = useTheme();
   return (
@@ -244,6 +318,7 @@ function RoundButton({
       accessibilityLabel={a11y}
       style={[
         styles.round,
+        small && { width: 38, height: 38, borderRadius: 19 },
         {
           backgroundColor: solid ? colors.primarySolid : colors.surface,
           borderColor: colors.border,
@@ -426,7 +501,16 @@ function BlockedStep({
 }
 
 /** Egen lille skyder (ingen ekstra pakke): træk eller tryk på sporet. */
-function BudgetSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function BudgetSlider({
+  value,
+  period,
+  onChange,
+}: {
+  value: number;
+  period: BudgetPeriod;
+  onChange: (v: number) => void;
+}) {
+  const { min: BUDGET_MIN, max: BUDGET_MAX, step: BUDGET_STEP } = BUDGET[period];
   const { colors } = useTheme();
   const width = useRef(1);
   const startX = useRef(0);
@@ -497,8 +581,11 @@ const styles = StyleSheet.create({
   progress: { flex: 1, height: 6, borderRadius: 99, overflow: 'hidden' },
   title: { fontSize: 26, fontWeight: '800', marginBottom: 6 },
   sub: { fontSize: 15, marginBottom: 20 },
-  table: { alignSelf: 'center', borderRadius: 18, padding: 18, marginVertical: 28, minWidth: 180, maxWidth: 260 },
-  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 36 },
+  counter: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 12 },
+  counterIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  counterVal: { fontSize: 22, fontWeight: '800', minWidth: 26, textAlign: 'center' },
+  seg: { flexDirection: 'row', borderRadius: 999, padding: 4, alignSelf: 'center', width: 300 },
+  segBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 999 },
   big: { fontSize: 48, fontWeight: '800', minWidth: 70, textAlign: 'center' },
   round: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
