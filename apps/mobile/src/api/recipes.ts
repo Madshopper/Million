@@ -15,6 +15,21 @@ export type Recipe = {
   total_ingredient_count: number;
   ingredients_on_sale_count: number;
   sale_ratio: number;
+  /** Mærker til madplanen (app.py::_recipe_plan_profile). Mangler i svar fra
+   * en ældre server, og så kommer opskriften ikke med i planen. */
+  plan?: RecipePlanProfile;
+};
+
+export type RecipePlanProfile = {
+  /** Kostbehov opskriften passer til: vegansk, vegetar, pescetar, glutenfri, maelkefri. */
+  diet: string[];
+  /** hurtig, let, familie, sund, takeaway, protein */
+  moods: string[];
+  /** Køkkenudstyr den kræver: ovn, kogeplade, blender, roeremaskine, airfryer, mikroovn. */
+  needs: string[];
+  /** Falsk for bagværk (boller, brød, kage), som ikke kommer med i aftensmadsplanen. */
+  meal: boolean;
+  ingredient_names: string[];
 };
 
 export type RecipeListResponse = {
