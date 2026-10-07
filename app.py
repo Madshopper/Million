@@ -204,6 +204,8 @@ _EDGE_ENV_VARS = (
     'TILBUD_GUL_ENABLED',
     # Kun på staging: "Støt MadShopper"-abonnementet i appen (_FEATURES 'subscription').
     'SUBSCRIPTION_ENABLED',
+    # Kun på staging: butikkernes tilbudsaviser (_FEATURES 'flyers').
+    'FLYERS_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -401,6 +403,11 @@ _CSP = (
     "https://accounts.google.com "
     "https://challenges.cloudflare.com https://appleid.apple.com "
     "https://verify.madshopper.dk "
+    # squid-api.tjek.com: butikkernes tilbudsaviser (Feature 'flyers').
+    # static/js/flyers.js henter listen over aviser og deres sider direkte
+    # fra Tjek, så intet går gennem workeren, D1 eller KV. Selve siderne er
+    # billeder fra image-transformer-api.tjek.com, som allerede er i img-src.
+    "https://squid-api.tjek.com "
     # cloudflareinsights.com: Web Analytics-beaconens indsendelse (se script-src).
     "https://cloudflareinsights.com; "
     "frame-src https://accounts.google.com https://challenges.cloudflare.com https://appleid.apple.com; "
@@ -516,6 +523,8 @@ def _inject_site_meta():
         'swipe_enabled': _feature_enabled('swipe'),
         # "Køl & Mejeri" i kategorimenuen (Feature-panelet 'mejeri_navn').
         'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
+        # Butikkernes tilbudsaviser på forsiden (Feature-panelet 'flyers').
+        'flyers_enabled': _feature_enabled('flyers'),
         'vapid_public_key': _VAPID_PUBLIC_KEY,
         # Sandt naar SIDENS render byggede paa ufuldstaendige data (samme
         # isolate-kollision i D1-broen som saetter X-Data-Degraded-headeren,
@@ -1758,6 +1767,31 @@ _FEATURES = (
              'desc': 'Står under navnet på Profil, mens abonnementet er aktivt.'},
         ),
     },
+    {
+        'key': 'flyers',
+        'name': 'Butikkernes tilbudsaviser',
+        'env': 'FLYERS_ENABLED',
+        'desc': 'Kalles idé (07-10-2026): butikkernes logoer på forsiden; '
+                'tryk åbner ugens tilbudsavis oven på siden, så man aldrig '
+                'forlader os. Siderne vises direkte fra Tjek (eTilbudsavis) '
+                'og gemmes ikke hos os, så det koster intet af D1, KV eller '
+                'Supabase. Udgiv først, når Tjek har givet skriftlig lov: '
+                'deres vilkår (tjek.com/terms, 8.3) kræver det for visning '
+                'af deres indhold på andre sider.',
+        'app': 'Appen viser aviserne fra den næste app-version, når den er '
+               'udgivet her.',
+        'parts': (
+            {'kind': 'web', 'name': 'Tilbudsaviser på forsiden',
+             'desc': 'Logoerne for de butikker man har valgt. Tryk åbner '
+                     'avisen som overlay, hvor man blader med pile, swipe '
+                     'eller tastaturet.'},
+            {'kind': 'app', 'name': 'Tilbudsaviser i appen',
+             'desc': 'Samme logoer og overlay på appens forside.'},
+            {'kind': 'idea', 'name': 'Skriftlig lov fra Tjek',
+             'desc': 'Skriv til Tjek (eTilbudsavis) og spørg om lov til at '
+                     'vise aviserne. Først derefter udgives funktionen.'},
+        ),
+    },
 )
 
 # Projekter der ikke er færdige, men ikke har en knap (fx appen i butikkerne).
@@ -1873,34 +1907,6 @@ _PROJECTS = (
         ),
     },
     {
-        'key': 'store_flyers',
-        'name': 'Butikkernes tilbudsaviser',
-        'status': 'idea',
-        'desc': 'Kalles idé (07-10-2026): butikkernes egne tilbudsaviser skal '
-                'kunne ses direkte hos os, både i appen og på hjemmesiden. '
-                'Ikke et link videre til butikken, men avisen vist inde hos '
-                'os. Sådan virker det (Kalle): man ser butikkens logo, '
-                'trykker på det, og avisen åbner som et overlay oven på '
-                'siden. Man forlader aldrig appen eller hjemmesiden. '
-                'Kun en idé, intet er bygget. Vi henter allerede '
-                'tilbuddene fra de fleste aviser (Tjek), så vi ved hvilke '
-                'aviser der findes. Værd at tjekke først: 1) Ret til '
-                'billederne. Avisens sider er butikkens materiale, så vi '
-                'skal have lov, fx via Tjek eller butikken selv. 2) '
-                'Plads og gratisgrænser. Avissider er store billeder; '
-                'gemmer vi dem selv, fylder det hurtigt. Bedst er at vise '
-                'billederne fra kilden i stedet for at gemme dem. 3) Nye '
-                'billedadresser skal tillades på hjemmesiden.',
-        'parts': (
-            {'done': False, 'name': 'Hjemmesiden',
-             'desc': 'Butikkernes logoer; tryk åbner ugens avis som overlay, '
-                     'hvor man blader i siderne.'},
-            {'done': False, 'name': 'Appen',
-             'desc': 'Samme logoer og overlay i appen. Når først brugerne med en ny '
-                     'app-version.'},
-        ),
-    },
-    {
         'key': 'tests',
         'name': 'Flere automatiske tests',
         'status': 'idea',
@@ -1977,6 +1983,10 @@ def _feature_enabled(key: str) -> bool:
 # Makroer importeres uden kontekst (fx product_card), så flaget skal være en
 # global for at kunne ses derinde.
 app.jinja_env.globals['feature_enabled'] = _feature_enabled
+# Logoerne i forsidens "Tilbudsaviser" (Feature 'flyers'), med Tjek-id.
+app.jinja_env.globals['flyer_stores'] = tuple(
+    {'label': c['label'], 'logo': c['logo'], 'tjek': c['tjek']}
+    for c in _STORE_CONFIGS.values() if c.get('tjek'))
 
 
 def _category_display_name(category: str) -> str:
@@ -4917,6 +4927,8 @@ def api_home():
             'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
             # "Støt MadShopper": appen viser abonnementet, når det er udgivet.
             'subscription_enabled': _feature_enabled('subscription'),
+            # Butikkernes tilbudsaviser: appen viser logoerne, når de er udgivet.
+            'flyers_enabled': _feature_enabled('flyers'),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
                 'available': False,
@@ -5023,7 +5035,8 @@ def api_search():
 
 @app.route('/api/stores')
 def get_stores():
-    stores = [{'key': k, 'label': v['label'], 'logo': v['logo']} for k, v in _STORE_CONFIGS.items()]
+    stores = [{'key': k, 'label': v['label'], 'logo': v['logo'], 'tjek': v['tjek']}
+              for k, v in _STORE_CONFIGS.items()]
     return jsonify({
         'stores': stores,
         'version': STORE_CATALOG_VERSION,

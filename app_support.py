@@ -504,21 +504,24 @@ DEFAULT_HTTP_HEADERS = {
     'Accept-Language': 'da,da-DK;q=0.9,en;q=0.8',
 }
 
+# 'tjek': butikkens forhandler-id hos Tjek (eTilbudsavis). Samme id'er som
+# scraperne bruger; tilbudsaviserne (Feature 'flyers') hentes med dem direkte
+# fra Tjek i browseren/appen, så billederne aldrig gemmes hos os.
 _STORE_CONFIGS = {
-    'rema':       {'db_key': None,           'label': 'Rema 1000',    'logo': '/static/images/Rema1000-logo.png'},
-    'bilka':      {'db_key': 'Bilka',        'label': 'Bilka',        'logo': '/static/images/bilka-logo.png'},
-    'netto':      {'db_key': 'Netto',        'label': 'Netto',        'logo': '/static/images/netto-logo.png'},
-    'foetex':     {'db_key': 'Foetex',      'label': 'Føtex',        'logo': '/static/images/foetex-logo.png'},
-    'mk':         {'db_key': 'minkøbmand',   'label': 'Min Købmand',  'logo': '/static/images/Min_kobmand_logo.png'},
-    'meny':       {'db_key': 'Meny',         'label': 'Meny',         'logo': '/static/images/meny-logo.png'},
-    'spar':       {'db_key': 'Spar',         'label': 'Spar',         'logo': '/static/images/spar-logo.png'},
-    'sb':         {'db_key': 'SuperBrugsen', 'label': 'SuperBrugsen', 'logo': '/static/images/superbrugsen-logo.png'},
-    'brugsen':    {'db_key': 'Brugsen',      'label': 'Brugsen',      'logo': '/static/images/brugsen-logo.png'},
-    'kvickly':    {'db_key': 'Kvickly',      'label': 'Kvickly',      'logo': '/static/images/kvickly-logo.png'},
-    'discount365':{'db_key': '365discount',  'label': '365 Discount', 'logo': '/static/images/365discount-logo.png'},
-    'lidl':       {'db_key': 'Lidl',         'label': 'Lidl',         'logo': '/static/images/lidl-logo.png'},
-    'loevbjerg':  {'db_key': 'Løvbjerg',     'label': 'Løvbjerg',     'logo': '/static/images/loevbjerg-logo.png'},
-    'abclavpris': {'db_key': 'ABC Lavpris',  'label': 'ABC Lavpris',  'logo': '/static/images/abc-lavpris-logo.png'},
+    'rema':       {'db_key': None,           'label': 'Rema 1000',    'logo': '/static/images/Rema1000-logo.png', 'tjek': '11deC'},
+    'bilka':      {'db_key': 'Bilka',        'label': 'Bilka',        'logo': '/static/images/bilka-logo.png', 'tjek': '93f13'},
+    'netto':      {'db_key': 'Netto',        'label': 'Netto',        'logo': '/static/images/netto-logo.png', 'tjek': '9ba51'},
+    'foetex':     {'db_key': 'Foetex',      'label': 'Føtex',        'logo': '/static/images/foetex-logo.png', 'tjek': 'bdf5A'},
+    'mk':         {'db_key': 'minkøbmand',   'label': 'Min Købmand',  'logo': '/static/images/Min_kobmand_logo.png', 'tjek': '603dfL'},
+    'meny':       {'db_key': 'Meny',         'label': 'Meny',         'logo': '/static/images/meny-logo.png', 'tjek': '267e1m'},
+    'spar':       {'db_key': 'Spar',         'label': 'Spar',         'logo': '/static/images/spar-logo.png', 'tjek': '88ddE'},
+    'sb':         {'db_key': 'SuperBrugsen', 'label': 'SuperBrugsen', 'logo': '/static/images/superbrugsen-logo.png', 'tjek': '0b1e8'},
+    'brugsen':    {'db_key': 'Brugsen',      'label': 'Brugsen',      'logo': '/static/images/brugsen-logo.png', 'tjek': 'd311fg'},
+    'kvickly':    {'db_key': 'Kvickly',      'label': 'Kvickly',      'logo': '/static/images/kvickly-logo.png', 'tjek': 'c1edq'},
+    'discount365':{'db_key': '365discount',  'label': '365 Discount', 'logo': '/static/images/365discount-logo.png', 'tjek': 'DWZE1w'},
+    'lidl':       {'db_key': 'Lidl',         'label': 'Lidl',         'logo': '/static/images/lidl-logo.png', 'tjek': '71c90'},
+    'loevbjerg':  {'db_key': 'Løvbjerg',     'label': 'Løvbjerg',     'logo': '/static/images/loevbjerg-logo.png', 'tjek': '65caN'},
+    'abclavpris': {'db_key': 'ABC Lavpris',  'label': 'ABC Lavpris',  'logo': '/static/images/abc-lavpris-logo.png', 'tjek': '70d42L'},
 }
 
 # Bump when a new butik tilføjes - klient og server auto-aktiverer nye butikker.

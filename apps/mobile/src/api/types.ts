@@ -52,6 +52,8 @@ export type StoreInfo = {
   key: string;
   label: string;
   logo: string;
+  /** Butikkens forhandler-id hos Tjek (eTilbudsavis), til tilbudsaviserne. */
+  tjek?: string;
 };
 
 export type HomeSection = {
@@ -79,6 +81,8 @@ export type HomeResponse = {
   mejeri_navn_enabled?: boolean;
   /** Er "Støt MadShopper" udgivet i Feature-panelet (src/subscription/)? */
   subscription_enabled?: boolean;
+  /** Er "Butikkernes tilbudsaviser" udgivet i Feature-panelet (src/flyers/)? */
+  flyers_enabled?: boolean;
   /** Stub — reel data hentes client-side via get_personal_savings (JWT). */
   personal_savings: { available: boolean; message: string };
   error?: string;
