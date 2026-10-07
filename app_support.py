@@ -1370,9 +1370,23 @@ def meats_match(base_meats: frozenset, cand_meats: frozenset) -> bool:
 # ordmatch (som smags-gaten bruger, hvor sammensætning ER signalet) ville
 # fejlagtigt læse dem som farvevarianter.
 _COLOUR_RE = re.compile(
-    r'\b(bla|blaa|blå|rod|rød|gron|grøn|gul|hvid|sort|lilla|orange|brun|rosa|'
-    r'turkis|beige|solv|sølv|guld)\b'
+    r'\b(bla|blaa|blå|blat|rod|rød|rode|røde|rodt|rødt|gron|grøn|gronne|grønne|'
+    r'gront|grønt|gul|gule|gult|hvid|hvide|hvidt|sort|sorte|lilla|orange|brun|'
+    r'brune|brunt|rosa|turkis|beige|solv|sølv|guld)\b'
 )
+
+# Bøjede former tæller som grundformen. Uden dem var flertal usynligt for
+# gaten: Rema "STENFRI GRØNNE DRUER" stod på kort med "Druer Rød Stenfri", og
+# "ØKO. RØDE SPIDSKÅL" med "Æbl. Røde" (målt i D1 07-10-2026).
+_COLOUR_CANON = {
+    'blaa': 'bla', 'blå': 'bla', 'blat': 'bla',
+    'rød': 'rod', 'rode': 'rod', 'røde': 'rod', 'rodt': 'rod', 'rødt': 'rod',
+    'grøn': 'gron', 'gronne': 'gron', 'grønne': 'gron', 'gront': 'gron', 'grønt': 'gron',
+    'gule': 'gul', 'gult': 'gul',
+    'hvide': 'hvid', 'hvidt': 'hvid',
+    'sorte': 'sort',
+    'brune': 'brun', 'brunt': 'brun',
+}
 
 # Farveord der i praksis aldrig er en variant, men en produkttype eller et
 # mærke. 'guld' er det tydeligste (Guldkorn, Guldøl, Tuborg Guld).
@@ -1383,7 +1397,8 @@ def get_product_colours(text: str) -> frozenset:
     """Farveord der står som selvstændigt ord i produktteksten."""
     norm = normalize_name(text)
     return frozenset(
-        c for c in _COLOUR_RE.findall(norm) if c not in _COLOUR_NOISE
+        _COLOUR_CANON.get(c, c) for c in _COLOUR_RE.findall(norm)
+        if c not in _COLOUR_NOISE
     )
 
 

@@ -200,6 +200,8 @@ _EDGE_ENV_VARS = (
     'SWIPE_ENABLED',
     # Kun på staging: "Køl & Mejeri" som kategorinavn (_FEATURES 'mejeri_navn').
     'MEJERI_NAVN_ENABLED',
+    # Kun på staging: gul pris ved tilbud uden førpris (_FEATURES 'tilbud_gul').
+    'TILBUD_GUL_ENABLED',
     # Kun på staging: "Støt MadShopper"-abonnementet i appen (_FEATURES 'subscription').
     'SUBSCRIPTION_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
@@ -1682,6 +1684,24 @@ _FEATURES = (
         ),
     },
     {
+        'key': 'tilbud_gul',
+        'name': 'Gul pris ved tilbud uden førpris',
+        'env': 'TILBUD_GUL_ENABLED',
+        'desc': 'Når butikken på varekortet har tilbud, men ikke oplyser '
+                'normalprisen (fx multikøb), står prisen nu i gul ligesom '
+                'Tilbud-mærket. Før stod den hvid.',
+        'app': 'Appen får det fra version 1.0.4. Udgives automatisk her, når '
+               '1.0.4 er i App Store (feature-auto-publish.yml), så web og '
+               'app følges ad (Kalle 07-10-2026).',
+        'with_app': '1.0.4',
+        'parts': (
+            {'kind': 'web', 'name': 'Gul pris på hjemmesidens varekort',
+             'desc': 'templates/macros/product_card.html'},
+            {'kind': 'app', 'name': 'Gul pris på appens varekort',
+             'desc': 'ProductCard.tsx, med i næste appversion.'},
+        ),
+    },
+    {
         'key': 'mejeri_navn',
         'name': 'Køl hedder Køl & Mejeri',
         'env': 'MEJERI_NAVN_ENABLED',
@@ -1911,6 +1931,11 @@ def _feature_enabled(key: str) -> bool:
         return True
     entry = _feature_flags().get(key)
     return isinstance(entry, dict) and entry.get('on') is True
+
+
+# Makroer importeres uden kontekst (fx product_card), så flaget skal være en
+# global for at kunne ses derinde.
+app.jinja_env.globals['feature_enabled'] = _feature_enabled
 
 
 def _category_display_name(category: str) -> str:

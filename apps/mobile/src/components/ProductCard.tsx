@@ -38,6 +38,13 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
   }, []);
 
   const onSale = product.is_sale || product.is_any_sale;
+  // Tilbud uden førpris (fx multikøb): butikken på kortet har tilbud, men
+  // oplyser ikke normalprisen. Prisen skal stadig være gul. Samme regel i
+  // webbens produktkort-makro.
+  const shownStore = product.cheapest_at || '';
+  const shownOnSale =
+    product.store_matches?.[shownStore]?.is_sale ??
+    (shownStore === 'rema' && !!product.rema_is_sale);
   const addToCart = () => {
     const { storePrices, storeMultiDeals } = buildStorePrices(product, catalog);
     addItem({
@@ -192,6 +199,10 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
                 {product.price.toFixed(2)} kr
               </Text>
             </>
+          ) : shownOnSale ? (
+            <Text style={[styles.price, styles.dealPrice, { color: colors.dealInk }]}>
+              {product.price.toFixed(2)} kr
+            </Text>
           ) : (
             <Text style={[styles.price, { color: colors.text }]}>
               {product.price.toFixed(2)} kr
