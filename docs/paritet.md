@@ -113,6 +113,8 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Vilkår / privatliv / om os | ✅ | ✅ | – | – | Complete |
 | Opskrifter (bag gate) | ✅ flag | ✅ flag | ✅ | ❌ | Gated - kun med `RECIPES_ENABLED=1` / `EXPO_PUBLIC_RECIPES_ENABLED=1` *(fra som standard; slået til på staging/dev.madshopper.dk via `build-pages.sh` 03-10-2026, aldrig i produktion)* |
 | Forsidens opskrift-teaser | ✅ ikke-klikbar "Kommer snart" | ✅ ikke-klikbar "Kommer snart" | ✅ `recipes_clickable` | ❌ | Begge viser teaseren altid; kortene er kun klikbare med `RECIPES_ENABLED=1` (app: også `EXPO_PUBLIC_RECIPES_ENABLED=1`) *(tilbage på web og app 02-10-2026)* |
+| Opskrifter uden foto (egne opskrifter) | ✅ bestik-ikon (`opskrift-standard.svg`) | ✅ bestik-ikon (Ionicons `restaurant-outline`) | ✅ | ❌ | MadShoppers egne opskrifter (`data/egne_opskrifter.json`) har intet foto og viser hele fremgangsmåden *(07-10-2026)* |
+| Madplan i Opskrifter (spørgsmål første gang + plan) | ✅ `static/js/madplan.js` | ✅ `src/recipes/` | ✅ `plan` i `/api/recipes` | ❌ | Bag Opskrifter-flaget. Mærkerne regnes ét sted (`app.py::_recipe_plan_profile`), planen laves på enheden med samme regler begge steder (`makePlan`). Svar gemmes kun lokalt (localStorage / AsyncStorage) *(07-10-2026)* |
 | Cookie-samtykke (Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Analytics (GA4 via Zaraz) | ✅ | – | – | – | **Bevidst forskel** (se §3) |
 | Push-beskeder / nyhedsbrev | ❌ | ❌ | ❌ | – | **Findes ikke** (se §2) |
