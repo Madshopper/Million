@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="Opskrift">
+  <rect width="400" height="300" fill="#D6F5E3"/>
+  <circle cx="200" cy="150" r="78" fill="#fff"/>
+  <circle cx="200" cy="150" r="56" fill="none" stroke="#D6F5E3" stroke-width="6"/>
+  <g fill="none" stroke="#047857" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M92 92v40a14 14 0 0 0 28 0V92M106 92v116"/>
+    <path d="M296 208V92c-14 6-20 24-20 46v22h20"/>
+  </g>
+</svg>

@@ -4,7 +4,7 @@
 Ingen AI/Ollama nogen steder i dette modul (se [[features-skal-vaere-lovlige]]
 - bevidst fravalg, ikke en midlertidig begrænsning).
 
-To indgange, kørt lokalt af udvikleren (ligesom updater.py/scrapers - intet
+Tre indgange, kørt lokalt af udvikleren (ligesom updater.py/scrapers - intet
 her kaldes fra en live edge-request):
 
   import_recipe_from_url(url)
@@ -32,6 +32,12 @@ her kaldes fra en live edge-request):
       Supabase. Det er en strengere fail-safe end nødvendigt for selve
       matchingen, men bevidst: en useriøs/spam-opskrift der vises offentligt
       er en anden slags fejl end blot et dårligt ingrediens-match.
+
+  import_own_recipes()
+      MadShoppers egne opskrifter fra data/egne_opskrifter.json, skrevet fra
+      bunden ud fra almindelige retter. Den lovlige vej til flere
+      opskrifter: teksten er vores, så fremgangsmåden vises på siden, og
+      der er ingen billeder fra andre (siden viser et neutralt ikon).
 """
 
 from __future__ import annotations
@@ -46,7 +52,7 @@ from supabase import create_client
 
 load_dotenv()
 
-from app_support import DEFAULT_HTTP_HEADERS, logger
+from app_support import DEFAULT_HTTP_HEADERS, configure_logging, logger
 from recipe_matching import load_current_products, match_recipe_ingredients
 
 
@@ -324,11 +330,143 @@ def moderate_pending_recipes() -> None:
         logger.info(f"Opskrift #{recipe_id} '{recipe['title']}': ingredienser genmatchet, forbliver 'pending'")
 
 
+# ---------------------------------------------------------------------------
+# MadShoppers egne opskrifter (data/egne_opskrifter.json)
+# ---------------------------------------------------------------------------
+
+_OWN_RECIPES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'egne_opskrifter.json')
+# Kendetegnet for en egen opskrift i recipes-tabellen. imported_via='user_manual'
+# (håndskrevet) i stedet for en ny CHECK-værdi, så importen virker uden en
+# skemaændring; source_name skiller dem fra brugernes indsendte, som altid har
+# submitted_by sat.
+_OWN_SOURCE_NAME = 'MadShopper'
+
+
+def load_own_recipes(path: str = _OWN_RECIPES_FILE) -> list[dict]:
+    """Egne opskrifter, skrevet fra bunden af MadShopper ud fra almindelige
+    retter. Her MÅ fremgangsmåden gemmes og vises: teksten er vores egen, i
+    modsætning til JSON-LD-importen ovenfor, hvor kun fakta tages med."""
+    with open(path, 'r', encoding='utf-8') as f:
+        recipes = json.load(f).get('opskrifter') or []
+    for r in recipes:
+        if not r.get('title') or not r.get('ingredients'):
+            raise ValueError(f"Egen opskrift mangler titel eller ingredienser: {r.get('slug')}")
+    return recipes
+
+
+def import_own_recipes(dry_run: bool = False) -> int:
+    """Lægger data/egne_opskrifter.json ind som godkendte opskrifter.
+
+    Idempotent (nøgle: titel blandt source_name='MadShopper'): nye
+    opskrifter oprettes og matches, eksisterende får titel/tid/fremgangsmåde
+    opdateret, og ingredienserne matches kun igen hvis listen er ændret
+    (nattens recipe_pricing.py holder selv døde produkt-id'er friske).
+    Synligheden styres stadig af Opskrifter-knappen i Feature-panelet
+    (_recipes_enabled i app.py) - 'approved' her udgiver intet på
+    madshopper.dk. Returnerer antal nye/ændrede opskrifter."""
+    recipes = load_own_recipes()
+    client = _get_supabase_client()
+    if client is None:
+        logger.error('Supabase-forbindelse mangler - kan ikke importere egne opskrifter')
+        return 0
+
+    existing_rows = (
+        client.table('recipes')
+        .select('id,title')
+        .eq('source_name', _OWN_SOURCE_NAME)
+        .eq('imported_via', 'user_manual')
+        .execute()
+    ).data or []
+    existing = {row['title']: row['id'] for row in existing_rows}
+
+    products = None
+    changed = 0
+    for r in recipes:
+        fields = {
+            'title': r['title'],
+            'servings': r.get('servings'),
+            'total_time_minutes': r.get('total_time_minutes'),
+            'instructions': r.get('instructions') or [],
+        }
+        recipe_id = existing.get(r['title'])
+        if recipe_id is not None:
+            current = [
+                row['raw_text'] for row in (
+                    client.table('recipe_ingredients')
+                    .select('raw_text')
+                    .eq('recipe_id', recipe_id)
+                    .order('position')
+                    .execute()
+                ).data or []
+            ]
+            if current == r['ingredients']:
+                if not dry_run:
+                    client.table('recipes').update(fields).eq('id', recipe_id).execute()
+                continue
+
+        if products is None:
+            products = load_current_products(client)
+            if len(products) < 5000:
+                # Samme værn som recipe_pricing.py: en halv cache giver
+                # matches mod de forkerte varer, som så står fast.
+                logger.error(f'Kun {len(products)} produkter i app_cache - springer egne opskrifter over')
+                return 0
+        matched = match_recipe_ingredients(
+            [{'raw_text': line} for line in r['ingredients']], products,
+        )
+        matched_count = sum(1 for m in matched if m['matched_product_id'])
+        logger.info(
+            f"Egen opskrift '{r['title']}': {matched_count}/{len(matched)} ingredienser matchet"
+            + (' (prøvekørsel, intet gemt)' if dry_run else '')
+        )
+        changed += 1
+        if dry_run:
+            continue
+
+        try:
+            if recipe_id is None:
+                result = client.table('recipes').insert({
+                    **fields,
+                    'source_url': None,
+                    'source_name': _OWN_SOURCE_NAME,
+                    'image_url': '',
+                    'imported_via': 'user_manual',
+                    'status': 'approved',
+                    'approved_at': 'now()',
+                }).execute()
+                recipe_id = result.data[0]['id']
+            else:
+                client.table('recipes').update(fields).eq('id', recipe_id).execute()
+                client.table('recipe_ingredients').delete().eq('recipe_id', recipe_id).execute()
+
+            client.table('recipe_ingredients').insert([{
+                'recipe_id': recipe_id,
+                'position': i,
+                'raw_text': ing['raw_text'],
+                'quantity': ing['quantity'],
+                'unit': ing['unit'],
+                'ingredient_name': ing['ingredient_name'],
+                'matched_product_id': ing['matched_product_id'],
+                'match_confidence': ing['match_confidence'],
+                'match_method': ing['match_method'],
+                'candidate_product_ids': ing['candidate_product_ids'],
+            } for i, ing in enumerate(matched)]).execute()
+        except Exception as e:
+            logger.error(f"Kunne ikke gemme egen opskrift '{r['title']}': {e}")
+
+    logger.info(f'Egne opskrifter: {changed} nye/ændrede af {len(recipes)}')
+    return changed
+
+
 if __name__ == '__main__':
     import sys
+    configure_logging()
     if len(sys.argv) > 1 and sys.argv[1] == 'moderate':
         moderate_pending_recipes()
+    elif len(sys.argv) > 1 and sys.argv[1] == 'egne':
+        import_own_recipes(dry_run='--dry-run' in sys.argv)
     elif len(sys.argv) > 1:
         import_recipe_from_url(sys.argv[1])
     else:
-        print('Brug: python recipe_importer.py <url>  ELLER  python recipe_importer.py moderate')
+        print('Brug: python recipe_importer.py <url>  ELLER  python recipe_importer.py moderate'
+              '  ELLER  python recipe_importer.py egne [--dry-run]')
