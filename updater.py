@@ -18,7 +18,7 @@ from app_support import (
     configure_logging, db_available,
     build_search_index, logger,
     DEFAULT_HTTP_HEADERS, _STORE_CONFIGS, format_price,
-    normalize_name, fuzzy_score,
+    normalize_name, fuzzy_score, rapid_ratio,
     parse_weight_to_grams, parse_stk_count, weights_compatible,
     ean_looks_valid, ean_key, eans_conflict,
     _PLACEHOLDER_IMGS,
@@ -1283,6 +1283,88 @@ def distinctive_token_shared(tokens_a: set, tokens_b: set) -> bool:
     return True
 
 
+# Ord i Rema-titlen der ikke siger noget om, HVILKEN vare det er: emballage,
+# reklame, oprindelse og fyldord. De må mangle hos modparten.
+_REMA_WORD_NOISE: frozenset = frozenset({
+    'original', 'originale', 'classic', 'klassisk', 'klassiske', 'brik',
+    'flaske', 'flasker', 'dase', 'daser', 'pakke', 'bakke', 'pose', 'poser',
+    'glas', 'stor', 'store', 'lille', 'dansk', 'danske', 'danmark', 'frisk',
+    'friske', 'uden', 'with', 'vores', 'ekstra', 'extra', 'naturlig',
+    'pulver', 'med', 'til', 'fra', 'and', 'pak', 'stk', 'ltr', 'oko', 'eko',
+    'bio', 'mio', 'ass', 'the', 'den', 'det', 'ost', 'vej', 'selv',
+})
+_VOWELS = frozenset('aeiouyæøå')
+
+
+def _is_subsequence(short: str, long_: str) -> bool:
+    it = iter(long_)
+    return all(ch in it for ch in short)
+# Synonymer butikkerne bruger om hinanden.
+_REMA_WORD_SYNONYMS: dict = {
+    'sovs': ('sauce',), 'sauce': ('sovs',),
+    'yogurt': ('yoghurt',), 'yoghurt': ('yogurt',),
+    'friskost': ('flødeost',), 'flødeost': ('friskost',),
+}
+
+
+def _rema_word_found(word: str, cand_tokens: list) -> bool:
+    for t in cand_tokens:
+        # Sammensætninger i begge retninger ("kyllingebryst" i
+        # "kyllingebrystfilet", "clementin" i "clementiner").
+        if word in t or (len(t) >= 4 and t in word):
+            return True
+        # Rema skriver sammen, hvor butikken skriver to ord: "fuldkornsris"
+        # mod "Brune ris", "kyllingelår" mod "Kyllinge lår".
+        if len(t) >= 3 and word.endswith(t):
+            return True
+        # Forkortelse hos modparten: Dagrofas "Æbl." for "æbler".
+        if len(t) >= 3 and word.startswith(t) and len(word) - len(t) <= 3:
+            return True
+        # Vokalløs forkortelse hos Rema: "RGT." for "røget".
+        if (not _VOWELS.intersection(word) and t[:1] == word[:1]
+                and _is_subsequence(word, t)):
+            return True
+        # Stavemåder: "frijs"/"friis", "naturel"/"natural".
+        if len(t) >= 4 and rapid_ratio(word, t) >= 80:
+            return True
+    return any(syn in cand_tokens for syn in _REMA_WORD_SYNONYMS.get(word, ()))
+
+
+def rema_title_words_covered(rema_title_norm: str, cand_text_norm: str,
+                             produce: bool = False) -> bool:
+    """Kan hvert betydningsbærende ord i Rema-titlen genfindes hos kandidaten?
+
+    Rema-titler er korte og består næsten kun af ord, der ER varen ("TØRRET
+    TIMIAN", "RISOTTO MED SPINAT"). Navnescoren, mærke- og billedbonussen
+    kunne bære et par igennem på ét fælles ord, mens det ord der skilte dem ad,
+    slet ikke fandtes hos modparten. Målt i D1 07-10-2026 (520 Rema-kort):
+    "Tørret timian" stod med "Tørret fransk salami", "Risotto med spinat" med
+    "Pizza m. prosciutto og spinat", "Bacon tern" med "Bacon leverpostej" og
+    "Wok blanding" med Toms "Pingvin Blanding".
+
+    Kandidaten må gerne have FLERE ord (butikkerne skriver længere navne);
+    det er kun Rema-ord der mangler, der tæller.
+
+    Frugt & grønt får lov at mangle ét ord ("TOMATER VEJ SELV", "ICEBERG
+    SALAT", "CLEMENTIN SYDAFRIKA"), så længe mindst ét ord der ikke er en farve
+    genfindes - "ØKO. RØDE SPIDSKÅL" må ikke bæres af "røde" i "Æbl. Røde".
+    """
+    words = [w for w in rema_title_norm.split()
+             if len(w) >= 3 and w.isalpha() and w not in _REMA_WORD_NOISE]
+    if not words:
+        return True
+    cand_tokens = cand_text_norm.split()
+    # Sammenskrevne naboord, så "tex mex" dækker "texmex".
+    cand_tokens += [a + b for a, b in zip(cand_tokens, cand_tokens[1:])]
+    missing = [w for w in words if not _rema_word_found(w, cand_tokens)]
+    if not missing:
+        return True
+    if not produce or len(missing) > 1:
+        return False
+    found = [w for w in words if w not in missing]
+    return any(not get_product_colours(w) for w in found)
+
+
 def stk_validates_pack_size(base_stk, cand_stk) -> bool:
     """Har stk-antallet reelt bekræftet, at de to varer har samme pakkestørrelse?
 
@@ -1844,6 +1926,17 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
         brands_align = both_pl or (
             fuzzy_score(norm_rema_brand, normalize_name(p.get('brand', ''))) >= 0.75
         )
+
+        # Gate: Hvert betydningsbærende ord i Rema-titlen skal genfindes hos
+        # kandidaten (se rema_title_words_covered). Lempes kun af et næsten
+        # identisk foto - samme pakning er stærkere bevis end ordvalget.
+        if (rema_title_norm and not near_identical_photo
+                and not rema_title_words_covered(
+                    rema_title_norm,
+                    f"{p['_norm_name']} {normalize_name(p.get('brand', ''))}",
+                    produce=(rema_type == CAT_FRUGT_GROENT
+                             and p['_type'] == CAT_FRUGT_GROENT))):
+            continue
 
         # Gate D: Dairy variant + first-token checks
         if rema_title_norm:
