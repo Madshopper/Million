@@ -310,6 +310,16 @@ _BUSY_RETRY_SECONDS = 2
 # RENDER_CPU_BUDGET = "off" i wrangler-vars.
 _CPU_BUDGET_CAPACITY = 2_000.0
 _CPU_BUDGET_REFILL_PER_S = 30.0
+# Langt budget oven i det korte. Målt 07-10-2026 (CPH): én forbindelse (web +
+# app) søgte i 35 minutter med kun ~5,6 ms CPU/s i snit (spidser på 44 ms/s),
+# altså langt under det korte budgets 30 ms/s, og fik alligevel 1102 kl. 12:54
+# efter ~11,7 s samlet CPU, fulgt af 1101 til en anden besøgende kl. 13:10.
+# Cloudflare tåler altså heller ikke et moderat forbrug, der bliver ved. Efter
+# vores vægte svarede sessionen til ~25-30 s estimat; det her budget bremser
+# den efter ~10 minutters tung brug og tillader derefter ~6 ms/s (fx én søgning
+# i minuttet). Normal brug (en søgning i minuttet) når aldrig bunden.
+_CPU_LONG_CAPACITY = 6_000.0
+_CPU_LONG_REFILL_PER_S = 6.0
 _CPU_COST_DEFAULT = 100.0
 _CPU_COST_BY_PREFIX = (
     ("/search", 350.0),            # /search og /search/results
@@ -323,6 +333,7 @@ _CPU_COST_BY_PREFIX = (
 )
 _CPU_COST_NON_GET = 20.0
 _cpu_budget = _CPU_BUDGET_CAPACITY
+_cpu_long = _CPU_LONG_CAPACITY
 _cpu_budget_at = 0.0
 _BUSY_RETRY_MAX_SECONDS = 15
 # Så mange gange genindlæser "travlt"-siden sig selv, før den beder brugeren
@@ -438,27 +449,31 @@ def _cpu_cost(request) -> float:
 
 
 def _cpu_budget_refill(now: float) -> None:
-    global _cpu_budget, _cpu_budget_at
+    global _cpu_budget, _cpu_long, _cpu_budget_at
     if _cpu_budget_at and now > _cpu_budget_at:
-        _cpu_budget = min(_CPU_BUDGET_CAPACITY,
-                          _cpu_budget + (now - _cpu_budget_at) / 1000.0 * _CPU_BUDGET_REFILL_PER_S)
+        secs = (now - _cpu_budget_at) / 1000.0
+        _cpu_budget = min(_CPU_BUDGET_CAPACITY, _cpu_budget + secs * _CPU_BUDGET_REFILL_PER_S)
+        _cpu_long = min(_CPU_LONG_CAPACITY, _cpu_long + secs * _CPU_LONG_REFILL_PER_S)
     _cpu_budget_at = now
 
 
 def _cpu_budget_take(cost: float, now: float) -> float:
-    """Træk `cost` fra budgettet. Returnerer 0.0 ved succes, ellers antal
-    sekunder til der er råd (til Retry-After) - intet trækkes da."""
-    global _cpu_budget
+    """Træk `cost` fra begge budgetter. Returnerer 0.0 ved succes, ellers antal
+    sekunder til der er råd i dem begge (til Retry-After) - intet trækkes da."""
+    global _cpu_budget, _cpu_long
     _cpu_budget_refill(now)
-    if _cpu_budget >= cost:
+    if _cpu_budget >= cost and _cpu_long >= cost:
         _cpu_budget -= cost
+        _cpu_long -= cost
         return 0.0
-    return (cost - _cpu_budget) / _CPU_BUDGET_REFILL_PER_S
+    return max((cost - _cpu_budget) / _CPU_BUDGET_REFILL_PER_S,
+               (cost - _cpu_long) / _CPU_LONG_REFILL_PER_S)
 
 
 def _cpu_budget_refund(cost: float) -> None:
-    global _cpu_budget
+    global _cpu_budget, _cpu_long
     _cpu_budget = min(_CPU_BUDGET_CAPACITY, _cpu_budget + cost)
+    _cpu_long = min(_CPU_LONG_CAPACITY, _cpu_long + cost)
 
 
 def _prune_render_waiting(now: float) -> None:
@@ -904,7 +919,8 @@ class Default(WSGI[Env]):
             # rigtig besøgende (se _CPU_BUDGET_CAPACITY).
             if not self._cpu_budget_disabled():
                 _cpu_budget_refill(_now_ms())
-                if _cpu_budget < _CPU_BUDGET_CAPACITY * 0.8:
+                if (_cpu_budget < _CPU_BUDGET_CAPACITY * 0.8
+                        or _cpu_long < _CPU_LONG_CAPACITY * 0.5):
                     return
             path = _warm_queue.pop(0)
             from urllib.parse import urlparse
