@@ -408,9 +408,10 @@ check("travlt til side: stopper genindlaesningen efter loftet", "refresh" not in
 
 
 # --- 8) CPU-budget pr. isolate (token-bucket) ---------------------------------
+_r0 = lambda p: types.SimpleNamespace(url=f"https://madshopper.dk{p}", method="GET", headers={})
 # Sekventielle kolde renders (~1/s) draebte isolaten efter 27-43 renders
 # 15-09-2026 (1102 + 1101-kaskade); 6 i minuttet gik fint.
-W._cpu_budget, W._cpu_budget_at = W._CPU_BUDGET_CAPACITY, 0.0
+W._cpu_budget, W._cpu_long, W._cpu_budget_at = W._CPU_BUDGET_CAPACITY, W._CPU_LONG_CAPACITY, 0.0
 t = 1_000_000.0
 n_ok = 0
 while W._cpu_budget_take(W._CPU_COST_DEFAULT, t) == 0.0:
@@ -425,7 +426,7 @@ check(f"budget: afvist render faar ventetid til der er raad ({wait:.1f} s)", 0 <
 # Den serie der blev maalt 18:29-18:34 UTC uden drab: 6 soegninger, 6
 # kategorisider, 6 autocomplete, 6 soegepanel-kald og 2 produktkald, et
 # kald hvert 7.-9. sekund.
-W._cpu_budget, W._cpu_budget_at = W._CPU_BUDGET_CAPACITY, 0.0
+W._cpu_budget, W._cpu_long, W._cpu_budget_at = W._CPU_BUDGET_CAPACITY, W._CPU_LONG_CAPACITY, 0.0
 t = 2_000_000.0
 serie = (["/search/results?q=x"] * 6 + ["/Mejeri?subcategory=Ost"] * 6
          + ["/api/autocomplete?q=x"] * 6 + ["/search?q=x"] * 6 + ["/api/products"] * 2)
@@ -435,9 +436,30 @@ for i, p in enumerate(serie):
                                                          headers={})), t + i * 8000.0) != 0.0:
         spredt_ok = False
 check("budget: den maalte serie som sitet taalte (et kald pr. 8 s) bremses aldrig", spredt_ok)
-W._cpu_budget = 100.0
+# 07-10-2026 (CPH): en tung session i 35 min med lavt snit draebte isolaten.
+# Her: en soegning hvert 20. sekund (~17 ms/s) skal bremses inden 35 min.
+W._cpu_budget, W._cpu_long, W._cpu_budget_at = W._CPU_BUDGET_CAPACITY, W._CPU_LONG_CAPACITY, 0.0
+t = 3_000_000.0
+braked_at = None
+for i in range(105):
+    if W._cpu_budget_take(W._cpu_cost(_r0("/search?q=x")), t + i * 20_000.0) != 0.0:
+        braked_at = i * 20
+        break
+check(f"budget: tung soegning i lang tid bremses (efter {braked_at} s)",
+      braked_at is not None and 300 <= braked_at <= 1500)
+# Normal indkoebstur: en soegning og tre forslag i minuttet i en halv time bremses aldrig.
+W._cpu_budget, W._cpu_long, W._cpu_budget_at = W._CPU_BUDGET_CAPACITY, W._CPU_LONG_CAPACITY, 0.0
+t = 4_000_000.0
+normal_ok = True
+for m in range(30):
+    for j, p in enumerate(["/search?q=x"] + ["/api/autocomplete?q=x"] * 3):
+        if W._cpu_budget_take(W._cpu_cost(_r0(p)), t + m * 60_000.0 + j * 15_000.0) != 0.0:
+            normal_ok = False
+check("budget: normal brug (en soegning og tre forslag i minuttet) bremses aldrig paa en halv time", normal_ok)
+W._cpu_budget, W._cpu_long = 100.0, 100.0
 W._cpu_budget_refund(1_000_000.0)
-check("budget: refundering kan ikke overstige kapaciteten", W._cpu_budget == W._CPU_BUDGET_CAPACITY)
+check("budget: refundering kan ikke overstige kapaciteten",
+      W._cpu_budget == W._CPU_BUDGET_CAPACITY and W._cpu_long == W._CPU_LONG_CAPACITY)
 _r = lambda p, m="GET": types.SimpleNamespace(url=f"https://madshopper.dk{p}", method=m, headers={})
 check("budget: vaegte pr. rutetype (soegning tungest, cache-hits taeller ikke med)",
       W._cpu_cost(_r("/search/results?q=x")) > W._CPU_COST_DEFAULT > W._cpu_cost(_r("/api/autocomplete?q=x"))
@@ -449,7 +471,7 @@ _b = W._busy_response(req("/api/search?q=x"), retry_after=500)
 check("budget: Retry-After har et loft", _b[2]["headers"]["Retry-After"] == str(W._BUSY_RETRY_MAX_SECONDS))
 _src = open(os.path.join(ROOT, "src", "worker.py"), encoding="utf-8").read()
 check("budget: begge fetch-veje tjekker budgettet foer render", _src.count("self._cpu_admit(request)") == 2)
-W._cpu_budget, W._cpu_budget_at = W._CPU_BUDGET_CAPACITY, 0.0
+W._cpu_budget, W._cpu_long, W._cpu_budget_at = W._CPU_BUDGET_CAPACITY, W._CPU_LONG_CAPACITY, 0.0
 
 
 # --- 5) fejler laasen selv, renderes der alligevel -------------------------
