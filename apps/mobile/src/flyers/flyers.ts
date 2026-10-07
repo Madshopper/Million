@@ -31,22 +31,32 @@ export type FlyerCatalog = {
 
 export type FlyerPage = { thumb?: string; view: string; zoom?: string };
 
-/** Ugens avis først, så lange kataloger, til sidst næste uges avis. */
-export function sortCatalogs(list: FlyerCatalog[], now: number): FlyerCatalog[] {
-  const rank = (c: FlyerCatalog) => {
-    const from = Date.parse(c.run_from);
-    const till = Date.parse(c.run_till);
-    if (from > now) return 2;
-    return till - from <= 8 * DAY_MS ? 0 : 1;
-  };
-  return list
-    .slice()
-    .sort(
-      (a, b) =>
-        rank(a) - rank(b) ||
-        Date.parse(a.run_from) - Date.parse(b.run_from) ||
-        (b.page_count || 0) - (a.page_count || 0),
-    );
+/**
+ * Kun ugens avis og næste uges avis (Kalle 07-10-2026), ikke indstik,
+ * weekendaviser eller lange sæsonkataloger. Samme regel som hjemmesiden
+ * (static/js/flyers.js::pickWeekly). Tjek har altid de nyeste aviser, så
+ * skiftet til en ny uge sker af sig selv.
+ */
+export function pickWeekly(list: FlyerCatalog[], now: number): FlyerCatalog[] {
+  const from = (c: FlyerCatalog) => Date.parse(c.run_from);
+  const weekNo = /\buge\s*\d/i;
+  let weekly = list.filter(
+    (c) =>
+      Date.parse(c.run_till) - from(c) <= 16 * DAY_MS && !/indstik|weekend/i.test(c.label || ''),
+  );
+  // Hedder butikkens aviser "Uge 42" o.l., er det kun dem. ABC Lavpris
+  // kalder sine aviser efter byen og beholdes derfor alle.
+  if (weekly.some((c) => weekNo.test(c.label || ''))) {
+    weekly = weekly.filter((c) => weekNo.test(c.label || ''));
+  }
+  const active = weekly.filter((c) => from(c) <= now);
+  const upcoming = weekly.filter((c) => from(c) > now);
+  const newest = Math.max(...active.map(from));
+  const next = Math.min(...upcoming.map(from));
+  return [
+    ...active.filter((c) => from(c) === newest),
+    ...upcoming.filter((c) => from(c) === next),
+  ];
 }
 
 /** Alle aktuelle og kommende aviser for butikkerne, pr. forhandler-id. */
@@ -66,7 +76,10 @@ export async function fetchCatalogs(
     if (Date.parse(c.run_till) < now) continue;
     (byDealer[c.dealer_id] ||= []).push(c);
   }
-  for (const k of Object.keys(byDealer)) byDealer[k] = sortCatalogs(byDealer[k], now);
+  for (const k of Object.keys(byDealer)) {
+    byDealer[k] = pickWeekly(byDealer[k], now);
+    if (!byDealer[k].length) delete byDealer[k];
+  }
   return byDealer;
 }
 
