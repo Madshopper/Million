@@ -19,6 +19,7 @@ import type { HomeSection, Product } from '../api/types';
 import type { Recipe } from '../api/recipes';
 import { useAuth } from '../auth/AuthContext';
 import { CategoriesDrawer } from '../components/CategoriesDrawer';
+import { FlyersSection } from '../components/FlyersSection';
 import { applyClientFilters, FiltersBar, type FiltersValue } from '../components/FiltersBar';
 import { ProductCard } from '../components/ProductCard';
 import { RecipeCard } from '../components/RecipeCard';
@@ -41,6 +42,7 @@ import type { RootStackParamList } from '../navigation/types';
 
 type HomeRow =
   | { key: string; kind: 'cats' }
+  | { key: string; kind: 'flyers' }
   | { key: string; kind: 'filters' }
   | { key: string; kind: 'error'; message: string }
   | { key: string; kind: 'section'; section: HomeSection; products: Product[] }
@@ -73,6 +75,9 @@ export function HomeScreen() {
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [catsOpen, setCatsOpen] = React.useState(false);
+  // Butikkernes tilbudsaviser (Feature-panelet 'flyers'): vises først, når
+  // /api/home siger de er udgivet, så web og app følges ad.
+  const [flyersEnabled, setFlyersEnabled] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const loadSavings = React.useCallback(async () => {
@@ -115,6 +120,7 @@ export function HomeScreen() {
         setServerSwipeEnabled(data.swipe_enabled);
         setServerMejeriNavnEnabled(data.mejeri_navn_enabled);
         setServerSubscriptionEnabled(data.subscription_enabled);
+        setFlyersEnabled(!!data.flyers_enabled);
         await loadSavings();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Kunne ikke hente forsiden');
@@ -143,6 +149,7 @@ export function HomeScreen() {
   const rows = React.useMemo<HomeRow[]>(() => {
     const out: HomeRow[] = [
       { key: 'savings', kind: 'savings', savings },
+      ...(flyersEnabled ? [{ key: 'flyers', kind: 'flyers' } as const] : []),
       { key: 'cats', kind: 'cats' },
       { key: 'filters', kind: 'filters' },
     ];
@@ -160,7 +167,7 @@ export function HomeScreen() {
       out.push({ key: 'recipes', kind: 'recipes', recipes });
     }
     return out;
-  }, [sections, filters, error, savings, recipes]);
+  }, [sections, filters, error, savings, recipes, flyersEnabled]);
 
   if (!ready || (loading && !sections.length)) {
     return (
@@ -208,6 +215,10 @@ export function HomeScreen() {
                 <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </Pressable>
             );
+          }
+
+          if (item.kind === 'flyers') {
+            return <FlyersSection />;
           }
 
           if (item.kind === 'filters') {

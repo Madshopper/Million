@@ -26,6 +26,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Kategorier-knap med oversigt over alle (i stedet for vandret bjælke) | – | ✅ | – | ❌ | Complete *(03-10-2026; i appen en skuffe fra venstre. Web beholder den vandrette bjælke efter Kalles ønske)* |
 | Kategorien Køl hedder "Køl & Mejeri", Feature `mejeri_navn` | ✅ menu, mobilmenu og overskrift | ✅ kategoriskuffen | ✅ `mejeri_navn_enabled` i sidekontekst og `/api/home` | ❌ | Skjult på madshopper.dk, til på dev; udgives automatisk af `feature-auto-publish.yml`, når app 1.0.4 er i App Store, så web og app skifter samtidig *(06-10-2026)* |
 | Ugens Tilbud | ✅ | ✅ | ✅ `/api/sale` | ✅ | Complete |
+| Butikkernes tilbudsaviser på forsiden (logo, tryk åbner avisen som overlay), Feature `flyers` | ✅ `static/js/flyers.js` | ✅ `FlyersSection` + `FlyerViewer` | ✅ `flyers_enabled` i sidekontekst og `/api/home`, `tjek` i `/api/stores`; aviser og sider hentes direkte fra Tjek, intet gemmes hos os | ❌ | Skjult på madshopper.dk, til på dev. Udgives først, når Tjek har givet skriftlig lov *(07-10-2026)* |
 | Forsidens Ugens Tilbud: højst 2 varer pr. butik forrest | ✅ | ✅ | ✅ `_build_home_categories` | ❌ | Complete *(01-10-2026; gælder ikke Populære varer)* |
 | Underkategori-chips | ✅ | ✅ | ✅ | ✅ | Complete |
 | Paginering | ✅ | ✅ | ✅ | ✅ | Complete |

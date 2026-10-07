@@ -6041,3 +6041,235 @@ body[data-theme="dark"] {
   /* Var #111827 (næsten sort) på mørk baggrund: tallet kunne ikke ses. */
   color: var(--text-main);
 }
+
+/* ===== Butikkernes tilbudsaviser (Feature 'flyers', static/js/flyers.js) ===== */
+.flyers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.flyers[hidden] { display: none; }
+
+.flyers h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--gray-900);
+}
+
+.flyers-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.flyer-logo {
+  flex: 0 0 auto;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--gray-700);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+.flyer-logo[hidden] { display: none; }
+
+.flyer-logo:hover,
+.flyer-logo:focus-visible {
+  border-color: var(--green);
+  box-shadow: var(--shadow-sm);
+}
+
+.flyer-logo img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.flyer-logo span {
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+body.flyer-open { overflow: hidden; }
+
+.flyer-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  flex-direction: column;
+  background: rgba(17, 24, 39, 0.97);
+  color: #fff;
+}
+
+.flyer-overlay.active { display: flex; }
+
+.flyer-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px 8px;
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+
+.flyer-heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flyer-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 6px 0 0;
+}
+
+.flyer-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.flyer-tabs[hidden] { display: none; }
+
+.flyer-tab {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.flyer-tab.active {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.flyer-close {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.flyer-close:hover { background: rgba(255, 255, 255, 0.25); }
+
+.flyer-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.flyer-page-wrap {
+  position: relative;
+  height: 100%;
+  max-width: 700px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.flyer-page {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.flyer-page:not([src]) { visibility: hidden; }
+
+.flyer-status {
+  position: absolute;
+  inset: auto 0 50%;
+  text-align: center;
+  font-weight: 600;
+}
+
+.flyer-status[hidden] { display: none; }
+
+.flyer-nav {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.flyer-nav:hover:not([disabled]) { background: rgba(255, 255, 255, 0.28); }
+.flyer-nav[disabled] { opacity: 0.3; cursor: default; }
+
+.flyer-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  font-size: 0.85rem;
+}
+
+.flyer-source { opacity: 0.7; font-size: 0.75rem; }
+
+@media (max-width: 640px) {
+  /* På telefon bladres der mest med swipe; pilene ligger oven på siden, så
+     de ikke tager plads fra den (og stadig kan bruges med skærmlæser). */
+  .flyer-stage { position: relative; padding: 0; }
+  .flyer-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    width: 40px;
+    height: 40px;
+    background: rgba(17, 24, 39, 0.55);
+  }
+  .flyer-prev { left: 6px; }
+  .flyer-next { right: 6px; }
+}

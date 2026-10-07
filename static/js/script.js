@@ -427,6 +427,8 @@ const COOKIE_FLAGS = ';path=/;max-age=31536000;SameSite=Lax'
     + (location.protocol === 'https:' ? ';Secure' : '');
 
 function saveStoreFilters() {
+    // Tilbudsaviserne på forsiden (flyers.js) viser kun de valgte butikker.
+    document.dispatchEvent(new Event('madshopper:stores'));
     if (!harFunktioneltSamtykke()) return;
 
     const storesArray = Array.from(selectedStores);
