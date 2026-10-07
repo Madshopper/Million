@@ -208,6 +208,10 @@ _EDGE_ENV_VARS = (
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
     'STAGING_LINK_SECRET',
+    # Testnøgle til MadShopper Test-appen: skjulte opskrifter via
+    # /api/recipes-preview/<nøgle> (se get_recipes_preview). Worker-secret i
+    # produktion, aldrig i git.
+    'RECIPES_PREVIEW_KEY',
 )
 
 
@@ -1606,12 +1610,26 @@ _FEATURES = (
              'desc': 'Genvejen til opskrifterne i sidens menu.'},
             {'kind': 'web', 'name': 'Opskrifter på forsiden',
              'desc': '"Lækre opskrifter" kan trykkes på i stedet for "Kommer snart".'},
+            {'kind': 'web', 'name': 'Madplan: spørgsmål første gang',
+             'desc': 'Første gang man åbner /opskrifter: hvor mange, budget '
+                     'om ugen, lyst, kostbehov, ting man vil undgå og køkken. '
+                     'Svarene gemmes kun i browseren.'},
+            {'kind': 'web', 'name': 'Madplan: din madplan',
+             'desc': 'En ret pr. hverdag med pris for jeres antal mod '
+                     'budgettet. Lås retter og lav resten om.'},
             {'kind': 'job', 'name': 'Opskrifternes priser',
              'desc': 'Regnes ud hver nat efter butikkernes nye priser.'},
             {'kind': 'job', 'name': 'Import af opskrifter',
              'desc': 'Kører hver morgen og tjekker nye opskrifter fra brugerne.'},
             {'kind': 'app', 'name': 'Opskrifter i appen',
              'desc': 'Fanen og opskrifterne i iPhone- og Android-appen.'},
+            {'kind': 'app', 'name': 'Madplan i appen',
+             'desc': 'De samme spørgsmål og den samme madplan i Opskrift-'
+                     'fanen. Svarene gemmes kun på telefonen.'},
+            {'kind': 'idea', 'name': 'Madplan: gem svar på kontoen',
+             'desc': 'Så svarene følger med mellem telefon og computer.'},
+            {'kind': 'idea', 'name': 'Madplan: læg hele ugen i kurven',
+             'desc': 'Alle varer til ugens retter i kurven med ét tryk.'},
             {'kind': 'idea', 'name': 'Gem opskrifter',
              'desc': 'Gemte opskrifter under "Mine opskrifter" / "Favorit opskrifter".'},
             {'kind': 'idea', 'name': 'Mit køleskab',
@@ -2694,21 +2712,50 @@ def get_nutrition(product_id):
         return jsonify(success=False, nutrition=None)
 
 
+def _recipes_preview_ok(key: str) -> bool:
+    """Testnøglen til MadShopper Test-appen (dk.madshopper.app.test), så
+    opskrifterne kan prøves på telefonen, før de er udgivet i Feature-panelet.
+    Appen henter fra madshopper.dk, og dev-siden er lukket for alt andet end
+    admins i en browser. Uden en nøgle på mindst 24 tegn er stien bare 404."""
+    expected = str(_edge_var('RECIPES_PREVIEW_KEY') or '')
+    return len(expected) >= 24 and hmac.compare_digest(
+        (key or '').encode(), expected.encode())
+
+
+# Stierne er IKKE i _CACHEABLE_ENDPOINTS: de må aldrig ligge i den delte
+# edge-cache (worker'ens cache-nøgle ville ellers kun indeholde stien, og den
+# indeholder nøglen, men et ikke-cachet svar er det sikre valg). Det koster en
+# render pr. kald, og det er kun Kalles testapp der kalder dem.
+@app.route('/api/recipes-preview/<key>')
+def get_recipes_preview(key):
+    if not _recipes_preview_ok(key):
+        abort(404)
+    return get_recipes(_force=True)
+
+
+@app.route('/api/recipes-preview/<key>/<int:recipe_id>')
+def get_recipe_preview(key, recipe_id):
+    if not _recipes_preview_ok(key):
+        abort(404)
+    return get_recipe(recipe_id, _force=True)
+
+
 @app.route('/api/recipes')
-def get_recipes():
+def get_recipes(_force: bool = False):
     """Godkendte opskrifter + deres forudberegnede prissnapshot (recipe_pricing.py,
     kørt nightly i cache-updater.yml) - opslag, ikke live-beregning, se
     docs/Features.md og scripts/supabase-recipes.sql.
 
     Featuren er stadig under test og må ikke være tilgængelig på madshopper.dk,
-    se _recipes_enabled()."""
-    if not _recipes_enabled() or not _supabase_available():
+    se _recipes_enabled(). _force: kun fra get_recipes_preview (testnøglen)."""
+    if not (_force or _recipes_enabled()) or not _supabase_available():
         return jsonify(success=True, recipes=[])
     try:
         rows, status = _supabase_rest(
             "GET", "recipes",
             params={
-                "select": "id,title,image_url,servings,total_time_minutes,source_name,source_url",
+                "select": "id,title,image_url,servings,total_time_minutes,source_name,"
+                          "source_url,instructions",
                 "status": "eq.approved",
                 "order": "created_at.desc",
                 "limit": "200",
@@ -2733,8 +2780,26 @@ def get_recipes():
         if snap_status == 200 and isinstance(snapshots, list):
             by_recipe = {s["recipe_id"]: s for s in snapshots}
 
+        # Ingrediensnavne til madplanens mærker (_recipe_plan_profile). Fejler
+        # opslaget, kommer listen stadig ud, men uden mærker - og svaret
+        # markeres degraderet, så "ingen opskrift passer" ikke caches i 24t.
+        ingr_rows, ingr_status = _supabase_rest(
+            "GET", "recipe_ingredients",
+            params={"select": "recipe_id,ingredient_name,position",
+                    "order": "recipe_id,position", "limit": "5000"},
+        )
+        names_by_recipe = {}
+        if ingr_status == 200 and isinstance(ingr_rows, list):
+            for row in ingr_rows:
+                names_by_recipe.setdefault(row.get("recipe_id"), []).append(
+                    (row.get("ingredient_name") or "").strip())
+        else:
+            _mark_data_degraded('recipe_ingredients')
+
         result = []
         for r in rows:
+            # Fremgangsmåden bruges kun til mærkerne og sendes ikke med i listen.
+            instructions = r.pop("instructions", None)
             snap = by_recipe.get(r["id"], {})
             total = snap.get("total_ingredient_count") or 0
             on_sale = snap.get("ingredients_on_sale_count") or 0
@@ -2745,12 +2810,127 @@ def get_recipes():
                 "total_ingredient_count": total,
                 "ingredients_on_sale_count": on_sale,
                 "sale_ratio": round(on_sale / total, 3) if total else 0.0,
+                "plan": _recipe_plan_profile(
+                    r.get("title", ""), names_by_recipe.get(r["id"], []),
+                    instructions, r.get("servings"), r.get("total_time_minutes")),
             })
         result.sort(key=lambda r: r["sale_ratio"], reverse=True)
         return jsonify(success=True, recipes=result)
     except Exception as e:
         logger.error("recipes-list error: %s", e)
         return jsonify(success=False, recipes=[]), 503  # se 503-begrundelsen ovenfor
+
+
+# --- Madplan: mærker pr. opskrift (Feature 'recipes', del "Madplan") --------
+# Første gang man åbner Opskrifter, spørger web (static/js/madplan.js) og app
+# (apps/mobile/src/recipes/mealPlan.ts) om antal, budget, lyst, kostbehov,
+# ingredienser der skal undgås og køkkenudstyr, og laver en madplan ud fra
+# listen fra /api/recipes. Mærkerne regnes HER, ét sted, så web og app er
+# enige; selve planen laves på telefonen/i browseren (ingen CPU på edge pr.
+# bruger, svarene forlader aldrig enheden). Reglerne er grove nøgleord over
+# ingrediensnavne og fremgangsmåde - en opskrift kan derfor fejlmærkes, og
+# listerne skal udvides, når der kommer flere opskrifter.
+_RP_MEAT = re.compile(
+    r'kød|kylling|skinke|bacon|pølse|grise|svine|kalve|okse|\blam\b|lammek|'
+    r'kalkun|andebryst|andelår|salami|chorizo|pancetta|leverpostej|frikadelle')
+_RP_FISH = re.compile(
+    r'fisk|laks|torsk|\btun\b|tunfisk|rejer|\breje|sild|makrel|ansjos|krabbe|'
+    r'muslinger|kuller|rødspætte|\bsej\b')
+_RP_EGG = re.compile(r'\bæg|æggeblomme|mayonnaise')
+_RP_DAIRY = re.compile(
+    r'(?<!kokos)(?<!havre)(?<!mandel)(?<!soja)(?<!ris)mælk|(?<!jordnødde)smør|'
+    r'(?<!t)(?<!r)ost\b|oste|hytteost|salatost|fløde|(?<!soja)yoghurt|'
+    r'creme fraiche|crème fraîche|skyr|kvark|mozzarella|parmesan|feta|cheddar|'
+    r'mascarpone|ricotta|maasdam')
+_RP_HONEY = re.compile(r'honning')
+_RP_GLUTEN = re.compile(
+    r'hvedemel|fuldkornshvede|\bmel\b|rugmel|speltmel|brød|pasta|spaghetti|'
+    r'(?<!ris)nudler|couscous|bulgur|\brasp|tortilla|wraps?\b|havregryn|'
+    r'\bsoja\b|sojasauce|sojasovs|\bøl\b|pizzadej|butterdej|kiks|tærtedej')
+_RP_VEG = re.compile(
+    r'løg|gulerød|gulerødder|kål|spinat|tomat|agurk|salat\b|hjertesalat|porre|'
+    r'rødbede|peberfrugt|broccoli|squash|avocado|bønne|ærter|majs|svampe|'
+    r'champignon|selleri|aubergine|blomkål|edamame|kikærter|linser|mango|'
+    r'ananas|grønkål|asparges|radise|pastinak')
+_RP_PROTEIN = re.compile(
+    r'kød|kylling|kalkun|fisk|laks|tun|rejer|\bæg|hytteost|skyr|kvark|'
+    r'bønne|linser|kikærter|tofu|edamame')
+_RP_RICH = re.compile(r'fløde|bacon|mascarpone|chokolade|sukker|pommes|'
+                      r'(?<!t)(?<!r)ost\b|cheddar|mozzarella')
+_RP_TAKEAWAY_TITLE = re.compile(
+    r'pizza|burger|wrap|nudler|taco|kebab|sushi|pommes|curry|wok|shawarma|'
+    r'durum|nachos|burrito|quesadilla')
+_RP_FAMILY_TITLE = re.compile(
+    r'frikadelle|pizza|lasagne|boller|tærte|burger|taco|spaghetti|'
+    r'kødsovs|deller\b|gryde|suppe')
+_RP_BAKING_TITLE = re.compile(r'boller|brød\b|bananbrød|kage|muffins|'
+                              r'cookies|scones|kiks|snitter')
+# Køkkenudstyr en opskrift kræver, læst af fremgangsmåden. Nøglerne er de
+# samme som valgene i spørgsmålet "Hvad har du i køkkenet?".
+_RP_NEEDS = (
+    ('ovn', re.compile(r'\bovn|°|grader|bag(es|e)? .{0,30}(min|ovn)|forvarm|'
+                       r'til pensling|tærte|pizza|boller|brød\b|bananbrød|'
+                       r'lasagne|gratin|muffins|kage|ovnbag')),
+    ('kogeplade', re.compile(r'\bpande|\bgryde|\bkog(?!t)|\bsteg(?!t)|\bsauter|'
+                             r'\bsimr|\bbrun(e|es)? |til stegning')),
+    ('blender', re.compile(r'blender|stavblender|foodprocessor|purér|purere|'
+                           r'blend')),
+    ('roeremaskine', re.compile(r'røremaskine|elpisker|elpiskeren')),
+    ('airfryer', re.compile(r'airfryer')),
+    ('mikroovn', re.compile(r'mikroovn|mikrobølge')),
+)
+
+
+def _recipe_plan_profile(title: str, ingredient_names: list,
+                         instructions, servings, minutes) -> dict:
+    """Mærker til madplanen for én opskrift - se kommentaren ovenfor."""
+    ingr = ' | '.join(n.lower() for n in ingredient_names if n)
+    steps = ' '.join(str(s) for s in (instructions or [])).lower()
+    t = (title or '').lower()
+    meat = bool(_RP_MEAT.search(ingr))
+    fish = bool(_RP_FISH.search(ingr))
+    egg = bool(_RP_EGG.search(ingr))
+    dairy = bool(_RP_DAIRY.search(ingr))
+    diet = []
+    if not meat and not fish and not egg and not dairy and not _RP_HONEY.search(ingr):
+        diet.append('vegansk')
+    if not meat and not fish:
+        diet.append('vegetar')
+    if not meat:
+        diet.append('pescetar')
+    if not _RP_GLUTEN.search(ingr):
+        diet.append('glutenfri')
+    if not dairy:
+        diet.append('maelkefri')
+
+    veg = len({m.group(0) for m in _RP_VEG.finditer(ingr)})
+    protein = len({m.group(0) for m in _RP_PROTEIN.finditer(ingr)})
+    moods = []
+    if minutes and minutes <= 30:
+        moods.append('hurtig')
+    if veg >= 2 and not _RP_RICH.search(ingr):
+        moods.append('let')
+    if (servings and 4 <= servings <= 12) or _RP_FAMILY_TITLE.search(t):
+        moods.append('familie')
+    if veg >= 3 or 'fuldkorn' in ingr or 'kikærter' in ingr or 'linser' in ingr:
+        moods.append('sund')
+    if _RP_TAKEAWAY_TITLE.search(t):
+        moods.append('takeaway')
+    if protein >= 2 or meat or fish:
+        moods.append('protein')
+
+    return {
+        'diet': diet,
+        'moods': moods,
+        # Mange importerede opskrifter har ingen fremgangsmåde, så titel og
+        # ingredienser ("smør til stegning", "æg til pensling") tæller med.
+        'needs': [key for key, rx in _RP_NEEDS
+                  if rx.search(' | '.join((steps, t, ingr)))],
+        # Bagværk (boller, brød, kage) kommer ikke med i aftensmadsplanen.
+        'meal': not _RP_BAKING_TITLE.search(t),
+        # Korte navne til "ingredienser du vil undgå"-søgningen.
+        'ingredient_names': [n for n in ingredient_names if n][:40],
+    }
 
 
 def _parse_nutrition_number(value, prefer_kcal: bool = False) -> float | None:
@@ -2997,10 +3177,10 @@ def _fetch_recipe_detail(recipe_id):
 
 
 @app.route('/api/recipes/<int:recipe_id>')
-def get_recipe(recipe_id):
+def get_recipe(recipe_id, _force: bool = False):
     """Featuren er stadig under test og må ikke være tilgængelig på
-    madshopper.dk, se _recipes_enabled()."""
-    if not _recipes_enabled() or not _supabase_available():
+    madshopper.dk, se _recipes_enabled(). _force: kun fra get_recipe_preview."""
+    if not (_force or _recipes_enabled()) or not _supabase_available():
         return jsonify(success=True, recipe=None)
     try:
         recipe, ingredients, snapshot = _fetch_recipe_detail(recipe_id)
@@ -3168,6 +3348,9 @@ def _recipe_pool_live(limit: int = 10) -> list:
                 "matched_ingredient_count": snap.get("matched_ingredient_count", 0),
                 "total_ingredient_count": total,
                 "sale_ratio": round(on_sale / total, 3) if total else 0.0,
+                "plan": _recipe_plan_profile(
+                    r.get("title", ""), names_by_recipe.get(r["id"], []),
+                    instructions, r.get("servings"), r.get("total_time_minutes")),
             })
         # Samme (total_points, created_at)-sortering som seed-d1.py.
         ranked.sort(key=lambda r: (r["total_points"], r["created_at"]), reverse=True)

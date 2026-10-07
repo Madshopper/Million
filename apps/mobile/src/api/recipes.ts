@@ -1,6 +1,13 @@
 /** Opskrifter — spejler app.py /api/recipes + /api/recipes/<id> (web-paritet). */
 import { apiGet, apiPost } from './client';
 import type { Product } from './types';
+import { recipesPreviewKey } from '../config/env';
+
+// MadShopper Test henter de skjulte opskrifter via testnøglen; alle andre
+// builds bruger den almindelige sti (app.py::get_recipes_preview).
+const BASE = recipesPreviewKey
+  ? `/api/recipes-preview/${encodeURIComponent(recipesPreviewKey)}`
+  : '/api/recipes';
 
 export type Recipe = {
   id: number;
@@ -15,6 +22,21 @@ export type Recipe = {
   total_ingredient_count: number;
   ingredients_on_sale_count: number;
   sale_ratio: number;
+  /** Mærker til madplanen (app.py::_recipe_plan_profile). Mangler i svar fra
+   * en ældre server, og så kommer opskriften ikke med i planen. */
+  plan?: RecipePlanProfile;
+};
+
+export type RecipePlanProfile = {
+  /** Kostbehov opskriften passer til: vegansk, vegetar, pescetar, glutenfri, maelkefri. */
+  diet: string[];
+  /** hurtig, let, familie, sund, takeaway, protein */
+  moods: string[];
+  /** Køkkenudstyr den kræver: ovn, kogeplade, blender, roeremaskine, airfryer, mikroovn. */
+  needs: string[];
+  /** Falsk for bagværk (boller, brød, kage), som ikke kommer med i aftensmadsplanen. */
+  meal: boolean;
+  ingredient_names: string[];
 };
 
 export type RecipeListResponse = {
@@ -109,16 +131,18 @@ export type RecipeDetailResponse = {
 };
 
 export async function fetchRecipes(): Promise<RecipeListResponse> {
-  return apiGet('/api/recipes');
+  return apiGet(BASE);
 }
 
 export async function fetchRecipeDetail(id: number): Promise<RecipeDetailResponse> {
-  return apiGet(`/api/recipes/${id}`);
+  return apiGet(`${BASE}/${id}`);
 }
 
 export async function recordRecipeClick(id: number): Promise<void> {
   // Fire-and-forget, samme fail-safe som web (templates/opskrift.html) - en
   // fejlet klik-registrering må aldrig blokere eller fejle skærmen.
+  // Testappens klik må ikke tælle med i produktionens tal.
+  if (recipesPreviewKey) return;
   try {
     await apiPost('/api/recipe-click', { recipe_id: id });
   } catch {
