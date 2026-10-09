@@ -178,7 +178,18 @@ def load_store_comparison_data(store_key: str) -> tuple:
                         break
                     all_data.extend(res.data)
                     last_id = res.data[-1]['id']
-                    
+
+                if store_key == 'lidl':
+                    # Samme vare kan ligge både i kataloget og som ugens tilbud
+                    # (webscrape_lidl.py, samme erpNumber og billede). Tilbuds-
+                    # rækken vinder, ellers afgør billed-dedup'en tilfældigt,
+                    # om kortet viser tilbuddet.
+                    offer_skus = {r.get('varenummer') for r in all_data
+                                  if r.get('kategori') != 'Katalog' and r.get('varenummer')}
+                    all_data = [r for r in all_data
+                                if not (r.get('kategori') == 'Katalog'
+                                        and r.get('varenummer') in offer_skus)]
+
                 for row in all_data:
                     raw_price = row.get('pris')
                     if raw_price is None or float(raw_price) <= 0:
