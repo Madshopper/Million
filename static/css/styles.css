@@ -2580,6 +2580,30 @@ main {
   opacity: 0.85;
 }
 
+/* Betaling for opskrifter (templates/opskrift.html + opskrifter.html). */
+.recipe-paywall {
+  border: 2px solid var(--green);
+  border-radius: var(--radius-md);
+  padding: 18px;
+}
+
+.recipe-paywall p {
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.recipe-paywall-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.recipe-paywall-link {
+  color: var(--green-dark);
+  font-weight: 700;
+}
+
 .recipe-section {
   margin-bottom: 24px;
 }
@@ -4743,7 +4767,7 @@ body[data-theme="dark"] {
   gap: 10px;
   margin: 10px 16px 0;
   padding: 12px 14px;
-  background: var(--green-light, #D6F5E3);
+  background: var(--green-light);
   border: 1.5px solid var(--green, #059669);
   border-radius: var(--radius-md);
 }

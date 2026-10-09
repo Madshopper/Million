@@ -580,7 +580,6 @@ class Env(Protocol):
     SWIPE_ENABLED: str
     MEJERI_NAVN_ENABLED: str
     TILBUD_GUL_ENABLED: str
-    SUBSCRIPTION_ENABLED: str
     FLYERS_ENABLED: str
     STAGING_ACCESS_SECRET: str
     STAGING_APP_KEY: str

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fetchRecipes, type Recipe } from '../api/recipes';
@@ -8,6 +8,7 @@ import { TabScreenBody } from '../components/ScreenBody';
 import { MealPlanWizard } from '../recipes/MealPlanWizard';
 import { MealPlanView } from '../recipes/MealPlanView';
 import { defaultPrefs, loadPrefs, savePrefs, type MealPrefs } from '../recipes/mealPlan';
+import { useRecipeAccess } from '../recipes/access';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -16,7 +17,11 @@ import type { RootStackParamList } from '../navigation/types';
  * hentede opskrift-liste (client-side substring på titel), aldrig produkter.
  *
  * Madplan: første gang stilles spørgsmålene (MealPlanWizard), bagefter står
- * planen øverst over listen (MealPlanView). Svarene gemmes kun på telefonen. */
+ * planen øverst over listen (MealPlanView). Svarene gemmes kun på telefonen.
+ *
+ * Betaling (src/recipes/access.ts): listen kan ses af alle, men opskriften
+ * selv og madplanen kræver adgang. Uden adgang fører et tryk til
+ * RecipeAccess, og madplanen vises ikke. Samme regel som webben. */
 export function RecipesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
@@ -27,6 +32,8 @@ export function RecipesScreen() {
   const [prefs, setPrefs] = useState<MealPrefs | null | undefined>(undefined);
   const [editing, setEditing] = useState(false);
   const [thinking, setThinking] = useState(false);
+  const { access } = useRecipeAccess();
+  const locked = access !== true;
 
   useEffect(() => {
     loadPrefs().then((p) => setPrefs(p && p.done ? p : null));
@@ -61,9 +68,10 @@ export function RecipesScreen() {
     return recipes.filter((r) => r.title.toLowerCase().includes(query));
   }, [recipes, q]);
 
-  const openRecipe = (r: Recipe) => navigation.navigate('RecipeDetail', { recipeId: r.id });
+  const openRecipe = (r: Recipe) =>
+    locked ? navigation.navigate('RecipeAccess') : navigation.navigate('RecipeDetail', { recipeId: r.id });
 
-  if (loading || prefs === undefined) {
+  if (loading || prefs === undefined || access === null) {
     return (
       <TabScreenBody style={{ backgroundColor: colors.bg }}>
         <ActivityIndicator
@@ -75,7 +83,7 @@ export function RecipesScreen() {
     );
   }
 
-  if (recipes.length && (prefs === null || editing)) {
+  if (!locked && recipes.length && (prefs === null || editing)) {
     return (
       <TabScreenBody style={{ backgroundColor: colors.bg }}>
         <MealPlanWizard
@@ -135,7 +143,21 @@ export function RecipesScreen() {
 
   const header = (
     <View>
-      {prefs ? (
+      {locked ? (
+        <Pressable
+          onPress={() => navigation.navigate('RecipeAccess')}
+          style={[styles.paywall, { borderColor: colors.primary, backgroundColor: colors.surface }]}
+          accessibilityRole="button"
+          accessibilityHint="Viser abonnementet på opskrifterne"
+        >
+          <Text style={{ color: colors.text, fontWeight: '800', fontSize: 16 }}>Opskrifterne kræver et abonnement</Text>
+          <Text style={{ color: colors.textMuted, marginTop: 4, lineHeight: 19 }}>
+            Se alle opskrifterne herunder. Med et abonnement kan du åbne dem, lægge varerne i kurven og
+            få din egen madplan.
+          </Text>
+          <Text style={{ color: colors.primary, fontWeight: '700', marginTop: 8 }}>Se abonnement</Text>
+        </Pressable>
+      ) : prefs ? (
         <MealPlanView
           recipes={recipes}
           prefs={prefs}
@@ -187,6 +209,7 @@ const styles = StyleSheet.create({
   thinkingIcon: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center' },
   thinkingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'stretch', paddingHorizontal: 24 },
   thinkingCheck: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  paywall: { margin: 12, marginBottom: 0, padding: 14, borderRadius: 12, borderWidth: 2 },
   input: {
     margin: 12,
     borderWidth: 1,

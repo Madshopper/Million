@@ -7,8 +7,21 @@
   <div class="container-category">
     <h1 class="category-title">Opskrifter</h1>
 
+    {% if recipe_access %}
     {# Madplan: spørgsmål første gang + planen (static/js/madplan.js) #}
     <div id="madplanRoot" class="mp-root"></div>
+    {% else %}
+    {# Betaling for opskrifter (app.py::_recipe_access_ok). Listen er åben,
+       opskriften selv og madplanen kræver abonnement. #}
+    <section class="recipe-section recipe-paywall" data-session-retry>
+      <h2>Opskrifterne kræver et abonnement</h2>
+      <p>Se alle opskrifterne herunder. For at åbne dem og få din egen madplan skal du have et abonnement på opskrifterne. Det købes i MadShopper-appen på iPhone. Har du det allerede, så log ind med samme konto.</p>
+      <div class="recipe-paywall-actions">
+        <button type="button" class="recipe-add-all-btn" onclick="openAuthModal()">Log ind</button>
+        <a class="recipe-paywall-link" href="https://apps.apple.com/app/id6812713857" target="_blank" rel="noopener">Hent appen</a>
+      </div>
+    </section>
+    {% endif %}
 
     <div id="recipesListSection">
     <h2 class="mp-list-title">Alle opskrifter</h2>
@@ -29,7 +42,7 @@
   </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/madplan.js') }}"></script>
+{% if recipe_access %}<script src="{{ url_for('static', filename='js/madplan.js') }}"></script>{% endif %}
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const grid = document.getElementById('recipesGrid');
@@ -119,7 +132,7 @@
     // planen er lavet. Bagefter står planen øverst over listen.
     const listSection = document.getElementById('recipesListSection');
     function startMadplan() {
-      if (!window.MadPlan || !allRecipes.length) return;
+      if (!window.MadPlan || !allRecipes.length || !document.getElementById('madplanRoot')) return;
       const hasPlan = window.MadPlan.init(document.getElementById('madplanRoot'), allRecipes, {
         onPlan: function () { listSection.style.display = ''; }
       });

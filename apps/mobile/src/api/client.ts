@@ -186,10 +186,11 @@ export async function apiGet<T>(
   path: string,
   params?: ListingParams,
   controller?: AbortController,
+  headers?: Record<string, string>,
 ): Promise<T> {
   return request<T>(
     `${env.apiBaseUrl}${path}${buildQuery(params)}`,
-    { headers: { Accept: 'application/json' } },
+    { headers: { Accept: 'application/json', ...headers } },
     controller,
   );
 }
