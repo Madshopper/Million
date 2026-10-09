@@ -36,6 +36,9 @@ concurrency:
 jobs:
   theme-parity:
     runs-on: ubuntu-latest
+    # Brug runnerens forudinstallerede Chrome (scripts/install-playwright-ci.sh).
+    env:
+      PW_CHANNEL: chrome
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
