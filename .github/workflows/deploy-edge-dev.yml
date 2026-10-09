@@ -25,6 +25,7 @@ on:
       # Nyt 19-08-2026: Playwright-installationen er flyttet hertil, og en
       # aendring i den skal kunne proeves af med det samme.
       - 'scripts/install-playwright-ci.sh'
+      - 'scripts/wrangler-redacted.sh'
       - 'scripts/test-render-exclusive.py'
       - 'scripts/test-edge-env.py'
       - '.github/workflows/deploy-edge-dev.yml'
@@ -109,14 +110,14 @@ jobs:
           REQUIRE_DIST: "1"
         run: python3 scripts/test-cache-bust.py
 
+      # Ikke cloudflare/wrangler-action: wrangler udskriver begyndelsen af
+      # hemmelige vars i loggen. Se scripts/wrangler-redacted.sh.
       - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.114.0"
-          command: deploy
-          workingDirectory: dist
+        working-directory: dist
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bash ../scripts/wrangler-redacted.sh deploy
 
       - name: Nulstil edge-cache (cache_version)
         working-directory: dist
