@@ -9,7 +9,10 @@ name: Udgiv funktioner med appen
 
 on:
   schedule:
-    - cron: '15 */2 * * *'
+    # To gange i døgnet (var hver 2. time indtil 09-10-2026; sparer ca. 300
+    # GitHub Actions-minutter om måneden). En ny appversion slår altså
+    # igennem på hjemmesiden senest et halvt døgn efter, den er i App Store.
+    - cron: '15 6,16 * * *'
   workflow_dispatch:
 
 permissions:

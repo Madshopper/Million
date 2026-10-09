@@ -329,7 +329,7 @@
   var EVENTS = { schedule: 'Planlagt', workflow_dispatch: 'Manuel', push: 'Push',
                  workflow_run: 'Efter andet job', repository_dispatch: 'Dispatch' };
   var FAILED = ['failure', 'timed_out', 'startup_failure'];
-  var SYNC_STALE_HOURS = 8;      // synken kører hver ~3. time (GitHub-cron: 2-6 t)
+  var SYNC_STALE_HOURS = 14;     // synken kører hver ~6. time (GitHub-cron kommer 2-6 t for sent)
 
   function runOutcome(r) {
     if (r.status !== 'completed') return ['info', r.status === 'in_progress' ? 'Kører' : 'I kø'];
@@ -393,7 +393,7 @@
     sub.textContent = '';
     if (!info) { fill('admin-runs', empty('Kørslerne kunne ikke hentes.')); return; }
     if (!info.synced_at) {
-      fill('admin-runs', empty('Ingen kørsler gemt endnu. De hentes af scripts/sync-job-runs.py hver ~3. time.'));
+      fill('admin-runs', empty('Ingen kørsler gemt endnu. De hentes af scripts/sync-job-runs.py hver ~6. time.'));
       return;
     }
     var failing = failingWorkflows();

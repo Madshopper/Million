@@ -16,7 +16,7 @@ name: Security Monitor
 #
 # 02-10-2026: uptime-check.yml er slettet (browsertjekkene er flyttet til
 # uptime-worker/). Dens to resterende trin, dette relae og synken af
-# koerselshistorik til /admin, koerer nu her hver 3. time.
+# koerselshistorik til /admin, koerer nu her hver 6. time (hver 3. indtil 09-10-2026).
 #
 # Bemaerk: GitHub deaktiverer scheduled workflows efter 60 dages inaktivitet i
 # repoet - et push/commit nulstiller uret.
@@ -32,10 +32,11 @@ on:
         description: 'Valgfrit: CPU pr. minut til (ISO)'
         required: false
         default: ''
-  # LOOKBACK_HOURS i scriptet er 24 t, så hver 3. time er rigeligt, også når
-  # GitHub-cron i praksis kommer timer for sent.
+  # LOOKBACK_HOURS i scriptet er 24 t, så hver 6. time er rigeligt, også når
+  # GitHub-cron i praksis kommer timer for sent. (Var hver 3. time indtil
+  # 09-10-2026; halveret for at spare GitHub Actions-minutter.)
   schedule:
-    - cron: '23 */3 * * *'
+    - cron: '23 */6 * * *'
 
 concurrency:
   group: security-monitor

@@ -14,16 +14,9 @@ name: Web/app-paritetstests
 # Playwright-installationen har haengt i deploy-workflows foer (commit
 # ff28c7d). En paritetstest maa gerne fejle hoejlydt - den maa ikke kunne
 # blokere en hotfix-deploy.
+# Kun på PR'er og manuelt (push til main fjernet 09-10-2026 for at spare
+# Actions-minutter: samme kode er allerede testet i PR'en).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'templates/base.html'
-      - 'static/js/script.js'
-      - 'static/css/styles.css'
-      - 'apps/mobile/src/theme/**'
-      - 'scripts/test-theme-parity.mjs'
-      - '.github/workflows/parity-tests.yml'
   pull_request:
     paths:
       - 'templates/base.html'
@@ -33,6 +26,12 @@ on:
       - 'scripts/test-theme-parity.mjs'
       - '.github/workflows/parity-tests.yml'
   workflow_dispatch:
+
+# Spar GitHub Actions-minutter: en ny push til samme PR stopper den gamle
+# kørsel, der alligevel ville blive forældet.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   theme-parity:
