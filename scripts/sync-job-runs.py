@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Gem GitHub Actions-kørsler i Supabase (public.job_runs) til /admin.
 
-Køres som et trin i security-monitor.yml (hver ~6. time) med workflowets egen
+Køres som et trin i security-monitor.yml (én gang i døgnet) med workflowets egen
 GITHUB_TOKEN (permissions: actions: read), så der ikke skal oprettes nogen
 personlig token. Henter de seneste 200 kørsler, sorterer pull request-tjek fra
 (de er CI, ikke drift) og upserter på kørslens id: en kørsel der var i gang ved
@@ -21,7 +21,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 KEEP_DAYS = 90
-PAGES = 2            # 2 x 100 kørsler dækker rigeligt de 2-6 timer mellem synk
+PAGES = 3            # 3 x 100 kørsler dækker et døgn mellem synk, også på travle dage
 
 GH_TOKEN = os.environ.get("GITHUB_TOKEN") or ""
 REPO = os.environ.get("GITHUB_REPOSITORY") or "Madshopper/Million"
