@@ -150,6 +150,9 @@ def _cross_store_length_prefilter(len_a: int, len_b: int) -> bool:
 # Butiks-label -> butiks-key (omvendt af _STORE_CONFIGS). Bruges i billede-dedup
 # til at folde en dublets forside-butik ind i det beholdte korts store_matches.
 _LABEL_TO_KEY = {v['label']: k for k, v in _STORE_CONFIGS.items()}
+# Butikslogoer bruges som billede for varer uden eget (fx Løvbjergs avis-PDF).
+# Et fælles logo er ikke et tegn på samme vare, så billed-dedup'en springer dem over.
+_STORE_LOGO_IMGS = {v['logo'] for v in _STORE_CONFIGS.values()}
 
 # Single unified cache: store_key -> (products_list, token_index_dict)
 _store_caches: dict = {}
@@ -4378,7 +4381,8 @@ def fetch_and_parse_xml():
         deduped: list = []
         for _p in final_products:
             _img = str(_p.get('/product/imageLink', '')).strip()
-            if not _img or _img in ('nan', 'None') or _img in _PLACEHOLDER_IMGS:
+            if (not _img or _img in ('nan', 'None') or _img in _PLACEHOLDER_IMGS
+                    or _img in _STORE_LOGO_IMGS):
                 deduped.append(_p)  # ingen unik billedeURL → inkluder altid
             elif _img not in seen_imgs:
                 seen_imgs[_img] = _p
