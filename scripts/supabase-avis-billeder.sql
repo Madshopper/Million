@@ -1,4 +1,5 @@
--- Varebilleder klippet ud af butikkernes egne avis-PDF'er (scraper/webscrape_lovbjerg.py).
+-- Varebilleder klippet ud af butikkernes egne aviser (scraper/avis_billeder.py:
+-- Løvbjergs PDF og ABC Lavpris' avis-billeder), én mappe pr. butik.
 --
 -- Offentlig bucket: billederne vises direkte på madshopper.dk og i appen via
 -- /storage/v1/object/public/avis-billeder/... Kun scraper-kontoen
