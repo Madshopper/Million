@@ -334,6 +334,9 @@ _IMG_HOSTS = (
     'https://www.lidl.dk '
     'https://image.prod.iposeninfra.com '
     'https://nxtumbraco.azurewebsites.net '
+    # Varebilleder klippet ud af butikkernes avis-PDF'er (webscrape_lovbjerg.py),
+    # gemt i Supabase Storage-bucket'en avis-billeder.
+    'https://oxzxingkbsnqzpmjtktr.supabase.co '
     # Opskrift-billeder (recipe_importer.py) - tilføj kilde-hosten når en ny
     # opskriftside importeres fra, samme princip som butiks-CDN'erne ovenfor.
     'https://images.arla.com'

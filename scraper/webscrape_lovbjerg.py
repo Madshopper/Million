@@ -14,23 +14,36 @@ samme navn og pris.
 
 Erstatter den tidligere Tjek-baserede scraper: Tjek (eTilbudsavis) bad os
 09-10-2026 skriftligt om at stoppe brugen af deres API og billedservere.
-Avisen har ingen separate varebilleder, så rækkerne har intet billede.
+Varebillederne klippes ud af PDF'en (det indlejrede foto nærmest over prisen i
+samme spalte) og gemmes i Supabase Storage, se store_images.
 """
+import hashlib
 import io
 import os
 import re
 import sys
+from datetime import datetime, timedelta, timezone
 
 import pdfplumber
 import requests
+from pdfminer.pdftypes import resolve1
+import imagehash
+from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from keywords import is_non_food
-from supabase_utils import save_product_dicts
+from supabase_utils import get_client, save_product_dicts
 
 AVIS_URL = "https://www.lovbjerg.dk/avis/denne-uges-avis"
 BUTIK = "Løvbjerg"
 KATEGORI = "Tilbudsavis"
+
+# Varebilleder klippet ud af avisen gemmes i Supabase Storage
+# (scripts/supabase-avis-billeder.sql). Filnavnet er billedets indholds-hash,
+# så samme billede uge efter uge ikke lægges op igen.
+BUCKET = "avis-billeder"
+IMAGE_PREFIX = "loevbjerg"
+IMAGE_KEEP_DAYS = 14
 
 _HEADERS = {
     "User-Agent": (
@@ -196,6 +209,79 @@ def _after_limit_price(segs: list[dict], p: dict) -> float | None:
     return None
 
 
+def _decode_image(img: dict) -> Image.Image | None:
+    """Indlejret JPEG + evt. gennemsigtighedsmaske -> billede på hvid baggrund."""
+    stream = img['stream']
+    if 'DCT' not in str(stream.get('Filter')):
+        return None
+    try:
+        im = Image.open(io.BytesIO(stream.get_rawdata()))
+        im.load()
+        im = im.convert('RGB')
+        smask = resolve1(stream.get('SMask'))
+        if smask is not None:
+            if 'DCT' in str(resolve1(smask.get('Filter'))):
+                mask = Image.open(io.BytesIO(smask.get_rawdata())).convert('L')
+            else:
+                mask = Image.frombytes('L', (resolve1(smask.get('Width')), resolve1(smask.get('Height'))),
+                                       smask.get_data())
+            bg = Image.new('RGB', im.size, 'white')
+            bg.paste(im, mask=mask.resize(im.size))
+            im = bg
+        return im
+    except Exception:
+        return None
+
+
+def _is_backdrop(im: Image.Image) -> bool:
+    """Mørke, ensfarvede flader (skiferplader bag kødet) er baggrund, ikke varen."""
+    # Kun de synlige pixels tæller: masken gør alt uden om pladen hvidt.
+    px = [v for v in im.convert('L').resize((32, 32)).getdata() if v < 235]
+    if len(px) < 50:
+        return False
+    return sum(v < 70 for v in px) > 0.75 * len(px)
+
+
+def _assign_images(page, tiles: list[dict]) -> dict[int, Image.Image]:
+    """Varebilledet står over prisen eller mellem navn og pris i samme spalte.
+    Hver vare får det nærmeste (og ved lighed største) billede, hvert billede
+    bruges kun én gang."""
+    area_max = page.width * page.height * 0.35
+    imgs = [i for i in page.images
+            if 'DCT' in str(i['stream'].get('Filter'))
+            and i['x1'] - i['x0'] > 30 and i['bottom'] - i['top'] > 30
+            and (i['x1'] - i['x0']) * (i['bottom'] - i['top']) < area_max]
+    cands = []
+    for ti, t in enumerate(tiles):
+        for ii, i in enumerate(imgs):
+            width = i['x1'] - i['x0']
+            overlap = min(t['x1'], i['x1']) - max(t['x0'], i['x0'])
+            # Billedet skal for det meste stå i varens spalte; et bredt foto
+            # (en person, en stemningsflade) der blot rører spalten, er ikke varen.
+            if overlap < 0.4 * min(width, t['x1'] - t['x0']) or overlap < 0.5 * width:
+                continue
+            area = width * (i['bottom'] - i['top'])
+            if area > 2.5 * (t['x1'] - t['x0']) * (t['bottom'] - t['top']):
+                continue
+            if (i['top'] + i['bottom']) / 2 > t['bottom']:
+                continue
+            gap = max(0, t['top'] - i['bottom'])
+            if gap <= 150:
+                cands.append((gap, -area, ti, ii))
+    cands.sort()
+    out: dict[int, Image.Image] = {}
+    used: set[int] = set()
+    for _gap, _area, ti, ii in cands:
+        if ii in used or ti in out:
+            continue
+        im = _decode_image(imgs[ii])
+        if im is None or _is_backdrop(im):
+            continue
+        used.add(ii)
+        out[ti] = im
+    return out
+
+
 def parse_pdf(data: bytes) -> list[dict]:
     items = []
     seen = set()
@@ -208,20 +294,29 @@ def parse_pdf(data: bytes) -> list[dict]:
             pairs = sorted((c, bi, pj) for bi, b in enumerate(blocks) for pj, p in enumerate(prices)
                            if (c := _pair_cost(b, p)) is not None)
             b_used, p_used = set(), set()
+            page_items = []
             for _c, bi, pj in pairs:
                 if bi in b_used or pj in p_used:
                     continue
                 b_used.add(bi)
                 p_used.add(pj)
                 b, p = blocks[bi], prices[pj]
-                key = (b['name'], p['price'])
+                multi = _label_near(segs, p, _MULTI_RE)
+                page_items.append({
+                    'name': b['name'], 'info': b['info'], 'price': p['price'],
+                    'multikob': int(multi.group(1)) if multi else None,
+                    'normalpris': _after_limit_price(segs, p),
+                    'x0': min(b['x0'], p['x0']), 'x1': max(b['x1'], p['x1']),
+                    'top': min(b['top'], p['top']), 'bottom': max(b['bottom'], p['bottom']),
+                })
+            images = _assign_images(page, page_items)
+            for idx, it in enumerate(page_items):
+                key = (it['name'], it['price'])
                 if key in seen:
                     continue  # samme side findes i flere regionsudgaver
                 seen.add(key)
-                multi = _label_near(segs, p, _MULTI_RE)
-                items.append({'name': b['name'], 'info': b['info'], 'price': p['price'],
-                              'multikob': int(multi.group(1)) if multi else None,
-                              'normalpris': _after_limit_price(segs, p)})
+                it['image'] = images.get(idx)
+                items.append(it)
     return items
 
 
@@ -257,18 +352,98 @@ def build_row(item: dict) -> dict | None:
     }
 
 
+def _jpeg(im: Image.Image) -> bytes:
+    im = im.copy()
+    im.thumbnail((400, 400))
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=82, optimize=True)
+    return buf.getvalue()
+
+
+def _image_url(name: str) -> str:
+    base = (os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or "").rstrip("/")
+    return f"{base}/storage/v1/object/public/{BUCKET}/{IMAGE_PREFIX}/{name}"
+
+
+def _list_stored_images(bucket) -> dict:
+    return {o["name"]: o for o in bucket.list(IMAGE_PREFIX, {"limit": 1000})}
+
+
+def store_images(pairs: list[tuple[dict, Image.Image]]) -> None:
+    """Læg ugens varebilleder op og sæt billede_url/billede_hash på rækkerne.
+    Fejler lageret (fx før bucket'en er oprettet), vises varerne med butikkens
+    logo som før - scraperen fejler ikke af den grund."""
+    if not pairs:
+        return
+    try:
+        bucket = get_client().storage.from_(BUCKET)
+        existing = _list_stored_images(bucket)
+    except Exception as e:
+        print(f"  ⚠ Billedlager utilgængeligt ({e}) - varerne vises uden billeder")
+        return
+    uploaded = 0
+    for row, im in pairs:
+        data = _jpeg(im)
+        name = hashlib.sha1(data).hexdigest()[:20] + ".jpg"
+        if name not in existing:
+            try:
+                bucket.upload(f"{IMAGE_PREFIX}/{name}", data, {"content-type": "image/jpeg"})
+                existing[name] = {}
+                uploaded += 1
+            except Exception as e:
+                print(f"  ⚠ Kunne ikke gemme billede til {row['navn']}: {e}")
+                continue
+        row["billede_url"] = _image_url(name)
+        row["billede_hash"] = str(imagehash.phash(im))
+    print(f"  Billeder: {len(pairs)} varer, {uploaded} nye gemt")
+
+
+def cleanup_images(rows: list[dict]) -> None:
+    """Slet billeder, som ingen vare bruger, når de er over IMAGE_KEEP_DAYS gamle.
+    Ventetiden gør, at gårsdagens produkt-cache (som nattens updater først
+    bygger om senere) aldrig peger på et slettet billede."""
+    try:
+        bucket = get_client().storage.from_(BUCKET)
+        existing = _list_stored_images(bucket)
+    except Exception as e:
+        print(f"  ⚠ Kunne ikke rydde gamle billeder: {e}")
+        return
+    in_use = {r["billede_url"].rsplit("/", 1)[-1] for r in rows if r.get("billede_url")}
+    cutoff = datetime.now(timezone.utc) - timedelta(days=IMAGE_KEEP_DAYS)
+    stale = []
+    for name, meta in existing.items():
+        created = meta.get("created_at") or ""
+        try:
+            old = datetime.fromisoformat(created.replace("Z", "+00:00")) < cutoff
+        except ValueError:
+            old = False
+        if name not in in_use and old:
+            stale.append(f"{IMAGE_PREFIX}/{name}")
+    if stale:
+        bucket.remove(stale)
+        print(f"  Slettede {len(stale)} gamle billeder")
+
+
 def fetch_lovbjerg_tilbud() -> list[dict]:
     url = find_pdf_url()
     print(f"  Avis-PDF: {url}")
     r = requests.get(url, headers=_HEADERS, timeout=120)
     r.raise_for_status()
     items = parse_pdf(r.content)
-    rows = [row for it in items if (row := build_row(it))]
-    print(f"  {len(items)} varer læst i avisen, {len(rows)} madvarer")
+    rows, pairs = [], []
+    for it in items:
+        row = build_row(it)
+        if row is None:
+            continue
+        rows.append(row)
+        if it.get("image") is not None:
+            pairs.append((row, it["image"]))
+    print(f"  {len(items)} varer læst i avisen, {len(rows)} madvarer, {len(pairs)} med billede")
     if len(rows) < 30:
         # En uge-avis har altid langt over 30 madtilbud; færre betyder at
         # layoutet er ændret og læsningen ikke længere virker.
         raise RuntimeError(f"Kun {len(rows)} varer læst fra Løvbjergs avis - layoutet er sandsynligvis ændret")
+    store_images(pairs)
     return rows
 
 
@@ -282,6 +457,7 @@ def main():
     print("Starter Løvbjerg scraper (avis-PDF fra lovbjerg.dk)...")
     rows = fetch_lovbjerg_tilbud()
     save_to_supabase(rows)
+    cleanup_images(rows)
     print("\nFærdig!")
 
 
