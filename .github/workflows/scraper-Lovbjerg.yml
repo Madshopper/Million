@@ -1,7 +1,7 @@
 name: Scraper - Løvbjerg (avis-PDF fra lovbjerg.dk)
 
 on:
-  # Startes kl. 00:01 dansk tid af nightly-dispatcher.yml (sommer-/vintertid håndteres dér)
+  # Startes om natten af nightly-dispatcher.yml (kun på butikkens avis-dage, se dér)
   workflow_dispatch:
 
 # Forhindrer at en manuel genkørsel af DENNE scraper overlapper sin egen

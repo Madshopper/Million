@@ -6,22 +6,11 @@ name: Mobile app tests
 # Ingen Playwright/smoke-tests her - de kører allerede mod staging i
 # deploy-edge-dev.yml.
 #
-# TRIGGEREN: bevidst BÅDE push og pull_request. Workflowet blev oprettet med
-# `pull_request` alene - men repoet har haft præcis ÉN pull request
-# nogensinde (24-07-2026); alt arbejde frem til 02-10-2026 var direkte pushes til dev/main; nu går det via PR'er til main
-# plus lokale merges. Konsekvensen var at typecheck og unit-tests aldrig kørte
-# på en eneste reel ændring, mens workflow-filen gav indtryk af det modsatte.
-# Push-triggeren er derfor den der faktisk gør arbejdet; PR-triggeren
-# beholdes, så en fremtidig PR-baseret arbejdsgang også er dækket.
+# TRIGGEREN: kun pull_request og manuel start. Indtil 09-10-2026 kørte den
+# også ved push til main, fordi alt arbejde tidligere var direkte pushes. Nu
+# går alt via PR'er til main, så samme kode var testet to gange; push-
+# triggeren er fjernet for at spare GitHub Actions-minutter.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/mobile/**'
-      - 'app.py'
-      - 'app_support.py'
-      - 'scripts/test-listing-api.py'
-      - '.github/workflows/mobile-tests.yml'
   pull_request:
     paths:
       - 'apps/mobile/**'
@@ -30,6 +19,11 @@ on:
       - 'scripts/test-listing-api.py'
       - '.github/workflows/mobile-tests.yml'
   workflow_dispatch:
+
+# En ny push til samme PR stopper den gamle kørsel (sparer minutter).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   mobile-tests:
