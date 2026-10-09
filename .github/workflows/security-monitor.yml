@@ -91,3 +91,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: python scripts/sync-job-runs.py
+
+      # Udgiver en funktion fra Feature-panelet, når den appversion, den følger
+      # med, er i App Store (scripts/auto-publish-features.py). Lå indtil
+      # 09-10-2026 i sit eget workflow (feature-auto-publish.yml) med egen cron;
+      # her sparer den et Actions-minut pr. kørsel og tjekkes 4 gange i døgnet.
+      - name: Udgiv funktioner, hvis deres appversion er ude
+        if: ${{ !cancelled() }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 scripts/auto-publish-features.py

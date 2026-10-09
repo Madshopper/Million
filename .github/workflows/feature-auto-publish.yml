@@ -7,12 +7,9 @@ name: Udgiv funktioner med appen
 # Rører hverken D1 eller Supabase: ét opslag hos Apple og højst én KV-læsning
 # og -skrivning pr. kørsel.
 
+# Kører automatisk som sidste trin i security-monitor.yml (hver 6. time).
+# Denne fil er kun til manuel start.
 on:
-  schedule:
-    # To gange i døgnet (var hver 2. time indtil 09-10-2026; sparer ca. 300
-    # GitHub Actions-minutter om måneden). En ny appversion slår altså
-    # igennem på hjemmesiden senest et halvt døgn efter, den er i App Store.
-    - cron: '15 6,16 * * *'
   workflow_dispatch:
 
 permissions:

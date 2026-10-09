@@ -1,9 +1,13 @@
 name: Nightly Dispatcher
 
-# Håndterer dansk sommertid/vintertid: GitHub cron kører i UTC, så hvert slot
-# har to cron-tider, og kun den der matcher Danmarks aktuelle UTC-offset
-# udføres. Scraperne og cache-fallbacken har derfor ingen egen cron - de
-# startes herfra.
+# Starter nattens kæde: scrapers, så cache-updateren, så næringsdata.
+# Scraperne og cache-updateren har ingen egen cron - de startes herfra.
+#
+# Én cron pr. slot (indtil 09-10-2026 to, én pr. sommer-/vintertid, hvor den
+# ene altid sprang over og alligevel kostede et Actions-minut). Tiderne er
+# valgt, så de ligger efter midnat dansk tid hele året: scrapers 01:01 dansk
+# sommertid / 00:01 vintertid, cache-updater 02:00 / 01:00, næring 03:00 /
+# 02:00. GitHub-cron kommer i praksis 1-3 timer for sent alligevel.
 #
 # BUTIKSDAGE (Kalle, 09-10-2026, for at spare GitHub Actions-minutter): hver
 # butik hentes kun de nætter, hvor dens nye avis/tilbud kommer (målt i
@@ -12,11 +16,9 @@ name: Nightly Dispatcher
 # cache-updateren. Manuel start af dispatcheren henter altid alle butikker.
 on:
   schedule:
-    - cron: '1 22 * * *'   # 00:01 dansk tid ved sommertid (CEST) -> scrapers
-    - cron: '1 23 * * *'   # 00:01 dansk tid ved vintertid (CET)  -> scrapers
-    - cron: '0 23 * * *'   # 01:00 dansk tid ved sommertid -> cache-updater fallback
-    - cron: '0 0 * * *'    # 01:00 vintertid -> cache-updater | 02:00 sommertid -> nutrition
-    - cron: '0 1 * * *'    # 02:00 dansk tid ved vintertid -> nutrition
+    - cron: '1 23 * * *'   # scrapers
+    - cron: '0 0 * * *'    # cache-updater
+    - cron: '0 1 * * *'    # nutrition
   workflow_dispatch:
     inputs:
       slot:
@@ -40,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Bestem slot ud fra dansk tid
+      - name: Bestem slot ud fra cron-linjen
         id: slot
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -51,17 +53,16 @@ jobs:
             echo "slot=$INPUT_SLOT" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          OFFSET="$(TZ=Europe/Copenhagen date +%z)"   # +0200 sommer / +0100 vinter
-          case "$CRON|$OFFSET" in
-            "1 22 * * *|+0200"|"1 23 * * *|+0100") SLOT=scrapers ;;
-            "0 23 * * *|+0200"|"0 0 * * *|+0100")  SLOT=cache-fallback ;;
-            "0 0 * * *|+0200"|"0 1 * * *|+0100")   SLOT=nutrition ;;
-            *)                                      SLOT=skip ;;
+          case "$CRON" in
+            "1 23 * * *") SLOT=scrapers ;;
+            "0 0 * * *")  SLOT=cache-fallback ;;
+            "0 1 * * *")  SLOT=nutrition ;;
+            *)            SLOT=skip ;;
           esac
-          echo "Cron '$CRON' + offset $OFFSET -> $SLOT"
+          echo "Cron '$CRON' -> $SLOT"
           echo "slot=$SLOT" >> "$GITHUB_OUTPUT"
 
-      - name: Start nattens scrapers (kl. 00:01 dansk tid)
+      - name: Start nattens scrapers
         if: steps.slot.outputs.slot == 'scrapers'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -115,7 +116,7 @@ jobs:
           done
           exit $FEJL
 
-      - name: Start cache-updater fallback (kl. 01:00 dansk tid)
+      - name: Start cache-updater
         if: steps.slot.outputs.slot == 'cache-fallback'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -127,7 +128,7 @@ jobs:
       # praksis - build-nutrition naaede aldrig at koere efter en natlig
       # cache-opdatering. Cache-updateren tager ~5 min fra kl. 01:00, saa 02:00
       # har rigelig margin.
-      - name: Start nutrition-build (kl. 02:00 dansk tid)
+      - name: Start nutrition-build
         if: steps.slot.outputs.slot == 'nutrition'
         env:
           GH_TOKEN: ${{ github.token }}
