@@ -1,4 +1,4 @@
-name: Scraper - Lidl (Tjek API)
+name: Scraper - Lidl (tilbud fra lidl.dk)
 
 on:
   # Startes om natten af nightly-dispatcher.yml (kun på butikkens avis-dage, se dér)
@@ -32,7 +32,7 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Kør Lidl tilbudsavis scraper
+      - name: Kør Lidl tilbud-scraper
         # SCRAPER_EMAIL/SCRAPER_PASSWORD i stedet for service_role
         # (compliance-audit 19-08-2026, GDPR-030, verificeret 24-08-2026 mod
         # Netto-scraperen): scraper/supabase_utils.py logger ind som en

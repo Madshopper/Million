@@ -77,7 +77,7 @@ ALGOLIA_APP_ID = 'F9VBJLR1BK'
 ALGOLIA_KEY    = 'd4f161f51f749bdd5baf699175d5f956'
 ALGOLIA_INDEX  = 'prod_NETTO_PRODUCTS'
 ALGOLIA_URL    = f'https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/{ALGOLIA_INDEX}/query'
-ALGOLIA_ATTRS  = ['name', 'gtin', 'objectID', 'brand', 'manufacturer',
+ALGOLIA_ATTRS  = ['name', 'isInCurrentLeaflet', 'gtin', 'objectID', 'brand', 'manufacturer',
                   'units', 'unitsOfMeasure',
                   'categories', 'images', 'productType', 'properties',
                   'storeData']
@@ -201,6 +201,18 @@ def build_rows(hits: list[dict]) -> list[dict]:
             if mp and mp not in ('0', '0.0'):
                 multikob = f'{mp} {mpp}'.strip()
 
+        # Ugens avisvarer: Salling markerer dem med isInCurrentLeaflet, men
+        # sender sjældent beforePrice (Netto aldrig). Før- og tilbudsprisen pr.
+        # enhed ligger begge i storeData, så førprisen regnes ud fra forholdet.
+        # Ikke ved multikøb, hvor enhedsprisen er mix-prisen og ikke stykprisen.
+        if hit.get('isInCurrentLeaflet') and ref:
+            if not on_offer and not multikob:
+                uom       = ref.get('unitsOfMeasurePrice') or 0
+                uom_offer = ref.get('unitsOfMeasureOfferPrice') or 0
+                if uom_offer and uom > uom_offer:
+                    normalpris = round(price_ore * uom / uom_offer / 100, 2)
+            on_offer = True
+
         tilbud = 'Ja' if (on_offer or multikob) else 'Nej'
         producent = (hit.get('brand') or hit.get('manufacturer') or 'Salling').strip() or 'Salling'
         images = hit.get('images') or []
@@ -245,7 +257,10 @@ def main():
         print(f"  {r['navn']:35.35s} {r['pris']:>7} kr  {r['producent']:15.15s} "
               f"{r['netto_vaegt'] or '':>8}  tilbud={r['tilbud']}")
 
-    save_product_dicts(BUTIK, rows, delete_eq_kategori=KATEGORI)
+    # Hele butikken erstattes: kataloget er nu eneste kilde (ugens avisvarer
+    # ligger i det via isInCurrentLeaflet). Rydder samtidig de gamle
+    # Tjek-tilbudsrækker (kategori 'Tilbudsavis') væk ved første kørsel.
+    save_product_dicts(BUTIK, rows)
     print(f'\nFærdig! {len(rows)} Netto-produkter gemt.')
 
 

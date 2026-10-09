@@ -73,9 +73,10 @@ jobs:
           DAG=$(TZ=Europe/Copenhagen date +%u)
           dage_for() {
             case "$1" in
-              scraper-Bilka.yml|scraper-Foetex.yml) echo "5 6" ;;
-              scraper-Katalog.yml) echo "5 6 7" ;;  # Netto- og Føtex-katalog
-              scraper-Netto.yml) echo "7" ;;
+              scraper-Bilka.yml) echo "5 6" ;;
+              # Netto- og Føtex-katalog inkl. ugens tilbud (siden #83):
+              # Føtex fredag og lørdag, Netto søndag.
+              scraper-Katalog.yml) echo "5 6 7" ;;
               scraper-Spar.yml|scraper-minkobmand.yml) echo "6" ;;
               scraper-Lovbjerg.yml) echo "5" ;;
               scraper-Lidl.yml|scraper-Lidl-Katalog.yml) echo "3" ;;
@@ -90,14 +91,12 @@ jobs:
             scraper-ABC-Lavpris.yml \
             scraper-Bilka.yml \
             scraper-Brugsen.yml \
-            scraper-Foetex.yml \
             scraper-Katalog.yml \
             scraper-Kvickly.yml \
             scraper-Lidl-Katalog.yml \
             scraper-Lidl.yml \
             scraper-Lovbjerg.yml \
             scraper-Meny.yml \
-            scraper-Netto.yml \
             scraper-Spar.yml \
             scraper-SuperBrugsen.yml \
             scraper-minkobmand.yml
