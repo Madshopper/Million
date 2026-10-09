@@ -20,3 +20,5 @@ rapidfuzz>=3.0.0,<4
 # Web Push (push_notify.py): kryptering og VAPID-signatur til beskeder på
 # telefonen. Kom tidligere kun med indirekte (via supabase), nu eksplicit.
 cryptography>=42
+# Løvbjergs avis læses fra deres egen PDF (scraper/webscrape_lovbjerg.py).
+pdfplumber>=0.11,<0.12

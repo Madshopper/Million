@@ -66,14 +66,12 @@ jobs:
             scraper-ABC-Lavpris.yml \
             scraper-Bilka.yml \
             scraper-Brugsen.yml \
-            scraper-Foetex.yml \
             scraper-Katalog.yml \
             scraper-Kvickly.yml \
             scraper-Lidl-Katalog.yml \
             scraper-Lidl.yml \
             scraper-Lovbjerg.yml \
             scraper-Meny.yml \
-            scraper-Netto.yml \
             scraper-Spar.yml \
             scraper-SuperBrugsen.yml \
             scraper-minkobmand.yml

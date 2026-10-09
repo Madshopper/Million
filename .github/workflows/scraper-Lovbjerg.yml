@@ -1,4 +1,4 @@
-name: Scraper - Løvbjerg (Tjek API)
+name: Scraper - Løvbjerg (avis-PDF fra lovbjerg.dk)
 
 on:
   # Startes kl. 00:01 dansk tid af nightly-dispatcher.yml (sommer-/vintertid håndteres dér)
