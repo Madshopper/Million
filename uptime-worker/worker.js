@@ -86,7 +86,7 @@ const CHECKS = [
 // cache-hits), og dermed den der fangede søgefejlen i september. Den unikke
 // max_price gør url'en ny hver gang, så den aldrig rammer edge-cachen. Den
 // koster en D1-tabelscanning (~19k rows_read), så den kører hver 2. time:
-// 12 x 19k = ~230k af gratisplanens 5M rows_read i døgnet. Budgettet er
+// 11 x 19k = ~210k af gratisplanens 5M rows_read i døgnet. Budgettet er
 // allerede stramt (målt 30-09-2026: 6,1M; 02-10-2026: 4,7M kl. 19 UTC), så
 // sæt ikke frekvensen op uden at måle først. Aldrig hvert 5. minut
 // (288 x 19k = 5,5M alene).
@@ -97,6 +97,14 @@ const SEARCH_CHECK = {
   expect: (body) => body.includes("MadShopper") && productCards(body, false),
 };
 const SEARCH_MINUTE = 40;
+// Ikke kl. 00:40 UTC. Ved midnat skifter datoen i cache-nøglen, så tjekkene
+// kl. 00:00 renderer alle sider koldt (~250 ms CPU) i den samme isolate i
+// Chicago (ORD). Kom søgningen (~100-800 ms CPU) oven i 40 min. senere, holdt
+// Cloudflare op med at give gratisplanen lov til at gå over sine 10 ms, og
+// isolaten svarede 1102 og derefter 1101 i 35-60 min: målt 08-10-2026 og
+// 09-10-2026, begge gange startet af præcis søgningen kl. 00:40. Kl. 22:40
+// (776 ms) og 02:40 gik det fint. Ingen besøgende blev ramt, kun tjekkene.
+const SEARCH_SKIP_UTC_HOURS = new Set([0]);
 
 async function runCheck(check) {
   const started = Date.now();
@@ -209,7 +217,10 @@ export async function check(env, scheduledTime = Date.now()) {
   const prevDown = (state && state.down) || {};
 
   const when = new Date(scheduledTime);
-  const runSearch = when.getUTCMinutes() === SEARCH_MINUTE && when.getUTCHours() % 2 === 0;
+  const runSearch =
+    when.getUTCMinutes() === SEARCH_MINUTE &&
+    when.getUTCHours() % 2 === 0 &&
+    !SEARCH_SKIP_UTC_HOURS.has(when.getUTCHours());
   const checks = runSearch ? [...CHECKS, SEARCH_CHECK] : CHECKS;
   const allChecks = [...CHECKS, SEARCH_CHECK];
 
