@@ -13,8 +13,9 @@ og prisen står i en gul boks i kortet. Derfor:
      (stort kronebeløb + små ører, eller "10.-"),
   3. resten af kortet bliver varens billede.
 
-De 16 butikkers aviser er næsten ens (Tjek havde 14 af 16 identiske), så kun
-én butiks avis læses.
+De 16 butikkers aviser er næsten ens, men enkelte varer findes kun i nogle
+byer. Alle byers aviser læses, og et kort der allerede er læst i en anden by,
+springes over (pHash), så OCR'en kun kører på de nye.
 """
 import csv
 import io
@@ -23,24 +24,30 @@ import re
 import shutil
 import subprocess
 import sys
-import time
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 
+import imagehash
 import numpy as np
 import requests
 from PIL import Image
+from rapidfuzz import fuzz, process
 from scipy import ndimage as ndi
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from avis_billeder import cleanup_images, store_images
 from keywords import is_non_food
-from supabase_utils import save_product_dicts
+from supabase_utils import get_client, save_product_dicts
 
 BASE_URL = "https://www.abc-lavpris.dk"
-STORE_SLUG = "herning"
+# Kort med højst så mange forskellige bit (af 256) i pHash er samme kort.
+# Målt uge 41: 16 byer x ~121 kort gav 131 forskellige.
+_SAME_CARD_MAX_DIST = 12
+_SAME_PAGE_MAX_DIST = 6
+_SEEN_PAGES: list = []
 BUTIK = "ABC Lavpris"
 KATEGORI = "Tilbudsavis"
 IMAGE_PREFIX = "abc-lavpris"
-PAGE_DELAY = 1.0
 
 _HEADERS = {
     "User-Agent": (
@@ -84,18 +91,27 @@ def _tesseract(img: Image.Image, psm: int, whitelist: str | None = None) -> list
 
 
 def _lines(words: list[dict]) -> list[dict]:
-    lines: dict[tuple, list[dict]] = {}
-    for w in words:
-        lines.setdefault((w["block_num"], w["par_num"], w["line_num"]), []).append(w)
-    out = []
-    for ws in lines.values():
-        out.append({
-            "top": min(int(w["top"]) for w in ws),
-            "height": max(int(w["height"]) for w in ws),
-            "words": ws,
-            "text": " ".join(w["text"] for w in ws),
-        })
-    return sorted(out, key=lambda line: line["top"])
+    """Ord samlet i linjer efter placering. Tesseracts egne linjer (psm 11)
+    deler ofte en linje op, når ordene står med luft imellem."""
+    lines: list[dict] = []
+    for w in sorted(words, key=lambda w: int(w["top"]) + int(w["height"]) / 2):
+        top, h = int(w["top"]), int(w["height"])
+        mid = top + h / 2
+        for line in lines:
+            line_mid = line["top"] + line["height"] / 2
+            if abs(mid - line_mid) < 0.5 * max(h, line["height"]) \
+                    and max(h, line["height"]) < 1.6 * max(1, min(h, line["height"])):
+                bottom = max(line["top"] + line["height"], top + h)
+                line["top"] = min(line["top"], top)
+                line["height"] = bottom - line["top"]
+                line["words"].append(w)
+                break
+        else:
+            lines.append({"top": top, "height": h, "words": [w]})
+    for line in lines:
+        line["words"].sort(key=lambda w: int(w["left"]))
+        line["text"] = " ".join(w["text"] for w in line["words"])
+    return sorted(lines, key=lambda line: line["top"])
 
 
 def _binary(mask: np.ndarray, pad: int = 0) -> Image.Image:
@@ -105,12 +121,33 @@ def _binary(mask: np.ndarray, pad: int = 0) -> Image.Image:
     return Image.fromarray(arr)
 
 
+_DIGIT_CACHE: list[tuple[np.ndarray, str]] = []
+
+
+def _read_digit(mask: np.ndarray) -> str:
+    """Ét ciffer, læst enkeltvis (sikrest: samlet forveksler tesseract 5/9 og
+    taber smalle 1-taller). Avisen bruger samme skrift og få størrelser, så et
+    ciffer med samme form som et allerede læst genbruger svaret i stedet for
+    et nyt tesseract-kald."""
+    shape = np.asarray(_binary(mask).resize((20, 30))) < 128
+    for known, digit in _DIGIT_CACHE:
+        if (known != shape).mean() < 0.04:
+            return digit
+    part = _binary(mask, pad=max(mask.shape) // 3)
+    part = part.resize((max(1, int(part.width * 100 / part.height)), 100))
+    digit = re.sub(r"\D", "", "".join(w["text"] for w in _tesseract(part, 10, "0123456789")))[:1]
+    if digit:
+        _DIGIT_CACHE.append((shape, digit))
+    return digit
+
+
 def _read_digits(lab: np.ndarray, group: list) -> str:
-    """Læs en gruppe cifre både samlet og ét ad gangen. Tesseract taber
-    ofte smalle cifre ("11") samlet, men kan forveksle 0'et i "10.-" ét ad
-    gangen, hvor punktum og streg hænger fast."""
+    """Læs en gruppe cifre ét ad gangen; mangler et, læses gruppen samlet."""
     if not group:
         return ""
+    single = "".join(_read_digit(lab[s] == i) for s, i in sorted(group, key=lambda g: g[0][1].start))
+    if len(single) == len(group):
+        return single
     ys = [s[0] for s, _ in group]
     xs = [s[1] for s, _ in group]
     y0, y1 = min(y.start for y in ys), max(y.stop for y in ys)
@@ -119,13 +156,6 @@ def _read_digits(lab: np.ndarray, group: list) -> str:
     if img.height > 120:
         img = img.resize((max(1, int(img.width * 120 / img.height)), 120))
     whole = re.sub(r"\D", "", "".join(w["text"] for w in _tesseract(img, 7, "0123456789.-")))
-    single = ""
-    for s, i in sorted(group, key=lambda g: g[0][1].start):
-        part = _binary(lab[s] == i, pad=max(lab[s].shape) // 3)
-        part = part.resize((max(1, int(part.width * 100 / part.height)), 100))
-        single += re.sub(r"\D", "", "".join(w["text"] for w in _tesseract(part, 10, "0123456789")))
-    if len(whole) == len(single):
-        return single
     return whole or single
 
 
@@ -167,26 +197,43 @@ def _text_mask(region: np.ndarray) -> np.ndarray:
     return region.min(axis=2) > 200
 
 
-def _read_text(region: np.ndarray) -> tuple[str, list[str], list[tuple]]:
-    """Navn (de største linjer øverst) og infolinjer under det. Returnerer også
-    linjernes felter (x0, y0, x1, y1), så teksten ikke tages for at være varen."""
-    lines = []
-    for line in _lines(_tesseract(_binary(_text_mask(region)), 11)):
-        # Navnet står altid øverst i kortet. Et varefoto tæt på teksten kan
-        # sænke tesseracts sikkerhed på hele linjen, så i den øverste linje
-        # godtages rene ord ved lavere sikkerhed; ellers kun sikre ord.
-        at_top = line["top"] < 45
-        words = [w for w in line["words"] if float(w["conf"]) >= 50
-                 or (at_top and float(w["conf"]) >= 20
-                     and re.fullmatch(r"[A-Za-zÆØÅæøåÉé'’,.-]{3,}", w["text"]))]
-        text = " ".join(w["text"] for w in words).strip(" |—-=_")
+def _text_lines(region: np.ndarray, scale: int) -> list[tuple]:
+    """Sikre tekstlinjer som (top, højde, tekst, felt) i regionens koordinater."""
+    img = _binary(_text_mask(region))
+    if scale != 1:
+        img = img.resize((img.width * scale, img.height * scale), Image.LANCZOS)
+    words = _tesseract(img, 11)
+    for w in words:
+        for key in ("left", "top", "width", "height"):
+            w[key] = int(w[key]) // scale
+    # Navnet står altid øverst i kortet. Et varefoto tæt på teksten kan sænke
+    # tesseracts sikkerhed, så øverst godtages rene ord ved lavere sikkerhed;
+    # ellers kun sikre ord. Usikre ord (støj fra fotoet) frasorteres FØR ordene
+    # samles i linjer, så de ikke forskyder linjernes højde og placering.
+    words = [w for w in words if float(w["conf"]) >= 50
+             or (w["top"] < 45 and float(w["conf"]) >= 20
+                 and re.fullmatch(r"[A-Za-zÆØÅæøåÉé'’,.-]{3,}", w["text"]))]
+    # "DYBFROST"-mærket står i kortets hjørne på frostvarer.
+    words = [w for w in words if "DYBFROST" not in w["text"].upper()]
+    out = []
+    for line in _lines(words):
+        text = line["text"].strip(" |—-=_")
         letters = sum(ch.isalpha() for ch in text)
         if len(text) < 2 or letters < 0.5 * len(text.replace(" ", "")):
             if not re.search(r"\d", text):
                 continue
-        lines.append((line["top"], line["height"], text, (
-            min(int(w["left"]) for w in words), line["top"],
-            max(int(w["left"]) + int(w["width"]) for w in words), line["top"] + line["height"])))
+        ws = line["words"]
+        # Typisk ordhøjde: et logo der læses som "Ø" må ikke gøre linjen højere.
+        out.append((line["top"], int(np.median([w["height"] for w in ws])), text,
+                    (min(w["left"] for w in ws), line["top"],
+                     max(w["left"] + w["width"] for w in ws), line["top"] + line["height"])))
+    return out
+
+
+def _read_text(region: np.ndarray) -> tuple[str, list[str], list[tuple]]:
+    """Navn (de største linjer øverst) og infolinjer under det. Returnerer også
+    linjernes felter (x0, y0, x1, y1), så teksten ikke tages for at være varen."""
+    lines = _text_lines(region, 1)
     first = next((k for k, (_, _, t, _) in enumerate(lines) if sum(c.isalpha() for c in t) >= 3), None)
     if first is None:
         return "", [], []
@@ -200,9 +247,15 @@ def _read_text(region: np.ndarray) -> tuple[str, list[str], list[tuple]]:
                 and sum(c.isalpha() for c in text) >= 3:
             name.append(text)
             prev_bottom = top + h
+            spans.append(bbox)
         else:
-            info.append(text)
-        spans.append(bbox)
+            info.append((top, h, text, bbox))
+    # Infoteksten (kg-pris, vægt) er kun 10-15 px høj; tesseract læser den
+    # markant bedre i dobbelt størrelse. Navnet læses bedst i normal størrelse.
+    small = [ln for ln in _text_lines(region, 2) if ln[0] >= prev_bottom - 3 and ln[1] < 0.75 * name_h]
+    info = small or info
+    spans += [ln[3] for ln in info]
+    info = [ln[2] for ln in info]
     # Tesseract sætter af og til navn og kg-pris på samme linje.
     name_text, _, rest = re.sub(r"\s+(?=(Pr\.|Flere varianter))", "\n", " ".join(name), count=1).partition("\n")
     if rest:
@@ -254,8 +307,18 @@ def _price_boxes(rgb: np.ndarray, yellow: np.ndarray) -> list[tuple]:
     return boxes
 
 
-def parse_page(img: Image.Image) -> list[dict]:
-    rgb = np.asarray(img.convert("RGB")).astype(int)
+def parse_page(img: Image.Image, seen_cards: list | None = None) -> list[dict]:
+    """Varerne på en avisside. seen_cards (pHash'er) springer kort over, som
+    allerede er læst i en anden bys avis, så kun nye kort OCR-læses."""
+    img = img.convert("RGB")
+    if seen_cards is not None:
+        # Hele siden uden byens navn i toppen; en side der er set i en anden
+        # by, springes over uden at blive analyseret (de fleste sider).
+        page_hash = imagehash.phash(img.crop((0, int(img.height * 0.07), img.width, img.height)), hash_size=16)
+        if any(page_hash - h <= _SAME_PAGE_MAX_DIST for h in _SEEN_PAGES):
+            return []
+        _SEEN_PAGES.append(page_hash)
+    rgb = np.asarray(img).astype(int)
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     price_boxes = _price_boxes(rgb, (r > 200) & (g > 180) & (b < 120))
     # Hvide kort og de røde korts tynde hvide kant; dilation lukker kanten.
@@ -272,6 +335,13 @@ def parse_page(img: Image.Image) -> list[dict]:
                                if o is not box and o[3] <= box[1] and card[0] <= o[0] <= card[2]])
         if box[1] - top < 40:
             continue
+        if seen_cards is not None:
+            # Kortet til og med prisboksen; samme vare til samme pris i en
+            # anden by giver (næsten) samme hash.
+            card_hash = imagehash.phash(img.crop((card[0], top, card[2], box[3])), hash_size=16)
+            if any(card_hash - h <= _SAME_CARD_MAX_DIST for h in seen_cards):
+                continue
+            seen_cards.append(card_hash)
         region = rgb[top + 3:box[1], card[0] + 3:card[2] - 3]
         name, info, spans = _read_text(region)
         label, price = _read_price(rgb, box)
@@ -295,8 +365,14 @@ def parse_page(img: Image.Image) -> list[dict]:
 
 # ── Avisen ───────────────────────────────────────────────────────────────────
 
-def find_page_urls() -> list[str]:
-    r = requests.get(f"{BASE_URL}/butikker/{STORE_SLUG}", headers=_HEADERS, timeout=30)
+def find_store_slugs() -> list[str]:
+    r = requests.get(f"{BASE_URL}/butikker", headers=_HEADERS, timeout=30)
+    r.raise_for_status()
+    return sorted(set(re.findall(r'href="/butikker/([a-z]+)"', r.text)))
+
+
+def find_page_urls(slug: str) -> list[str]:
+    r = requests.get(f"{BASE_URL}/butikker/{slug}", headers=_HEADERS, timeout=30)
     r.raise_for_status()
     urls = []
     for path in _PAGE_RE.findall(r.text):
@@ -310,8 +386,81 @@ def _clean_name(name: str) -> str:
     return re.sub(r"\s+", " ", name).strip(" ,.")
 
 
-def build_row(item: dict) -> dict | None:
-    name = _clean_name(item["name"])
+_WORD_RE = re.compile(r"[a-zæøåéèüöä'-]+")
+
+
+def load_vocabulary() -> Counter:
+    """Ordene i alle andre butikkers varenavne. Bruges til at rette OCR-fejl
+    i navnene ("Premieris" -> "Premier Is") og fjerne støj ("Ø", "he").
+    Fejler opslaget, læses navnene bare uden retning."""
+    vocab: Counter = Counter()
+    try:
+        client = get_client()
+        offset, page_size = 0, 1000
+        while True:
+            batch = (client.table("produkter").select("navn").neq("butik", BUTIK)
+                     .order("id").range(offset, offset + page_size - 1).execute().data or [])
+            for row in batch:
+                vocab.update(_WORD_RE.findall((row.get("navn") or "").lower()))
+            if len(batch) < page_size:
+                break
+            offset += page_size
+    except Exception as e:
+        print(f"  ⚠ Kunne ikke hente ordliste til navnerettelse: {e}")
+    return vocab
+
+
+_KNOWN_WORDS: dict[int, list[str]] = {}
+
+
+def _match_case(word: str, like: str) -> str:
+    if like.isupper() and len(like) > 1:
+        return word.upper()
+    return word[:1].upper() + word[1:] if like[:1].isupper() else word
+
+
+def fix_name(name: str, vocab: Counter) -> str:
+    """Ret hvert ord, som ingen andre butikker bruger, til det kendte ord det
+    ligner: to sammenklistrede ord deles, et enkelt forkert bogstav rettes, og
+    korte ukendte stumper (typisk støj fra varefotoet) fjernes. Ukendte men
+    rimelige ord (nye mærker) beholdes."""
+    if not vocab:
+        return name
+    if id(vocab) not in _KNOWN_WORDS:
+        _KNOWN_WORDS.clear()
+        _KNOWN_WORDS[id(vocab)] = [w for w, c in vocab.items() if c >= 3 and len(w) >= 4]
+    known = _KNOWN_WORDS[id(vocab)]
+    out = []
+    for pos, token in enumerate(name.split()):
+        core = token.strip(",.;:!?\"'()")
+        low = core.lower()
+        if not low or vocab[low] >= 2 or not low.isalpha():
+            out.append(token)
+            continue
+        if len(low) <= 3:
+            # Første ord er oftest mærket ("EGO", "OTA"), som godt kan være
+            # ukendt; ellers er en kort ukendt stump støj.
+            if pos == 0:
+                out.append(token)
+            continue
+        split = next((f"{low[:i]} {low[i:]}" for i in range(2, len(low) - 1)
+                      if vocab[low[:i]] >= 3 and vocab[low[i:]] >= 3), None)
+        if split:
+            out.append(token.replace(core, " ".join(_match_case(w, core) for w in split.split())))
+            continue
+        best = process.extractOne(low, known, scorer=fuzz.ratio, score_cutoff=88)
+        if best and abs(len(best[0]) - len(low)) <= 1:
+            out.append(token.replace(core, _match_case(best[0], core)))
+        else:
+            out.append(token)
+    # Rester af kilo-pris-linjen ("kg max") hører ikke til navnet.
+    while len(out) > 1 and out[-1].lower().strip(".") in ("kg", "max", "pr", "ltr", "stk"):
+        out.pop()
+    return " ".join(out).strip(" ,.")
+
+
+def build_row(item: dict, vocab: Counter | None = None) -> dict | None:
+    name = fix_name(_clean_name(item["name"]), vocab or Counter())
     info = " | ".join(item["info"])
     # Infolinjerne afslører ofte varetypen ("Hundesnacks", "290 meter").
     if not name or is_non_food(f"{name} {info}") or _NON_FOOD_EXTRA_RE.search(f"{name} {info}"):
@@ -349,28 +498,42 @@ def build_row(item: dict) -> dict | None:
 def fetch_abc_tilbud() -> list[dict]:
     if not shutil.which("tesseract"):
         raise RuntimeError("tesseract mangler (apt-get install tesseract-ocr tesseract-ocr-dan)")
-    urls = find_page_urls()
-    print(f"  {len(urls)} avissider for ABC Lavpris {STORE_SLUG}")
-    if not urls:
-        raise RuntimeError("Ingen avissider fundet på abc-lavpris.dk - siden er sandsynligvis ændret")
-    rows, pairs, seen, total = [], [], set(), 0
-    for url in urls:
+    # Byernes aviser er næsten ens, men nogle varer findes kun i nogle byer
+    # (uge 41: 10 af 131 kort). Alle byer læses; kort der allerede er set,
+    # springes over, så kun de nye OCR-læses.
+    slugs = find_store_slugs()
+    print(f"  {len(slugs)} ABC Lavpris-butikker med egen avis")
+    if not slugs:
+        raise RuntimeError("Ingen butikker fundet på abc-lavpris.dk - siden er sandsynligvis ændret")
+    vocab = load_vocabulary()
+    print(f"  Ordliste til navnerettelse: {len(vocab)} ord")
+    rows, pairs, seen_cards, total, pages = [], [], [], 0, 0
+    urls = [url for slug in slugs for url in find_page_urls(slug)]
+
+    def download(url: str) -> bytes:
         r = requests.get(url, headers=_HEADERS, timeout=60)
         r.raise_for_status()
-        items = parse_page(Image.open(io.BytesIO(r.content)))
-        total += len(items)
-        for it in items:
-            row = build_row(it)
-            if row is None:
-                continue
-            key = (row["navn"].lower(), row["pris"])
-            if key in seen:
-                continue
-            seen.add(key)
-            rows.append(row)
-            if it["image"] is not None:
-                pairs.append((row, it["image"]))
-        time.sleep(PAGE_DELAY)
+        return r.content
+
+    # ~190 sider à 0,5 MB; serveren er langsom pr. forespørgsel, så nogle få
+    # hentes ad gangen. Siderne læses stadig i rækkefølge.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for data in pool.map(download, urls):
+            pages += 1
+            items = parse_page(Image.open(io.BytesIO(data)), seen_cards)
+            total += len(items)
+            for it in items:
+                row = build_row(it, vocab)
+                if row is None:
+                    continue
+                # Samme kort kan læses lidt forskelligt i to byer ("Guldost,"/"Guldost").
+                if any(r["pris"] == row["pris"] and fuzz.token_set_ratio(r["navn"].lower(), row["navn"].lower()) >= 85
+                       for r in rows):
+                    continue
+                rows.append(row)
+                if it["image"] is not None:
+                    pairs.append((row, it["image"]))
+    print(f"  {pages} avissider, {len(seen_cards)} forskellige varekort")
     print(f"  {total} varer læst i avisen, {len(rows)} madvarer, {len(pairs)} med billede")
     if len(rows) < 30:
         # En uge-avis har altid langt over 30 madtilbud; færre betyder at
