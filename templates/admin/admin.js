@@ -17,7 +17,15 @@
 (function () {
   'use strict';
 
-  var STALE_HOURS = 30;          // butik uden nye data i over 30 t = rød
+  // Butik uden nye data i for lang tid = rød. Siden 09-10-2026 hentes de
+  // fleste butikker kun på deres avis-dage (se nightly-dispatcher.yml), så
+  // de må være op til en uge gamle. Meny hentes stadig hver nat.
+  var STALE_HOURS = 170;
+  var STALE_HOURS_DAILY = 30;
+  var DAILY_STORES = { meny: true };
+  function staleLimit(butik) {
+    return DAILY_STORES[String(butik || '').toLowerCase()] ? STALE_HOURS_DAILY : STALE_HOURS;
+  }
   var state = { feedback: [], pending: [], showAll: false, runs: null, access: null, accessAll: false, ov: null };
 
   function $(id) { return document.getElementById(id); }
@@ -177,7 +185,7 @@
   function staleStores(ov) {
     return (ov.stores || []).filter(function (s) {
       var h = ago(s.last_scraped);
-      return h == null || h > STALE_HOURS;
+      return h == null || h > staleLimit(s.butik);
     });
   }
 
@@ -315,7 +323,7 @@
     var rows = stores.map(function (s) {
       var h = ago(s.last_scraped);
       var status = h == null ? pill('bad', 'Ingen data')
-        : h > STALE_HOURS ? pill('bad', 'Forældet') : pill('ok', 'OK');
+        : h > staleLimit(s.butik) ? pill('bad', 'Forældet') : pill('ok', 'OK');
       return [s.butik, nf(s.products), when(s.last_scraped) + ' (' + agoText(h) + ')', status];
     });
     var box = el('div', {}, [table(['Butik', 'Varer', 'Senest scrapet', 'Status'], rows, [1])]);

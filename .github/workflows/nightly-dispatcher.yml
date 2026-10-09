@@ -4,6 +4,12 @@ name: Nightly Dispatcher
 # har to cron-tider, og kun den der matcher Danmarks aktuelle UTC-offset
 # udføres. Scraperne og cache-fallbacken har derfor ingen egen cron - de
 # startes herfra.
+#
+# BUTIKSDAGE (Kalle, 09-10-2026, for at spare GitHub Actions-minutter): hver
+# butik hentes kun de nætter, hvor dens nye avis/tilbud kommer (målt i
+# price_history 18-09 til 09-10-2026). Meny ændrer 250-450 priser hver dag og
+# hentes derfor hver nat; det gør Rema også, fordi den hentes inde i
+# cache-updateren. Manuel start af dispatcheren henter altid alle butikker.
 on:
   schedule:
     - cron: '1 22 * * *'   # 00:01 dansk tid ved sommertid (CEST) -> scrapers
@@ -55,11 +61,28 @@ jobs:
           echo "Cron '$CRON' + offset $OFFSET -> $SLOT"
           echo "slot=$SLOT" >> "$GITHUB_OUTPUT"
 
-      - name: Start alle scrapers (kl. 00:01 dansk tid)
+      - name: Start nattens scrapers (kl. 00:01 dansk tid)
         if: steps.slot.outputs.slot == 'scrapers'
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          # Dansk ugedag: 1=man 2=tir 3=ons 4=tor 5=fre 6=lør 7=søn.
+          # Se BUTIKSDAGE øverst.
+          DAG=$(TZ=Europe/Copenhagen date +%u)
+          dage_for() {
+            case "$1" in
+              scraper-Bilka.yml|scraper-Foetex.yml) echo "5 6" ;;
+              scraper-Katalog.yml) echo "5 6 7" ;;  # Netto- og Føtex-katalog
+              scraper-Netto.yml) echo "7" ;;
+              scraper-Spar.yml|scraper-minkobmand.yml) echo "6" ;;
+              scraper-Lovbjerg.yml) echo "5" ;;
+              scraper-Lidl.yml|scraper-Lidl-Katalog.yml) echo "3" ;;
+              scraper-SuperBrugsen.yml|scraper-Kvickly.yml|scraper-Brugsen.yml) echo "3 6" ;;
+              scraper-365discount.yml|scraper-ABC-Lavpris.yml) echo "2" ;;
+              *) echo "1 2 3 4 5 6 7" ;;  # Meny og nye butikker: hver nat
+            esac
+          }
           FEJL=0
           for wf in \
             scraper-365discount.yml \
@@ -78,6 +101,11 @@ jobs:
             scraper-SuperBrugsen.yml \
             scraper-minkobmand.yml
           do
+            if [ "$EVENT_NAME" != "workflow_dispatch" ] \
+               && [[ " $(dage_for "$wf") " != *" $DAG "* ]]; then
+              echo "Ikke i nat (butiksdage): $wf"
+              continue
+            fi
             if gh workflow run "$wf" --ref "${{ github.ref_name }}" -R "${{ github.repository }}"; then
               echo "Startet: $wf"
             else

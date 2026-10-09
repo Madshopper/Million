@@ -80,7 +80,14 @@ jobs:
             CREATED_EPOCH=$(date -u -d "$CREATED" +%s)
             NOW_EPOCH=$(date -u +%s)
             ALDER_TIMER=$(( (NOW_EPOCH - CREATED_EPOCH) / 3600 ))
-            if [ "$ALDER_TIMER" -gt 30 ]; then
+            # Butiksdage (nightly-dispatcher.yml): de fleste butikker hentes kun
+            # 1-2 nætter om ugen, så de må være op til en uge gamle. Det der
+            # kører hver nat, skal stadig være under 30 timer.
+            case "$wf" in
+              cache-updater.yml|build-nutrition.yml|scraper-Meny.yml) GRAENSE=30 ;;
+              *) GRAENSE=170 ;;
+            esac
+            if [ "$ALDER_TIMER" -gt "$GRAENSE" ]; then
               echo "::error::$wf: seneste koersel er $ALDER_TIMER timer gammel ($URL) - koerte den slet ikke i nat?"
               FEJL=1
             elif [ "$STATUS" = "completed" ] && [ "$KONKLUSION" != "success" ]; then

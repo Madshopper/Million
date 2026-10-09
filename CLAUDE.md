@@ -30,7 +30,7 @@ MadShopper ([madshopper.dk](https://madshopper.dk)) - dansk pris-sammenligning f
 - `apps/mobile/` - native iOS/Android-app (Expo/React Native); se `docs/native-app.md` og `docs/env-setup.md`
 - `docs/` - `Dev.md` (dev/staging-workflow), `Features.md` (roadmap), `paritet.md` (web/app-feature-matrix + aabne gaps - **opdatér i samme commit som du aendrer en feature**), `native-app.md`, `prisovervaagning.md`, `email-bekraeftelse.md`, `Github_fifs.md`
 - `uptime-worker/` - selvstændig JS-worker (`madshopper-uptime`) med cron hvert 5. minut, der mailer ved nedbrud
-- `.github/workflows/` - per-butik-scrapers, cache-updater, nutrition-build, edge-deploy (prod + staging, begge fra main), smoke/uptime-test, dependency-audit
+- `.github/workflows/` - per-butik-scrapers (kun på butikkens avis-dage, Meny hver nat: se `nightly-dispatcher.yml`, sparer Actions-minutter; private repo har 2.000 gratis min/md), cache-updater, nutrition-build, edge-deploy (prod + staging, begge fra main), smoke/uptime-test, dependency-audit
 - `wrangler.toml`, `pyproject.toml` - Cloudflare/EdgeKit-konfiguration (uv)
 
 Fuld tech stack, butiksliste og mappetræ: `README.md` § Tech Stack / Supported Stores / Project Structure.
