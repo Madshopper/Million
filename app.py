@@ -202,8 +202,6 @@ _EDGE_ENV_VARS = (
     'MEJERI_NAVN_ENABLED',
     # Kun på staging: gul pris ved tilbud uden førpris (_FEATURES 'tilbud_gul').
     'TILBUD_GUL_ENABLED',
-    # Kun på staging: "Støt MadShopper"-abonnementet i appen (_FEATURES 'subscription').
-    'SUBSCRIPTION_ENABLED',
     # Kun på staging: butikkernes tilbudsaviser (_FEATURES 'flyers').
     'FLYERS_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
@@ -264,7 +262,9 @@ _CACHEABLE_ENDPOINTS = {
     # samme cache-begrundelse som ovenstående. get_recipe_page må caches selvom
     # den "bruges" (klik-tracking) - klikket registreres client-side (se
     # get_recipe_page), ikke ved cache-miss, så caching underminerer det ikke.
-    'get_recipes', 'get_recipe', 'get_recipe_page', 'recipes_page',
+    # Kun listen: opskriften selv og /opskrifter afhænger af om den indloggede
+    # har betalt (_recipe_access_ok) og må aldrig i den delte cache.
+    'get_recipes',
 }
 # Endpoints hvis svar afhænger af get_active_stores() - dvs. af ?stores= ELLER
 # af madshopper_stores-cookien. Query-parameteren indgår i cache-nøglen, men
@@ -293,7 +293,7 @@ _CACHEABLE_JSON_ENDPOINTS = {
     'get_stores', 'get_separate_products', 'get_product_info',
     'get_price_history', 'get_nutrition',
     'api_home', 'api_category', 'api_sale', 'api_search', 'autocomplete',
-    'get_recipes', 'get_recipe',
+    'get_recipes',
 }
 _JSON_BROWSER_CACHE_SECONDS = 300
 # INGEN browser-cache af HTML: browseren skal hente frisk HTML ved hvert
@@ -1607,9 +1607,12 @@ _FEATURES = (
         'key': 'recipes',
         'name': 'Opskrifter',
         'env': 'RECIPES_ENABLED',
-        'desc': 'Opskrifter med priser fra butikkerne. Mens den er under '
+        'desc': 'Opskrifter med priser fra butikkerne. Kræver betaling: '
+                'alle kan se listen, men selve opskriften og madplanen kræver '
+                'et månedligt abonnement, købt i appen. Mens den er under '
                 'udvikling, vises opskrifterne kun som "Kommer snart" på '
-                'forsiden.',
+                'forsiden. Udgiv først, når Apple har godkendt abonnementet '
+                '(docs/abonnement.md).',
         'app': 'Appen viser først opskrifterne, når der er lavet en ny '
                'version af den med opskrifter slået til.',
         'parts': (
@@ -1638,6 +1641,17 @@ _FEATURES = (
             {'kind': 'app', 'name': 'Madplan i appen',
              'desc': 'De samme spørgsmål og den samme madplan i Opskrift-'
                      'fanen. Svarene gemmes kun på telefonen.'},
+            {'kind': 'web', 'name': 'Betaling for opskrifter',
+             'desc': 'Listen kan ses af alle. Opskriften selv og madplanen '
+                     'kræver et abonnement på kontoen; ellers vises en boks om '
+                     'at købe det i appen. Admins har altid adgang.'},
+            {'kind': 'app', 'name': 'Køb af opskrifter i appen',
+             'desc': 'Månedligt abonnement via Apple, kun på iPhone. Kræver '
+                     'login, så samme konto også låser op på hjemmesiden og '
+                     'Android. Med "Gendan køb".'},
+            {'kind': 'job', 'name': 'Fornyelse og opsigelse',
+             'desc': 'Apple giver selv besked, når abonnementet fornyes, '
+                     'stoppes eller refunderes (edge-funktionen recipe-access).'},
             {'kind': 'idea', 'name': 'Madplan: gem svar på kontoen',
              'desc': 'Så svarene følger med mellem telefon og computer.'},
             {'kind': 'idea', 'name': 'Madplan: læg hele ugen i kurven',
@@ -1747,24 +1761,6 @@ _FEATURES = (
              'desc': 'Menuen, mobilmenuen og overskriften på /Mejeri.'},
             {'kind': 'app', 'name': 'Nyt navn i appens kategoriknap',
              'desc': 'Appen skifter navn, når den er udgivet her.'},
-        ),
-    },
-    {
-        'key': 'subscription',
-        'name': 'Støt MadShopper (abonnement)',
-        'env': 'SUBSCRIPTION_ENABLED',
-        'desc': 'Frivilligt månedligt abonnement i appen, betalt via Apple. '
-                'Alt i appen er stadig gratis; støtterne får et Støtter-mærke '
-                'på deres profil. Udgiv først, når produktet er oprettet og '
-                'godkendt i App Store Connect (docs/abonnement.md).',
-        'app': 'Kræver en ny app-version med abonnementet. Kun iPhone indtil '
-               'videre. Hjemmesiden sælger det ikke.',
-        'parts': (
-            {'kind': 'app', 'name': '"Støt MadShopper" på Profil',
-             'desc': 'Skærm med pris, køb, gendan køb og links til vilkår. '
-                     'Vises kun når den er udgivet her.'},
-            {'kind': 'app', 'name': 'Støtter-mærke',
-             'desc': 'Står under navnet på Profil, mens abonnementet er aktivt.'},
         ),
     },
     {
@@ -3211,12 +3207,42 @@ def _fetch_recipe_detail(recipe_id):
     return recipe, ingredients, snapshot
 
 
+# --- Betaling for opskrifterne (docs/abonnement.md) -------------------------
+# Listen (/api/recipes: navn, billede, pris) er åben som udstillingsvindue.
+# Selve opskriften (ingredienser, fremgangsmåde, læg i kurv) og madplanen
+# kræver et betalt abonnement på kontoen. Købet sker i appen via Apple, og
+# edge-funktionen recipe-access skriver det i recipe_access; her spørges kun.
+_RECIPE_LOCKED_HEADERS = {'Cache-Control': 'private, no-store'}
+
+
+def _recipe_access_ok(token: str) -> bool:
+    """Har kontoen bag access-tokenen betalt for opskrifterne (eller er admin)?
+    PostgREST tjekker tokenens signatur, og has_recipe_access() slår op i
+    recipe_access (scripts/supabase-recipe-access.sql). Fejler opslaget, er
+    svaret nej: hellere en betalingsboks for meget end gratis opskrifter."""
+    if not token or len(token) > 4096 or not _JWT_RE.match(token):
+        return False
+    data, status = _supabase_rest('POST', 'rpc/has_recipe_access', json_body={},
+                                  timeout=8.0, auth_token=token)
+    return status == 200 and data is True
+
+
+def _recipe_access_request() -> bool:
+    """Appen sender Bearer-tokenen; browseren har den i ms_session-cookien."""
+    m = _ADMIN_BEARER_RE.match(request.headers.get('Authorization', ''))
+    token = m.group(1) if m else request.cookies.get(_SESSION_COOKIE, '')
+    return _recipe_access_ok(token)
+
+
 @app.route('/api/recipes/<int:recipe_id>')
 def get_recipe(recipe_id, _force: bool = False):
     """Featuren er stadig under test og må ikke være tilgængelig på
-    madshopper.dk, se _recipes_enabled(). _force: kun fra get_recipe_preview."""
+    madshopper.dk, se _recipes_enabled(). _force: kun fra get_recipe_preview.
+    Kræver betaling (_recipe_access_request); ellers 403 med locked=true."""
     if not (_force or _recipes_enabled()) or not _supabase_available():
         return jsonify(success=True, recipe=None)
+    if not _force and not _recipe_access_request():
+        return jsonify(success=False, locked=True, recipe=None), 403, _RECIPE_LOCKED_HEADERS
     try:
         recipe, ingredients, snapshot = _fetch_recipe_detail(recipe_id)
         return jsonify(success=True, recipe=recipe, ingredients=ingredients, snapshot=snapshot)
@@ -3236,7 +3262,10 @@ def recipes_page():
     se _recipes_enabled()."""
     if not _recipes_enabled():
         return "Page not found", 404
-    return render_template('opskrifter.html')
+    resp = app.make_response(render_template(
+        'opskrifter.html', recipe_access=_recipe_access_request()))
+    resp.headers.update(_RECIPE_LOCKED_HEADERS)
+    return resp
 
 
 @app.route('/opskrift/<int:recipe_id>')
@@ -3256,9 +3285,21 @@ def get_recipe_page(recipe_id):
         recipe, ingredients, snapshot = _fetch_recipe_detail(recipe_id)
         if not recipe:
             return render_template('opskrift.html', recipe=None), 404
-        return render_template(
-            'opskrift.html', recipe=recipe, ingredients=ingredients, snapshot=snapshot,
-        )
+        if not _recipe_access_request():
+            # Kun det der også står i den åbne liste; ingredienser og
+            # fremgangsmåde forlader aldrig serveren uden betaling.
+            teaser = {k: recipe.get(k) for k in (
+                'id', 'title', 'image_url', 'servings', 'total_time_minutes',
+                'source_name', 'source_url')}
+            resp = app.make_response(render_template(
+                'opskrift.html', recipe=teaser, ingredients=[], snapshot=snapshot,
+                locked=True))
+        else:
+            resp = app.make_response(render_template(
+                'opskrift.html', recipe=recipe, ingredients=ingredients, snapshot=snapshot,
+            ))
+        resp.headers.update(_RECIPE_LOCKED_HEADERS)
+        return resp
     except Exception as e:
         logger.error("recipe-page error: %s", e)
         return render_template('opskrift.html', recipe=None), 500
@@ -4927,8 +4968,6 @@ def api_home():
             'swipe_enabled': _feature_enabled('swipe'),
             # "Køl & Mejeri": appen skifter kategorinavn samtidig med webben.
             'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
-            # "Støt MadShopper": appen viser abonnementet, når det er udgivet.
-            'subscription_enabled': _feature_enabled('subscription'),
             # Butikkernes tilbudsaviser: appen viser logoerne, når de er udgivet.
             'flyers_enabled': _feature_enabled('flyers'),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).

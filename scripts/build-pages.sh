@@ -66,8 +66,6 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   MEJERI_NAVN_LINE='MEJERI_NAVN_ENABLED = "1"'
   # Gul pris ved tilbud uden førpris (app.py::_FEATURES 'tilbud_gul') er altid til på dev.
   TILBUD_GUL_LINE='TILBUD_GUL_ENABLED = "1"'
-  # Støt MadShopper-abonnementet (app.py::_FEATURES 'subscription') er altid til på dev.
-  SUBSCRIPTION_LINE='SUBSCRIPTION_ENABLED = "1"'
   # Butikkernes tilbudsaviser (app.py::_FEATURES 'flyers') er altid til på dev.
   FLYERS_LINE='FLYERS_ENABLED = "1"'
   # Custom domain så staging er nemmere at finde end workers.dev-URL'en
@@ -108,7 +106,6 @@ else
   SWIPE_LINE=""
   MEJERI_NAVN_LINE=""
   TILBUD_GUL_LINE=""
-  SUBSCRIPTION_LINE=""
   FLYERS_LINE=""
   # Produktion: ALDRIG overstyrbar. En glemt miljoevariabel i en terminal maa
   # ikke kunne saette beskyttelsen ud af kraft paa det rigtige site.
@@ -343,7 +340,6 @@ ${STATS_LINE}
 ${SWIPE_LINE}
 ${MEJERI_NAVN_LINE}
 ${TILBUD_GUL_LINE}
-${SUBSCRIPTION_LINE}
 ${FLYERS_LINE}
 ${ANALYTICS_LINES}
 ${STAGING_LINK_LINE}

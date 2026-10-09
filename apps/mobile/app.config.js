@@ -207,7 +207,7 @@ const config = {
     ['expo-notifications', { color: '#059669' }],
     'expo-asset',
     'expo-apple-authentication',
-    // "Støt MadShopper" (src/subscription/): køb i appen via App Store.
+    // Abonnement på opskrifterne (src/recipes/access.ts): køb i appen via App Store.
     'expo-iap',
     [
       '@react-native-google-signin/google-signin',

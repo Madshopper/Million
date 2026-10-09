@@ -20,11 +20,15 @@
       <div class="recipe-hero-info">
         <h1 class="recipe-title">{{ recipe.title }}</h1>
         <div class="recipe-pills">
+          {% if locked %}
+          <span class="recipe-pill">{{ recipe.servings or 4 }} personer</span>
+          {% else %}
           <div class="recipe-pill recipe-servings-stepper" id="recipeServingsStepper" data-base-servings="{{ recipe.servings or 4 }}">
             <button type="button" class="recipe-servings-btn" id="recipeServingsMinus" aria-label="Færre personer">−</button>
             <span><span id="recipeServingsValue">{{ recipe.servings or 4 }}</span> personer</span>
             <button type="button" class="recipe-servings-btn" id="recipeServingsPlus" aria-label="Flere personer">+</button>
           </div>
+          {% endif %}
           {% if recipe.total_time_minutes %}<span class="recipe-pill">{{ recipe.total_time_minutes }} min</span>{% endif %}
           {% if snapshot and snapshot.ingredients_on_sale_count %}
           <span class="recipe-pill recipe-pill--sale">{{ snapshot.ingredients_on_sale_count }} ingredienser på tilbud</span>
@@ -46,9 +50,10 @@
             <span class="recipe-cta-label">Prisen kunne ikke beregnes endnu</span>
             {% endif %}
           </div>
-          {% if snapshot %}
+          {% if snapshot and not locked %}
           <div class="recipe-cta-match">{{ snapshot.matched_ingredient_count }} af {{ snapshot.total_ingredient_count }} ingredienser fundet i vores prissammenligning</div>
           {% endif %}
+          {% if not locked %}
           <button type="button" class="recipe-add-all-btn" id="recipeAddAllBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
@@ -56,10 +61,24 @@
             </svg>
             Læg fundne varer i kurv
           </button>
+          {% endif %}
         </div>
       </div>
     </div>
 
+    {% if locked %}
+    {# Betaling for opskrifter (app.py::_recipe_access_ok). data-session-retry:
+       auth.js genindlæser én gang, når en frisk login-cookie er sat, så en
+       der lige har logget ind, ser opskriften uden at trykke selv. #}
+    <section class="recipe-section recipe-paywall" data-session-retry>
+      <h2>Opskriften kræver et abonnement</h2>
+      <p>Ingredienser, fremgangsmåde og madplan er for dem med et abonnement på opskrifterne. Det købes i MadShopper-appen på iPhone. Har du det allerede, så log ind med samme konto.</p>
+      <div class="recipe-paywall-actions">
+        <button type="button" class="recipe-add-all-btn" onclick="openAuthModal()">Log ind</button>
+        <a class="recipe-paywall-link" href="https://apps.apple.com/app/id6812713857" target="_blank" rel="noopener">Hent appen</a>
+      </div>
+    </section>
+    {% else %}
     <section class="recipe-section">
       <h2>Ingredienser</h2>
       <ul class="recipe-ingredient-list" id="recipeIngredientList">
@@ -168,10 +187,11 @@
     </section>
     {% endif %}
     {% endif %}
+    {% endif %}
   </div>
 </div>
 
-{% if recipe %}
+{% if recipe and not locked %}
 <script type="application/json" id="recipe-ingredients-data">
   {{ ingredients | tojson }}
 </script>

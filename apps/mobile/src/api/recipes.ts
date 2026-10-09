@@ -2,6 +2,7 @@
 import { apiGet, apiPost } from './client';
 import type { Product } from './types';
 import { recipesPreviewKey } from '../config/env';
+import { getSupabase } from '../auth/supabase';
 
 // MadShopper Test henter de skjulte opskrifter via testnøglen; alle andre
 // builds bruger den almindelige sti (app.py::get_recipes_preview).
@@ -134,8 +135,12 @@ export async function fetchRecipes(): Promise<RecipeListResponse> {
   return apiGet(BASE);
 }
 
+/** Selve opskriften kræver betaling (app.py::get_recipe): uden adgang svarer
+ * serveren 403 med locked=true, så login-tokenen sendes med. */
 export async function fetchRecipeDetail(id: number): Promise<RecipeDetailResponse> {
-  return apiGet(`${BASE}/${id}`);
+  const { data } = (await getSupabase()?.auth.getSession()) ?? { data: null };
+  const token = data?.session?.access_token;
+  return apiGet(`${BASE}/${id}`, undefined, undefined, token ? { Authorization: `Bearer ${token}` } : undefined);
 }
 
 export async function recordRecipeClick(id: number): Promise<void> {

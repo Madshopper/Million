@@ -79,8 +79,6 @@ export type HomeResponse = {
   stats_enabled?: boolean;
   swipe_enabled?: boolean;
   mejeri_navn_enabled?: boolean;
-  /** Er "Støt MadShopper" udgivet i Feature-panelet (src/subscription/)? */
-  subscription_enabled?: boolean;
   /** Er "Butikkernes tilbudsaviser" udgivet i Feature-panelet (src/flyers/)? */
   flyers_enabled?: boolean;
   /** Stub — reel data hentes client-side via get_personal_savings (JWT). */
