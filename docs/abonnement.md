@@ -81,6 +81,24 @@ Har du allerede oprettet det gamle produkt `dk.madshopper.stoette.maaned`, så
 slet det eller lad det ligge uden at indsende det; et produkt-ID kan ikke
 omdøbes.
 
+## Fra Apples aftale (Paid Applications v126, læst 09-10-2026)
+
+- **Opskrifterne må ikke skjules igen**, når nogen har betalt. Apple kræver,
+  at man leverer det lovede i hele perioden (3.8c), ellers refunderer Apple og
+  trækker beløbet fra dig. Så snart `recipes` er udgivet med betaling, må den
+  ikke slås fra i Feature-panelet.
+- I appen skal titel, længde, pris og links til vilkår og privatliv stå ved
+  købet (3.8b). Det gør de på skærmen "Opskrifter med priser", og vilkår og
+  privatlivspolitik nævner abonnementet (09-10-2026).
+- Køb i appen skal ske via Apple (3.11). Appen må ikke linke til at købe
+  andre steder.
+- Apple opkræver og indbetaler momsen i Danmark (Exhibit B). Salget i EU går
+  gennem Apple Distribution International i Irland.
+- Ændrer du prisen senere, kan du vælge at beholde den gamle pris for dem, der
+  allerede betaler (3.9).
+- Sletter en bruger sin konto, kører Apples abonnement videre; det står i
+  vilkårene, at man skal stoppe det hos Apple først.
+
 ## Skat i Danmark (kort)
 
 Under 50.000 kr. om året kræver det hverken CVR eller momsregistrering. Apple

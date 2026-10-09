@@ -23,7 +23,7 @@ function TermsBody({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }
   return (
     <>
       <Paragraph colors={colors}>
-        MadShopper er en gratis tjeneste til prissammenligning af dagligvarer på tværs af danske
+        MadShopper er en tjeneste til prissammenligning af dagligvarer på tværs af danske
         butikker. Priser og tilbud opdateres løbende, men vi kan ikke garantere at alle priser
         altid er 100% opdaterede — tjek altid prisen i butikken eller butikkens egen app før køb.
       </Paragraph>
@@ -32,7 +32,18 @@ function TermsBody({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }
         overbelaste vores servere, eller på anden vis misbruge appen.
       </Paragraph>
       <Paragraph colors={colors}>
-        Vi forbeholder os retten til at ændre eller lukke funktioner i appen uden varsel.
+        <Text style={{ fontWeight: '700' }}>Abonnement på opskrifter: </Text>
+        Prissammenligning, kurv og prisalarmer er gratis. Opskrifterne med ingredienser,
+        fremgangsmåde og madplan kræver abonnementet MadShopper Opskrifter. Det købes i appen
+        gennem Apple, varer én måned ad gangen og fornyes automatisk til samme pris, indtil du
+        stopper det i Indstillinger på din iPhone (dit navn, Abonnementer) senest 24 timer før
+        næste måned. Betalingen trækkes fra dit Apple-ID. Abonnementet hører til din
+        MadShopper-konto og virker også på madshopper.dk. Sletter du kontoen, stopper Apple ikke
+        abonnementet af sig selv, så stop det hos Apple først. Refusion håndteres af Apple.
+      </Paragraph>
+      <Paragraph colors={colors}>
+        Vi forbeholder os retten til at ændre eller lukke gratis funktioner i appen uden varsel.
+        Et betalt abonnement leverer vi i hele den periode, du har betalt for.
         Fortsat brug af appen efter ændringer betragtes som accept af de opdaterede vilkår.
       </Paragraph>
     </>
@@ -60,6 +71,12 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
         visningsnavn, varer og gemte lister. Opretter du en prisalarm, gemmes din
         e-mailadresse sammen med den, så en udbyder af e-mailudsendelse på vores vegne kan
         sende dig én mail, når prisen er nået.
+      </Paragraph>
+      <Paragraph colors={colors}>
+        <Text style={{ fontWeight: '700' }}>Abonnement på opskrifter (valgfrit): </Text>
+        Køber du abonnementet, gemmer vi Apples nummer for købet, produktet og udløbsdatoen
+        sammen med din konto, kun for at give dig adgang. Betaling og kortoplysninger
+        håndteres af Apple; vi ser dem aldrig. Oplysningerne slettes sammen med kontoen.
       </Paragraph>
       <Paragraph colors={colors}>
         <Text style={{ fontWeight: '700' }}>Feedback: </Text>
