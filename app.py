@@ -1847,9 +1847,11 @@ _PROJECTS = (
             {'done': True, 'name': 'Strammere regler for gæt',
              'desc': 'Kædernes egne mærker, pris uden vægt, mærke i navnet '
                      'og multipak holdes adskilt (07-10-2026).'},
-            {'done': False, 'name': 'Is og chokolade holdes adskilt',
-             'desc': 'Fx Skildpadde-chokolade mod Skildpadde-is. Klar til '
-                     'merge.'},
+            {'done': True, 'name': 'Is og chokolade holdes adskilt',
+             'desc': 'Fx Skildpadde-chokolade mod Skildpadde-is (10-10-2026).'},
+            {'done': True, 'name': 'Remas egne varer kun mod egne mærker',
+             'desc': 'Remas egne varer sammenlignes kun med andre kæders '
+                     'egne mærker, aldrig med fx Arla (10-10-2026).'},
             {'done': True, 'name': 'Flere Rema-varer sammenlignes',
              'desc': 'Kædernes egne mærker (Salling, First Price, Gestus, '
                      'ØGO) bliver nu stående side om side på Rema-kortet i '
