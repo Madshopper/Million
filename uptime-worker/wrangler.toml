@@ -9,7 +9,9 @@ compatibility_date = "2026-07-03"
 workers_dev = false
 
 [triggers]
-crons = ["*/5 * * * *"]
+# */5: uptime-tjekket. 22:01 og 23:01 UTC: start nattens hentning af butikkerne
+# kl. 00:01 dansk tid (sommer- og vintertid), se startNight() i worker.js.
+crons = ["*/5 * * * *", "1 22 * * *", "1 23 * * *"]
 
 # Logs er slået TIL her, modsat madshopper/madshopper-dev. Nedbruddet
 # 2026-07-19 skyldtes observability-introspektionen i Pyodide-workeren under
@@ -28,3 +30,5 @@ id = "0e60bdf03ed4490cbfac5fa72c8adca5"
 # Secrets (sættes af deploy-workflowet fra GitHub Actions-secrets):
 #   RESEND_API_KEY  samme nøgle som prisalarmerne i cache-updater.yml
 #   ALERT_EMAIL     modtager(e) af alarmen, kommasepareret
+#   GH_DISPATCH_TOKEN  GitHub-nøgle der kun må starte kørsler (Actions: write)
+#                      på Madshopper/Million, se startNight() i worker.js

@@ -200,12 +200,16 @@ _EDGE_ENV_VARS = (
     'SWIPE_ENABLED',
     # Kun på staging: "Køl & Mejeri" som kategorinavn (_FEATURES 'mejeri_navn').
     'MEJERI_NAVN_ENABLED',
-    # Kun på staging: "Støt MadShopper"-abonnementet i appen (_FEATURES 'subscription').
-    'SUBSCRIPTION_ENABLED',
+    # Kun på staging: gul pris ved tilbud uden førpris (_FEATURES 'tilbud_gul').
+    'TILBUD_GUL_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
     'STAGING_LINK_SECRET',
+    # Testnøgle til MadShopper Test-appen: skjulte opskrifter via
+    # /api/recipes-preview/<nøgle> (se get_recipes_preview). Worker-secret i
+    # produktion, aldrig i git.
+    'RECIPES_PREVIEW_KEY',
 )
 
 
@@ -256,7 +260,9 @@ _CACHEABLE_ENDPOINTS = {
     # samme cache-begrundelse som ovenstående. get_recipe_page må caches selvom
     # den "bruges" (klik-tracking) - klikket registreres client-side (se
     # get_recipe_page), ikke ved cache-miss, så caching underminerer det ikke.
-    'get_recipes', 'get_recipe', 'get_recipe_page', 'recipes_page',
+    # Kun listen: opskriften selv og /opskrifter afhænger af om den indloggede
+    # har betalt (_recipe_access_ok) og må aldrig i den delte cache.
+    'get_recipes',
 }
 # Endpoints hvis svar afhænger af get_active_stores() - dvs. af ?stores= ELLER
 # af madshopper_stores-cookien. Query-parameteren indgår i cache-nøglen, men
@@ -285,7 +291,7 @@ _CACHEABLE_JSON_ENDPOINTS = {
     'get_stores', 'get_separate_products', 'get_product_info',
     'get_price_history', 'get_nutrition',
     'api_home', 'api_category', 'api_sale', 'api_search', 'autocomplete',
-    'get_recipes', 'get_recipe',
+    'get_recipes',
 }
 _JSON_BROWSER_CACHE_SECONDS = 300
 # INGEN browser-cache af HTML: browseren skal hente frisk HTML ved hvert
@@ -326,6 +332,9 @@ _IMG_HOSTS = (
     'https://www.lidl.dk '
     'https://image.prod.iposeninfra.com '
     'https://nxtumbraco.azurewebsites.net '
+    # Varebilleder klippet ud af butikkernes avis-PDF'er (webscrape_lovbjerg.py),
+    # gemt i Supabase Storage-bucket'en avis-billeder.
+    'https://oxzxingkbsnqzpmjtktr.supabase.co '
     # Opskrift-billeder (recipe_importer.py) - tilføj kilde-hosten når en ny
     # opskriftside importeres fra, samme princip som butiks-CDN'erne ovenfor.
     'https://images.arla.com'
@@ -1592,9 +1601,12 @@ _FEATURES = (
         'key': 'recipes',
         'name': 'Opskrifter',
         'env': 'RECIPES_ENABLED',
-        'desc': 'Opskrifter med priser fra butikkerne. Mens den er under '
+        'desc': 'Opskrifter med priser fra butikkerne. Kræver betaling: '
+                'alle kan se listen, men selve opskriften og madplanen kræver '
+                'et månedligt abonnement, købt i appen. Mens den er under '
                 'udvikling, vises opskrifterne kun som "Kommer snart" på '
-                'forsiden.',
+                'forsiden. Udgiv først, når Apple har godkendt abonnementet '
+                '(docs/abonnement.md).',
         'app': 'Appen viser først opskrifterne, når der er lavet en ny '
                'version af den med opskrifter slået til.',
         'parts': (
@@ -1604,12 +1616,40 @@ _FEATURES = (
              'desc': 'Genvejen til opskrifterne i sidens menu.'},
             {'kind': 'web', 'name': 'Opskrifter på forsiden',
              'desc': '"Lækre opskrifter" kan trykkes på i stedet for "Kommer snart".'},
+            {'kind': 'web', 'name': 'Madplan: spørgsmål første gang',
+             'desc': 'Første gang man åbner /opskrifter: hvor mange, budget '
+                     'om ugen, lyst, kostbehov, ting man vil undgå og køkken. '
+                     'Svarene gemmes kun i browseren.'},
+            {'kind': 'web', 'name': 'Madplan: din madplan',
+             'desc': 'En ret pr. hverdag med pris for jeres antal mod '
+                     'budgettet. Lås retter og lav resten om.'},
             {'kind': 'job', 'name': 'Opskrifternes priser',
              'desc': 'Regnes ud hver nat efter butikkernes nye priser.'},
             {'kind': 'job', 'name': 'Import af opskrifter',
              'desc': 'Kører hver morgen og tjekker nye opskrifter fra brugerne.'},
+            {'kind': 'job', 'name': 'Egne opskrifter',
+             'desc': '30 opskrifter på kendte retter, skrevet af os selv, så vi '
+                     'må vise hele fremgangsmåden. Lægges ind af importen.'},
             {'kind': 'app', 'name': 'Opskrifter i appen',
              'desc': 'Fanen og opskrifterne i iPhone- og Android-appen.'},
+            {'kind': 'app', 'name': 'Madplan i appen',
+             'desc': 'De samme spørgsmål og den samme madplan i Opskrift-'
+                     'fanen. Svarene gemmes kun på telefonen.'},
+            {'kind': 'web', 'name': 'Betaling for opskrifter',
+             'desc': 'Listen kan ses af alle. Opskriften selv og madplanen '
+                     'kræver et abonnement på kontoen; ellers vises en boks om '
+                     'at købe det i appen. Admins har altid adgang.'},
+            {'kind': 'app', 'name': 'Køb af opskrifter i appen',
+             'desc': 'Månedligt abonnement via Apple, kun på iPhone. Kræver '
+                     'login, så samme konto også låser op på hjemmesiden og '
+                     'Android. Med "Gendan køb".'},
+            {'kind': 'job', 'name': 'Fornyelse og opsigelse',
+             'desc': 'Apple giver selv besked, når abonnementet fornyes, '
+                     'stoppes eller refunderes (edge-funktionen recipe-access).'},
+            {'kind': 'idea', 'name': 'Madplan: gem svar på kontoen',
+             'desc': 'Så svarene følger med mellem telefon og computer.'},
+            {'kind': 'idea', 'name': 'Madplan: læg hele ugen i kurven',
+             'desc': 'Alle varer til ugens retter i kurven med ét tryk.'},
             {'kind': 'idea', 'name': 'Gem opskrifter',
              'desc': 'Gemte opskrifter under "Mine opskrifter" / "Favorit opskrifter".'},
             {'kind': 'idea', 'name': 'Mit køleskab',
@@ -1682,6 +1722,24 @@ _FEATURES = (
         ),
     },
     {
+        'key': 'tilbud_gul',
+        'name': 'Gul pris ved tilbud uden førpris',
+        'env': 'TILBUD_GUL_ENABLED',
+        'desc': 'Når butikken på varekortet har tilbud, men ikke oplyser '
+                'normalprisen (fx multikøb), står prisen nu i gul ligesom '
+                'Tilbud-mærket. Før stod den hvid.',
+        'app': 'Appen får det fra version 1.0.4. Udgives automatisk her, når '
+               '1.0.4 er i App Store (feature-auto-publish.yml), så web og '
+               'app følges ad (Kalle 07-10-2026).',
+        'with_app': '1.0.4',
+        'parts': (
+            {'kind': 'web', 'name': 'Gul pris på hjemmesidens varekort',
+             'desc': 'templates/macros/product_card.html'},
+            {'kind': 'app', 'name': 'Gul pris på appens varekort',
+             'desc': 'ProductCard.tsx, med i næste appversion.'},
+        ),
+    },
+    {
         'key': 'mejeri_navn',
         'name': 'Køl hedder Køl & Mejeri',
         'env': 'MEJERI_NAVN_ENABLED',
@@ -1697,24 +1755,6 @@ _FEATURES = (
              'desc': 'Menuen, mobilmenuen og overskriften på /Mejeri.'},
             {'kind': 'app', 'name': 'Nyt navn i appens kategoriknap',
              'desc': 'Appen skifter navn, når den er udgivet her.'},
-        ),
-    },
-    {
-        'key': 'subscription',
-        'name': 'Støt MadShopper (abonnement)',
-        'env': 'SUBSCRIPTION_ENABLED',
-        'desc': 'Frivilligt månedligt abonnement i appen, betalt via Apple. '
-                'Alt i appen er stadig gratis; støtterne får et Støtter-mærke '
-                'på deres profil. Udgiv først, når produktet er oprettet og '
-                'godkendt i App Store Connect (docs/abonnement.md).',
-        'app': 'Kræver en ny app-version med abonnementet. Kun iPhone indtil '
-               'videre. Hjemmesiden sælger det ikke.',
-        'parts': (
-            {'kind': 'app', 'name': '"Støt MadShopper" på Profil',
-             'desc': 'Skærm med pris, køb, gendan køb og links til vilkår. '
-                     'Vises kun når den er udgivet her.'},
-            {'kind': 'app', 'name': 'Støtter-mærke',
-             'desc': 'Står under navnet på Profil, mens abonnementet er aktivt.'},
         ),
     },
 )
@@ -1764,8 +1804,8 @@ _PROJECTS = (
             {'done': True, 'name': 'Tabeller i databasen',
              'desc': 'scripts/supabase-app-stats.sql køres én gang i Supabase.'},
             {'done': True, 'name': 'Bed Apple om rapporter',
-             'desc': 'Gjort 05-10-2026 med en Admin-nøgle. Den kan slettes '
-                     'nu (og ASC_ADMIN_* i GitHub).'},
+             'desc': 'Gjort 05-10-2026 med en Admin-nøgle. Nøglen og '
+                     'ASC_ADMIN_* i GitHub er slettet igen.'},
             {'done': False, 'name': 'Første tal fra Apple',
              'desc': 'Downloads og stjerner kommer dagen efter. Visninger, '
                      'sletninger og nedbrud ca. to døgn senere.'},
@@ -1793,6 +1833,43 @@ _PROJECTS = (
         'desc': 'Når appen går ned hos en bruger, ser vi det i dag kun i '
                 'Apples egne rapporter. Kræver valg af en gratis tjeneste.',
         'parts': (),
+    },
+    {
+        'key': 'matching',
+        'name': 'Bedre sammenligning af varer',
+        'status': 'doing',
+        'desc': 'Varer med samme stregkode sammenlignes sikkert. Resten '
+                'gættes ud fra navn, vægt, pris og billede, og her er ca. '
+                '15 % forkerte, mens mange varer slet ikke bliver '
+                'sammenlignet (målt 07-10-2026).',
+        'parts': (
+            {'done': True, 'name': 'Strammere regler for gæt',
+             'desc': 'Kædernes egne mærker, pris uden vægt, mærke i navnet '
+                     'og multipak holdes adskilt (07-10-2026).'},
+            {'done': False, 'name': 'Is og chokolade holdes adskilt',
+             'desc': 'Fx Skildpadde-chokolade mod Skildpadde-is. Klar til '
+                     'merge.'},
+            {'done': False, 'name': 'Flere Rema-varer sammenlignes',
+             'desc': 'En oprydning smider i dag mange rigtige Rema-'
+                     'sammenligninger væk, så ca. 580 Rema-varer står alene.'},
+        ),
+    },
+    {
+        'key': 'dagrofa_backup',
+        'name': 'Reservevej for Spar, Meny og Min Købmand',
+        'status': 'idea',
+        'desc': 'Priserne hentes fra butikkernes egen vareliste. Svigter den, '
+                'skal en reservevej klikke sig gennem butikkens hjemmeside, '
+                'men den finder ingen kategorier længere, fordi siden er '
+                'ændret (set 07-10-2026). Så længe varelisten virker, mærkes '
+                'det ikke.',
+        'parts': (
+            {'done': True, 'name': 'Varelisten henter alle varer igen',
+             'desc': 'Rettet 07-10-2026: før manglede ca. 400 varer hos Spar '
+                     'og Min Købmand, og natten fejlede.'},
+            {'done': False, 'name': 'Reservevejen virker igen',
+             'desc': 'Tilpas den til butikkernes nye hjemmeside.'},
+        ),
     },
     {
         'key': 'tests',
@@ -1866,6 +1943,11 @@ def _feature_enabled(key: str) -> bool:
         return True
     entry = _feature_flags().get(key)
     return isinstance(entry, dict) and entry.get('on') is True
+
+
+# Makroer importeres uden kontekst (fx product_card), så flaget skal være en
+# global for at kunne ses derinde.
+app.jinja_env.globals['feature_enabled'] = _feature_enabled
 
 
 def _category_display_name(category: str) -> str:
@@ -2624,21 +2706,50 @@ def get_nutrition(product_id):
         return jsonify(success=False, nutrition=None)
 
 
+def _recipes_preview_ok(key: str) -> bool:
+    """Testnøglen til MadShopper Test-appen (dk.madshopper.app.test), så
+    opskrifterne kan prøves på telefonen, før de er udgivet i Feature-panelet.
+    Appen henter fra madshopper.dk, og dev-siden er lukket for alt andet end
+    admins i en browser. Uden en nøgle på mindst 24 tegn er stien bare 404."""
+    expected = str(_edge_var('RECIPES_PREVIEW_KEY') or '')
+    return len(expected) >= 24 and hmac.compare_digest(
+        (key or '').encode(), expected.encode())
+
+
+# Stierne er IKKE i _CACHEABLE_ENDPOINTS: de må aldrig ligge i den delte
+# edge-cache (worker'ens cache-nøgle ville ellers kun indeholde stien, og den
+# indeholder nøglen, men et ikke-cachet svar er det sikre valg). Det koster en
+# render pr. kald, og det er kun Kalles testapp der kalder dem.
+@app.route('/api/recipes-preview/<key>')
+def get_recipes_preview(key):
+    if not _recipes_preview_ok(key):
+        abort(404)
+    return get_recipes(_force=True)
+
+
+@app.route('/api/recipes-preview/<key>/<int:recipe_id>')
+def get_recipe_preview(key, recipe_id):
+    if not _recipes_preview_ok(key):
+        abort(404)
+    return get_recipe(recipe_id, _force=True)
+
+
 @app.route('/api/recipes')
-def get_recipes():
+def get_recipes(_force: bool = False):
     """Godkendte opskrifter + deres forudberegnede prissnapshot (recipe_pricing.py,
     kørt nightly i cache-updater.yml) - opslag, ikke live-beregning, se
     docs/Features.md og scripts/supabase-recipes.sql.
 
     Featuren er stadig under test og må ikke være tilgængelig på madshopper.dk,
-    se _recipes_enabled()."""
-    if not _recipes_enabled() or not _supabase_available():
+    se _recipes_enabled(). _force: kun fra get_recipes_preview (testnøglen)."""
+    if not (_force or _recipes_enabled()) or not _supabase_available():
         return jsonify(success=True, recipes=[])
     try:
         rows, status = _supabase_rest(
             "GET", "recipes",
             params={
-                "select": "id,title,image_url,servings,total_time_minutes,source_name,source_url",
+                "select": "id,title,image_url,servings,total_time_minutes,source_name,"
+                          "source_url,instructions",
                 "status": "eq.approved",
                 "order": "created_at.desc",
                 "limit": "200",
@@ -2663,8 +2774,26 @@ def get_recipes():
         if snap_status == 200 and isinstance(snapshots, list):
             by_recipe = {s["recipe_id"]: s for s in snapshots}
 
+        # Ingrediensnavne til madplanens mærker (_recipe_plan_profile). Fejler
+        # opslaget, kommer listen stadig ud, men uden mærker - og svaret
+        # markeres degraderet, så "ingen opskrift passer" ikke caches i 24t.
+        ingr_rows, ingr_status = _supabase_rest(
+            "GET", "recipe_ingredients",
+            params={"select": "recipe_id,ingredient_name,position",
+                    "order": "recipe_id,position", "limit": "5000"},
+        )
+        names_by_recipe = {}
+        if ingr_status == 200 and isinstance(ingr_rows, list):
+            for row in ingr_rows:
+                names_by_recipe.setdefault(row.get("recipe_id"), []).append(
+                    (row.get("ingredient_name") or "").strip())
+        else:
+            _mark_data_degraded('recipe_ingredients')
+
         result = []
         for r in rows:
+            # Fremgangsmåden bruges kun til mærkerne og sendes ikke med i listen.
+            instructions = r.pop("instructions", None)
             snap = by_recipe.get(r["id"], {})
             total = snap.get("total_ingredient_count") or 0
             on_sale = snap.get("ingredients_on_sale_count") or 0
@@ -2675,12 +2804,129 @@ def get_recipes():
                 "total_ingredient_count": total,
                 "ingredients_on_sale_count": on_sale,
                 "sale_ratio": round(on_sale / total, 3) if total else 0.0,
+                "plan": _recipe_plan_profile(
+                    r.get("title", ""), names_by_recipe.get(r["id"], []),
+                    instructions, r.get("servings"), r.get("total_time_minutes")),
             })
         result.sort(key=lambda r: r["sale_ratio"], reverse=True)
         return jsonify(success=True, recipes=result)
     except Exception as e:
         logger.error("recipes-list error: %s", e)
         return jsonify(success=False, recipes=[]), 503  # se 503-begrundelsen ovenfor
+
+
+# --- Madplan: mærker pr. opskrift (Feature 'recipes', del "Madplan") --------
+# Første gang man åbner Opskrifter, spørger web (static/js/madplan.js) og app
+# (apps/mobile/src/recipes/mealPlan.ts) om antal, budget, lyst, kostbehov,
+# ingredienser der skal undgås og køkkenudstyr, og laver en madplan ud fra
+# listen fra /api/recipes. Mærkerne regnes HER, ét sted, så web og app er
+# enige; selve planen laves på telefonen/i browseren (ingen CPU på edge pr.
+# bruger, svarene forlader aldrig enheden). Reglerne er grove nøgleord over
+# ingrediensnavne og fremgangsmåde - en opskrift kan derfor fejlmærkes, og
+# listerne skal udvides, når der kommer flere opskrifter.
+_RP_MEAT = re.compile(
+    r'kød|kylling|skinke|bacon|pølse|grise|svine|kalve|okse|\blam\b|lammek|'
+    r'kalkun|andebryst|andelår|salami|chorizo|pancetta|leverpostej|frikadelle')
+_RP_FISH = re.compile(
+    r'fisk|laks|torsk|\btun\b|tunfisk|rejer|\breje|sild|makrel|ansjos|krabbe|'
+    r'muslinger|kuller|rødspætte|\bsej\b')
+_RP_EGG = re.compile(r'\bæg|æggeblomme|mayonnaise')
+_RP_DAIRY = re.compile(
+    r'(?<!kokos)(?<!havre)(?<!mandel)(?<!soja)(?<!ris)mælk|(?<!jordnødde)smør|'
+    r'(?<!t)(?<!r)ost\b|oste|hytteost|salatost|fløde|(?<!soja)yoghurt|'
+    r'creme fraiche|crème fraîche|skyr|kvark|mozzarella|parmesan|feta|cheddar|'
+    r'mascarpone|ricotta|maasdam')
+_RP_HONEY = re.compile(r'honning')
+_RP_GLUTEN = re.compile(
+    r'hvedemel|fuldkornshvede|\bmel\b|rugmel|speltmel|brød|pasta|spaghetti|'
+    r'(?<!ris)nudler|couscous|bulgur|\brasp|tortilla|wraps?\b|havregryn|'
+    r'\bsoja\b|sojasauce|sojasovs|\bøl\b|pizzadej|butterdej|kiks|tærtedej')
+_RP_VEG = re.compile(
+    r'løg|gulerød|gulerødder|kål|spinat|tomat|agurk|salat\b|hjertesalat|porre|'
+    r'rødbede|peberfrugt|broccoli|squash|avocado|bønne|ærter|majs|svampe|'
+    r'champignon|selleri|aubergine|blomkål|edamame|kikærter|linser|mango|'
+    r'ananas|grønkål|asparges|radise|pastinak')
+_RP_PROTEIN = re.compile(
+    r'kød|kylling|kalkun|fisk|laks|tun|rejer|\bæg|hytteost|skyr|kvark|'
+    r'bønne|linser|kikærter|tofu|edamame')
+_RP_RICH = re.compile(r'fløde|bacon|mascarpone|chokolade|sukker|pommes|'
+                      r'(?<!t)(?<!r)ost\b|cheddar|mozzarella')
+_RP_TAKEAWAY_TITLE = re.compile(
+    r'pizza|burger|wrap|nudler|taco|kebab|sushi|pommes|curry|wok|shawarma|'
+    r'durum|nachos|burrito|quesadilla')
+_RP_FAMILY_TITLE = re.compile(
+    r'frikadelle|pizza|lasagne|boller|tærte|burger|taco|spaghetti|'
+    r'kødsovs|deller\b|gryde|suppe')
+_RP_BAKING_TITLE = re.compile(r'boller|brød\b|bananbrød|kage|muffins|'
+                              r'cookies|scones|kiks|snitter')
+# Køkkenudstyr en opskrift kræver, læst af fremgangsmåden. Nøglerne er de
+# samme som valgene i spørgsmålet "Hvad har du i køkkenet?".
+_RP_NEEDS = (
+    ('ovn', re.compile(r'\bovn|°|grader|bag(es|e)? .{0,30}(min|ovn)|forvarm|'
+                       r'til pensling|tærte|pizza|boller|brød\b|bananbrød|'
+                       r'lasagne|gratin|muffins|kage|ovnbag')),
+    ('kogeplade', re.compile(r'\bpande|\bgryde|\bkog(?!t)|\bsteg(?!t)|\bsauter|'
+                             r'\bsimr|\bbrun(e|es)? |til stegning')),
+    ('blender', re.compile(r'blender|stavblender|foodprocessor|purér|purere|'
+                           r'blend')),
+    ('roeremaskine', re.compile(r'røremaskine|elpisker|elpiskeren|håndmixer')),
+    ('grill', re.compile(r'\bgrill(?!steg|kylling|pølse|krydder)|grillen|på grill')),
+    ('slowcooker', re.compile(r'slowcooker|slow cooker|trykkoger')),
+    ('airfryer', re.compile(r'airfryer')),
+    ('mikroovn', re.compile(r'mikroovn|mikrobølge')),
+)
+
+
+def _recipe_plan_profile(title: str, ingredient_names: list,
+                         instructions, servings, minutes) -> dict:
+    """Mærker til madplanen for én opskrift - se kommentaren ovenfor."""
+    ingr = ' | '.join(n.lower() for n in ingredient_names if n)
+    steps = ' '.join(str(s) for s in (instructions or [])).lower()
+    t = (title or '').lower()
+    meat = bool(_RP_MEAT.search(ingr))
+    fish = bool(_RP_FISH.search(ingr))
+    egg = bool(_RP_EGG.search(ingr))
+    dairy = bool(_RP_DAIRY.search(ingr))
+    diet = []
+    if not meat and not fish and not egg and not dairy and not _RP_HONEY.search(ingr):
+        diet.append('vegansk')
+    if not meat and not fish:
+        diet.append('vegetar')
+    if not meat:
+        diet.append('pescetar')
+    if not _RP_GLUTEN.search(ingr):
+        diet.append('glutenfri')
+    if not dairy:
+        diet.append('maelkefri')
+
+    veg = len({m.group(0) for m in _RP_VEG.finditer(ingr)})
+    protein = len({m.group(0) for m in _RP_PROTEIN.finditer(ingr)})
+    moods = []
+    if minutes and minutes <= 30:
+        moods.append('hurtig')
+    if veg >= 2 and not _RP_RICH.search(ingr):
+        moods.append('let')
+    if (servings and 4 <= servings <= 12) or _RP_FAMILY_TITLE.search(t):
+        moods.append('familie')
+    if veg >= 3 or 'fuldkorn' in ingr or 'kikærter' in ingr or 'linser' in ingr:
+        moods.append('sund')
+    if _RP_TAKEAWAY_TITLE.search(t):
+        moods.append('takeaway')
+    if protein >= 2 or meat or fish:
+        moods.append('protein')
+
+    return {
+        'diet': diet,
+        'moods': moods,
+        # Mange importerede opskrifter har ingen fremgangsmåde, så titel og
+        # ingredienser ("smør til stegning", "æg til pensling") tæller med.
+        'needs': [key for key, rx in _RP_NEEDS
+                  if rx.search(' | '.join((steps, t, ingr)))],
+        # Bagværk (boller, brød, kage) kommer ikke med i aftensmadsplanen.
+        'meal': not _RP_BAKING_TITLE.search(t),
+        # Korte navne til "ingredienser du vil undgå"-søgningen.
+        'ingredient_names': [n for n in ingredient_names if n][:40],
+    }
 
 
 def _parse_nutrition_number(value, prefer_kcal: bool = False) -> float | None:
@@ -2926,12 +3172,42 @@ def _fetch_recipe_detail(recipe_id):
     return recipe, ingredients, snapshot
 
 
+# --- Betaling for opskrifterne (docs/abonnement.md) -------------------------
+# Listen (/api/recipes: navn, billede, pris) er åben som udstillingsvindue.
+# Selve opskriften (ingredienser, fremgangsmåde, læg i kurv) og madplanen
+# kræver et betalt abonnement på kontoen. Købet sker i appen via Apple, og
+# edge-funktionen recipe-access skriver det i recipe_access; her spørges kun.
+_RECIPE_LOCKED_HEADERS = {'Cache-Control': 'private, no-store'}
+
+
+def _recipe_access_ok(token: str) -> bool:
+    """Har kontoen bag access-tokenen betalt for opskrifterne (eller er admin)?
+    PostgREST tjekker tokenens signatur, og has_recipe_access() slår op i
+    recipe_access (scripts/supabase-recipe-access.sql). Fejler opslaget, er
+    svaret nej: hellere en betalingsboks for meget end gratis opskrifter."""
+    if not token or len(token) > 4096 or not _JWT_RE.match(token):
+        return False
+    data, status = _supabase_rest('POST', 'rpc/has_recipe_access', json_body={},
+                                  timeout=8.0, auth_token=token)
+    return status == 200 and data is True
+
+
+def _recipe_access_request() -> bool:
+    """Appen sender Bearer-tokenen; browseren har den i ms_session-cookien."""
+    m = _ADMIN_BEARER_RE.match(request.headers.get('Authorization', ''))
+    token = m.group(1) if m else request.cookies.get(_SESSION_COOKIE, '')
+    return _recipe_access_ok(token)
+
+
 @app.route('/api/recipes/<int:recipe_id>')
-def get_recipe(recipe_id):
+def get_recipe(recipe_id, _force: bool = False):
     """Featuren er stadig under test og må ikke være tilgængelig på
-    madshopper.dk, se _recipes_enabled()."""
-    if not _recipes_enabled() or not _supabase_available():
+    madshopper.dk, se _recipes_enabled(). _force: kun fra get_recipe_preview.
+    Kræver betaling (_recipe_access_request); ellers 403 med locked=true."""
+    if not (_force or _recipes_enabled()) or not _supabase_available():
         return jsonify(success=True, recipe=None)
+    if not _force and not _recipe_access_request():
+        return jsonify(success=False, locked=True, recipe=None), 403, _RECIPE_LOCKED_HEADERS
     try:
         recipe, ingredients, snapshot = _fetch_recipe_detail(recipe_id)
         return jsonify(success=True, recipe=recipe, ingredients=ingredients, snapshot=snapshot)
@@ -2951,7 +3227,10 @@ def recipes_page():
     se _recipes_enabled()."""
     if not _recipes_enabled():
         return "Page not found", 404
-    return render_template('opskrifter.html')
+    resp = app.make_response(render_template(
+        'opskrifter.html', recipe_access=_recipe_access_request()))
+    resp.headers.update(_RECIPE_LOCKED_HEADERS)
+    return resp
 
 
 @app.route('/opskrift/<int:recipe_id>')
@@ -2971,9 +3250,21 @@ def get_recipe_page(recipe_id):
         recipe, ingredients, snapshot = _fetch_recipe_detail(recipe_id)
         if not recipe:
             return render_template('opskrift.html', recipe=None), 404
-        return render_template(
-            'opskrift.html', recipe=recipe, ingredients=ingredients, snapshot=snapshot,
-        )
+        if not _recipe_access_request():
+            # Kun det der også står i den åbne liste; ingredienser og
+            # fremgangsmåde forlader aldrig serveren uden betaling.
+            teaser = {k: recipe.get(k) for k in (
+                'id', 'title', 'image_url', 'servings', 'total_time_minutes',
+                'source_name', 'source_url')}
+            resp = app.make_response(render_template(
+                'opskrift.html', recipe=teaser, ingredients=[], snapshot=snapshot,
+                locked=True))
+        else:
+            resp = app.make_response(render_template(
+                'opskrift.html', recipe=recipe, ingredients=ingredients, snapshot=snapshot,
+            ))
+        resp.headers.update(_RECIPE_LOCKED_HEADERS)
+        return resp
     except Exception as e:
         logger.error("recipe-page error: %s", e)
         return render_template('opskrift.html', recipe=None), 500
@@ -3098,6 +3389,9 @@ def _recipe_pool_live(limit: int = 10) -> list:
                 "matched_ingredient_count": snap.get("matched_ingredient_count", 0),
                 "total_ingredient_count": total,
                 "sale_ratio": round(on_sale / total, 3) if total else 0.0,
+                "plan": _recipe_plan_profile(
+                    r.get("title", ""), names_by_recipe.get(r["id"], []),
+                    instructions, r.get("servings"), r.get("total_time_minutes")),
             })
         # Samme (total_points, created_at)-sortering som seed-d1.py.
         ranked.sort(key=lambda r: (r["total_points"], r["created_at"]), reverse=True)
@@ -4639,8 +4933,6 @@ def api_home():
             'swipe_enabled': _feature_enabled('swipe'),
             # "Køl & Mejeri": appen skifter kategorinavn samtidig med webben.
             'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
-            # "Støt MadShopper": appen viser abonnementet, når det er udgivet.
-            'subscription_enabled': _feature_enabled('subscription'),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
                 'available': False,
@@ -4747,7 +5039,8 @@ def api_search():
 
 @app.route('/api/stores')
 def get_stores():
-    stores = [{'key': k, 'label': v['label'], 'logo': v['logo']} for k, v in _STORE_CONFIGS.items()]
+    stores = [{'key': k, 'label': v['label'], 'logo': v['logo']}
+              for k, v in _STORE_CONFIGS.items()]
     return jsonify({
         'stores': stores,
         'version': STORE_CATALOG_VERSION,

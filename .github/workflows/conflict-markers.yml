@@ -3,10 +3,18 @@ name: Konfliktmarkører
 # Fanger en uløst merge (<<<<<<< / ======= / >>>>>>>) i PR'en, før den når
 # main og bliver deployet. 02-10-2026 stod markørerne som synlig tekst øverst
 # på madshopper.dk. Samme test kører også i deploy-workflows.
+#
+# Kører kun på PR'er (09-10-2026, for at spare Actions-minutter): koden er
+# allerede tjekket i PR'en, og begge deploy-workflows kører samme test igen
+# ved push til main.
 on:
   pull_request:
-  push:
-    branches: [main]
+
+# Spar GitHub Actions-minutter: en ny push til samme PR stopper den gamle
+# kørsel, der alligevel ville blive forældet.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:

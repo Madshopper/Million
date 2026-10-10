@@ -53,8 +53,8 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: dev.madshopper.dk 
 |---|---|
 | Rema 1000 | Rema XML feed (`updater.py`) |
 | Bilka | `scraper/bilka_katalog.py` (Algolia-katalog, komplet med pris) |
-| Netto | `scraper/netto_katalog.py` (Algolia-katalog, primær pris) + `scraper/webscrape_netto.py` (Tjek tilbudsavis) |
-| Føtex | `scraper/foetex_katalog.py` (Algolia-katalog, primær pris) + `scraper/webscrape_foetex.py` (Tjek tilbudsavis) |
+| Netto | `scraper/netto_katalog.py` (Algolia-katalog inkl. ugens avisvarer via `isInCurrentLeaflet`) |
+| Føtex | `scraper/foetex_katalog.py` (Algolia-katalog inkl. ugens avisvarer via `isInCurrentLeaflet`) |
 | Meny | `scraper/webscrape_Meny.py` (wrapper om `scraper/dagrofa_scraper.py`) |
 | Spar | `scraper/webscrape_spar.py` (wrapper om `scraper/dagrofa_scraper.py`) |
 | SuperBrugsen | `scraper/webscrape_superbrugsen.py` |
@@ -62,11 +62,11 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: dev.madshopper.dk 
 | Kvickly | `scraper/webscrape_kvickly.py` |
 | Min Købmand | `scraper/webscrape_minkobmand.py` (wrapper om `scraper/dagrofa_scraper.py`) |
 | 365 Discount | `scraper/webscrape_365discount.py` (Tjek tilbudsavis) |
-| Lidl | `scraper/lidl_katalog.py` (hyldepriser, primær) + `scraper/webscrape_lidl.py` (Tjek tilbudsavis) |
-| Løvbjerg | `scraper/webscrape_lovbjerg.py` (Tjek tilbudsavis, via `scraper/tjek_tilbud_scraper.py`) |
-| ABC Lavpris | `scraper/webscrape_abc_lavpris.py` (Tjek tilbudsavis, via `scraper/tjek_tilbud_scraper.py`) |
+| Lidl | `scraper/lidl_katalog.py` (hyldepriser, primær) + `scraper/webscrape_lidl.py` (ugens tilbud fra lidl.dk's kampagnesider + ugeavisen, søndag og torsdag) |
+| Løvbjerg | `scraper/webscrape_lovbjerg.py` (ugens avis-PDF fra lovbjerg.dk, læst med pdfplumber; varebilleder klippet ud af PDF'en via `scraper/avis_billeder.py`) |
+| ABC Lavpris | `scraper/webscrape_abc_lavpris.py` (avisen på abc-lavpris.dk læst med OCR/tesseract, varebilleder via `scraper/avis_billeder.py`) |
 
-Meny, Spar og Min Købmand kører på samme Dagrofa-webshopplatform, så al scraping-logik ligger samlet i `scraper/dagrofa_scraper.py` - hver butik gemmes dog stadig helt separat i Supabase. Netto, Føtex og 365 Discount henter tilbudsavis via Tjek/ShopGun-API'et (samme mønster som `scraper/tjek_tilbud_scraper.py`, men med egen inline-kopi).
+Meny, Spar og Min Købmand kører på samme Dagrofa-webshopplatform, så al scraping-logik ligger samlet i `scraper/dagrofa_scraper.py` - hver butik gemmes dog stadig helt separat i Supabase. 365 Discount henter tilbudsavis via Tjek/ShopGun-API'et (samme mønster som `scraper/tjek_tilbud_scraper.py`, men med egen inline-kopi). Netto, Føtex og Lidl henter ugens tilbud fra butikkernes egne sider (Tjek bad os 09-10-2026 stoppe brugen af deres API).
 
 ## Getting Started
 

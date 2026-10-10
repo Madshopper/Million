@@ -43,7 +43,9 @@ async function open(page) {
   await page.waitForFunction(() => typeof window.setThemeMode === "function");
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch(
+  process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {},
+);
 
 // 1) Førstegangsbesøg følger systemet - i BEGGE retninger.
 for (const [scheme, forventet] of [["dark", "dark"], ["light", null]]) {

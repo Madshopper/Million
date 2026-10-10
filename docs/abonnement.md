@@ -1,41 +1,103 @@
-# Støt MadShopper (abonnement i appen)
+# Abonnement på opskrifterne
 
-Frivilligt månedligt abonnement, købt i iPhone-appen via Apple. Alt i appen er
-stadig gratis; støtterne får et "Støtter"-mærke under navnet på Profil.
-Feature-panelet i `/admin`: `subscription`. Skjult på madshopper.dk, altid til
-på dev.madshopper.dk.
+Opskrifterne kræver betaling. Alle kan se listen over opskrifter (navn, billede
+og pris), men selve opskriften (ingredienser, fremgangsmåde, "læg i kurv") og
+madplanen kræver et månedligt abonnement. Det købes i iPhone-appen via Apple
+og hører til kontoen, så det også låser op på madshopper.dk og på Android.
+Admins har altid adgang.
+
+Der findes ingen anden betaling eller frivillig støtte. "Støt MadShopper"
+(PR #66) er fjernet 09-10-2026.
+
+Det hele hænger på Feature `recipes` i `/admin`: mens opskrifterne er skjulte,
+er betalingen det også. Udgiv først opskrifterne, når Apple har godkendt
+abonnementet.
 
 ## Sådan virker det
 
-- Appen bruger `expo-iap` (gratis, StoreKit 2). Apple tjekker selv købet; vi
-  gemmer intet om det på vores server, og der er ingen ekstra konto (fx
-  RevenueCat) at oprette.
-- Produkt-ID: `dk.madshopper.stoette.maaned` (`apps/mobile/src/subscription/subscription.ts`).
-  Skal stå præcis sådan i App Store Connect.
-- Skærmen `SupportScreen.tsx` åbnes fra Profil og viser pris, køb, "Gendan køb",
-  "Administrér abonnement" og links til vilkår og privatliv (Apples krav).
-- Kun iPhone. Android kræver Google Play-kontoen først.
-- Hjemmesiden sælger det ikke (et Apple-abonnement kan kun købes i appen).
+1. Køb kræver login. Appen sender kontoens id med til Apple
+   (`appAccountToken`).
+2. Apple sender en underskrevet kvittering tilbage. Appen sender den til
+   edge-funktionen `recipe-access` i Supabase
+   (`supabase/functions/recipe-access/`), som tjekker Apples underskrift og
+   skriver adgangen i tabellen `recipe_access`.
+3. Apple giver også selv funktionen besked ved fornyelse, opsigelse og
+   refusion (App Store Server Notifications), så hjemmesiden følger med, selvom
+   appen ikke bliver åbnet.
+4. Hjemmesiden og appen spørger serveren med `has_recipe_access()`.
+   Ingredienser og fremgangsmåde forlader aldrig serveren uden adgang
+   (`app.py::_recipe_access_ok`). Siderne bliver derfor ikke gemt i den delte
+   edge-cache; kun listen `/api/recipes` gør.
 
-## Det Kalle selv skal gøre i App Store Connect
+Ét abonnement låser kun én konto op. Køber man på én konto og logger ind på en
+anden, siger appen det.
+
+- Produkt-ID: `dk.madshopper.opskrifter.maaned` (står i
+  `apps/mobile/src/recipes/access.ts` og i edge-funktionen).
+- Køb kun på iPhone. Android kræver Google Play-kontoen først; indtil da kan
+  man låse op på Android med en konto, der har købt på iPhone.
+- Hjemmesiden sælger det ikke (et Apple-abonnement kan kun købes i appen); den
+  viser en boks med "Log ind" og "Hent appen".
+
+## Det Kalle selv skal gøre
+
+### Én gang i Supabase
+
+1. Kør `scripts/supabase-recipe-access.sql` i SQL Editor.
+2. Deploy edge-funktionen uden JWT-tjek (Apple sender ikke et login):
+   `supabase functions deploy recipe-access --no-verify-jwt`
+   (Claude kan også gøre det via Supabase-forbindelsen, når du siger til).
+
+### I App Store Connect
 
 1. **Aftaler, skat og bank** (Business / Agreements, Tax, and Banking):
    accepter *Paid Apps Agreement*, tilføj bankkonto (IBAN) og udfyld
-   skatteformularen *W-8BEN* som privatperson (så USA ikke trækker skat).
+   skatteformularen *W-8BEN* som privatperson.
 2. **EU-erhvervsstatus (DSA)**: sælger man noget, regner Apple en som
-   erhvervsdrivende. Så viser App Store i EU en adresse, telefon og e-mail.
+   erhvervsdrivende, og App Store viser en adresse, telefon og e-mail i EU.
    Brug gerne en e-mail og et telefonnummer kun til appen.
-3. **Small Business Program**: tilmeld dig på developer.apple.com. Så tager
-   Apple 15 % i stedet for 30 %.
+3. **Small Business Program** på developer.apple.com: Apple tager 15 % i
+   stedet for 30 %.
 4. **Produktet** (appen > Monetization > Subscriptions):
-   - Abonnementsgruppe: `MadShopper Støtte`
-   - Abonnement: reference `Støtte månedlig`, produkt-ID `dk.madshopper.stoette.maaned`,
-     varighed 1 måned, pris fx 19 kr.
-   - Dansk navn `MadShopper Støtte` og en kort beskrivelse.
-   - Et skærmbillede af skærmen "Støt MadShopper" til Apples gennemgang.
-5. **Indsend** abonnementet sammen med den næste app-version (det første
+   - Abonnementsgruppe: `MadShopper Opskrifter`
+   - Abonnement: reference `Opskrifter månedlig`, produkt-ID
+     `dk.madshopper.opskrifter.maaned`, varighed 1 måned.
+   - Pris: dit valg, fx 19 kr. om måneden.
+   - Dansk navn: `MadShopper Opskrifter`. Beskrivelse, fx: "Alle opskrifter
+     med dagens priser, læg varerne i kurven med ét tryk, og få din egen
+     madplan."
+   - Et skærmbillede af skærmen "Opskrifter med priser" til Apples gennemgang.
+5. **Besked fra Apple** (appen > App Information > App Store Server
+   Notifications): version 2, både Production og Sandbox URL:
+   `https://<projekt>.supabase.co/functions/v1/recipe-access`
+6. **Login til Apples gennemgang**: under App Review Information skal der stå
+   en testkonto (e-mail og adgangskode) til MadShopper, fordi køb kræver
+   login.
+7. **Indsend** abonnementet sammen med den næste app-version (det første
    abonnement skal godkendes med en version).
-6. **Udgiv** `subscription` i Feature-panelet, når Apple har godkendt.
+8. **Udgiv** `recipes` i Feature-panelet, når Apple har godkendt.
+
+Har du allerede oprettet det gamle produkt `dk.madshopper.stoette.maaned`, så
+slet det eller lad det ligge uden at indsende det; et produkt-ID kan ikke
+omdøbes.
+
+## Fra Apples aftale (Paid Applications v126, læst 09-10-2026)
+
+- **Opskrifterne må ikke skjules igen**, når nogen har betalt. Apple kræver,
+  at man leverer det lovede i hele perioden (3.8c), ellers refunderer Apple og
+  trækker beløbet fra dig. Så snart `recipes` er udgivet med betaling, må den
+  ikke slås fra i Feature-panelet.
+- I appen skal titel, længde, pris og links til vilkår og privatliv stå ved
+  købet (3.8b). Det gør de på skærmen "Opskrifter med priser", og vilkår og
+  privatlivspolitik nævner abonnementet (09-10-2026).
+- Køb i appen skal ske via Apple (3.11). Appen må ikke linke til at købe
+  andre steder.
+- Apple opkræver og indbetaler momsen i Danmark (Exhibit B). Salget i EU går
+  gennem Apple Distribution International i Irland.
+- Ændrer du prisen senere, kan du vælge at beholde den gamle pris for dem, der
+  allerede betaler (3.9).
+- Sletter en bruger sin konto, kører Apples abonnement videre; det står i
+  vilkårene, at man skal stoppe det hos Apple først.
 
 ## Skat i Danmark (kort)
 
@@ -46,20 +108,17 @@ B-indkomst. Spørg Skattestyrelsen, hvis du er i tvivl.
 ## Navn og bankoplysninger
 
 Brugerne ser aldrig dine bankoplysninger. Sælgernavnet på App Store er navnet
-på udviklerkontoen; er det en privat konto, står dit navn der allerede i dag,
-uanset abonnement. Kun en virksomhedskonto (kræver CVR og D-U-N-S-nummer) kan
-vise et firmanavn i stedet.
+på udviklerkontoen; er det en privat konto, står dit navn der allerede i dag.
+Kun en virksomhedskonto (kræver CVR og D-U-N-S-nummer) kan vise et firmanavn.
 
 ## Afprøvning
 
-Køb i TestFlight og i Apples sandkasse er gratis. Test-appen
-(`dk.madshopper.app.test`) har ikke sit eget produkt i App Store Connect, så
-dér viser skærmen "Henter pris fra App Store…" for evigt; afprøv i stedet med
-en sandkasse-konto (Users and Access > Sandbox) i en TestFlight-build, eller
-med en StoreKit-konfigurationsfil i Xcode-simulatoren.
-
-## Apples gennemgang
-
-Apple kræver, at et abonnement giver noget løbende (retningslinje 3.1.2).
-Støtter-mærket er det. Afviser Apple det som for lidt, er næste skridt at
-give støtterne et lille ekstra (fx tidlig adgang til nye funktioner).
+- Som admin har din egen konto altid adgang, både på dev.madshopper.dk og i
+  appen. Log ud eller brug en anden konto for at se betalingsboksen.
+- Køb i TestFlight og i Apples sandkasse er gratis og tæller som adgang
+  (Apples gennemgang bruger også sandkassen).
+- Test-appen (`dk.madshopper.app.test`) har ikke sit eget produkt i App Store
+  Connect, så dér viser skærmen "Henter pris fra App Store…" for evigt; afprøv
+  køb med en sandkasse-konto i en TestFlight-build.
+- Edge-funktionens tjek af Apples underskrift er afprøvet lokalt med en
+  selvlavet certifikatkæde; første rigtige sandkasse-køb er det endelige tjek.

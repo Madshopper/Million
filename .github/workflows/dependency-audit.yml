@@ -1,19 +1,22 @@
 name: Dependency Audit
 
+# Kun på PR'er, ugentligt og manuelt (push til main fjernet 09-10-2026 for
+# at spare Actions-minutter: samme kode er allerede tjekket i PR'en).
 on:
   workflow_dispatch:
   schedule:
     # Hver mandag kl. 06:00 UTC
     - cron: '0 6 * * 1'
-  push:
-    branches: [main]
-    paths:
-      - 'requirements.txt'
-      - '.github/workflows/dependency-audit.yml'
   pull_request:
     paths:
       - 'requirements.txt'
       - '.github/workflows/dependency-audit.yml'
+
+# Spar GitHub Actions-minutter: en ny push til samme PR stopper den gamle
+# kørsel, der alligevel ville blive forældet.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   audit:

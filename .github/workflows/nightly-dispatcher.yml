@@ -1,16 +1,34 @@
 name: Nightly Dispatcher
 
-# Håndterer dansk sommertid/vintertid: GitHub cron kører i UTC, så hvert slot
-# har to cron-tider, og kun den der matcher Danmarks aktuelle UTC-offset
-# udføres. Scraperne og cache-fallbacken har derfor ingen egen cron - de
-# startes herfra.
+# Starter nattens kæde: scrapers, så cache-updateren, så næringsdata.
+# Scraperne og cache-updateren har ingen egen cron - de startes herfra.
+#
+# START KL. 00:01 DANSK TID (Kalle, 10-10-2026): Cloudflare-workeren
+# madshopper-uptime starter slot "nat" til tiden (uptime-worker/worker.js,
+# startNight). GitHub-cron kommer i praksis 1-4 timer for sent, så cron'erne
+# herunder er kun sikkerhedsnet: scraper-cron'en (01:01 dansk sommertid /
+# 00:01 vintertid) gør intet, hvis natten allerede er startet; næring kører
+# 03:00 / 02:00.
+#
+# CACHE-UPDATEREN STARTES LIGE EFTER SCRAPERNE (Kalle, 10-10-2026: siden skal
+# opdateres så hurtigt som muligt). Før havde den sin egen cron og ventede på
+# den: 10-10-2026 var scraperne færdige 04:04 dansk tid, men siden blev først
+# opdateret 06:25, fordi den næste cron kom 2 t 20 min for sent. Nu venter
+# scraper-slottet selv på scraperne (typisk 2-5 min) og starter den straks.
+# Cron-slottet cache-fallback ligger tilbage som sikkerhedsnet senere på
+# natten og gør kun noget, hvis cache-updateren ikke har kørt de sidste 20 t.
+#
+# BUTIKSDAGE (Kalle, 09-10-2026, for at spare GitHub Actions-minutter): hver
+# butik hentes kun de nætter, hvor dens nye avis/tilbud kommer (målt i
+# price_history 18-09 til 09-10-2026). Meny ændrer 250-450 priser hver dag og
+# hentes derfor hver nat; det gør Rema også, fordi den hentes inde i
+# cache-updateren. Manuel start med slot "scrapers" henter altid alle butikker
+# (uden cache-updater bagefter); slot "nat" gør det samme som om natten.
 on:
   schedule:
-    - cron: '1 22 * * *'   # 00:01 dansk tid ved sommertid (CEST) -> scrapers
-    - cron: '1 23 * * *'   # 00:01 dansk tid ved vintertid (CET)  -> scrapers
-    - cron: '0 23 * * *'   # 01:00 dansk tid ved sommertid -> cache-updater fallback
-    - cron: '0 0 * * *'    # 01:00 vintertid -> cache-updater | 02:00 sommertid -> nutrition
-    - cron: '0 1 * * *'    # 02:00 dansk tid ved vintertid -> nutrition
+    - cron: '1 23 * * *'   # scrapers
+    - cron: '0 3 * * *'    # cache-updater, kun sikkerhedsnet
+    - cron: '0 1 * * *'    # nutrition
   workflow_dispatch:
     inputs:
       slot:
@@ -18,6 +36,7 @@ on:
         type: choice
         options:
           - scrapers
+          - nat
           - cache-fallback
           - nutrition
         default: scrapers
@@ -32,66 +51,178 @@ env:
 jobs:
   dispatch:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 180
     steps:
-      - name: Bestem slot ud fra dansk tid
+      - name: Bestem slot ud fra cron-linjen
         id: slot
         env:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_SLOT: ${{ inputs.slot }}
           CRON: ${{ github.event.schedule }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
+          # nat=true: nattens rigtige kørsel (butiksdage + cache-updater
+          # bagefter). "nat" startes kl. 00:01 dansk tid af Cloudflare
+          # (uptime-worker/worker.js, startNight). Manuel "scrapers" henter
+          # alle butikker og rører ikke cache-updateren.
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "slot=$INPUT_SLOT" >> "$GITHUB_OUTPUT"
+            if [ "$INPUT_SLOT" = "nat" ]; then
+              echo "slot=scrapers" >> "$GITHUB_OUTPUT"
+              echo "nat=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "slot=$INPUT_SLOT" >> "$GITHUB_OUTPUT"
+            fi
             exit 0
           fi
-          OFFSET="$(TZ=Europe/Copenhagen date +%z)"   # +0200 sommer / +0100 vinter
-          case "$CRON|$OFFSET" in
-            "1 22 * * *|+0200"|"1 23 * * *|+0100") SLOT=scrapers ;;
-            "0 23 * * *|+0200"|"0 0 * * *|+0100")  SLOT=cache-fallback ;;
-            "0 0 * * *|+0200"|"0 1 * * *|+0100")   SLOT=nutrition ;;
-            *)                                      SLOT=skip ;;
+          case "$CRON" in
+            "1 23 * * *") SLOT=scrapers ;;
+            "0 3 * * *")  SLOT=cache-fallback ;;
+            "0 1 * * *")  SLOT=nutrition ;;
+            *)            SLOT=skip ;;
           esac
-          echo "Cron '$CRON' + offset $OFFSET -> $SLOT"
+          # GitHubs scraper-cron er kun sikkerhedsnet for Cloudflare-starten:
+          # er Meny (hentes hver nat) allerede startet de sidste 12 t, er
+          # natten klaret.
+          if [ "$SLOT" = "scrapers" ]; then
+            SIDST=$(gh run list -R "$REPO" -w scraper-Meny.yml -L 1 \
+              --json createdAt --jq '.[0].createdAt // ""' || echo "")
+            if [ -n "$SIDST" ] && \
+               [ $(( $(date +%s) - $(date -d "$SIDST" +%s) )) -lt $(( 12 * 3600 )) ]; then
+              echo "Nattens hentning startede allerede $SIDST - intet at gøre"
+              SLOT=skip
+            else
+              echo "nat=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          echo "Cron '$CRON' -> $SLOT"
           echo "slot=$SLOT" >> "$GITHUB_OUTPUT"
 
-      - name: Start alle scrapers (kl. 00:01 dansk tid)
+      - name: Start nattens scrapers
+        id: scrapers
         if: steps.slot.outputs.slot == 'scrapers'
         env:
           GH_TOKEN: ${{ github.token }}
+          NAT: ${{ steps.slot.outputs.nat || 'false' }}
         run: |
+          # Dansk ugedag: 1=man 2=tir 3=ons 4=tor 5=fre 6=lør 7=søn.
+          # Se BUTIKSDAGE øverst.
+          DAG=$(TZ=Europe/Copenhagen date +%u)
+          dage_for() {
+            case "$1" in
+              scraper-Bilka.yml) echo "5 6" ;;
+              # Netto- og Føtex-katalog inkl. ugens tilbud (siden #83):
+              # Føtex fredag og lørdag, Netto søndag.
+              scraper-Katalog.yml) echo "5 6 7" ;;
+              scraper-Spar.yml|scraper-minkobmand.yml) echo "6" ;;
+              scraper-Lovbjerg.yml) echo "5" ;;
+              # Lidls uge starter søndag og weekendpriserne torsdag
+              # (lidl.dk, 10-10-2026). Kataloget bliver om onsdagen.
+              scraper-Lidl.yml) echo "4 7" ;;
+              scraper-Lidl-Katalog.yml) echo "3" ;;
+              scraper-SuperBrugsen.yml|scraper-Kvickly.yml|scraper-Brugsen.yml) echo "3 6" ;;
+              scraper-365discount.yml|scraper-ABC-Lavpris.yml) echo "2" ;;
+              *) echo "1 2 3 4 5 6 7" ;;  # Meny og nye butikker: hver nat
+            esac
+          }
           FEJL=0
+          ANTAL=0
+          echo "start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           for wf in \
             scraper-365discount.yml \
             scraper-ABC-Lavpris.yml \
             scraper-Bilka.yml \
             scraper-Brugsen.yml \
-            scraper-Foetex.yml \
             scraper-Katalog.yml \
             scraper-Kvickly.yml \
             scraper-Lidl-Katalog.yml \
             scraper-Lidl.yml \
             scraper-Lovbjerg.yml \
             scraper-Meny.yml \
-            scraper-Netto.yml \
             scraper-Spar.yml \
             scraper-SuperBrugsen.yml \
             scraper-minkobmand.yml
           do
+            if [ "$NAT" = "true" ] \
+               && [[ " $(dage_for "$wf") " != *" $DAG "* ]]; then
+              echo "Ikke i nat (butiksdage): $wf"
+              continue
+            fi
             if gh workflow run "$wf" --ref "${{ github.ref_name }}" -R "${{ github.repository }}"; then
               echo "Startet: $wf"
+              ANTAL=$((ANTAL + 1))
             else
               echo "::error::Kunne ikke starte $wf"
               FEJL=1
             fi
           done
+          echo "antal=$ANTAL" >> "$GITHUB_OUTPUT"
           exit $FEJL
 
-      - name: Start cache-updater fallback (kl. 01:00 dansk tid)
+      # Kun om natten (nat=true): en manuel start midt på dagen må ikke give
+      # en ekstra D1-reseed samme døgn (se D1-skrivebudget i CLAUDE.md).
+      - name: Vent på scraperne og start cache-updater
+        if: ${{ !cancelled() && steps.slot.outputs.slot == 'scrapers' && steps.slot.outputs.nat == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          START: ${{ steps.scrapers.outputs.start }}
+          ANTAL: ${{ steps.scrapers.outputs.antal || '0' }}
+        run: |
+          # Venter til alle nattens scrapere er færdige (højst 40 min), så
+          # cache-updateren får de nye priser med. Kører en scraper fast,
+          # startes cache-updateren alligevel med det, der er nået.
+          SLUT=$(( $(date +%s) + 40 * 60 ))
+          sleep 20
+          while :; do
+            TAL=$(gh run list -R "$REPO" -e workflow_dispatch -L 60 \
+              --json workflowName,status,createdAt \
+              --jq "[.[] | select(.createdAt >= \"$START\" and (.workflowName | startswith(\"Scraper\")))] | \"\(length) \([.[] | select(.status != \"completed\")] | length)\"" \
+              || echo "0 0")
+            SET=${TAL% *}; AABNE=${TAL#* }
+            echo "Scrapere set: $SET af $ANTAL, ikke færdige: $AABNE"
+            if [ "$SET" -ge "$ANTAL" ] && [ "$AABNE" = "0" ]; then
+              break
+            fi
+            if [ "$(date +%s)" -ge "$SLUT" ]; then
+              echo "::warning::Scraperne var ikke færdige efter 40 min - starter cache-updater alligevel"
+              break
+            fi
+            sleep 30
+          done
+          # D1-skrivebudgettet (100k rækker) nulstilles 00:00 UTC, og et fuldt
+          # reseed bruger det meste. Kl. 00:01 dansk tid er det stadig
+          # gårsdagens UTC-døgn. Har cache-updateren allerede kørt i dette
+          # UTC-døgn (natten hvor tiden flyttes, eller et push der tvang et
+          # reseed), venter vi til efter 00:00 UTC, så de to reseeds ikke
+          # rammer samme døgn.
+          SIDST=$(gh run list -R "$REPO" -w cache-updater.yml -L 1 \
+            --json createdAt --jq '.[0].createdAt // ""' || echo "")
+          if [ "${SIDST:0:10}" = "$(date -u +%F)" ]; then
+            VENT=$(( $(date -u -d 'tomorrow 00:00:30' +%s) - $(date +%s) ))
+            echo "Venter $VENT s til efter 00:00 UTC (D1-budget)"
+            sleep "$VENT"
+          fi
+          gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "$REPO"
+          echo "Startet: cache-updater.yml"
+
+      - name: Start cache-updater (sikkerhedsnet)
         if: steps.slot.outputs.slot == 'cache-fallback'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "${{ github.repository }}"
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
+            SIDST=$(gh run list -R "$REPO" -w cache-updater.yml -L 1 \
+              --json createdAt --jq '.[0].createdAt // ""')
+            if [ -n "$SIDST" ] && \
+               [ $(( $(date +%s) - $(date -d "$SIDST" +%s) )) -lt $(( 20 * 3600 )) ]; then
+              echo "Cache-updater kørte allerede $SIDST - intet at gøre"
+              exit 0
+            fi
+          fi
+          gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "$REPO"
 
       # Startes herfra og ikke af et workflow_run paa "Update Product Cache":
       # cache-updateren dispatches selv af denne bot, og GitHub udloeser ikke
@@ -99,7 +230,7 @@ jobs:
       # praksis - build-nutrition naaede aldrig at koere efter en natlig
       # cache-opdatering. Cache-updateren tager ~5 min fra kl. 01:00, saa 02:00
       # har rigelig margin.
-      - name: Start nutrition-build (kl. 02:00 dansk tid)
+      - name: Start nutrition-build
         if: steps.slot.outputs.slot == 'nutrition'
         env:
           GH_TOKEN: ${{ github.token }}

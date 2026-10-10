@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { Recipe } from '../api/recipes';
 import { useTheme } from '../theme/ThemeContext';
 import { joinLabel, spokenKr } from '../a11y/speech';
@@ -45,7 +46,14 @@ export function RecipeCard({ recipe, onPress, clickable = true }: Props) {
         {recipe.image_url ? (
           <Image source={{ uri: recipe.image_url }} style={styles.image} resizeMode="cover" />
         ) : (
-          <View style={[styles.imagePlaceholder, { backgroundColor: colors.border }]} />
+          // Egne opskrifter (data/egne_opskrifter.json) har intet foto: samme
+          // bestik-ikon som webbens static/images/opskrift-standard.svg.
+          <View
+            style={[styles.imagePlaceholder, { backgroundColor: isDark ? '#1F3A2E' : '#D6F5E3' }]}
+            accessible={false}
+          >
+            <Ionicons name="restaurant-outline" size={40} color={isDark ? '#D6F5E3' : '#047857'} />
+          </View>
         )}
       </View>
       <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
@@ -118,7 +126,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   image: { width: '100%', height: '100%' },
-  imagePlaceholder: { width: '100%', height: '100%' },
+  imagePlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   saleBadge: {
     position: 'absolute',
     top: 8,

@@ -676,6 +676,45 @@ def test_ean_konflikt_og_varianter_2026_09_09() -> None:
           not updater._dedup_same_product(a, b))
 
 
+def test_rema_ordregel_2026_10_07() -> None:
+    """Falsk-positive fundet i D1 07-10-2026: Rema-varer stod paa kort med en
+    anden vare, fordi kun eet ord var faelles, og det ord der skilte dem ad,
+    slet ikke fandtes hos modparten."""
+    print("\nRema-ordregel og boejede farver")
+    from app_support import get_product_colours
+    cov = updater.rema_title_words_covered
+    n = updater.normalize_name
+
+    def afvis(label, rema, cand, produce=False):
+        check("AFVIS  " + label, not cov(n(rema), n(cand), produce))
+
+    def accept(label, rema, cand, produce=False):
+        check("ACCEPT " + label, cov(n(rema), n(cand), produce))
+
+    afvis("Tørret timian vs fransk salami", 'TØRRET TIMIAN', 'Tørret fransk salami i skiver Salling')
+    afvis("Risotto vs pizza m. spinat", 'RISOTTO MED SPINAT', 'Pizza m. prosciutto og spinat Salling')
+    afvis("Bacon tern vs bacon leverpostej", 'BACON TERN', 'Dgs Bacon Leverpostej Dgs')
+    afvis("Wok blanding vs Pingvin Blanding", 'WOK BLANDING', 'Pingvin Blanding Toms')
+    afvis("Tun i olie vs artiskok i olie", 'TUN I OLIE', 'Gestus Artiskok I Olie Gestus')
+    afvis("ONE Energy vs Red Bull", 'ONE ENERGY', 'Red Bull Energy Drink Red')
+    afvis("Røde spidskål vs Æbl. Røde (farve baerer ikke)", 'ØKO. RØDE SPIDSKÅL', 'Æbl. Røde Æbl.', produce=True)
+
+    accept("kandidaten maa have flere ord", 'SØDMÆLKSBRØD', 'Sødmælksbrød Schulstad')
+    accept("sammensat ord hos kandidaten", 'KYLLINGEBRYST', 'Kyllingebrystfilet Rose')
+    accept("Rema skriver sammen", 'BRUNE FULDKORNSRIS', 'Brune ris øko Salling ØKO')
+    accept("forkortelse hos modparten", 'ROYAL GALA ÆBLER', 'Æbl. Royal Gala 70+ Æbl.', produce=True)
+    accept("vokalloes Rema-forkortelse", 'CHORIZO M/RGT. PAPRIKA', 'Chorizo m. røget paprika Aalbæk')
+    accept("stavemaade", 'NATUREL YOGURT', 'Yoghurt naturel')
+    accept("synonym sovs/sauce", 'HAKKEBØF I SOVS', 'Jaka Hakkebøf I Sauce 4Stk Jaka')
+    accept("frugt & groent maa mangle eet ord", 'ICEBERG SALAT', 'Iceberg', produce=True)
+    accept("fyldord maa mangle", 'TOMATER VEJ SELV', 'Tomater', produce=True)
+
+    check("'Grønne druer' og 'Druer rød' er to farver",
+          get_product_colours('Stenfri grønne druer') != get_product_colours('Druer Rød Stenfri'))
+    check("'røde' og 'rød' er samme farve",
+          get_product_colours('Røde linser') == get_product_colours('Linser rød'))
+
+
 def test_kendte_huller() -> None:
     """Huller fundet ved matchmotor-analysen 25-08-2026, endnu ikke lukket."""
     print("\nKendte huller (skal fejle nu, bestå senere)")
@@ -724,6 +763,7 @@ def main() -> int:
     test_produkt_id_variant()
     test_farve_og_trin_gates()
     test_ean_konflikt_og_varianter_2026_09_09()
+    test_rema_ordregel_2026_10_07()
     test_kendte_huller()
 
     print()

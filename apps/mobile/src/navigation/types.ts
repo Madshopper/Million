@@ -19,6 +19,6 @@ export type RootStackParamList = {
   Auth: undefined;
   Settings: undefined;
   Feedback: undefined;
-  Support: undefined;
+  RecipeAccess: undefined;
   Legal: { kind: 'terms' | 'privacy' | 'about' };
 };

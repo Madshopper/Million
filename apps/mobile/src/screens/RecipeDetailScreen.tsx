@@ -25,6 +25,7 @@ import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
 import { joinLabel, spokenKr } from '../a11y/speech';
 import { StackScreenBody } from '../components/ScreenBody';
+import { ApiError } from '../api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
 
@@ -84,6 +85,8 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
   const [servings, setServings] = useState(4);
   const [baseServings, setBaseServings] = useState(4);
   const [addedLabel, setAddedLabel] = useState<string | null>(null);
+  // Serveren svarer 403, når kontoen ikke har betalt for opskrifterne.
+  const [locked, setLocked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +100,9 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
         const base = res.recipe.servings || 4;
         setBaseServings(base);
         setServings(base);
+      })
+      .catch((e) => {
+        if (!cancelled && e instanceof ApiError && e.status === 403) setLocked(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -173,6 +179,19 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
     return (
       <View style={[styles.center, { height: bodyHeight, backgroundColor: colors.bg }]}>
         <ActivityIndicator color={colors.primary} accessibilityLabel="Henter opskriften" />
+      </View>
+    );
+  }
+
+  if (locked) {
+    return (
+      <View style={[styles.center, { height: bodyHeight, backgroundColor: colors.bg, padding: 24 }]}>
+        <Text style={{ color: colors.text, textAlign: 'center', marginBottom: 12 }}>
+          Opskriften kræver et abonnement på opskrifterne.
+        </Text>
+        <Pressable onPress={() => navigation.replace('RecipeAccess')} accessibilityRole="button" hitSlop={8}>
+          <Text style={{ color: colors.primary, fontWeight: '700' }}>Se abonnement</Text>
+        </Pressable>
       </View>
     );
   }

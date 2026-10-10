@@ -607,7 +607,12 @@ def collect_products_in_category(driver, kategori_navn):
 # stille. Kategori-filteret her matcher derfor på begge navne.
 # ---------------------------------------------------------------------------
 
-_API_PAGE_SIZE = 500
+# Hele sortimentet i ét kald. Med 500 pr. side gentog API'et varer på tværs
+# af siderne (ustabil sortering), så Spar og Min Købmand aldrig nåede `total`
+# og natten fejlede: målt 07-10-2026 Spar 2.547 unikke af 2.959, Min Købmand
+# 4.035 af 4.476, Meny var hel. Med 10.000 kom alle tre butikker hele i én
+# side på ~2,5 s. Sideløkken bliver stående, hvis en butik en dag har flere.
+_API_PAGE_SIZE = 10000
 # Samme sortiment som Selenium-vejen: ingen pleje/husholdning/baby/dyr/diverse,
 # og kun tre underkategorier af kiosk (tobak m.m. udelades).
 _API_EXCLUDED_TOP = {"personlig pleje", "baby og børn", "husholdning",
@@ -667,7 +672,7 @@ def scrape_via_api():
         total = j.get("total", 0)
         batch = j.get("products") or []
         products.extend(batch)
-        if not batch or len(products) >= total:
+        if not batch or len({p.get("id") for p in products}) >= total:
             break
 
     unique = {p.get("id"): p for p in products}

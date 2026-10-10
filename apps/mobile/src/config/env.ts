@@ -18,6 +18,8 @@ type Extra = {
   flavor?: string;
   nonProdReleaseAllowed?: boolean;
   recipesEnabled?: boolean;
+  recipesPreviewKey?: string;
+  stagingAppKey?: string;
   pushEnabled?: boolean;
 };
 
@@ -36,6 +38,8 @@ export const env = {
   googleClientId: extra.googleClientId || '',
   googleIosClientId: extra.googleIosClientId || '',
   googleAndroidClientId: extra.googleAndroidClientId || '',
+  /** Kun MadShopper Test mod dev.madshopper.dk (se app.config.js). */
+  stagingAppKey: extra.stagingAppKey || '',
 };
 
 /**
@@ -65,6 +69,9 @@ if (!__DEV__ && env.flavor !== 'production' && !extra.nonProdReleaseAllowed) {
  * kryds (cirkulær import).
  */
 export const recipesEnabled = extra.recipesEnabled === true;
+
+/** Testnøgle til skjulte opskrifter (kun MadShopper Test, se app.config.js). */
+export const recipesPreviewKey = extra.recipesPreviewKey || '';
 
 /**
  * Beskeder på telefonen: altid synlig i builds med EXPO_PUBLIC_PUSH_ENABLED=1

@@ -35,7 +35,6 @@ import { recipesEnabled } from '../config/env';
 import { setServerPushEnabled } from '../push/push';
 import { setServerSwipeEnabled } from '../cart/swipeFlag';
 import { setServerMejeriNavnEnabled } from '../categories/categories';
-import { setServerSubscriptionEnabled } from '../subscription/subscription';
 import { setServerStatsEnabled } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -114,7 +113,6 @@ export function HomeScreen() {
         setServerStatsEnabled(data.stats_enabled);
         setServerSwipeEnabled(data.swipe_enabled);
         setServerMejeriNavnEnabled(data.mejeri_navn_enabled);
-        setServerSubscriptionEnabled(data.subscription_enabled);
         await loadSavings();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Kunne ikke hente forsiden');

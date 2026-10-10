@@ -72,7 +72,13 @@ ALERT_EXCEPTION_PER_HOUR = 10
 # forsinkelse, maalt 11-14/09-2026: 27 koersler paa 3 doegn), saa haendelser
 # mellem to koersler blev ALDRIG vurderet. 24 t daekker forsinkelsen med
 # margin; hver time-spand i vinduet vurderes for sig.
-LOOKBACK_HOURS = 24
+LOOKBACK_HOURS = 30
+# Cloudflares analytics-opslag holdes på 24 t (sikker grænse for
+# gratis-planens forespørgsler). Siden 09-10-2026 kører workflowet én gang i
+# døgnet, så D1-hændelserne ovenfor kigger 30 t tilbage for at dække
+# GitHub-cronens forsinkelse; 1101/1102 kan i værste fald have et par timers
+# blindt vindue, når to kørsler ligger mere end et døgn fra hinanden.
+CF_LOOKBACK_HOURS = 24
 
 _BUCKET_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$")
 
@@ -440,7 +446,7 @@ def check_d1_events() -> list[str]:
 
 def check_worker_invocations() -> list[str]:
     try:
-        acct = fetch_worker_invocations(LOOKBACK_HOURS)
+        acct = fetch_worker_invocations(CF_LOOKBACK_HOURS)
     except Exception as e:
         return [f"Cloudflare-analytics kunne ikke hentes: {e}"]
     problems_hour, _ = summarize_invocations(acct)

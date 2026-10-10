@@ -159,6 +159,28 @@ _MATCH_FLOOR = 0.55
 _MATCH_CONFIDENT = 0.78
 
 
+_prepared_cache: tuple[int, int, list] | None = None
+
+
+def _prepared_products(products: list[dict]) -> list[tuple]:
+    """(produkt, normaliseret navn, kødtyper, smage) pr. produkt, regnet én
+    gang pr. produktliste i stedet for én gang pr. ingrediens: normalize_name
+    og de to gates kostede ~2 s pr. ingrediens over ~20k produkter, så 30
+    opskrifter tog over en halv time."""
+    global _prepared_cache
+    key = (id(products), len(products))
+    if _prepared_cache is None or _prepared_cache[:2] != key:
+        prepared = []
+        for product in products:
+            title = product.get('/product/title', '')
+            cand_name = normalize_name(title)
+            if not cand_name:
+                continue
+            prepared.append((product, cand_name, get_meat_types(title), get_product_flavors(title)))
+        _prepared_cache = (*key, prepared)
+    return _prepared_cache[2]
+
+
 def _score_candidates(ingredient_name: str, products: list[dict]) -> list[tuple]:
     """(score, product)-par for alle produkter der består kødtype-gaten,
     sorteret højeste score først. Delt af match_ingredient_to_product
@@ -183,15 +205,9 @@ def _score_candidates(ingredient_name: str, products: list[dict]) -> list[tuple]
     query_flavors = get_product_flavors(ingredient_name)
 
     scored = []
-    for product in products:
-        title = product.get('/product/title', '')
-        cand_name = normalize_name(title)
-        if not cand_name:
-            continue
-        cand_meats = get_meat_types(title)
+    for product, cand_name, cand_meats, cand_flavors in _prepared_products(products):
         if query_meats and cand_meats and not meats_match(query_meats, cand_meats):
             continue
-        cand_flavors = get_product_flavors(title)
         if not (cand_flavors <= query_flavors):
             continue
         score = fuzzy_score(query, cand_name)
