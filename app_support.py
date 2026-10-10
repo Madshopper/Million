@@ -322,6 +322,24 @@ def search_match_score(product: dict, query: str) -> int:
     return score * 1000 - min(len(name), 999)
 
 
+def store_match_names(store_matches) -> str:
+    """De andre butikkers navne for varen på kortet, til søgningen.
+
+    Kortet viser kun én butiks navn, men butikkerne kalder samme vare noget
+    forskelligt: Spar skriver "Toms Skildpadde", mens Føtex skriver "Flødeis m.
+    romsmag, karamelsauce og chokoladestykker". Uden de andre navne fandt en
+    søgning på "skildpadde is" ikke kortet (set 10-10-2026)."""
+    if not isinstance(store_matches, dict):
+        return ''
+    seen: list[str] = []
+    for m in store_matches.values():
+        if isinstance(m, dict):
+            name = str(m.get('name') or '').strip()
+            if name and name not in seen:
+                seen.append(name)
+    return ' '.join(seen)
+
+
 def build_search_index(products: list, normalize_fn, flavor_fn=None) -> dict[str, set[str]]:
     """token -> set of product ids for fast AND-search."""
     index: dict[str, set[str]] = {}
@@ -342,6 +360,9 @@ def build_search_index(products: list, normalize_fn, flavor_fn=None) -> dict[str
                     text = f"{text} {flavors}"
             except Exception:
                 pass
+        names = store_match_names(product.get('/product/store_matches'))
+        if names:
+            text = f"{text} {names}"
         norm = normalize_fn(text)
         seen_tokens: set[str] = set()
         for token in norm.split():
@@ -396,7 +417,11 @@ def _normalized_match_fields(product: dict) -> tuple[str, str, str]:
     fields = (
         normalize_name(str(product.get('name', ''))),
         normalize_name(str(product.get('brand', ''))),
-        normalize_name(str(product.get('description', ''))),
+        # Beskrivelsen bærer også de andre butikkers navne for varen (se
+        # store_match_names), samme tekst som søgeindekset er bygget af.
+        normalize_name(' '.join(filter(None, (
+            str(product.get('description', '')),
+            store_match_names(product.get('store_matches')))))),
     )
     product['_norm_fields'] = fields
     return fields

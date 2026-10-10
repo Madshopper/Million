@@ -770,6 +770,20 @@ def test_egne_maerker_voldgift_2026_10_10() -> None:
           _drop_silent_own_brand_organic(blandet, _NO_VARIANT_FLAGS) == blandet)
 
 
+def test_soegning_finder_andre_butikkers_navne_2026_10_10() -> None:
+    print("\nSøgning: andre butikkers navne for varen (10-10-2026)")
+    from app_support import product_matches_query, store_match_names
+    card = {'name': 'Flødeis m. romsmag, karamelsauce og chokoladestykker',
+            'brand': 'Toms', 'description': '825 ml',
+            'store_matches': {'foetex': {'name': 'Flødeis m. romsmag, karamelsauce og chokoladestykker'},
+                              'spar': {'name': 'Toms Skildpadde'}}}
+    check("navnene samles uden dubletter",
+          store_match_names(card['store_matches']).count('Flødeis') == 1)
+    check("'skildpadde is' finder Føtex' flødeis via Spars navn",
+          product_matches_query(dict(card), 'skildpadde is'))
+    check("'lakrids' finder den stadig ikke", not product_matches_query(dict(card), 'lakrids'))
+
+
 def main() -> int:
     print("=" * 62)
     print("MATCHMOTOR - REGRESSIONSTEST")
@@ -803,6 +817,7 @@ def main() -> int:
     test_ean_konflikt_og_varianter_2026_09_09()
     test_rema_ordregel_2026_10_07()
     test_egne_maerker_voldgift_2026_10_10()
+    test_soegning_finder_andre_butikkers_navne_2026_10_10()
     test_kendte_huller()
 
     print()
