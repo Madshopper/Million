@@ -23,24 +23,6 @@
       <button type="button" class="savings-badge savings-badge--btn" id="savingsLoginBtn">Log ind</button>
     </div>
 
-    {% if flyers_enabled %}
-    {# Butikkernes tilbudsaviser (Feature 'flyers'). static/js/flyers.js henter
-       aviserne direkte fra Tjek og skjuler logoer uden avis eller for
-       fravalgte butikker. #}
-    <section class="flyers" id="flyersSection" aria-labelledby="flyersHeading">
-      <h2 id="flyersHeading">Tilbudsaviser</h2>
-      <div class="flyers-row">
-        {% for store in flyer_stores %}
-        <button type="button" class="flyer-logo" data-tjek="{{ store.tjek }}" data-label="{{ store.label }}"
-                aria-label="Se tilbudsavisen fra {{ store.label }}">
-          <img src="{{ url_for('static', filename=store.logo.replace('/static/', '', 1)) }}" alt="" loading="lazy" width="56" height="56">
-          <span>{{ store.label }}</span>
-        </button>
-        {% endfor %}
-      </div>
-    </section>
-    {% endif %}
-
     <div class="filters-wrapper">
 
 
@@ -83,5 +65,3 @@
   </div>
 </div>
 {% endblock %}
-
-{% block scripts %}{% if flyers_enabled %}<script src="{{ url_for('static', filename='js/flyers.js') }}" defer></script>{% endif %}{% endblock %}
