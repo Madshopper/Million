@@ -272,8 +272,53 @@ export async function check(env, scheduledTime = Date.now()) {
   return { results: Object.fromEntries(results), down, newlyDown: newlyDown.map((c) => c.name), recovered };
 }
 
+// Nattens hentning af butikkerne (Kalle, 10-10-2026: siden skal opdateres så
+// hurtigt som muligt efter midnat). GitHubs egen cron kommer 1-4 timer for
+// sent; en Cloudflare-cron kommer til tiden. Den beder derfor GitHub om at
+// starte nightly-dispatcher.yml (slot "nat") kl. 00:01 dansk tid. Cron'en
+// står både på 22:01 og 23:01 UTC, og kun den der rammer midnat dansk tid
+// (sommer- eller vintertid) gør noget. Uden GH_DISPATCH_TOKEN gør den intet,
+// og GitHubs egen cron er sikkerhedsnet.
+const NIGHT_CRONS = ["1 22 * * *", "1 23 * * *"];
+const DISPATCH_URL =
+  "https://api.github.com/repos/Madshopper/Million/actions/workflows/nightly-dispatcher.yml/dispatches";
+
+function danishHour(ms) {
+  return new Intl.DateTimeFormat("da-DK", {
+    timeZone: "Europe/Copenhagen", hour: "2-digit", hourCycle: "h23",
+  }).format(new Date(ms));
+}
+
+export async function startNight(env, scheduledTime = Date.now()) {
+  if (danishHour(scheduledTime) !== "00") return "ikke midnat dansk tid";
+  if (!env.GH_DISPATCH_TOKEN) return "GH_DISPATCH_TOKEN mangler";
+  const res = await fetch(DISPATCH_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.GH_DISPATCH_TOKEN}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "MadShopper-Uptime",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ref: "main", inputs: { slot: "nat" } }),
+  });
+  if (res.status !== 204) {
+    const text = (await res.text()).slice(0, 300);
+    throw new Error(`GitHub svarede ${res.status}: ${text}`);
+  }
+  return "startet";
+}
+
 export default {
   async scheduled(event, env, ctx) {
+    if (NIGHT_CRONS.includes(event.cron)) {
+      ctx.waitUntil(startNight(env, event.scheduledTime).then(
+        (r) => console.log("nat:", r),
+        (err) => console.error("nat: kunne ikke starte nightly-dispatcher:", String(err)),
+      ));
+      return;
+    }
     ctx.waitUntil(check(env, event.scheduledTime).then((r) => {
       const failing = Object.keys(r.down);
       if (failing.length) console.error("uptime: nede:", JSON.stringify(r.results));
