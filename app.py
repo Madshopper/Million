@@ -1768,25 +1768,26 @@ _FEATURES = (
 _PROJECTS = (
     {
         'key': 'app_store',
-        'name': 'Appen i App Store og Google Play',
+        'name': 'Appen i Google Play',
         'status': 'waiting',
-        'desc': 'Appen er bygget og testet i simulatoren. Den mangler de '
-                'konti og trin, kun du kan klare, før den kan udgives.',
+        'desc': 'iPhone-appen er i App Store (version 1.0.3, 1.0.4 er '
+                'klar i koden). Android-appen mangler de konti og trin, kun '
+                'du kan klare, før den kan udgives.',
         'parts': (
             {'done': True, 'name': 'Appen bygget',
              'desc': 'Alle skærme, login, kurv, lister og prisalarmer.'},
-            {'done': True, 'name': 'Klar til Apples godkendelse',
-             'desc': 'Slet konto i appen, skærmbilleder til iPhone og app-tekster.'},
-            {'done': False, 'name': 'Apple Developer-konto',
-             'desc': 'Koster ca. 99 USD om året. Giver også Apple-login på hjemmesiden.'},
+            {'done': True, 'name': 'iPhone-appen i App Store',
+             'desc': 'Apple Developer-konto, test på din iPhone og Apples '
+                     'godkendelse er klaret.'},
             {'done': False, 'name': 'Google Play-konto',
              'desc': 'Koster ca. 25 USD én gang.'},
-            {'done': False, 'name': 'Første rigtige test på en telefon',
-             'desc': 'Google- og Apple-login er kun prøvet i simulatoren.'},
+            {'done': False, 'name': 'Android klar til Google Play',
+             'desc': 'Ligger klar i PR #50. Beskeder kræver også en gratis '
+                     'Firebase-opsætning.'},
             {'done': False, 'name': 'Skærmbilleder til Android',
              'desc': 'Kræver en Android-telefon eller -simulator.'},
-            {'done': False, 'name': 'Send til godkendelse',
-             'desc': 'Udfyld oplysningerne i App Store Connect og Play Console og indsend.'},
+            {'done': False, 'name': 'Send til godkendelse i Google Play',
+             'desc': 'Udfyld oplysningerne i Play Console og indsend.'},
         ),
     },
     {
@@ -1859,10 +1860,9 @@ _PROJECTS = (
         'name': 'Reservevej for Spar, Meny og Min Købmand',
         'status': 'waiting',
         'desc': 'Priserne hentes fra butikkernes egen vareliste. Svigter den, '
-                'klikker en reservevej sig gennem butikkens hjemmeside. Den '
-                'fandt ingen kategorier efter at siden blev ændret (set '
-                '07-10-2026). Nu går den direkte til hver kategoris adresse. '
-                'Venter på merge.',
+                'går en reservevej direkte til hver kategoris adresse på '
+                'butikkens hjemmeside. Færdig og merget 10-10-2026 (PR #92), '
+                'så den kan markeres som færdig.',
         'parts': (
             {'done': True, 'name': 'Varelisten henter alle varer igen',
              'desc': 'Rettet 07-10-2026: før manglede ca. 400 varer hos Spar '
@@ -1870,6 +1870,44 @@ _PROJECTS = (
             {'done': True, 'name': 'Reservevejen virker igen',
              'desc': 'Rettet 10-10-2026 og prøvet på alle tre butikker: '
                      'samme antal varer pr. kategori som varelisten.'},
+        ),
+    },
+    {
+        'key': 'tilbud_direkte',
+        'name': 'Ugens tilbud direkte fra butikkerne',
+        'status': 'waiting',
+        'desc': 'Ugens tilbud hentes fra butikkernes egne sider i stedet for '
+                'fra Tjek. Coops fire butikker venter på svar fra Coop.',
+        'parts': (
+            {'done': True, 'name': 'Netto, Føtex, Lidl og Løvbjerg',
+             'desc': 'Fra butikkernes egne sider (PR #83).'},
+            {'done': True, 'name': 'ABC Lavpris',
+             'desc': 'Læst ud af avisen på abc-lavpris.dk (PR #86).'},
+            {'done': True, 'name': 'Lidl: frugt og grønt og ugeavisen',
+             'desc': 'Hentes søndag og torsdag, når Lidls priser skifter '
+                     '(PR #89).'},
+            {'done': True, 'name': 'Tilbudsaviserne fjernet',
+             'desc': 'Aviserne på forsiden kom fra Tjek og er taget af web '
+                     'og app (PR #87).'},
+            {'done': False, 'name': '365discount, Brugsen, Kvickly og SuperBrugsen',
+             'desc': 'Hentes stadig via Tjek. Mail sendt til Coop '
+                     '10-10-2026; venter på svar.'},
+        ),
+    },
+    {
+        'key': 'nat_hurtigere',
+        'name': 'Hurtigere opdatering om natten',
+        'status': 'doing',
+        'desc': 'Cloudflare starter hentningen af butikkerne kl. 00:01, og '
+                'siden opdateres lige efter, i stedet for at vente på '
+                'GitHubs ur, der kom 1-4 timer for sent.',
+        'parts': (
+            {'done': True, 'name': 'Siden opdateres lige efter butikkerne',
+             'desc': 'Cache-opdateringen starter, når nattens hentning er færdig.'},
+            {'done': True, 'name': 'Start kl. 00:01 fra Cloudflare',
+             'desc': 'Merget 10-10-2026 (PR #88), nøglen er sat.'},
+            {'done': False, 'name': 'Første nat tjekket',
+             'desc': 'Tjekkes morgenen efter 10-10-2026.'},
         ),
     },
     {
