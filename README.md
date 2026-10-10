@@ -329,6 +329,14 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
      "Grillpølser 62% kød" on the same Rema card). At most one can be the Rema product;
      without an arbiter all conflicting members are dropped. Pairs sharing an EAN are
      exempt (authoritatively the same product despite label drift, e.g. 1,5% vs 1,6%).
+   - **EAN-cluster arbitration** (`_arbitrate_ean_clusters`): when the matches carry
+     several different EANs, the best-fitting EAN group is kept and the rest dropped
+     (a tie drops all). Exception: when every group is a chain's own brand (Salling,
+     ØGO, First Price, Gestus ...), all groups are kept, since own brand vs own brand
+     across chains is a wanted comparison. Own-brand members that don't say "øko" are
+     dropped when the Rema product is organic (`_drop_silent_own_brand_organic`), and
+     an EAN can only sit on one Rema card (otherwise the EAN-invariant merge would
+     swallow a Rema product).
    - **EAN cross-fill** into stores that missed is weight-, quantity- and percentage-gated the same way.
 2. **Phase 1** - stage-1 EAN grouping across unmatched comparison-store products.
 3. **Phase 2** - stage 3 initiates fuzzy vs remaining unmatched products (including stage-2

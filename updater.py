@@ -613,7 +613,10 @@ _PRIVATE_LABEL_BRANDS: frozenset = frozenset({
     'coop minirisk', 'coop gourmet', 'coop premium', 'cirkel kaffe',
     'nordisk køkken',
     # Dagrofa – egne mærker (MENY, SPAR, Min Købmand, Let-Køb)
-    'first price', 'fp', 'grøn balance', 'gestus', 'vores', 'karma', 'k-salat',
+    # 'gb' og 'dgs' er Dagrofas forkortelser i varenavnet ("Gb Broccoli Øko",
+    # "Dgs Hamburgerryg"). K-Salat er IKKE et kædemærke (Orkla) og er taget ud
+    # 10-10-2026: Rema tunsalat stod ellers sammen med K-Salat tunsalat.
+    'first price', 'fp', 'grøn balance', 'gb', 'dgs', 'gestus', 'vores', 'karma',
     'omhu', 'spicefield', 'banderos', 'fixa', 'praktisk', 'pur aktiv', 'silkline',
     # Kædenavne der også bruges som brand
     'meny', 'spar', 'min kobmand', 'min købmand', 'let-kob', 'let-køb',
@@ -630,7 +633,7 @@ _PRIVATE_LABEL_PREFIXES: tuple = (
     'rema ', 'rema 1000 ', 'gram slot ', 'kolonihagen ', 'cleverdeli ',
     'salling ', 'slagteren ', 'budget ',
     'coop ', 'xtra ', 'x-tra ', 'änglamark ', 'irma ',
-    'first price ', 'fp ', 'grøn balance ', 'gestus ', 'levevis ',
+    'first price ', 'fp ', 'grøn balance ', 'gb ', 'dgs ', 'gestus ', 'levevis ',
     'vores ', 'karma ', 'cirkel ',
     'omhu ', 'spicefield ', 'banderos ', 'praktisk ',
     'milbona ', 'crownfield ', 'combino ', 'deluxe ', 'harvest basket ',
@@ -939,7 +942,8 @@ def _drop_cross_conflicting_matches(matches: dict, rema_w, rema_pcts: frozenset)
             # samlede Rema (og billed-dedup) Salling-husmærker med ØGO/
             # Chestfords på identiske generiske navne. Sammenlignes via
             # ean_key, så 0-polstret GTIN-14 og EAN-13 er samme vare.
-            if eans_conflict(e1, e2):
+            own_pair = m1.get('_brand_cls') == 'pl' and m2.get('_brand_cls') == 'pl'
+            if eans_conflict(e1, e2) and not own_pair:
                 conflicted.update((k1, k2))
                 continue
             # Mærke-armen kører ALTID. To kandidater med hvert sit ægte
@@ -951,8 +955,11 @@ def _drop_cross_conflicting_matches(matches: dict, rema_w, rema_pcts: frozenset)
             # Målt på en fuld kørsel: 161 par som "Romkugler"/Dan Cake og
             # "Romkugler"/Fintons sad på samme Rema-kort, fordi gaten kun
             # sammenligner hver kandidat mod Rema - aldrig mod hinanden.
-            if brands_conflict(str(m1.get('name') or ''), str(m1.get('brand') or ''),
-                               str(m2.get('name') or ''), str(m2.get('brand') or '')):
+            # To kæders egne mærker (Salling mod Gestus) er ikke en mærke-
+            # konflikt - se _arbitrate_ean_clusters.
+            if not own_pair and brands_conflict(
+                    str(m1.get('name') or ''), str(m1.get('brand') or ''),
+                    str(m2.get('name') or ''), str(m2.get('brand') or '')):
                 conflicted.update((k1, k2))
             elif not check_physical:
                 continue
@@ -966,20 +973,89 @@ def _drop_cross_conflicting_matches(matches: dict, rema_w, rema_pcts: frozenset)
     return {k: m for k, m in matches.items() if k not in conflicted}
 
 
+def _all_own_brand(matches: dict, keys) -> bool:
+    """True når alle medlemmerne er kædens eget mærke (Salling, ØGO, Gestus ...)."""
+    return all(matches[k].get('_brand_cls') == 'pl' for k in keys)
+
+
+def _is_national_member(p: dict, store_key: str) -> bool:
+    """Mærkevare? Som _brand_cls, men også når kategorien har skjult mærket.
+
+    brand_class regner alt i Frugt & Grønt som ukendt mærke (dér er feltet
+    oprindelsesland), og Bilkas katalog lægger fx Steff Houlbergs "Bøf
+    bearnaise m. ... grønne ærter" i Frugt & Grønt. Et mærke, som andre
+    butikker bruger som rigtigt mærke, er derfor stadig et mærke."""
+    if p.get('_brand_cls') == 'nat':
+        return True
+    if p.get('_is_pl') or store_key in _BRAND_FIELD_UNRELIABLE_STORES:
+        return False
+    return _in_brand_vocab(p.get('brand') or '')
+
+
+def _keep_only_own_brands(matches: dict, store_data: dict) -> dict:
+    """Remas egne varer sammenlignes kun med andre kæders egne mærker.
+
+    Kalle 10-10-2026: "Remas minimælk kan kun sammenlignes med Irma, Salling
+    og sådan noget, men fx ikke Arla". Mærke-gaten stoppede kun kandidater med
+    et genkendt nationalt mærke, så to slags huller slap igennem (målt
+    10-10-2026: 53 butikspriser på Remas egne kort):
+
+    - Dagrofas mærkefelt er bare første ord i navnet ("Bøf", "Indbagt",
+      "Marburger"), så mærket er ukendt. Her kræves et genkendt kædemærke
+      (First Price, Gestus, Grøn Balance ...).
+    - Samme stregkode hos en anden butik afslører mærket: Menys "Bøf
+      Bearnaise" hedder "Steff Houlberg" hos Bilka. Så ryger stregkoden.
+    """
+    nat_eans = set()
+    for m in matches.values():
+        ean = m.get('ean')
+        if not ean:
+            continue
+        for key in DB_STORE_KEYS:
+            hit = store_data[key][3].get(ean)
+            if hit is not None and _is_national_member(hit, key):
+                nat_eans.add(ean)
+                break
+    return {k: m for k, m in matches.items()
+            if not _is_national_member(m, k)
+            and not (m.get('ean') and m.get('ean') in nat_eans)
+            and not (k in _BRAND_FROM_NAME_STORES and m.get('_brand_cls') != 'pl')}
+
+
 def _arbitrate_ean_clusters(matches: dict, rema_title: str, rema_description: str,
-                            rema_brand: str) -> dict:
+                            rema_brand: str, rema_strong_pl: bool = False) -> dict:
     """Behold kun den bedste stregkode-gruppe, når matches har flere.
 
     Grupperne vurderes på (antal butikker, summen af navnelighed mod Rema-
     titlen + mærke-bonus). Medlemmer uden stregkode beholdes, hvis deres mærke
     ikke modsiger vindergruppen; _drop_cross_conflicting_matches kører bagefter
     som før og fanger vægt/procent-konflikter.
+
+    Undtagelse: er ALLE grupper kædernes egne mærker, beholdes de alle. Hver
+    kæde har sin egen stregkode på sit eget mærke, så Remas "ÆBLEMOS" mod
+    Sallings og First Prices æblemos er netop den sammenligning Kalle har
+    sagt ja til (07-10-2026) - og der er højst én vare pr. butik på kortet.
+    Før gav to sådanne grupper ofte uafgjort, og så røg ALLE sammenligninger
+    (138 Rema-varer stod alene af den grund, målt 10-10-2026).
     """
     clusters: dict = {}
     for k, m in matches.items():
         ek = ean_key(m.get('ean'))
         if ek:
             clusters.setdefault(ek, []).append(k)
+    if len(clusters) < 2:
+        return matches
+    # Rema skriver selv sit navn på varen: så er mærkevare-grupperne aldrig
+    # samme vare (Kalle 07-10-2026), og de må ikke vinde voldgiften eller
+    # gøre den uafgjort. De droppes alligevel bagefter (clash_eans).
+    if rema_strong_pl:
+        own = {ek: keys for ek, keys in clusters.items() if _all_own_brand(matches, keys)}
+        if own and len(own) < len(clusters):
+            nat_keys = {k for ek, keys in clusters.items() if ek not in own for k in keys}
+            matches = {k: m for k, m in matches.items() if k not in nat_keys}
+            clusters = own
+    if all(_all_own_brand(matches, keys) for keys in clusters.values()):
+        return matches
     if len(clusters) < 2:
         return matches
     rema_norms = [n for n in (normalize_name(rema_title), normalize_name(rema_description)) if n]
@@ -1019,6 +1095,22 @@ def _arbitrate_ean_clusters(matches: dict, rema_title: str, rema_description: st
 
 
 _NO_VARIANT_FLAGS = (False, False, False, False, False, False)
+
+
+def _drop_silent_own_brand_organic(matches: dict, rema_variants: tuple) -> dict:
+    """Rema-varen er økologisk: drop kædernes egne mærker, der ikke siger øko.
+
+    Variant-gaten er bevidst ensidig, fordi mærkevarer ofte udelader "øko" i
+    navnet. Kædernes egne mærker gør ikke: Salling skriver "Salling ØKO"/"øko",
+    First Price "Øko", Netto "ØGO". En tavs egen-mærke-vare er derfor den
+    almindelige udgave (fx GRAM SLOT økologisk skummetmælk mod First Price
+    Skummetmælk, set 10-10-2026, da voldgiften begyndte at beholde egne mærker).
+    """
+    if not rema_variants or not rema_variants[0]:
+        return matches
+    return {k: m for k, m in matches.items()
+            if not (m.get('_brand_cls') == 'pl'
+                    and not m.get('_variants', _NO_VARIANT_FLAGS)[0])}
 
 
 def _drop_variant_conflicting_matches(matches: dict, rema_variants: tuple) -> dict:
@@ -2622,6 +2714,31 @@ def _card_weight_g(card: dict) -> float | None:
     return parse_weight_to_grams(str(card.get('/product/unit_pricing_measure', '')))
 
 
+def _is_rema_own_card(card: dict) -> bool:
+    """Kortet er en Rema-vare, hvor Rema selv skriver sit navn på varen."""
+    if not str(card.get('/product/id') or '').isdigit():
+        return False
+    desc = normalize_name(str(card.get('/product/description') or '')).replace(' ', '')
+    return desc.startswith('rema1000')
+
+
+def _card_has_national_brand(card: dict) -> bool:
+    """Kortet selv eller et af dets butiks-medlemmer er en mærkevare."""
+    entries = [(_LABEL_TO_KEY.get(card.get('/product/store', '')),
+                card.get('/product/brand'), card.get('/product/title'))]
+    entries += [(k, m.get('brand'), m.get('name'))
+                for k, m in (card.get('/product/store_matches') or {}).items()
+                if isinstance(m, dict)]
+    for key, brand, name in entries:
+        if not key or key == REMA_KEY:
+            continue
+        brand, name = str(brand or ''), str(name or '')
+        cls = brand_class(brand, name, is_private_label(brand, name), '', key)
+        if cls == 'nat' and (key not in _BRAND_FROM_NAME_STORES or _in_brand_vocab(brand)):
+            return True
+    return False
+
+
 def _dedup_same_product(kept: dict, dup: dict) -> bool:
     """Sanity-check før billede-dedup fletter to kort: er det samme vare?
 
@@ -2629,6 +2746,10 @@ def _dedup_same_product(kept: dict, dup: dict) -> bool:
     0.33 l og 24-pakken deler billed-URL i Salling-feedet) og til tider på tværs
     af helt forskellige varer (generiske frugtfotos). Uforenelig vægt eller helt
     uens navne betyder, at kortene skal forblive adskilte."""
+    # Remas egne varer står aldrig på kort med en mærkevare (Kalle 10-10-2026).
+    if ((_is_rema_own_card(kept) and _card_has_national_brand(dup))
+            or (_is_rema_own_card(dup) and _card_has_national_brand(kept))):
+        return False
     w_kept, w_dup = _card_weight_g(kept), _card_weight_g(dup)
     if w_kept and w_dup and not weights_compatible(w_kept, w_dup):
         return False
@@ -3868,6 +3989,8 @@ def fetch_and_parse_xml():
 
         final_products = []
         matched_ids  = {key: set() for key in DB_STORE_KEYS}
+        # Stregkoder der allerede står på et Rema-kort (se nedenfor).
+        rema_claimed_eans: set = set()
         match_counts = {key: 0     for key in DB_STORE_KEYS}
 
         for product in rema_products:
@@ -3977,10 +4100,20 @@ def fetch_and_parse_xml():
             # Remas "øko", må voldgiften ikke vælge den tavse, almindelige
             # udgave, bare fordi den findes i flere butikker.
             matches = _drop_variant_conflicting_matches(matches, rema_variants)
+            matches = _drop_silent_own_brand_organic(matches, rema_variants)
+            # Skriver Rema selv sit navn på varen? rema_brand_class gætter
+            # 'pl' for alt med et ukendt mærke ("PÅLÆKKER", "FLASKE"), og
+            # det gæt må ikke smide hele stregkode-grupper ud.
+            rema_desc = normalize_name(str(product.get('/product/description') or ''))
+            rema_strong_pl = (
+                is_private_label(str(product.get('/product/brand') or ''),
+                                 str(product.get('/product/title') or ''))
+                or normalize_name(str(product.get('/product/brand') or '')).replace(' ', '') == 'rema1000'
+                or rema_desc.replace(' ', '').startswith('rema1000'))
             matches = _arbitrate_ean_clusters(
                 matches, str(product['/product/title']),
                 str(product.get('/product/description') or ''),
-                str(product.get('/product/brand') or ''))
+                str(product.get('/product/brand') or ''), rema_strong_pl)
             matches = _drop_cross_conflicting_matches(matches, rema_w, rema_pcts)
             # ... og på variant-flag: en tavs kandidat droppes, når et andet
             # medlem eksplicit bekræfter et Rema-flag, kandidaten mangler.
@@ -4019,21 +4152,25 @@ def fetch_and_parse_xml():
             # med et tavst mærkefelt ("A.B.") kan via stregkoden trække
             # mærkevaren ind fra en butik, der kender mærket ("Anthon Berg").
             # Samme stregkode er samme vare, så hele gruppen droppes. Kun når
-            # Rema selv skriver sit navn på varen: rema_brand_class gætter
-            # 'pl' for alt med et ukendt mærke ("PÅLÆKKER", "FLASKE"), og
-            # det gæt må ikke smide hele stregkode-grupper ud.
-            rema_desc = normalize_name(str(product.get('/product/description') or ''))
-            rema_strong_pl = (
-                is_private_label(str(product.get('/product/brand') or ''),
-                                 str(product.get('/product/title') or ''))
-                or normalize_name(str(product.get('/product/brand') or '')).replace(' ', '') == 'rema1000'
-                or rema_desc.replace(' ', '').startswith('rema1000'))
+            # Rema selv skriver sit navn på varen (rema_strong_pl ovenfor).
             clash_eans = {m.get('ean') for m in matches.values()
                           if rema_strong_pl and m.get('ean')
                           and m.get('_brand_cls') == 'nat'}
             if clash_eans:
                 matches = {k: m for k, m in matches.items()
                            if m.get('ean') not in clash_eans}
+            if rema_strong_pl:
+                matches = _keep_only_own_brands(matches, store_data)
+
+            # Én stregkode, ét Rema-kort. claimed_ids gælder kun pr. butik, så
+            # to Rema-varer kunne tage samme vare i hver sin butik (Meny og
+            # Spar har samme First Price-stregkode). Bagefter flettede
+            # _merge_cards_sharing_ean de to Rema-kort, og den ene Rema-vare
+            # forsvandt fra siden.
+            matches = {k: m for k, m in matches.items()
+                       if ean_key(m.get('ean')) not in rema_claimed_eans}
+            rema_claimed_eans.update(
+                ean_key(m.get('ean')) for m in matches.values() if ean_key(m.get('ean')))
 
             # Store matches and track IDs
             product['/product/store_matches'] = {}

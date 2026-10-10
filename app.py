@@ -1850,9 +1850,10 @@ _PROJECTS = (
             {'done': False, 'name': 'Is og chokolade holdes adskilt',
              'desc': 'Fx Skildpadde-chokolade mod Skildpadde-is. Klar til '
                      'merge.'},
-            {'done': False, 'name': 'Flere Rema-varer sammenlignes',
-             'desc': 'En oprydning smider i dag mange rigtige Rema-'
-                     'sammenligninger væk, så ca. 580 Rema-varer står alene.'},
+            {'done': True, 'name': 'Flere Rema-varer sammenlignes',
+             'desc': 'Kædernes egne mærker (Salling, First Price, Gestus, '
+                     'ØGO) bliver nu stående side om side på Rema-kortet i '
+                     'stedet for at blive smidt væk (10-10-2026).'},
         ),
     },
     {
