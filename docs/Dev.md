@@ -35,11 +35,10 @@ Der er ingen dev-branch længere (fjernet 02-10-2026). Alt arbejde går via en f
    git commit -m "..."
    git push -u origin min-feature
 7. Åbn en pull request mod main på GitHub. Tests (mobile-tests, parity-tests m.fl.) kører på PR'en.
-8. Vil du se den på en rigtig edge-deployment før merge? Gå til Actions > "Deploy Edge Worker (staging)" > Run workflow, vælg din branch -> deployer til:
-   https://dev.madshopper.dk
-   Næste push til main skriver staging tilbage til main-koden.
+8. Deploy IKKE en PR-branch til dev.madshopper.dk. Dev skal altid køre præcis det samme som main (Kalle, 10-10-2026), fordi Kalle tester main live på sin telefon i MadShopper Test.
 9. Tilfreds? Merge PR'en ind i main -> deployer automatisk til både produktion (madshopper.dk) og staging (dev.madshopper.dk).
-   Rører PR'en updater.py, app_support.py, scraper/** eller cache-updater.yml, så skriv [skip ci] i merge-committen (ellers en ekstra fuld D1-reseed, se CLAUDE.md § D1-skrivebudget). [skip ci] springer også deploy over, så kør derefter "Deploy Edge Worker" og "Deploy Edge Worker (staging)" manuelt på main hvis edge-koden også er ændret.
+   Rører PR'en updater.py, app_support.py, scraper/** eller cache-updater.yml, så skriv [skip ci] i merge-committen (ellers en ekstra fuld D1-reseed, se CLAUDE.md § D1-skrivebudget). [skip ci] springer også deploy over, så kør derefter "Deploy Edge Worker" og "Deploy Edge Worker (staging)" manuelt på main hvis edge-koden også er ændret. Rører den apps/mobile/**, så kør også "MadShopper Test (opdatering over nettet)".
+   MadShopper Test (kun Kalles telefon) følger main af sig selv: ved hvert merge, der rører apps/mobile/**, sender test-app-update.yml den nye appkode til den over nettet (EAS Update), og appen henter den, når den åbnes. Kun nye native-pakker, ikoner og tilladelser kræver et nyt build på Mac'en (APP_VARIANT=test, fra en frisk main med npm ci).
 
 
 VALGFRIT - MANUELLE KOMMANDOER (kun hvis du vil springe GitHub Actions over)

@@ -9,6 +9,7 @@ import { CartProvider } from './src/cart/CartContext';
 import { AuthProvider } from './src/auth/AuthContext';
 import { SharedCartProvider } from './src/cart/SharedCartContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { startTestAppUpdates } from './src/updates/testAppUpdates';
 
 // supabase-js's GoTrueClient logs this via console.error on every failed
 // refresh tick even though it explicitly documents it as expected/transient
@@ -17,6 +18,9 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 // simulator build specifically: without an Apple Team ID (docs/env-setup.md §5)
 // there's no keychain-access-groups entitlement, so SecItem lookups error out
 // (errSecMissingEntitlement) even though the code path is correct.
+// Kun MadShopper Test: hent ny appkode fra main (gør intet i butiksappen).
+startTestAppUpdates();
+
 LogBox.ignoreLogs([
   'Auto refresh tick failed with error',
   "Calling the 'getValueWithKeyAsync' function has failed",

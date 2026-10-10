@@ -27,7 +27,7 @@ require_int() {
 
 # DEPLOY_ENV=staging bygger madshopper-dev (egen KV/D1, custom domain
 # dev.madshopper.dk + den gratis workers.dev-URL som fallback) i stedet for
-# produktions-workeren. Bruges af deploy-edge-dev.yml (manuel, vilkårlig branch) og kan
+# produktions-workeren. Bruges af deploy-edge-dev.yml (kun main) og kan
 # køres lokalt til test.
 #
 # Fail-safe: KUN de to kendte værdier accepteres. Før faldt ALT andet end
