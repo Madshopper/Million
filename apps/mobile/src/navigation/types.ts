@@ -12,6 +12,13 @@ export type RootStackParamList = {
   Category: { slug: string; title: string };
   Sale: undefined;
   StoreOffers: { storeKey: string; label: string; avisUrl: string };
+  StoreOffersList: {
+    storeKey: string;
+    label: string;
+    avisUrl: string;
+    title: string;
+    kategori?: string;
+  };
   Cart: undefined;
   ProductDetail: { product: import('../api/types').Product };
   RecipeDetail: { recipeId: number };

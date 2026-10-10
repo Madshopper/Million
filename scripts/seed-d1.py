@@ -335,6 +335,8 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
         # _build_sale_listing), så de tælles heller ikke med.
         _count_row(stats, category, subcategory,
                    1 if (sale_price is not None or p.get("/product/is_any_sale")) else 0)
+        if is_sale:
+            _count_store_offers(stats, p)
     if postings is not None and rowid is not None:
         _add_postings(postings, search_text, rowid)
     return (
@@ -362,6 +364,24 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
 # (CI: root wrangler.toml har D1-bindingen + CLOUDFLARE_API_TOKEN/ACCOUNT_ID).
 _DIST = os.path.join(ROOT, "dist")
 WRANGLER_CWD = _DIST if os.path.isdir(_DIST) else ROOT
+
+
+def _count_store_offers(stats: dict, p: dict) -> None:
+    """Antal tilbud pr. butik til forsidens tilbudsaviser (app.py::
+    _offer_store_counts). Samme regel som app.py::_as_store_offer:
+    visningsbutikkens eget tilbud ligger på kortet, de andres i store_matches."""
+    counts = stats.setdefault("offer_counts", {})
+    store = p.get("/product/store")
+    matches = p.get("/product/store_matches") or {}
+    for key, cfg in _STORE_CONFIGS.items():
+        if store == cfg["label"]:
+            hit = (p.get("/product/sale_price") is not None
+                   or bool(p.get("/product/own_sale"))
+                   or bool((matches.get(key) or {}).get("is_sale")))
+        else:
+            hit = bool((matches.get(key) or {}).get("is_sale"))
+        if hit:
+            counts[key] = counts.get(key, 0) + 1
 
 
 def _count_row(stats: dict, category: str, subcategory: str, is_sale: int) -> None:
@@ -486,6 +506,7 @@ def write_d1_stats(stats: dict) -> None:
     payload = {
         "products": stats.get("products", 0),
         "sale": stats.get("sale", 0),
+        "offer_counts": stats.get("offer_counts", {}),
         "cats": {
             c: {"n": v["n"], "subs": sorted(v["subs"])}
             for c, v in stats.get("cats", {}).items()

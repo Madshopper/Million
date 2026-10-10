@@ -178,6 +178,7 @@ function buildQuery(params?: ListingParams): string {
   if (params.page != null) q.set('page', String(params.page));
   if (params.subcategory) q.set('subcategory', params.subcategory);
   if (params.q) q.set('q', params.q);
+  if (params.kategori) q.set('kategori', params.kategori);
   const s = q.toString();
   return s ? `?${s}` : '';
 }

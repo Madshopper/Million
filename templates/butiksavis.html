@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "macros/product_card.html" import product_card %}
+
+{# Tilbudsavis for én butik (Feature 'butiksaviser', app.py::_build_store_avis).
+   Bygget af de priser vi selv henter fra butikken; butikkens egen avis vises
+   kun som link. Afsnittene viser de største besparelser først. #}
+
+{% block title %}Tilbudsavis fra {{ avis.label }} - MadShopper{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+  <div class="container-index">
+    <header class="avis-banner" style="--avis-bg: {{ avis.color }}; --avis-fg: {{ avis.text_color }}">
+      <img class="avis-banner-logo" src="{{ url_for('static', filename=avis.logo.replace('/static/', '', 1)) }}" alt="" width="64" height="64">
+      <div class="avis-banner-text">
+        <div class="avis-banner-kicker">Tilbudsavis · Uge {{ avis.week }}</div>
+        <h1>{{ avis.label }}</h1>
+        <div class="avis-banner-meta">{{ avis.total }} tilbud denne uge, hentet direkte fra butikken</div>
+      </div>
+      <a class="avis-banner-link" href="{{ avis.avis_url }}" target="_blank" rel="noopener">Se butikkens egen avis</a>
+    </header>
+
+    {% if avis.sections %}
+    <nav class="avis-chips" aria-label="Afsnit i avisen">
+      {% for sec in avis.sections %}<a class="subcategory-pill" href="#afsnit-{{ sec.slug }}">{{ sec.title }}</a>{% endfor %}
+    </nav>
+    {% endif %}
+
+    {% if avis.best %}
+    <section class="product-type avis-best">
+      <h2>Ugens bedste tilbud <a href="/tilbud/{{ avis.store }}?sort=relevance">Se alle {{ avis.total }}</a></h2>
+      <div class="products">
+        {% for product in avis.best %}{{ product_card(product) }}{% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% for sec in avis.sections %}
+    <section class="product-type" id="afsnit-{{ sec.slug }}">
+      <h2>{{ sec.title }} <a href="/tilbud/{{ avis.store }}?kategori={{ sec.slug }}">Se alle {{ sec.count }}</a></h2>
+      <div class="products">
+        {% for product in sec.products %}{{ product_card(product) }}{% endfor %}
+      </div>
+    </section>
+    {% else %}
+    <p class="products-empty">{{ avis.label }} har ingen tilbud lige nu. Kig forbi igen, når den nye avis er ude.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

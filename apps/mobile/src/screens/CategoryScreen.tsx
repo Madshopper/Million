@@ -21,7 +21,7 @@ import type { RootStackParamList } from '../navigation/types';
 
 type CategoryProps = NativeStackScreenProps<RootStackParamList, 'Category'>;
 type SaleProps = NativeStackScreenProps<RootStackParamList, 'Sale'>;
-type StoreOffersProps = NativeStackScreenProps<RootStackParamList, 'StoreOffers'>;
+type StoreOffersListProps = NativeStackScreenProps<RootStackParamList, 'StoreOffersList'>;
 
 function ListingBody({
   products,
@@ -298,13 +298,13 @@ export function SaleScreen({ navigation }: SaleProps) {
 }
 
 /**
- * Tilbudsavis for én butik (Feature-panelet 'butiksaviser'), samme som
- * hjemmesidens /tilbud/<butik>: butikkens tilbud denne uge, bygget af de
- * priser vi selv henter fra butikken, og et link til butikkens egen avis.
- * Uafhængig af butiksvalget - siden ER butikken.
+ * "Se alle" fra en butiks tilbudsavis (StoreAvisScreen, Feature-panelet
+ * 'butiksaviser'), samme som hjemmesidens /tilbud/<butik>?kategori=<slug>:
+ * alle butikkens tilbud, eller ét afsnit, med filtre og sider. Uafhængig af
+ * butiksvalget - siden ER butikken.
  */
-export function StoreOffersScreen({ route, navigation }: StoreOffersProps) {
-  const { storeKey, label, avisUrl } = route.params;
+export function StoreOffersListScreen({ route, navigation }: StoreOffersListProps) {
+  const { storeKey, label, avisUrl, kategori } = route.params;
   const { colors } = useTheme();
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
@@ -317,7 +317,7 @@ export function StoreOffersScreen({ route, navigation }: StoreOffersProps) {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchStoreOffers(storeKey, { page, ...filters });
+      const data = await fetchStoreOffers(storeKey, { page, kategori, ...filters });
       setProducts(data.products || []);
       setTotalPages(data.total_pages || 1);
     } catch (e) {
@@ -327,7 +327,7 @@ export function StoreOffersScreen({ route, navigation }: StoreOffersProps) {
     } finally {
       setLoading(false);
     }
-  }, [storeKey, page, filters]);
+  }, [storeKey, kategori, page, filters]);
 
   useEffect(() => {
     void load();
@@ -338,7 +338,7 @@ export function StoreOffersScreen({ route, navigation }: StoreOffersProps) {
       header={
         <View style={styles.avisIntro}>
           <Text style={{ color: colors.textMuted }}>
-            Ugens tilbud hos {label}, hentet direkte fra butikken.
+            Hentet direkte fra {label}.
           </Text>
           <Pressable
             onPress={() => void Linking.openURL(avisUrl)}

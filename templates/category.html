@@ -28,7 +28,7 @@
     {# Tilbudsavis pr. butik (Feature 'butiksaviser'): priserne er vores egne,
        hentet direkte fra butikken. Avisen selv vises kun hos butikken. #}
     <p class="store-avis-intro">
-      Ugens tilbud hos {{ store_avis.label }}, hentet direkte fra butikken.
+      <a href="/tilbud/{{ store_avis.key }}">Tilbage til avisen</a>
       <a href="{{ store_avis.url }}" target="_blank" rel="noopener">Se hele avisen hos {{ store_avis.label }}</a>
     </p>
     {% endif %}

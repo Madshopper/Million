@@ -29,11 +29,12 @@
     <section class="offer-stores" id="offerStores" aria-labelledby="offerStoresHeading">
       <h2 id="offerStoresHeading">Tilbudsaviser</h2>
       <div class="offer-stores-row">
-        {% for store in offer_stores %}
+        {% for store in offer_stores() %}
         <a class="offer-store" href="/tilbud/{{ store.key }}" data-store-label="{{ store.label }}"
-           aria-label="Se ugens tilbud hos {{ store.label }}">
+           aria-label="Se ugens tilbud hos {{ store.label }}{% if store.count is defined %}, {{ store.count }} tilbud{% endif %}">
           <img src="{{ url_for('static', filename=store.logo.replace('/static/', '', 1)) }}" alt="" loading="lazy" width="56" height="56">
           <span>{{ store.label }}</span>
+          {% if store.count is defined and store.count %}<span class="offer-store-count" style="background: {{ store.color }}; color: {{ store.text_color }}">{{ store.count }} tilbud</span>{% endif %}
         </a>
         {% endfor %}
       </div>
