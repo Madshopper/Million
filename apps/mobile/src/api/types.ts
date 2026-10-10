@@ -74,6 +74,8 @@ export type StoreAvisResponse = {
   store: string;
   label: string;
   logo: string;
+  /** Flise med butikkens logo, gentages svagt i avisens baggrund. */
+  watermark?: string;
   avis_url: string;
   color: string;
   text_color: string;

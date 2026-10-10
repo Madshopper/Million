@@ -2,49 +2,58 @@
 {% from "macros/product_card.html" import product_card %}
 
 {# Tilbudsavis for én butik (Feature 'butiksaviser', app.py::_build_store_avis).
-   Bygget af de priser vi selv henter fra butikken; butikkens egen avis vises
-   kun som link. Afsnittene viser de største besparelser først. #}
+   Samme avis-skabelon for alle butikker (Kalle 10-10-2026): kun baggrunden
+   skifter, hvor butikkens logo står svagt hen over hele avisen, så man kan se
+   hvis avis det er. Varerne er vores egne priser, hentet direkte fra
+   butikken; butikkens egen avis vises kun som link. #}
 
-{% block title %}Tilbudsavis fra {{ avis.label }} - MadShopper{% endblock %}
+{% block title %}Tilbudsavis fra {{ avis.label }}, uge {{ avis.week }} - MadShopper{% endblock %}
 
 {% block content %}
 <div class="page-wrap">
   <div class="container-index">
-    <header class="avis-banner" style="--avis-bg: {{ avis.color }}; --avis-fg: {{ avis.text_color }}">
-      <img class="avis-banner-logo" src="{{ url_for('static', filename=avis.logo.replace('/static/', '', 1)) }}" alt="" width="64" height="64">
-      <div class="avis-banner-text">
-        <div class="avis-banner-kicker">Tilbudsavis · Uge {{ avis.week }}</div>
-        <h1>{{ avis.label }}</h1>
-        <div class="avis-banner-meta">{{ avis.total }} tilbud denne uge, hentet direkte fra butikken</div>
-      </div>
-      <a class="avis-banner-link" href="{{ avis.avis_url }}" target="_blank" rel="noopener">Se butikkens egen avis</a>
-    </header>
+    <article class="avis-paper" style="--avis-logo: url('{{ url_for('static', filename='images/avis/' ~ avis.store ~ '.png') }}')">
+      <header class="avis-head">
+        <h1>Tilbudsavis <span class="visually-hidden">fra {{ avis.label }}</span></h1>
+        <div class="avis-head-meta">
+          <span class="avis-week">Uge {{ avis.week }}</span>
+          <span>{{ avis.total }} tilbud</span>
+          <a href="{{ avis.avis_url }}" target="_blank" rel="noopener">Se {{ avis.label }}s egen avis</a>
+        </div>
+      </header>
 
-    {% if avis.sections %}
-    <nav class="avis-chips" aria-label="Afsnit i avisen">
-      {% for sec in avis.sections %}<a class="subcategory-pill" href="#afsnit-{{ sec.slug }}">{{ sec.title }}</a>{% endfor %}
-    </nav>
-    {% endif %}
+      {% if avis.sections %}
+      <nav class="avis-chips" aria-label="Afsnit i avisen">
+        {% for sec in avis.sections %}<a class="subcategory-pill" href="#afsnit-{{ sec.slug }}">{{ sec.title }}</a>{% endfor %}
+      </nav>
+      {% endif %}
 
-    {% if avis.best %}
-    <section class="product-type avis-best">
-      <h2>Ugens bedste tilbud <a href="/tilbud/{{ avis.store }}?sort=relevance">Se alle {{ avis.total }}</a></h2>
-      <div class="products">
-        {% for product in avis.best %}{{ product_card(product) }}{% endfor %}
-      </div>
-    </section>
-    {% endif %}
+      {% if avis.best %}
+      <section class="avis-section">
+        <div class="avis-section-head">
+          <h2 class="avis-ribbon">Ugens bedste tilbud</h2>
+          <a href="/tilbud/{{ avis.store }}?sort=relevance">Se alle {{ avis.total }}</a>
+        </div>
+        <div class="products">
+          {% for product in avis.best %}{{ product_card(product) }}{% endfor %}
+        </div>
+      </section>
+      {% endif %}
 
-    {% for sec in avis.sections %}
-    <section class="product-type" id="afsnit-{{ sec.slug }}">
-      <h2>{{ sec.title }} <a href="/tilbud/{{ avis.store }}?kategori={{ sec.slug }}">Se alle {{ sec.count }}</a></h2>
-      <div class="products">
-        {% for product in sec.products %}{{ product_card(product) }}{% endfor %}
-      </div>
-    </section>
-    {% else %}
-    <p class="products-empty">{{ avis.label }} har ingen tilbud lige nu. Kig forbi igen, når den nye avis er ude.</p>
-    {% endfor %}
+      {% for sec in avis.sections %}
+      <section class="avis-section" id="afsnit-{{ sec.slug }}">
+        <div class="avis-section-head">
+          <h2 class="avis-ribbon">{{ sec.title }}</h2>
+          <a href="/tilbud/{{ avis.store }}?kategori={{ sec.slug }}">Se alle {{ sec.count }}</a>
+        </div>
+        <div class="products">
+          {% for product in sec.products %}{{ product_card(product) }}{% endfor %}
+        </div>
+      </section>
+      {% else %}
+      <p class="products-empty">{{ avis.label }} har ingen tilbud lige nu. Kig forbi igen, når den nye avis er ude.</p>
+      {% endfor %}
+    </article>
   </div>
 </div>
 {% endblock %}

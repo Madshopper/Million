@@ -371,17 +371,18 @@ def _count_store_offers(stats: dict, p: dict) -> None:
     _offer_store_counts). Samme regel som app.py::_as_store_offer:
     visningsbutikkens eget tilbud ligger på kortet, de andres i store_matches."""
     counts = stats.setdefault("offer_counts", {})
+    avis = stats.setdefault("avis_counts", {})
     store = p.get("/product/store")
     matches = p.get("/product/store_matches") or {}
     for key, cfg in _STORE_CONFIGS.items():
-        if store == cfg["label"]:
-            hit = (p.get("/product/sale_price") is not None
-                   or bool(p.get("/product/own_sale"))
-                   or bool((matches.get(key) or {}).get("is_sale")))
-        else:
-            hit = bool((matches.get(key) or {}).get("is_sale"))
-        if hit:
+        m = matches.get(key) or {}
+        own = store == cfg["label"]
+        if (own and (p.get("/product/sale_price") is not None
+                     or p.get("/product/own_sale"))) or m.get("is_sale"):
             counts[key] = counts.get(key, 0) + 1
+        # Kun ugens avisvarer (Salling, tilbud='Avis'): app.py::_avis_leaflet.
+        if (own and p.get("/product/own_avis")) or m.get("in_avis"):
+            avis[key] = avis.get(key, 0) + 1
 
 
 def _count_row(stats: dict, category: str, subcategory: str, is_sale: int) -> None:
@@ -507,6 +508,7 @@ def write_d1_stats(stats: dict) -> None:
         "products": stats.get("products", 0),
         "sale": stats.get("sale", 0),
         "offer_counts": stats.get("offer_counts", {}),
+        "avis_counts": stats.get("avis_counts", {}),
         "cats": {
             c: {"n": v["n"], "subs": sorted(v["subs"])}
             for c, v in stats.get("cats", {}).items()

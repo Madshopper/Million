@@ -208,7 +208,9 @@ def load_store_comparison_data(store_key: str) -> tuple:
                                             context=f"{cfg['label']}: {row.get('navn')}")
                     
                     is_sale_raw = str(row.get('tilbud', 'nej')).lower()
-                    is_sale = is_sale_raw in ('ja', 'true', 'yes', '1')
+                    # 'avis': i ugens avis (Salling-katalogerne), også et tilbud.
+                    is_sale = is_sale_raw in ('ja', 'true', 'yes', '1', 'avis')
+                    in_avis = is_sale_raw == 'avis'
                     
                     ean_raw = str(row.get('varenummer') or '').strip()
                     ean = ean_raw.split('.')[0].strip() if ean_raw not in ('nan', 'None', '') else ''
@@ -279,6 +281,9 @@ def load_store_comparison_data(store_key: str) -> tuple:
                         'price':       price,
                         'normal_price': normal_price,
                         'is_sale':     is_sale,
+                        # Kun Bilka/Føtex/Netto kender avisen; se app.py::
+                        # _AVIS_LEAFLET_STORES. Følger med i store_matches.
+                        'in_avis':     in_avis,
                         'multi_deal':  multi_deal,
                         'image':       str(row.get('billede_url') or ''),
                         '_image_hash': p_hash_hex,
@@ -2669,6 +2674,7 @@ def build_store_display_products(products: list, store_key: str) -> list:
                 # af Løvbjergs avisvarer - så "Tilbud hos …" (Feature
                 # 'butiksaviser') ikke kunne finde dem. Læses af seed-d1.py.
                 '/product/own_sale':                  bool(p.get('is_sale')),
+                '/product/own_avis':                  bool(p.get('in_avis')),
             })
         except Exception:
             continue
@@ -2699,6 +2705,7 @@ def _display_item_to_match(p: dict) -> dict:
         'price':        price,
         'normal_price': normal_price,
         'is_sale':      bool(is_sale),
+        'in_avis':      bool(p.get('/product/own_avis')),
         'image':        p.get('/product/imageLink', ''),
         'brand':        p.get('/product/brand', ''),
         'description':  p.get('/product/description', ''),

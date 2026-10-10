@@ -6389,63 +6389,97 @@ body[data-theme="dark"] {
   white-space: nowrap;
 }
 
-/* Avisens forside: bånd i butikkens farver (app.py::_OFFER_STORE_COLORS) */
-.avis-banner {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 14px 18px;
-  margin: 8px 0 14px;
-  padding: 18px 20px;
-  border-radius: var(--radius-lg, 16px);
-  background: var(--avis-bg);
-  color: var(--avis-fg);
-  box-shadow: var(--shadow-sm);
-}
-
-.avis-banner-logo {
-  width: 64px;
-  height: 64px;
-  object-fit: contain;
-  padding: 6px;
-  border-radius: 14px;
-  background: #fff;
-  flex-shrink: 0;
-}
-
-.avis-banner-text { flex: 1 1 200px; min-width: 0; }
-
-.avis-banner-kicker {
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  opacity: 0.85;
-}
-
-.avis-banner h1 {
-  margin: 2px 0;
-  font-size: 1.9rem;
-  font-weight: 900;
-  line-height: 1.1;
-  color: inherit;
-}
-
-.avis-banner-meta { font-size: 0.9rem; opacity: 0.9; }
-
-.avis-banner-link {
-  padding: 9px 14px;
-  border-radius: 999px;
-  background: #fff;
-  color: #1a1a1a;
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-decoration: none;
+/* Avis-skabelonen (templates/butiksavis.html): ens for alle butikker. Kun
+   baggrunden skifter: butikkens logo svagt hen over hele avisen. Varekortene
+   er de almindelige .product-kort, klædt om som avisfelter. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
   white-space: nowrap;
 }
 
-.avis-banner-link:hover,
-.avis-banner-link:focus-visible { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5); }
+.avis-paper {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  margin: 8px 0 24px;
+  padding: 18px 14px 24px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.avis-paper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  /* static/images/avis/<butik>.png: to skrå logoer på en gennemsigtig flise */
+  background-image: var(--avis-logo);
+  background-repeat: repeat;
+  background-size: 230px auto;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+/* Varebillederne har hvid baggrund; multiply lader logoerne bag dem skinne
+   igennem, så avisen ligner ét stykke papir. Ikke i mørk tilstand, hvor det
+   ville gøre billederne mørke. */
+.avis-paper .product-image { mix-blend-mode: multiply; }
+body[data-theme="dark"] .avis-paper .product-image { mix-blend-mode: normal; }
+body[data-theme="dark"] .avis-paper::before { opacity: 0.1; filter: grayscale(1) invert(1); }
+
+.avis-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 3px solid var(--gray-900);
+  background: transparent;
+  position: static;
+  z-index: auto;
+  box-shadow: none;
+}
+
+.avis-head h1 {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--gray-900);
+  line-height: 1;
+}
+
+.avis-head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.avis-week {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--gray-900);
+  color: var(--white);
+  font-weight: 800;
+}
+
+.avis-head-meta a {
+  color: var(--green);
+  font-weight: 700;
+  white-space: nowrap;
+}
 
 .avis-chips {
   display: flex;
@@ -6458,4 +6492,92 @@ body[data-theme="dark"] {
 
 .avis-chips .subcategory-pill { text-decoration: none; }
 
-.product-type[id^="afsnit-"] { scroll-margin-top: 140px; }
+.avis-section { margin-top: 18px; scroll-margin-top: 140px; }
+
+.avis-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.avis-section-head a {
+  color: var(--green);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.avis-ribbon {
+  display: inline-block;
+  padding: 6px 16px 7px;
+  background: var(--gray-900);
+  color: var(--white);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transform: skewX(-10deg);
+}
+
+/* Varekortene som avisfelter: ingen kortramme, stiplede skillelinjer,
+   stor pris i et gult prisskilt og et rødt "Spar"-mærke. */
+.avis-paper .products { gap: 0; }
+
+.avis-paper .product {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: inset -1px -1px 0 var(--gray-200);
+}
+
+.avis-paper .product:hover {
+  transform: none;
+  box-shadow: inset -1px -1px 0 var(--gray-200);
+  background: rgba(127, 127, 127, 0.05);
+}
+
+.avis-paper .product-image-container { background: transparent; }
+
+.avis-paper .store-badge,
+.avis-paper .compare-badge { display: none; }
+
+.avis-paper .sale-badge {
+  top: auto;
+  left: auto;
+  bottom: 8px;
+  right: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #C8102E;
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  transform: rotate(-8deg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.avis-paper .product-brand { color: var(--gray-500); }
+
+.avis-paper .product-content h3 { font-size: 0.95rem; }
+
+.avis-paper .product-price .price-sale,
+.avis-paper .product-price .price-main {
+  display: inline-block;
+  padding: 2px 10px 4px;
+  border-radius: 8px;
+  background: #FFD84D;
+  color: #1A1C19;
+  font-size: 1.45rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  transform: rotate(-2deg);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
+}
+
+.avis-paper .product-price .price-original::before { content: "Før "; }
+
+@media (min-width: 640px) {
+  .avis-paper { padding: 24px 22px 28px; }
+  .avis-head h1 { font-size: 2.4rem; }
+}

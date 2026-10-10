@@ -1774,8 +1774,10 @@ _FEATURES = (
         'desc': 'Kalles ønske (10-10-2026), efter at Tjek sagde nej til '
                 'aviserne: butikkernes logoer på forsiden, og et tryk viser '
                 'butikkens tilbud denne uge, bygget af de priser vi selv '
-                'henter direkte fra butikkerne. Ingen avisbilleder, kun et '
-                'link til butikkens egen avis. Coop-butikkerne og 365 '
+                'henter direkte fra butikkerne. Samme avis-skabelon for alle '
+                'butikker med butikkens logo svagt i baggrunden. Bilka, Føtex '
+                'og Netto tæller kun varer i ugens avis. Ingen avisbilleder, '
+                'kun et link til butikkens egen avis. Coop-butikkerne og 365 '
                 'Discount er ikke med, før Coop har svaret (de kommer stadig '
                 'fra Tjek).',
         'app': 'Appen viser logoerne fra den næste app-version, når den er '
@@ -3839,17 +3841,28 @@ def _build_sale_listing(active_stores, args, page: int):
     return page_items, page, total_pages, total
 
 
-def _as_store_offer(product: dict, store_key: str, label: str) -> dict | None:
+# Butikker hvor vi ved præcis hvilke varer der er i ugens avis (Sallings
+# isInCurrentLeaflet, gemt som tilbud='Avis' af *_katalog.py). For dem tæller
+# kun avisvarerne: deres øvrige tilbud (Skarp pris, webkampagner, multikøb)
+# gav Føtex over 2.000 "avisvarer" (Kalle 10-10-2026). De andre butikkers
+# tilbud er i forvejen ugens tilbud.
+_AVIS_LEAFLET_STORES = frozenset({'bilka', 'foetex', 'netto'})
+
+
+def _as_store_offer(product: dict, store_key: str, label: str,
+                    leaflet: bool = False) -> dict | None:
     """Varen som den ser ud hos store_key, hvis den er på tilbud dér - ellers
     None. Visningsbutikkens egen pris ligger på kortet selv (Rema har ingen
     store_matches-post); de andre butikkers ligger i store_matches. own_sale er
-    butikkens tilbud uden førpris (updater.py), fx det meste af ABC Lavpris."""
+    butikkens tilbud uden førpris (updater.py), fx det meste af ABC Lavpris.
+    leaflet=True: kun varer i ugens avis (own_avis / in_avis)."""
     if product.get('/product/store') == label and (
-            product.get('/product/sale_price') is not None
-            or product.get('/product/own_sale')):
+            product.get('/product/own_avis') if leaflet else (
+                product.get('/product/sale_price') is not None
+                or product.get('/product/own_sale'))):
         return product
     match = (product.get('/product/store_matches') or {}).get(store_key)
-    if isinstance(match, dict) and match.get('is_sale') and match.get('name'):
+    if isinstance(match, dict) and match.get('in_avis' if leaflet else 'is_sale') and match.get('name'):
         try:
             if float(match.get('price') or 0) <= 0:
                 return None
@@ -3859,7 +3872,7 @@ def _as_store_offer(product: dict, store_key: str, label: str) -> dict | None:
     return None
 
 
-def _store_offer_sql(store_key: str) -> tuple[str, str]:
+def _store_offer_sql(store_key: str, leaflet: bool = False) -> tuple[str, str]:
     """(betingelse, besparelse) som SQL for én butiks tilbud. Begge bruger
     én bundet parameter: butikkens label. Nøglen indsættes direkte i
     JSON-stien, men kommer kun fra _STORE_CONFIGS (små bogstaver og tal)."""
@@ -3867,10 +3880,14 @@ def _store_offer_sql(store_key: str) -> tuple[str, str]:
         raise ValueError(store_key)
     sale = """json_extract(data, '$."/product/sale_price"')"""
     price = """json_extract(data, '$."/product/price"')"""
-    own = (f"""(store = ? AND ({sale} IS NOT NULL"""
-           """ OR json_extract(data, '$."/product/own_sale"') = 1))""")
+    if leaflet:
+        own = """(store = ? AND json_extract(data, '$."/product/own_avis"') = 1)"""
+    else:
+        own = (f"""(store = ? AND ({sale} IS NOT NULL"""
+               """ OR json_extract(data, '$."/product/own_sale"') = 1))""")
     m = f"""json_extract(data, '$."/product/store_matches".{store_key}"""
-    m_sale, m_price, m_normal = f"{m}.is_sale')", f"{m}.price')", f"{m}.normal_price')"
+    m_sale = f"{m}.in_avis')" if leaflet else f"{m}.is_sale')"
+    m_price, m_normal = f"{m}.price')", f"{m}.normal_price')"
     cond = f"({own} OR {m_sale} = 1)"
     savings = (
         f"CASE WHEN {own} THEN (CASE WHEN {sale} IS NOT NULL AND {price} > {sale}"
@@ -3881,8 +3898,9 @@ def _store_offer_sql(store_key: str) -> tuple[str, str]:
     return cond, savings
 
 
-def _offer_display(product: dict, store_key: str, label: str) -> dict | None:
-    adjusted = _as_store_offer(product, store_key, label)
+def _offer_display(product: dict, store_key: str, label: str,
+                   leaflet: bool = False) -> dict | None:
+    adjusted = _as_store_offer(product, store_key, label, leaflet)
     if not adjusted:
         return None
     try:
@@ -3922,10 +3940,11 @@ def _build_store_avis(store_key: str) -> dict:
     (vinduesfunktion), så kun ~100 varer krydser broen og parses, uanset om
     butikken har 30 eller 2.000 tilbud. Én scanning af tilbudsindekset."""
     label = _STORE_CONFIGS[store_key]['label']
+    leaflet = _avis_leaflet(store_key)
     picked = []   # (kategori, besparelse, rå vare)
     counts = {}
     if _use_d1():
-        cond, savings = _store_offer_sql(store_key)
+        cond, savings = _store_offer_sql(store_key, leaflet)
         rows = _d1_rows(
             "WITH v AS (SELECT data, category, " + savings + " AS sv"
             " FROM products WHERE is_sale = 1),"
@@ -3948,7 +3967,7 @@ def _build_store_avis(store_key: str) -> dict:
     else:
         by_cat = {}
         for raw in load_sale_raw():
-            if not _as_store_offer(raw, store_key, label):
+            if not _as_store_offer(raw, store_key, label, leaflet):
                 continue
             cat = str(raw.get('/product/product_type') or 'Andre varer')
             by_cat.setdefault(cat, []).append(
@@ -3964,7 +3983,7 @@ def _build_store_avis(store_key: str) -> dict:
     for cat, sv, raw in picked:
         if id(raw) not in allowed:
             continue
-        disp = _offer_display(raw, store_key, label)
+        disp = _offer_display(raw, store_key, label, leaflet)
         if not disp:
             continue
         sections_raw.setdefault(cat, []).append(disp)
@@ -4006,6 +4025,8 @@ def _build_store_avis(store_key: str) -> dict:
         'store': store_key,
         'label': label,
         'logo': _STORE_CONFIGS[store_key]['logo'],
+        # Avisens baggrund: logoet uden baggrund (static/images/avis/).
+        'watermark': f'/static/images/avis/{store_key}.png',
         'avis_url': _OFFER_STORE_AVIS_URLS[store_key],
         'color': bg,
         'text_color': fg,
@@ -4019,50 +4040,84 @@ def _build_store_avis(store_key: str) -> dict:
 _OFFER_COUNTS_NONE = object()
 
 
-def _offer_store_counts() -> dict | None:
-    """Antal tilbud pr. butik til logoerne på forsiden. Fra d1_stats_v1
-    (seed-d1.py skriver 'offer_counts'), ellers én scanning af
-    tilbudsindekset med en SUM pr. butik. None = ukendt, logoerne vises så
-    uden tal."""
+def _offer_counts_raw() -> dict | None:
+    """{'offer': {butik: n}, 'avis': {butik: n}}: alle tilbud og kun
+    avisvarer pr. butik. Fra d1_stats_v1 (seed-d1.py skriver 'offer_counts'
+    og 'avis_counts'), ellers én scanning af tilbudsindekset med en SUM pr.
+    butik og regel. None = ukendt."""
     try:
         cached = g.get('_offer_counts', _OFFER_COUNTS_NONE)
     except RuntimeError:
         cached = _OFFER_COUNTS_NONE
     if cached is not _OFFER_COUNTS_NONE:
         return cached
-    counts = None
+    out = None
     try:
         if _use_d1():
             stats = _d1_stats()
-            if stats and isinstance(stats.get('offer_counts'), dict):
-                counts = stats['offer_counts']
+            if (stats and isinstance(stats.get('offer_counts'), dict)
+                    and isinstance(stats.get('avis_counts'), dict)):
+                out = {'offer': stats['offer_counts'], 'avis': stats['avis_counts']}
             else:
                 parts, params = [], []
                 for k in _OFFER_STORE_AVIS_URLS:
-                    cond, _sv = _store_offer_sql(k)
-                    parts.append(f"SUM(CASE WHEN {cond} THEN 1 ELSE 0 END) AS {k}")
-                    params.append(_STORE_CONFIGS[k]['label'])
+                    for rule, leaflet in (('o', False), ('a', True)):
+                        if leaflet and k not in _AVIS_LEAFLET_STORES:
+                            continue
+                        cond, _sv = _store_offer_sql(k, leaflet)
+                        parts.append(f"SUM(CASE WHEN {cond} THEN 1 ELSE 0 END) AS {rule}_{k}")
+                        params.append(_STORE_CONFIGS[k]['label'])
                 row = _d1_scalar(
                     "SELECT " + ", ".join(parts) + " FROM products WHERE is_sale = 1",
                     tuple(params),
                 )
                 if isinstance(row, dict):
-                    counts = {k: int(row.get(k) or 0) for k in _OFFER_STORE_AVIS_URLS}
+                    out = {
+                        'offer': {k: int(row.get(f'o_{k}') or 0) for k in _OFFER_STORE_AVIS_URLS},
+                        'avis': {k: int(row.get(f'a_{k}') or 0) for k in _AVIS_LEAFLET_STORES},
+                    }
         else:
             raws = load_sale_raw()
-            counts = {
-                k: sum(1 for r in raws
-                       if _as_store_offer(r, k, _STORE_CONFIGS[k]['label']))
-                for k in _OFFER_STORE_AVIS_URLS
+            out = {
+                rule: {
+                    k: sum(1 for r in raws
+                           if _as_store_offer(r, k, _STORE_CONFIGS[k]['label'], leaflet))
+                    for k in _OFFER_STORE_AVIS_URLS
+                }
+                for rule, leaflet in (('offer', False), ('avis', True))
             }
     except Exception as e:
         logger.warning("offer counts: %s", e)
-        counts = None
+        out = None
     try:
-        g._offer_counts = counts
+        g._offer_counts = out
     except RuntimeError:
         pass
-    return counts
+    return out
+
+
+def _avis_leaflet(store_key: str) -> bool:
+    """Tæller kun ugens avisvarer for butikken? Ja for Salling-butikkerne,
+    så snart deres data kender avisen; indtil katalog-scraperne har kørt med
+    'Avis'-markeringen, falder de tilbage til alle tilbud frem for en tom
+    avis."""
+    if store_key not in _AVIS_LEAFLET_STORES:
+        return False
+    raw = _offer_counts_raw()
+    return bool(raw and int((raw.get('avis') or {}).get(store_key) or 0) > 0)
+
+
+def _offer_store_counts() -> dict | None:
+    """Antal tilbud pr. butik til logoerne på forsiden (avisvarer for
+    Salling-butikkerne, se _avis_leaflet). None = ukendt, logoerne vises så
+    uden tal."""
+    raw = _offer_counts_raw()
+    if not raw:
+        return None
+    return {
+        k: int((raw['avis'] if _avis_leaflet(k) else raw['offer']).get(k) or 0)
+        for k in _OFFER_STORE_AVIS_URLS
+    }
 
 
 # Forsidens logoer (templates/index.html), kun kaldt når featuren er til.
@@ -4077,12 +4132,13 @@ def _build_store_offer_listing(store_key: str, args, page: int):
     _build_sale_listing."""
     label = _STORE_CONFIGS[store_key]['label']
     category = _OFFER_SECTION_BY_SLUG.get(args.get('kategori', '') or '')
+    leaflet = _avis_leaflet(store_key)
     per_page = _LISTING_PER_PAGE
     if _use_d1():
         # `is_sale = 1` skal stå bogstaveligt, så det partielle indeks bruges
         # (seed-d1.py); json_extract afgøres i D1, hvis CPU ikke tæller mod
         # workerens. Stien bygges kun af nøgler fra _STORE_CONFIGS.
-        cond, _sv = _store_offer_sql(store_key)
+        cond, _sv = _store_offer_sql(store_key, leaflet)
         where, params = ["is_sale = 1", cond], [label]
         if category:
             where.append("category = ?")
@@ -4096,7 +4152,7 @@ def _build_store_offer_listing(store_key: str, args, page: int):
         if category:
             source = [p for p in source
                       if str(p.get('/product/product_type') or 'Andre varer') == category]
-    offers = [d for d in (_offer_display(p, store_key, label) for p in source) if d]
+    offers = [d for d in (_offer_display(p, store_key, label, leaflet) for p in source) if d]
     offers = apply_product_filters(offers, args)
     if _use_d1():
         return offers, page, total_pages, None
