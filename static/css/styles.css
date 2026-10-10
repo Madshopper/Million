@@ -6639,18 +6639,20 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
 
 .avis-page .product-price .price-original::before { content: "Før "; }
 
-/* Brede skærme: to sider ved siden af hinanden, som et opslag. */
+/* Brede skærme: to sider ved siden af hinanden, som et opslag. Begge sider
+   har samme gitter (2 x 3, forsiden 2 x 2 under overskriften), så opslaget
+   står lige, og pilene ligger uden for siderne, så de ikke dækker en vare. */
 @media (min-width: 900px) {
+  .avis-book { max-width: 1060px; margin-left: auto; margin-right: auto; }
+  .avis-viewport { margin: 0 64px; }
   .avis-page { flex-basis: 50%; padding: 22px 20px 16px; }
+  .avis-page .product-image-container { height: 112px; }
+  .avis-page--front .product-image-container { height: 170px; }
+  .avis-page .product-content { padding-top: 6px; padding-bottom: 8px; }
   .avis-page .product-price .price-sale,
   .avis-page .product-price .price-main { font-size: 1.3rem; }
-  .avis-page .products { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .avis-page .product:nth-child(2n) { box-shadow: inset -1px -1px 0 var(--gray-200); }
-  .avis-page .product:nth-child(3n) { box-shadow: inset 0 -1px 0 var(--gray-200); }
-  .avis-page--front .products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .avis-page--front .product:nth-child(2n) { box-shadow: inset 0 -1px 0 var(--gray-200); }
-  .avis-page--front .product:nth-child(3n) { box-shadow: inset -1px -1px 0 var(--gray-200); }
   .avis-nav { width: 52px; height: 52px; margin-top: -26px; }
-  .avis-nav--prev { left: -18px; }
-  .avis-nav--next { right: -18px; }
+  .avis-nav--prev { left: -64px; }
+  .avis-nav--next { right: -64px; }
+}
 }
