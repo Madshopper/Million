@@ -1,4 +1,4 @@
-name: Scraper - ABC Lavpris (Tjek API)
+name: Scraper - ABC Lavpris (avis-billeder fra abc-lavpris.dk)
 
 on:
   # Startes om natten af nightly-dispatcher.yml (kun på butikkens avis-dage, se dér)
@@ -28,7 +28,10 @@ jobs:
           python-version: '3.11'
 
       - name: Installér dependencies
+        # tesseract læser teksten i ABC's avis, som kun findes som billeder.
         run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q tesseract-ocr tesseract-ocr-dan
           pip install --upgrade pip
           pip install -r requirements.txt
 

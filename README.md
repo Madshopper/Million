@@ -63,8 +63,8 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: dev.madshopper.dk 
 | Min Købmand | `scraper/webscrape_minkobmand.py` (wrapper om `scraper/dagrofa_scraper.py`) |
 | 365 Discount | `scraper/webscrape_365discount.py` (Tjek tilbudsavis) |
 | Lidl | `scraper/lidl_katalog.py` (hyldepriser, primær) + `scraper/webscrape_lidl.py` (ugens tilbud fra lidl.dk's kampagnesider) |
-| Løvbjerg | `scraper/webscrape_lovbjerg.py` (ugens avis-PDF fra lovbjerg.dk, læst med pdfplumber; ingen varebilleder) |
-| ABC Lavpris | `scraper/webscrape_abc_lavpris.py` (Tjek tilbudsavis, via `scraper/tjek_tilbud_scraper.py`) |
+| Løvbjerg | `scraper/webscrape_lovbjerg.py` (ugens avis-PDF fra lovbjerg.dk, læst med pdfplumber; varebilleder klippet ud af PDF'en via `scraper/avis_billeder.py`) |
+| ABC Lavpris | `scraper/webscrape_abc_lavpris.py` (avisen på abc-lavpris.dk læst med OCR/tesseract, varebilleder via `scraper/avis_billeder.py`) |
 
 Meny, Spar og Min Købmand kører på samme Dagrofa-webshopplatform, så al scraping-logik ligger samlet i `scraper/dagrofa_scraper.py` - hver butik gemmes dog stadig helt separat i Supabase. 365 Discount henter tilbudsavis via Tjek/ShopGun-API'et (samme mønster som `scraper/tjek_tilbud_scraper.py`, men med egen inline-kopi). Netto, Føtex og Lidl henter ugens tilbud fra butikkernes egne sider (Tjek bad os 09-10-2026 stoppe brugen af deres API).
 

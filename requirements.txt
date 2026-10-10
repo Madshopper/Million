@@ -22,3 +22,7 @@ rapidfuzz>=3.0.0,<4
 cryptography>=42
 # Løvbjergs avis læses fra deres egen PDF (scraper/webscrape_lovbjerg.py).
 pdfplumber>=0.11,<0.12
+# ABC Lavpris' avis-billeder deles op i varer (scraper/webscrape_abc_lavpris.py).
+# Kom før kun med indirekte via imagehash.
+numpy>=1.24
+scipy>=1.10

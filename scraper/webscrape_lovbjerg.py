@@ -17,33 +17,27 @@ Erstatter den tidligere Tjek-baserede scraper: Tjek (eTilbudsavis) bad os
 Varebillederne klippes ud af PDF'en (det indlejrede foto nærmest over prisen i
 samme spalte) og gemmes i Supabase Storage, se store_images.
 """
-import hashlib
 import io
 import os
 import re
 import sys
-from datetime import datetime, timedelta, timezone
 
 import pdfplumber
 import requests
 from pdfminer.pdftypes import resolve1
-import imagehash
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from keywords import is_non_food
-from supabase_utils import get_client, save_product_dicts
+from avis_billeder import cleanup_images, store_images
+from supabase_utils import save_product_dicts
 
 AVIS_URL = "https://www.lovbjerg.dk/avis/denne-uges-avis"
 BUTIK = "Løvbjerg"
 KATEGORI = "Tilbudsavis"
 
-# Varebilleder klippet ud af avisen gemmes i Supabase Storage
-# (scripts/supabase-avis-billeder.sql). Filnavnet er billedets indholds-hash,
-# så samme billede uge efter uge ikke lægges op igen.
-BUCKET = "avis-billeder"
+# Mappe i avis-billeder-bucket'en (scraper/avis_billeder.py).
 IMAGE_PREFIX = "loevbjerg"
-IMAGE_KEEP_DAYS = 14
 
 _HEADERS = {
     "User-Agent": (
@@ -352,78 +346,6 @@ def build_row(item: dict) -> dict | None:
     }
 
 
-def _jpeg(im: Image.Image) -> bytes:
-    im = im.copy()
-    im.thumbnail((400, 400))
-    buf = io.BytesIO()
-    im.save(buf, "JPEG", quality=82, optimize=True)
-    return buf.getvalue()
-
-
-def _image_url(name: str) -> str:
-    base = (os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or "").rstrip("/")
-    return f"{base}/storage/v1/object/public/{BUCKET}/{IMAGE_PREFIX}/{name}"
-
-
-def _list_stored_images(bucket) -> dict:
-    return {o["name"]: o for o in bucket.list(IMAGE_PREFIX, {"limit": 1000})}
-
-
-def store_images(pairs: list[tuple[dict, Image.Image]]) -> None:
-    """Læg ugens varebilleder op og sæt billede_url/billede_hash på rækkerne.
-    Fejler lageret (fx før bucket'en er oprettet), vises varerne med butikkens
-    logo som før - scraperen fejler ikke af den grund."""
-    if not pairs:
-        return
-    try:
-        bucket = get_client().storage.from_(BUCKET)
-        existing = _list_stored_images(bucket)
-    except Exception as e:
-        print(f"  ⚠ Billedlager utilgængeligt ({e}) - varerne vises uden billeder")
-        return
-    uploaded = 0
-    for row, im in pairs:
-        data = _jpeg(im)
-        name = hashlib.sha1(data).hexdigest()[:20] + ".jpg"
-        if name not in existing:
-            try:
-                bucket.upload(f"{IMAGE_PREFIX}/{name}", data, {"content-type": "image/jpeg"})
-                existing[name] = {}
-                uploaded += 1
-            except Exception as e:
-                print(f"  ⚠ Kunne ikke gemme billede til {row['navn']}: {e}")
-                continue
-        row["billede_url"] = _image_url(name)
-        row["billede_hash"] = str(imagehash.phash(im))
-    print(f"  Billeder: {len(pairs)} varer, {uploaded} nye gemt")
-
-
-def cleanup_images(rows: list[dict]) -> None:
-    """Slet billeder, som ingen vare bruger, når de er over IMAGE_KEEP_DAYS gamle.
-    Ventetiden gør, at gårsdagens produkt-cache (som nattens updater først
-    bygger om senere) aldrig peger på et slettet billede."""
-    try:
-        bucket = get_client().storage.from_(BUCKET)
-        existing = _list_stored_images(bucket)
-    except Exception as e:
-        print(f"  ⚠ Kunne ikke rydde gamle billeder: {e}")
-        return
-    in_use = {r["billede_url"].rsplit("/", 1)[-1] for r in rows if r.get("billede_url")}
-    cutoff = datetime.now(timezone.utc) - timedelta(days=IMAGE_KEEP_DAYS)
-    stale = []
-    for name, meta in existing.items():
-        created = meta.get("created_at") or ""
-        try:
-            old = datetime.fromisoformat(created.replace("Z", "+00:00")) < cutoff
-        except ValueError:
-            old = False
-        if name not in in_use and old:
-            stale.append(f"{IMAGE_PREFIX}/{name}")
-    if stale:
-        bucket.remove(stale)
-        print(f"  Slettede {len(stale)} gamle billeder")
-
-
 def fetch_lovbjerg_tilbud() -> list[dict]:
     url = find_pdf_url()
     print(f"  Avis-PDF: {url}")
@@ -443,7 +365,7 @@ def fetch_lovbjerg_tilbud() -> list[dict]:
         # En uge-avis har altid langt over 30 madtilbud; færre betyder at
         # layoutet er ændret og læsningen ikke længere virker.
         raise RuntimeError(f"Kun {len(rows)} varer læst fra Løvbjergs avis - layoutet er sandsynligvis ændret")
-    store_images(pairs)
+    store_images(pairs, IMAGE_PREFIX)
     return rows
 
 
@@ -457,7 +379,7 @@ def main():
     print("Starter Løvbjerg scraper (avis-PDF fra lovbjerg.dk)...")
     rows = fetch_lovbjerg_tilbud()
     save_to_supabase(rows)
-    cleanup_images(rows)
+    cleanup_images(rows, IMAGE_PREFIX)
     print("\nFærdig!")
 
 
