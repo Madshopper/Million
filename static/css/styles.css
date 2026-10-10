@@ -6300,3 +6300,79 @@ body[data-theme="dark"] {
 [data-theme="dark"] .mp-mcard-day { background: rgba(17, 24, 39, .9); color: #fff; }
 [data-theme="dark"] .mp-mcard-pin:not(.is-selected) { background: rgba(17, 24, 39, .85); }
 @media (prefers-reduced-motion: reduce) { .mp-mcard { animation: none; } .mp-mcard:hover { transform: none; } }
+
+/* ===== Tilbudsavis pr. butik (Feature 'butiksaviser') ===== */
+.offer-stores {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.offer-stores h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--gray-900);
+}
+
+.offer-stores-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.offer-store {
+  flex: 0 0 auto;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  color: var(--gray-700);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.offer-store[hidden] { display: none; }
+
+.offer-store:hover,
+.offer-store:focus-visible {
+  border-color: var(--green);
+  box-shadow: var(--shadow-sm);
+}
+
+.offer-store img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.offer-store span {
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.store-avis-intro {
+  margin: -4px 0 12px;
+  color: var(--gray-700);
+  font-size: 0.95rem;
+}
+
+.store-avis-intro a {
+  color: var(--green);
+  font-weight: 700;
+  white-space: nowrap;
+}

@@ -622,6 +622,10 @@ function syncFilterButtons() {
             btn.classList.add('inactive');
         }
     });
+    // Forsidens tilbudsaviser (Feature 'butiksaviser') viser kun valgte butikker.
+    document.querySelectorAll('.offer-store').forEach(a => {
+        a.hidden = !isStoreSelected(a.dataset.storeLabel);
+    });
 }
 
 function initStoreFilters() {

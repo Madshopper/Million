@@ -30,6 +30,7 @@ from app_support import (
     products_to_api_list, product_to_api_dict,
     product_available_at_active_stores,
     product_for_active_stores,
+    _promote_match_to_product,
     STORE_CATALOG_VERSION,
     stores_auto_enable_since,
     STORES_ADDED_IN_VERSION,
@@ -202,6 +203,8 @@ _EDGE_ENV_VARS = (
     'MEJERI_NAVN_ENABLED',
     # Kun på staging: gul pris ved tilbud uden førpris (_FEATURES 'tilbud_gul').
     'TILBUD_GUL_ENABLED',
+    # Kun på staging: tilbudsavis pr. butik (_FEATURES 'butiksaviser').
+    'BUTIKSAVISER_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -250,6 +253,9 @@ _CACHEABLE_ENDPOINTS = {
     # Native listing-API'er (docs/native-app.md Fase 0) - samme cache-semantik
     # som HTML-listerne (24t CDN via cache_version).
     'api_home', 'api_category', 'api_sale', 'api_search',
+    # Tilbudsavis pr. butik (Feature 'butiksaviser'): skifter kun ved seedet,
+    # og afhænger ikke af butiksvalget (siden ER én butik).
+    'store_offers', 'api_store_offers',
     # Prishistorik og ernæring: data ændrer sig højst én gang i døgnet og er
     # GET uden rate-limit - edge-cache (samme 24t CDN-Cache-Control via
     # cache_version som resten af _CACHEABLE_ENDPOINTS, se _EDGE_CACHE_SECONDS)
@@ -291,7 +297,7 @@ _CACHEABLE_JSON_ENDPOINTS = {
     'get_stores', 'get_separate_products', 'get_product_info',
     'get_price_history', 'get_nutrition',
     'api_home', 'api_category', 'api_sale', 'api_search', 'autocomplete',
-    'get_recipes',
+    'get_recipes', 'api_store_offers',
 }
 _JSON_BROWSER_CACHE_SECONDS = 300
 # INGEN browser-cache af HTML: browseren skal hente frisk HTML ved hvert
@@ -519,6 +525,8 @@ def _inject_site_meta():
         'swipe_enabled': _feature_enabled('swipe'),
         # "Køl & Mejeri" i kategorimenuen (Feature-panelet 'mejeri_navn').
         'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
+        # Butikslogoer med tilbudsavis på forsiden (Feature-panelet 'butiksaviser').
+        'butiksaviser_enabled': _feature_enabled('butiksaviser'),
         'vapid_public_key': _VAPID_PUBLIC_KEY,
         # Sandt naar SIDENS render byggede paa ufuldstaendige data (samme
         # isolate-kollision i D1-broen som saetter X-Data-Degraded-headeren,
@@ -918,6 +926,8 @@ def load_sale_raw(limit: int | None = None) -> list:
     result = [
         p for p in products
         if p.get('/product/sale_price') or p.get('/product/is_any_sale')
+        # own_sale: tilbud uden førpris (updater.py), samme udvalg som D1's is_sale.
+        or p.get('/product/own_sale')
     ]
     return result[:limit] if limit else result
 
@@ -1757,6 +1767,33 @@ _FEATURES = (
              'desc': 'Appen skifter navn, når den er udgivet her.'},
         ),
     },
+    {
+        'key': 'butiksaviser',
+        'name': 'Tilbudsavis pr. butik',
+        'env': 'BUTIKSAVISER_ENABLED',
+        'desc': 'Kalles ønske (10-10-2026), efter at Tjek sagde nej til '
+                'aviserne: butikkernes logoer på forsiden, og et tryk viser '
+                'butikkens tilbud denne uge, bygget af de priser vi selv '
+                'henter direkte fra butikkerne. Ingen avisbilleder, kun et '
+                'link til butikkens egen avis. Coop-butikkerne og 365 '
+                'Discount er ikke med, før Coop har svaret (de kommer stadig '
+                'fra Tjek).',
+        'app': 'Appen viser logoerne fra den næste app-version, når den er '
+               'udgivet her. MadShopper Test har dem med det samme.',
+        'parts': (
+            {'kind': 'web', 'name': 'Butikslogoer på forsiden',
+             'desc': 'Kun de butikker man har valgt. Tryk åbner /tilbud/<butik>.'},
+            {'kind': 'web', 'name': 'Tilbudsside pr. butik',
+             'desc': 'Butikkens tilbud med filtre og sortering, plus et link '
+                     '"Se hele avisen hos …" til butikkens egen side.'},
+            {'kind': 'app', 'name': 'Tilbudsavis i appen',
+             'desc': 'Samme logoer på appens forside og samme tilbudsside '
+                     '(/api/store-offers/<butik>).'},
+            {'kind': 'idea', 'name': 'Coop-butikkerne og 365 Discount',
+             'desc': 'Tilføjes, når Coop har svaret og tilbuddene ikke '
+                     'længere kommer fra Tjek.'},
+        ),
+    },
 )
 
 # Projekter der ikke er færdige, men ikke har en knap (fx appen i butikkerne).
@@ -1990,6 +2027,37 @@ def _feature_enabled(key: str) -> bool:
 # Makroer importeres uden kontekst (fx product_card), så flaget skal være en
 # global for at kunne ses derinde.
 app.jinja_env.globals['feature_enabled'] = _feature_enabled
+
+# Tilbudsavis pr. butik (Feature 'butiksaviser'): butikkerne hvis tilbud vi selv
+# henter direkte fra butikken, med et link til butikkens egen avis. Selve
+# avissiderne vises ikke - de er butikkens ophavsret, og Tjek sagde nej
+# 09-10-2026. Rækkefølgen her er rækkefølgen på forsiden. Brugsen, Kvickly,
+# SuperBrugsen og 365 Discount mangler med vilje: deres tilbud kommer stadig fra
+# Tjek, indtil Coop har svaret.
+_OFFER_STORE_AVIS_URLS = {
+    'netto':      'https://netto.dk/netto-avisen/',
+    'foetex':     'https://www.foetex.dk/foetex-avis/',
+    'bilka':      'https://www.bilka.dk/bilkaavisen/',
+    'rema':       'https://rema1000.dk/avis',
+    'lidl':       'https://www.lidl.dk/c/tilbudsavis/s10013730',
+    'meny':       'https://meny.dk/ugensavis',
+    'spar':       'https://spar.dk/ugensavis',
+    'mk':         'https://minkobmand.dk/ugensavis',
+    'loevbjerg':  'https://www.lovbjerg.dk/avis',
+    'abclavpris': 'https://www.abc-lavpris.dk/',
+}
+
+
+def _offer_stores() -> list:
+    """Logoerne til forsidens tilbudsavis (web og /api/home)."""
+    return [
+        {'key': k, 'label': _STORE_CONFIGS[k]['label'],
+         'logo': _STORE_CONFIGS[k]['logo'], 'avis_url': url}
+        for k, url in _OFFER_STORE_AVIS_URLS.items()
+    ]
+
+
+app.jinja_env.globals['offer_stores'] = tuple(_offer_stores())
 
 
 def _category_display_name(category: str) -> str:
@@ -3474,8 +3542,13 @@ def _build_home_categories(active_stores, args):
         mejeri_raw = _adjust_for_stores(precomputed.get('mejeri_raw') or [])
         recipe_pool = precomputed.get('recipe_pool') or []
     else:
+        # own_sale-varer (tilbud uden førpris) er med i is_sale, men ikke i
+        # Ugens Tilbud - samme udvalg som seed-d1.py's forudberegnede pulje.
         sale_raw = _adjust_for_stores(
-            filter_products_by_stores(load_sale_raw(limit=200), active_stores))
+            filter_products_by_stores(
+                [p for p in load_sale_raw(limit=200)
+                 if p.get('/product/sale_price') or p.get('/product/is_any_sale')],
+                active_stores))
         mejeri_raw = _adjust_for_stores(
             filter_products_by_stores(load_category_raw(CAT_MEJERI, limit=200), active_stores))
         # "Lækre opskrifter" har ingen forudberegnet pulje her: _home_precomputed()
@@ -3722,6 +3795,69 @@ def _build_sale_listing(active_stores, args, page: int):
                 )
     sale_products = apply_product_filters(sale_products, args)
     page_items, page, total_pages, total = _paginate(sale_products, page, per_page)
+    return page_items, page, total_pages, total
+
+
+def _as_store_offer(product: dict, store_key: str, label: str) -> dict | None:
+    """Varen som den ser ud hos store_key, hvis den er på tilbud dér - ellers
+    None. Visningsbutikkens egen pris ligger på kortet selv (Rema har ingen
+    store_matches-post); de andre butikkers ligger i store_matches. own_sale er
+    butikkens tilbud uden førpris (updater.py), fx det meste af ABC Lavpris."""
+    if product.get('/product/store') == label:
+        if product.get('/product/sale_price') is not None or product.get('/product/own_sale'):
+            return product
+        return None
+    match = (product.get('/product/store_matches') or {}).get(store_key)
+    if isinstance(match, dict) and match.get('is_sale') and match.get('name'):
+        try:
+            if float(match.get('price') or 0) <= 0:
+                return None
+        except (TypeError, ValueError):
+            return None
+        return _promote_match_to_product(product, store_key, match)
+    return None
+
+
+def _build_store_offer_listing(store_key: str, args, page: int):
+    """Én butiks tilbud (Feature 'butiksaviser'), til /tilbud/<butik> og
+    /api/store-offers/<butik>. Uafhængig af brugerens butiksvalg: siden ER
+    butikken. Returnerer display-dicts + meta som _build_sale_listing."""
+    label = _STORE_CONFIGS[store_key]['label']
+    per_page = _LISTING_PER_PAGE
+    if _use_d1():
+        # `is_sale = 1` skal stå bogstaveligt, så det partielle indeks bruges
+        # (seed-d1.py); json_extract afgøres i D1, hvis CPU ikke tæller mod
+        # workerens. Stien bygges kun af nøgler fra _STORE_CONFIGS.
+        raw_page, total_pages, page = _d1_listing(
+            ["is_sale = 1",
+             "((store = ? AND (json_extract(data, '$.\"/product/sale_price\"') IS NOT NULL"
+             " OR json_extract(data, '$.\"/product/own_sale\"') = 1))"
+             " OR json_extract(data, ?) = 1)"],
+            [label, f'$."/product/store_matches".{store_key}.is_sale'],
+            args, page, per_page, None,
+        )
+        source = filter_products_by_stores(raw_page, None)
+    else:
+        source = filter_products_by_stores(load_sale_raw(), None)
+    offers = []
+    for product in source:
+        try:
+            adjusted = _as_store_offer(product, store_key, label)
+            if not adjusted:
+                continue
+            offers.append(product_to_display_dict(
+                adjusted,
+                default_category='Andre varer',
+                sale_end_date=parse_sale_end_date(adjusted),
+                force_sale=True,
+            ))
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning("Error converting store offer %s: %s",
+                           product.get('/product/id'), e)
+    offers = apply_product_filters(offers, args)
+    if _use_d1():
+        return offers, page, total_pages, None
+    page_items, page, total_pages, total = _paginate(offers, page, per_page)
     return page_items, page, total_pages, total
 
 
@@ -4975,6 +5111,9 @@ def api_home():
             'swipe_enabled': _feature_enabled('swipe'),
             # "Køl & Mejeri": appen skifter kategorinavn samtidig med webben.
             'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
+            # Tilbudsavis pr. butik: appen viser logoerne, når den er udgivet.
+            'butiksaviser_enabled': _feature_enabled('butiksaviser'),
+            'offer_stores': _offer_stores() if _feature_enabled('butiksaviser') else [],
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
                 'available': False,
@@ -5008,6 +5147,70 @@ def api_sale():
         return jsonify(payload)
     except Exception as e:
         logger.exception("api/sale error: %s", e)
+        return jsonify(success=False, error='Kunne ikke hente tilbud.'), 500
+
+
+@app.route('/tilbud/<store_key>')
+def store_offers(store_key):
+    """Tilbudsavis for én butik (Feature 'butiksaviser'): butikkens tilbud
+    denne uge og et link til butikkens egen avis. 404 indtil udgivet."""
+    if not _feature_enabled('butiksaviser') or store_key not in _OFFER_STORE_AVIS_URLS:
+        return render_template('not_found.html'), 404
+    try:
+        page = request.args.get('page', 1, type=int)
+        products, page, total_pages, _total = _build_store_offer_listing(
+            store_key, request.args, page,
+        )
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return render_template('partials/product_grid.html',
+                                   products=products,
+                                   current_page=page,
+                                   total_pages=total_pages)
+        label = _STORE_CONFIGS[store_key]['label']
+        return render_template('category.html',
+                               category_name=f'Tilbud hos {label}',
+                               products=products,
+                               current_page=page,
+                               total_pages=total_pages,
+                               available_subcategories=[],
+                               current_subcategory=None,
+                               store_avis={
+                                   'label': label,
+                                   'logo': _STORE_CONFIGS[store_key]['logo'],
+                                   'url': _OFFER_STORE_AVIS_URLS[store_key],
+                               })
+    except Exception as e:
+        logger.error("Error loading store offers %s: %s", store_key, e)
+        _mark_data_degraded('store_offers_exception')
+        return "Der opstod en fejl. Prøv igen om lidt.", 500
+
+
+@app.route('/api/store-offers/<store_key>')
+@rate_limit(api_limiter)
+def api_store_offers(store_key):
+    """JSON til appens tilbudsavis pr. butik (samme som /tilbud/<butik>)."""
+    if not _feature_enabled('butiksaviser') or store_key not in _OFFER_STORE_AVIS_URLS:
+        return jsonify(success=False, error='Ukendt butik.'), 404
+    try:
+        page = request.args.get('page', 1, type=int)
+        products, page, total_pages, total = _build_store_offer_listing(
+            store_key, request.args, page,
+        )
+        payload = {
+            'success': True,
+            'store': store_key,
+            'label': _STORE_CONFIGS[store_key]['label'],
+            'avis_url': _OFFER_STORE_AVIS_URLS[store_key],
+            'products': products_to_api_list(products),
+            'page': page,
+            'per_page': _LISTING_PER_PAGE,
+            'total_pages': total_pages,
+        }
+        if total is not None:
+            payload['total'] = total
+        return jsonify(payload)
+    except Exception as e:
+        logger.exception("api/store-offers error: %s", e)
         return jsonify(success=False, error='Kunne ikke hente tilbud.'), 500
 
 
