@@ -6390,7 +6390,7 @@ body[data-theme="dark"] {
 }
 
 /* Avis-skabelonen (templates/butiksavis.html): ens for alle butikker. Kun
-   baggrunden skifter: butikkens logo svagt hen over hele avisen. Varekortene
+   baggrunden skifter: butikkens logo svagt hen over siderne. Varekortene
    er de almindelige .product-kort, klædt om som avisfelter. */
 .visually-hidden {
   position: absolute !important;
@@ -6401,71 +6401,26 @@ body[data-theme="dark"] {
   white-space: nowrap;
 }
 
-.avis-paper {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  margin: 8px 0 24px;
-  padding: 18px 14px 24px;
-  background: var(--white);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-}
+.avis-book { margin: 8px 0 24px; }
 
-.avis-paper::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  /* static/images/avis/<butik>.png: to skrå logoer på en gennemsigtig flise */
-  background-image: var(--avis-logo);
-  background-repeat: repeat;
-  background-size: 230px auto;
-  opacity: 0.12;
-  pointer-events: none;
-}
-
-/* Varebillederne har hvid baggrund; multiply lader logoerne bag dem skinne
-   igennem, så avisen ligner ét stykke papir. Ikke i mørk tilstand, hvor det
-   ville gøre billederne mørke. */
-.avis-paper .product-image { mix-blend-mode: multiply; }
-body[data-theme="dark"] .avis-paper .product-image { mix-blend-mode: normal; }
-body[data-theme="dark"] .avis-paper::before { opacity: 0.1; filter: grayscale(1) invert(1); }
-
-.avis-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px 16px;
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-  border-bottom: 3px solid var(--gray-900);
-  background: transparent;
-  position: static;
-  z-index: auto;
-  box-shadow: none;
-}
-
-.avis-head h1 {
-  font-size: 2rem;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  text-transform: uppercase;
-  color: var(--gray-900);
-  line-height: 1;
-}
-
-.avis-head-meta {
+.avis-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 14px;
-  font-size: 0.85rem;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: var(--gray-700);
 }
+
+.avis-bar-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.avis-bar a { color: var(--green); font-weight: 700; white-space: nowrap; }
 
 .avis-week {
   padding: 3px 10px;
@@ -6473,12 +6428,6 @@ body[data-theme="dark"] .avis-paper::before { opacity: 0.1; filter: grayscale(1)
   background: var(--gray-900);
   color: var(--white);
   font-weight: 800;
-}
-
-.avis-head-meta a {
-  color: var(--green);
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .avis-chips {
@@ -6492,25 +6441,88 @@ body[data-theme="dark"] .avis-paper::before { opacity: 0.1; filter: grayscale(1)
 
 .avis-chips .subcategory-pill { text-decoration: none; }
 
-.avis-section { margin-top: 18px; scroll-margin-top: 140px; }
+/* Siderne ligger på én vandret række; scroll-snap giver swipe side for side
+   på telefonen, pilene og piletasterne klares af static/js/avis.js. */
+.avis-viewport { position: relative; }
 
-.avis-section-head {
+.avis-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md, 0 4px 16px rgba(0, 0, 0, 0.12));
+  outline: none;
+}
+
+.avis-track::-webkit-scrollbar { display: none; }
+.avis-track:focus-visible { box-shadow: 0 0 0 3px var(--green); }
+
+.avis-page {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px 12px;
+  background: var(--white);
+  overflow: hidden;
+}
+
+/* Ryggen mellem to sider i et opslag. */
+.avis-page + .avis-page { border-left: 1px solid var(--gray-200); }
+
+.avis-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  /* static/images/avis/<butik>.png: to skrå logoer på en gennemsigtig flise */
+  background-image: var(--avis-logo);
+  background-repeat: repeat;
+  background-size: 230px auto;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+/* Varebillederne har hvid baggrund; multiply lader logoerne bag dem skinne
+   igennem, så siden ligner ét stykke papir. Ikke i mørk tilstand, hvor det
+   ville gøre billederne mørke. */
+.avis-page .product-image { mix-blend-mode: multiply; }
+body[data-theme="dark"] .avis-page .product-image { mix-blend-mode: normal; }
+body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) invert(1); }
+
+.avis-front-head {
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 3px solid var(--gray-900);
+}
+
+.avis-front-title {
+  font-size: 2.3rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--gray-900);
+  line-height: 1;
+}
+
+.avis-front-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-top: 8px;
+  font-weight: 600;
+  color: var(--gray-700);
 }
 
-.avis-section-head a {
-  color: var(--green);
-  font-size: 0.85rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
+.avis-section-head { margin-bottom: 8px; }
 
 .avis-ribbon {
   display: inline-block;
+  margin: 0;
   padding: 6px 16px 7px;
   background: var(--gray-900);
   color: var(--white);
@@ -6521,63 +6533,124 @@ body[data-theme="dark"] .avis-paper::before { opacity: 0.1; filter: grayscale(1)
   transform: skewX(-10deg);
 }
 
-/* Varekortene som avisfelter: ingen kortramme, stiplede skillelinjer,
-   stor pris i et gult prisskilt og et rødt "Spar"-mærke. */
-.avis-paper .products { gap: 0; }
+.avis-page-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  font-size: 0.85rem;
+}
 
-.avis-paper .product {
+.avis-page-foot a { color: var(--green); font-weight: 700; }
+.avis-page-no { color: var(--gray-500); font-weight: 700; }
+
+.avis-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--gray-900);
+  color: var(--white);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.avis-nav--prev { left: 4px; }
+.avis-nav--next { right: 4px; }
+.avis-nav:disabled { opacity: 0; pointer-events: none; }
+
+.avis-counter {
+  margin: 10px 0 0;
+  text-align: center;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+/* Varerne som avisfelter, 2 x 3 pr. side: ingen kortramme, tynde
+   skillelinjer, stor pris i et gult prisskilt og et rødt "Spar"-mærke. */
+.avis-page .products {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+
+.avis-page .product {
   background: transparent;
   border: none;
   border-radius: 0;
   box-shadow: inset -1px -1px 0 var(--gray-200);
 }
 
-.avis-paper .product:hover {
+.avis-page .product:nth-child(2n) { box-shadow: inset 0 -1px 0 var(--gray-200); }
+
+.avis-page .product:hover {
   transform: none;
-  box-shadow: inset -1px -1px 0 var(--gray-200);
   background: rgba(127, 127, 127, 0.05);
 }
 
-.avis-paper .product-image-container { background: transparent; }
+.avis-page .product-image-container { background: transparent; height: 120px; }
+.avis-page--front .product-image-container { height: 150px; }
 
-.avis-paper .store-badge,
-.avis-paper .compare-badge { display: none; }
+.avis-page .store-badge,
+.avis-page .compare-badge,
+.avis-page .product-weight,
+.avis-page .product-kg-price { display: none; }
 
-.avis-paper .sale-badge {
+.avis-page .sale-badge {
   top: auto;
   left: auto;
-  bottom: 8px;
-  right: 8px;
-  padding: 7px 10px;
+  bottom: 6px;
+  right: 6px;
+  padding: 6px 9px;
   border-radius: 999px;
   background: #C8102E;
   color: #FFFFFF;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   transform: rotate(-8deg);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
-.avis-paper .product-brand { color: var(--gray-500); }
+.avis-page .product-brand { color: var(--gray-500); }
+.avis-page .product-content h3 { font-size: 0.9rem; }
 
-.avis-paper .product-content h3 { font-size: 0.95rem; }
-
-.avis-paper .product-price .price-sale,
-.avis-paper .product-price .price-main {
+.avis-page .product-price .price-sale,
+.avis-page .product-price .price-main {
   display: inline-block;
-  padding: 2px 10px 4px;
+  padding: 2px 9px 3px;
   border-radius: 8px;
   background: #FFD84D;
   color: #1A1C19;
-  font-size: 1.45rem;
+  font-size: 1.1rem;
   font-weight: 900;
   letter-spacing: -0.02em;
+  white-space: nowrap;
   transform: rotate(-2deg);
   box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
 }
 
-.avis-paper .product-price .price-original::before { content: "Før "; }
+.avis-page .product-price .price-original::before { content: "Før "; }
 
-@media (min-width: 640px) {
-  .avis-paper { padding: 24px 22px 28px; }
-  .avis-head h1 { font-size: 2.4rem; }
+/* Brede skærme: to sider ved siden af hinanden, som et opslag. */
+@media (min-width: 900px) {
+  .avis-page { flex-basis: 50%; padding: 22px 20px 16px; }
+  .avis-page .product-price .price-sale,
+  .avis-page .product-price .price-main { font-size: 1.3rem; }
+  .avis-page .products { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .avis-page .product:nth-child(2n) { box-shadow: inset -1px -1px 0 var(--gray-200); }
+  .avis-page .product:nth-child(3n) { box-shadow: inset 0 -1px 0 var(--gray-200); }
+  .avis-page--front .products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .avis-page--front .product:nth-child(2n) { box-shadow: inset 0 -1px 0 var(--gray-200); }
+  .avis-page--front .product:nth-child(3n) { box-shadow: inset -1px -1px 0 var(--gray-200); }
+  .avis-nav { width: 52px; height: 52px; margin-top: -26px; }
+  .avis-nav--prev { left: -18px; }
+  .avis-nav--next { right: -18px; }
 }

@@ -4037,6 +4037,36 @@ def _build_store_avis(store_key: str) -> dict:
     }
 
 
+# Varer pr. avisside (2 x 3) og på forsiden (2 x 2). Appen deler avisen op
+# efter samme regel (apps/mobile/src/screens/StoreAvisScreen.tsx::avisPages).
+_AVIS_PAGE_ITEMS = 6
+_AVIS_FRONT_ITEMS = 4
+
+
+def _avis_pages(avis):
+    """Deler avisen op i sider, som en rigtig avis (Kalle 10-10-2026):
+    forsiden med de fire bedste tilbud, resten af "Ugens bedste tilbud" og
+    så hvert afsnit, seks varer pr. side. Sidste side i et afsnit får
+    "Se alle"-linket."""
+    pages = []
+    best = avis.get('best') or []
+    if best:
+        pages.append({'front': True, 'title': 'Ugens bedste tilbud', 'slug': '',
+                      'products': best[:_AVIS_FRONT_ITEMS], 'more': None})
+        rest = best[_AVIS_FRONT_ITEMS:]
+        for i in range(0, len(rest), _AVIS_PAGE_ITEMS):
+            pages.append({'front': False, 'title': 'Ugens bedste tilbud', 'slug': '',
+                          'products': rest[i:i + _AVIS_PAGE_ITEMS], 'more': None})
+    for sec in avis.get('sections') or []:
+        items = sec['products']
+        for i in range(0, len(items), _AVIS_PAGE_ITEMS):
+            last = i + _AVIS_PAGE_ITEMS >= len(items)
+            pages.append({'front': False, 'title': sec['title'],
+                          'slug': sec['slug'] if i == 0 else '',
+                          'products': items[i:i + _AVIS_PAGE_ITEMS],
+                          'more': sec if last else None})
+    return pages
+
 _OFFER_COUNTS_NONE = object()
 
 
@@ -5464,7 +5494,8 @@ def store_offers(store_key):
                 'kategori', 'page', 'sort', 'min_price', 'max_price', 'organic',
                 'lactose', 'min_weight', 'max_weight', 'sale')):
             avis = _build_store_avis(store_key)
-            return render_template('butiksavis.html', avis=avis)
+            return render_template('butiksavis.html', avis=avis,
+                                   pages=_avis_pages(avis))
         page = request.args.get('page', 1, type=int)
         products, page, total_pages, _total = _build_store_offer_listing(
             store_key, request.args, page,
