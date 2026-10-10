@@ -29,7 +29,7 @@ MadShopper ([madshopper.dk](https://madshopper.dk)) - dansk pris-sammenligning f
 - `templates/` (+ `macros/`, `partials/`) / `static/` - Jinja2 + CSS/JS (`script.js`, `auth.js`, `supabase.min.js`)
 - `apps/mobile/` - native iOS/Android-app (Expo/React Native); se `docs/native-app.md` og `docs/env-setup.md`
 - `docs/` - `Dev.md` (dev/staging-workflow), `Features.md` (roadmap), `paritet.md` (web/app-feature-matrix + aabne gaps - **opdatér i samme commit som du aendrer en feature**), `native-app.md`, `prisovervaagning.md`, `email-bekraeftelse.md`, `Github_fifs.md`
-- `uptime-worker/` - selvstændig JS-worker (`madshopper-uptime`) med cron hvert 5. minut, der mailer ved nedbrud
+- `uptime-worker/` - selvstændig JS-worker (`madshopper-uptime`) med cron hvert 5. minut, der mailer ved nedbrud, og som starter nattens hentning af butikkerne kl. 00:01 dansk tid (GitHub-cron kommer 1-4 timer for sent; nøglen `NIGHTLY_DISPATCH_TOKEN` i GitHub-secrets)
 - `.github/workflows/` - per-butik-scrapers (kun på butikkens avis-dage, Meny hver nat: se `nightly-dispatcher.yml`, sparer Actions-minutter; private repo har 2.000 gratis min/md), cache-updater, nutrition-build, edge-deploy (prod + staging, begge fra main), smoke/uptime-test, dependency-audit
 - `wrangler.toml`, `pyproject.toml` - Cloudflare/EdgeKit-konfiguration (uv)
 
