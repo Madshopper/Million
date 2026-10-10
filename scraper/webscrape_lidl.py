@@ -11,6 +11,14 @@ Erstatter den tidligere Tjek-baserede scraper: Tjek (eTilbudsavis) bad os
 Kun varer hvis tilbud er startet og ikke udløbet tages med, så næste uges
 sider (som Lidl lægger op i forvejen) først kommer på, når de gælder.
 Lidl Plus-priser bruges ikke (kræver login, se lidl_katalog.py).
+
+Ugens avis (endpoints.leaflets.schwarz, Lidls egen avis-tjeneste bag
+lidl.dk/c/tilbudsavis) har enkelte varer, der ikke står på kampagnesiderne,
+typisk frugt. De tages med fra avisen, så længe avisen gælder i dag, og kun
+hvis varens egen side ikke viser prisen som en Lidl Plus-pris.
+
+Lidls uge starter søndag, og weekendpriserne torsdag (storeStartDate er
+22:00 UTC dagen før), så scraperen kører de to nætter (nightly-dispatcher).
 """
 import html
 import json
@@ -18,7 +26,8 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -37,6 +46,13 @@ BUTIK = "Lidl"
 KATEGORI = "Tilbudsavis"
 PAGE_DELAY = 0.5
 
+LEAFLET_PAGE = "/c/tilbudsavis/s10013730"
+LEAFLET_API = "https://endpoints.leaflets.schwarz/v4/flyer"
+# Kun selve ugeavisen: "Fast lav pris", nonfood- og legetøjsaviserne er ikke
+# ugens madtilbud.
+LEAFLET_SUBCATEGORY = "Lidl avisen"
+
+_LEAFLET_ID_RE = re.compile(r'/l/da/tilbudsavis/([a-z0-9-]+)/')
 _CAMPAIGN_LINK_RE = re.compile(r'href="(?:https://www\.lidl\.dk)?(/c/[^"/?#]+/a\d+)"')
 _GRID_DATA_RE = re.compile(r'data-grid-data="([^"]+)"')
 
@@ -57,6 +73,71 @@ def fetch_campaign_items(path: str) -> list[dict]:
         except ValueError:
             continue
     return items
+
+
+def fetch_current_leaflets(today: date) -> list[dict]:
+    """Ugeaviser fra lidl.dk/c/tilbudsavis, der gælder i dag."""
+    r = requests.get(BASE_URL + LEAFLET_PAGE, headers=_HEADERS, timeout=30)
+    r.raise_for_status()
+    leaflets = []
+    for ident in sorted(set(_LEAFLET_ID_RE.findall(r.text))):
+        resp = requests.get(LEAFLET_API, params={"flyer_identifier": ident, "region_id": 0},
+                            headers=_HEADERS, timeout=30)
+        if resp.status_code != 200:
+            continue
+        flyer = (resp.json() or {}).get("flyer") or {}
+        if (flyer.get("subcategory") != LEAFLET_SUBCATEGORY
+                or "fast lav pris" in (flyer.get("name") or "").lower()):
+            continue
+        try:
+            start = date.fromisoformat(flyer.get("offerStartDate") or "")
+            end = date.fromisoformat(flyer.get("offerEndDate") or "")
+        except ValueError:
+            continue
+        if start <= today <= end:
+            leaflets.append(flyer)
+        time.sleep(PAGE_DELAY)
+    return leaflets
+
+
+def _is_lidl_plus_price(product: dict) -> bool:
+    """Avisen viser Lidl Plus-prisen uden at sige det; varens egen side gør."""
+    url = product.get("canonicalUrl") or ""
+    if not url.startswith("/p/"):
+        return True
+    r = requests.get(BASE_URL + url, headers=_HEADERS, timeout=30)
+    if r.status_code != 200:
+        return True
+    return "Med Lidl Plus" in r.text
+
+
+def build_leaflet_row(product: dict) -> dict | None:
+    title = html.unescape(product.get("title") or "").strip()
+    if not title or not _is_food_product(
+            {"category": product.get("categoryPrimary")}, title):
+        return None
+    try:
+        pris = float(str(product.get("price") or "").replace(",", "."))
+    except ValueError:
+        return None
+    if pris <= 0:
+        return None
+    description = html.unescape(re.sub(r"<[^>]+>", " ", product.get("description") or ""))
+    return {
+        "butik":        BUTIK,
+        "kategori":     KATEGORI,
+        "navn":         title,
+        "producent":    product.get("brand") or None,
+        "netto_vaegt":  _parse_weight(title, description) or None,
+        "kg_price":     _parse_kg_price(description) or None,
+        "pris":         pris,
+        "normalpris":   None,
+        "varenummer":   str(product.get("productId") or "") or None,
+        "billede_url":  product.get("image") or "",
+        "billede_hash": None,
+        "tilbud":       "Ja",
+        "multikob":     None,
+    }
 
 
 def _parse_iso(value) -> datetime | None:
@@ -125,6 +206,9 @@ def fetch_lidl_tilbud() -> list[dict]:
     now = datetime.now(timezone.utc)
     rows: list[dict] = []
     seen: set[str] = set()
+    # Alle aktive varer på kampagnesiderne, også dem uden pris (Lidl Plus)
+    # eller uden for mad, så avisen ikke henter dem ind ad bagvejen.
+    campaign_ids: set[str] = set()
     empty_pages = 0
     for path in links:
         items = fetch_campaign_items(path)
@@ -134,6 +218,7 @@ def fetch_lidl_tilbud() -> list[dict]:
         for data in items:
             if not _is_active(data, now):
                 continue
+            campaign_ids.add(str(data.get("erpNumber") or ""))
             row = build_row(data)
             if row is None:
                 continue
@@ -148,6 +233,28 @@ def fetch_lidl_tilbud() -> list[dict]:
 
     if empty_pages == len(links):
         raise RuntimeError("Ingen af Lidls kampagnesider havde varedata (data-grid-data)")
+
+    # Varer fra ugeavisen, som kampagnesiderne ikke har. Kampagnesiderne
+    # vinder, fordi de har førpris og vægt. En fejl her koster kun de få
+    # ekstra varer, ikke hele kørslen.
+    try:
+        today = datetime.now(ZoneInfo("Europe/Copenhagen")).date()
+        for flyer in fetch_current_leaflets(today):
+            added = 0
+            for product in (flyer.get("products") or {}).values():
+                key = str(product.get("productId") or "")
+                if not key or key in seen or key in campaign_ids:
+                    continue
+                seen.add(key)
+                row = build_leaflet_row(product)
+                if row is None or _is_lidl_plus_price(product):
+                    continue
+                rows.append(row)
+                added += 1
+                time.sleep(PAGE_DELAY)
+            print(f"    Avis {flyer.get('name')}: {added} madtilbud ud over kampagnesiderne")
+    except (requests.RequestException, ValueError) as e:
+        print(f"  ADVARSEL: ugeavisen kunne ikke læses ({e}); kun kampagnesiderne bruges")
 
     # Genbrug gårsdagens billede_hash ved uændret billed-URL (se bilka_katalog.py).
     cache = fetch_existing_products(BUTIK)

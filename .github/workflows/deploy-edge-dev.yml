@@ -6,9 +6,10 @@ name: Deploy Edge Worker (staging)
 #
 # Dev-branchen er fjernet 02-10-2026: alt arbejde går nu via PR'er direkte til
 # main. Staging deployes automatisk fra main, sideløbende med produktionen, så
-# dev.madshopper.dk altid kører samme kode som madshopper.dk. Vil man afprøve
-# en PR-branch før merge: Actions > "Deploy Edge Worker (staging)" > Run
-# workflow, og vælg branchen. Næste push til main skriver staging tilbage.
+# dev.madshopper.dk altid kører samme kode som madshopper.dk. Deploy aldrig en
+# PR-branch hertil: Kalle tester main live på dev fra sin telefon (MadShopper
+# Test), så dev skal altid være synkroniseret med main (Kalle, 10-10-2026).
+# Manuel start er kun til main, fx efter et [skip ci]-merge.
 on:
   workflow_dispatch:
   push:
@@ -47,6 +48,8 @@ env:
 
 jobs:
   deploy:
+    # Kun main: dev skal altid være det samme som main (se øverst).
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # Brug runnerens forudinstallerede Chrome (scripts/install-playwright-ci.sh).
     env:

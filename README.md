@@ -62,7 +62,7 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: dev.madshopper.dk 
 | Kvickly | `scraper/webscrape_kvickly.py` |
 | Min Købmand | `scraper/webscrape_minkobmand.py` (wrapper om `scraper/dagrofa_scraper.py`) |
 | 365 Discount | `scraper/webscrape_365discount.py` (Tjek tilbudsavis) |
-| Lidl | `scraper/lidl_katalog.py` (hyldepriser, primær) + `scraper/webscrape_lidl.py` (ugens tilbud fra lidl.dk's kampagnesider) |
+| Lidl | `scraper/lidl_katalog.py` (hyldepriser, primær) + `scraper/webscrape_lidl.py` (ugens tilbud fra lidl.dk's kampagnesider + ugeavisen, søndag og torsdag) |
 | Løvbjerg | `scraper/webscrape_lovbjerg.py` (ugens avis-PDF fra lovbjerg.dk, læst med pdfplumber; varebilleder klippet ud af PDF'en via `scraper/avis_billeder.py`) |
 | ABC Lavpris | `scraper/webscrape_abc_lavpris.py` (avisen på abc-lavpris.dk læst med OCR/tesseract, varebilleder via `scraper/avis_billeder.py`) |
 

@@ -7,7 +7,30 @@ import path from 'path';
 // produktions-build peger altid på https://madshopper.dk og har ingen brug
 // for undtagelsen, som ellers unødigt svækker App Transport Security i den
 // udgave, der reelt havner i App Store.
-const FLAVOR = process.env.EXPO_PUBLIC_FLAVOR || 'production';
+// APP_VARIANT=test bygger "MadShopper Test": en separat iOS-app med egen
+// identitet, så den kan ligge ved siden af App Store-udgaven på Kalles egen
+// telefon. Den installeres kun direkte fra Mac'en (udviklingsprofil, kun
+// registrerede enheder) og sendes aldrig til TestFlight/App Store. Google-/
+// Apple-login, push og links ind i appen er bundet til den rigtige identitet
+// og virker derfor ikke i testappen, før de tilmeldes særskilt.
+//
+// Testappen er dev-siden på telefonen (Kalle, 10-10-2026): den peger altid
+// på dev.madshopper.dk med alt slået til, og den får ny kode fra main via
+// EAS Update (.github/workflows/test-app-update.yml), så den følger main
+// uden et nyt build på Mac'en. Kun nye native-pakker kræver et nyt build.
+const IS_TEST_APP = process.env.APP_VARIANT === 'test';
+const TEST_APP_DEFAULTS = IS_TEST_APP
+  ? {
+      EXPO_PUBLIC_FLAVOR: 'staging',
+      EXPO_PUBLIC_API_BASE_URL: 'https://dev.madshopper.dk',
+      EXPO_PUBLIC_RPC_SUFFIX: '_dev',
+      EXPO_PUBLIC_RECIPES_ENABLED: '1',
+      EXPO_PUBLIC_PUSH_ENABLED: '1',
+    }
+  : {};
+const envOr = (name, fallback) => process.env[name] || TEST_APP_DEFAULTS[name] || fallback;
+
+const FLAVOR = envOr('EXPO_PUBLIC_FLAVOR', 'production');
 const IS_PRODUCTION_FLAVOR = FLAVOR === 'production';
 
 // Offentlige værdier (samme som eas.json -> build.production.env). Supabase-
@@ -35,8 +58,10 @@ const PUBLIC_DEFAULTS = {
 // -configuration Release), så preview-builds skrev testdata i prod-tabellerne
 // uden at nogen kunne se det. Nu skiftes der aldrig miljø i stilhed: en
 // uautoriseret non-prod release fejler i stedet.
+// Testappen er staging med vilje og kan ikke ende i App Store (andet
+// bundle-id end butiksappen), så den tæller også som eksplicit valg.
 const NONPROD_RELEASE_ALLOWED =
-  process.env.EAS_BUILD === 'true' || process.env.MADSHOPPER_ALLOW_NONPROD_RELEASE === '1';
+  process.env.EAS_BUILD === 'true' || process.env.MADSHOPPER_ALLOW_NONPROD_RELEASE === '1' || IS_TEST_APP;
 
 // $CONFIGURATION sættes af Xcode, når expo-constants' build-fase evaluerer
 // denne fil under xcodebuild. Alt der ikke er en Debug-konfiguration tælles
@@ -88,7 +113,7 @@ const config = {
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
-  scheme: 'madshopper',
+  scheme: IS_TEST_APP ? 'madshopper-test' : 'madshopper',
   // Brandgrøn = samme #059669 som favicon/app-ikonet (scripts/build-icons.py).
   // Appens egne UI-grønne toner ligger i src/theme/colors.ts.
   primaryColor: '#059669',
@@ -96,9 +121,10 @@ const config = {
     // Portrait-first iPhone-app. `true` ville kræve iPad-screenshots i App Store
     // Connect og gøre iPad til en review-flade vi ikke tester på.
     supportsTablet: false,
-    bundleIdentifier: 'dk.madshopper.app',
-    associatedDomains: ['applinks:madshopper.dk'],
+    bundleIdentifier: IS_TEST_APP ? 'dk.madshopper.app.test' : 'dk.madshopper.app',
+    associatedDomains: IS_TEST_APP ? [] : ['applinks:madshopper.dk'],
     infoPlist: {
+      ...(IS_TEST_APP ? { CFBundleDisplayName: 'MadShopper Test' } : {}),
       CFBundleAllowMixedLocalizations: true,
       // Appen er på dansk. Uden disse to viste App Store sproget som
       // "EN English" (Expo sætter udviklingsregionen til engelsk som standard).
@@ -177,6 +203,21 @@ const config = {
   web: {
     favicon: './assets/favicon.png',
   },
+  // Kun testappen henter ny kode over luften (kanalen "test"). Butiksappen
+  // har opdateringer slået fra og får kun ny kode via App Store.
+  // fingerprint: en opdatering lander kun i et build med samme native-del,
+  // så en ny native-pakke aldrig sendes til en app der ikke kan køre den.
+  ...(IS_TEST_APP
+    ? {
+        runtimeVersion: { policy: 'fingerprint' },
+        updates: {
+          url: 'https://u.expo.dev/61fb2d3e-805e-4d2f-9c78-5e9705d28fd8',
+          requestHeaders: { 'expo-channel-name': 'test' },
+          checkAutomatically: 'ON_LOAD',
+          fallbackToCacheTimeout: 0,
+        },
+      }
+    : { updates: { enabled: false } }),
   plugins: [
     // iOS 27 kræver scene-opstart (ellers lukker appen ved start).
     './plugins/withSceneLifecycle',
@@ -226,11 +267,11 @@ const config = {
     ['expo-build-properties', { ios: { useFrameworks: 'static' } }],
   ],
   extra: {
-    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://madshopper.dk',
+    apiBaseUrl: envOr('EXPO_PUBLIC_API_BASE_URL', 'https://madshopper.dk'),
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || PUBLIC_DEFAULTS.supabaseUrl,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || PUBLIC_DEFAULTS.supabaseAnonKey,
-    rpcSuffix: process.env.EXPO_PUBLIC_RPC_SUFFIX || '',
-    recipesEnabled: process.env.EXPO_PUBLIC_RECIPES_ENABLED === '1',
+    rpcSuffix: envOr('EXPO_PUBLIC_RPC_SUFFIX', ''),
+    recipesEnabled: envOr('EXPO_PUBLIC_RECIPES_ENABLED', '') === '1',
     // Kun i Kalles lokale build af MadShopper Test: henter de skjulte
     // opskrifter fra madshopper.dk med testnøglen (app.py::get_recipes_preview).
     // Står aldrig i eas.json eller git.
@@ -240,7 +281,7 @@ const config = {
     // ind (src/worker.py::_staging_blocked). Står aldrig i eas.json eller git.
     stagingAppKey: process.env.EXPO_PUBLIC_STAGING_APP_KEY || '',
     // Beskeder på telefonen (src/push/push.ts) - altid til i test-udgaverne.
-    pushEnabled: process.env.EXPO_PUBLIC_PUSH_ENABLED === '1',
+    pushEnabled: envOr('EXPO_PUBLIC_PUSH_ENABLED', '') === '1',
     googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || PUBLIC_DEFAULTS.googleClientId,
     googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || PUBLIC_DEFAULTS.googleIosClientId,
     googleAndroidClientId:
