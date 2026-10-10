@@ -1857,18 +1857,19 @@ _PROJECTS = (
     {
         'key': 'dagrofa_backup',
         'name': 'Reservevej for Spar, Meny og Min Købmand',
-        'status': 'idea',
+        'status': 'waiting',
         'desc': 'Priserne hentes fra butikkernes egen vareliste. Svigter den, '
-                'skal en reservevej klikke sig gennem butikkens hjemmeside, '
-                'men den finder ingen kategorier længere, fordi siden er '
-                'ændret (set 07-10-2026). Så længe varelisten virker, mærkes '
-                'det ikke.',
+                'klikker en reservevej sig gennem butikkens hjemmeside. Den '
+                'fandt ingen kategorier efter at siden blev ændret (set '
+                '07-10-2026). Nu går den direkte til hver kategoris adresse. '
+                'Venter på merge.',
         'parts': (
             {'done': True, 'name': 'Varelisten henter alle varer igen',
              'desc': 'Rettet 07-10-2026: før manglede ca. 400 varer hos Spar '
                      'og Min Købmand, og natten fejlede.'},
-            {'done': False, 'name': 'Reservevejen virker igen',
-             'desc': 'Tilpas den til butikkernes nye hjemmeside.'},
+            {'done': True, 'name': 'Reservevejen virker igen',
+             'desc': 'Rettet 10-10-2026 og prøvet på alle tre butikker: '
+                     'samme antal varer pr. kategori som varelisten.'},
         ),
     },
     {
