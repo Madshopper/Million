@@ -2,58 +2,76 @@
 {% from "macros/product_card.html" import product_card %}
 
 {# Tilbudsavis for én butik (Feature 'butiksaviser', app.py::_build_store_avis).
-   Samme avis-skabelon for alle butikker (Kalle 10-10-2026): kun baggrunden
-   skifter, hvor butikkens logo står svagt hen over hele avisen, så man kan se
-   hvis avis det er. Varerne er vores egne priser, hentet direkte fra
-   butikken; butikkens egen avis vises kun som link. #}
+   Bygget som en rigtig avis med sider (Kalle 10-10-2026): man bladrer med
+   pilene i siderne, ved at swipe eller med piletasterne (static/js/avis.js).
+   Samme skabelon for alle butikker; kun baggrunden skifter, hvor butikkens
+   logo står svagt hen over siderne. Varerne er vores egne priser, hentet
+   direkte fra butikken; butikkens egen avis vises kun som link. #}
 
 {% block title %}Tilbudsavis fra {{ avis.label }}, uge {{ avis.week }} - MadShopper{% endblock %}
 
 {% block content %}
 <div class="page-wrap">
   <div class="container-index">
-    <article class="avis-paper" style="--avis-logo: url('{{ url_for('static', filename='images/avis/' ~ avis.store ~ '.png') }}')">
-      <header class="avis-head">
-        <h1>Tilbudsavis <span class="visually-hidden">fra {{ avis.label }}</span></h1>
-        <div class="avis-head-meta">
-          <span class="avis-week">Uge {{ avis.week }}</span>
-          <span>{{ avis.total }} tilbud</span>
-          <a href="{{ avis.avis_url }}" target="_blank" rel="noopener">Se {{ avis.label }}s egen avis</a>
-        </div>
-      </header>
+    <div class="avis-book" data-avis-book style="--avis-logo: url('{{ url_for('static', filename='images/avis/' ~ avis.store ~ '.png') }}')">
+      <div class="avis-bar">
+        <h1 class="avis-bar-title">Tilbudsavis fra {{ avis.label }}</h1>
+        <span class="avis-week">Uge {{ avis.week }}</span>
+        <a href="{{ avis.avis_url }}" target="_blank" rel="noopener">Se {{ avis.label }}s egen avis</a>
+      </div>
 
-      {% if avis.sections %}
+      {% if pages %}
       <nav class="avis-chips" aria-label="Afsnit i avisen">
-        {% for sec in avis.sections %}<a class="subcategory-pill" href="#afsnit-{{ sec.slug }}">{{ sec.title }}</a>{% endfor %}
+        {% for sec in avis.sections %}<a class="subcategory-pill" href="#afsnit-{{ sec.slug }}" data-avis-jump="afsnit-{{ sec.slug }}">{{ sec.title }}</a>{% endfor %}
       </nav>
-      {% endif %}
 
-      {% if avis.best %}
-      <section class="avis-section">
-        <div class="avis-section-head">
-          <h2 class="avis-ribbon">Ugens bedste tilbud</h2>
-          <a href="/tilbud/{{ avis.store }}?sort=relevance">Se alle {{ avis.total }}</a>
+      <div class="avis-viewport">
+        <button type="button" class="avis-nav avis-nav--prev" data-avis-prev aria-label="Forrige side" disabled>
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="avis-track" data-avis-track tabindex="0" aria-label="Avisens sider. Brug piletasterne for at bladre.">
+          {% for pg in pages %}
+          <section class="avis-page{% if pg.front %} avis-page--front{% endif %}"{% if pg.slug %} id="afsnit-{{ pg.slug }}"{% endif %}
+                   aria-label="Side {{ loop.index }} af {{ pages|length }}: {{ pg.title }}">
+            {% if pg.front %}
+            <header class="avis-front-head">
+              <div class="avis-front-title">TILBUDSAVIS</div>
+              <div class="avis-front-meta">
+                <span class="avis-week">Uge {{ avis.week }}</span>
+                <span>{{ avis.total }} tilbud</span>
+              </div>
+            </header>
+            {% endif %}
+            <div class="avis-section-head">
+              <h2 class="avis-ribbon">{{ pg.title }}</h2>
+            </div>
+            <div class="products">
+              {% for product in pg.products %}{{ product_card(product) }}{% endfor %}
+            </div>
+            <footer class="avis-page-foot">
+              {% if pg.more %}
+              <a href="/tilbud/{{ avis.store }}?kategori={{ pg.more.slug }}">Se alle {{ pg.more.count }} i {{ pg.more.title }}</a>
+              {% elif pg.front %}
+              <a href="/tilbud/{{ avis.store }}?sort=relevance">Se alle {{ avis.total }} tilbud</a>
+              {% else %}<span></span>{% endif %}
+              <span class="avis-page-no">Side {{ loop.index }}</span>
+            </footer>
+          </section>
+          {% endfor %}
         </div>
-        <div class="products">
-          {% for product in avis.best %}{{ product_card(product) }}{% endfor %}
-        </div>
-      </section>
-      {% endif %}
-
-      {% for sec in avis.sections %}
-      <section class="avis-section" id="afsnit-{{ sec.slug }}">
-        <div class="avis-section-head">
-          <h2 class="avis-ribbon">{{ sec.title }}</h2>
-          <a href="/tilbud/{{ avis.store }}?kategori={{ sec.slug }}">Se alle {{ sec.count }}</a>
-        </div>
-        <div class="products">
-          {% for product in sec.products %}{{ product_card(product) }}{% endfor %}
-        </div>
-      </section>
+        <button type="button" class="avis-nav avis-nav--next" data-avis-next aria-label="Næste side">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+      <p class="avis-counter" aria-live="polite"><span data-avis-counter>Side 1</span> af {{ pages|length }}</p>
       {% else %}
       <p class="products-empty">{{ avis.label }} har ingen tilbud lige nu. Kig forbi igen, når den nye avis er ude.</p>
-      {% endfor %}
-    </article>
+      {% endif %}
+    </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/avis.js') }}" defer></script>
 {% endblock %}
