@@ -6,8 +6,16 @@ name: Nightly Dispatcher
 # Én cron pr. slot (indtil 09-10-2026 to, én pr. sommer-/vintertid, hvor den
 # ene altid sprang over og alligevel kostede et Actions-minut). Tiderne er
 # valgt, så de ligger efter midnat dansk tid hele året: scrapers 01:01 dansk
-# sommertid / 00:01 vintertid, cache-updater 02:00 / 01:00, næring 03:00 /
-# 02:00. GitHub-cron kommer i praksis 1-3 timer for sent alligevel.
+# sommertid / 00:01 vintertid, næring 03:00 / 02:00. GitHub-cron kommer i
+# praksis 1-4 timer for sent alligevel.
+#
+# CACHE-UPDATEREN STARTES LIGE EFTER SCRAPERNE (Kalle, 10-10-2026: siden skal
+# opdateres så hurtigt som muligt). Før havde den sin egen cron og ventede på
+# den: 10-10-2026 var scraperne færdige 04:04 dansk tid, men siden blev først
+# opdateret 06:25, fordi den næste cron kom 2 t 20 min for sent. Nu venter
+# scraper-slottet selv på scraperne (typisk 2-5 min) og starter den straks.
+# Cron-slottet cache-fallback ligger tilbage som sikkerhedsnet senere på
+# natten og gør kun noget, hvis cache-updateren ikke har kørt de sidste 8 t.
 #
 # BUTIKSDAGE (Kalle, 09-10-2026, for at spare GitHub Actions-minutter): hver
 # butik hentes kun de nætter, hvor dens nye avis/tilbud kommer (målt i
@@ -17,7 +25,7 @@ name: Nightly Dispatcher
 on:
   schedule:
     - cron: '1 23 * * *'   # scrapers
-    - cron: '0 0 * * *'    # cache-updater
+    - cron: '0 3 * * *'    # cache-updater, kun sikkerhedsnet
     - cron: '0 1 * * *'    # nutrition
   workflow_dispatch:
     inputs:
@@ -40,7 +48,7 @@ env:
 jobs:
   dispatch:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 110
     steps:
       - name: Bestem slot ud fra cron-linjen
         id: slot
@@ -55,7 +63,7 @@ jobs:
           fi
           case "$CRON" in
             "1 23 * * *") SLOT=scrapers ;;
-            "0 0 * * *")  SLOT=cache-fallback ;;
+            "0 3 * * *")  SLOT=cache-fallback ;;
             "0 1 * * *")  SLOT=nutrition ;;
             *)            SLOT=skip ;;
           esac
@@ -63,6 +71,7 @@ jobs:
           echo "slot=$SLOT" >> "$GITHUB_OUTPUT"
 
       - name: Start nattens scrapers
+        id: scrapers
         if: steps.slot.outputs.slot == 'scrapers'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -86,6 +95,8 @@ jobs:
             esac
           }
           FEJL=0
+          ANTAL=0
+          echo "start=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           for wf in \
             scraper-365discount.yml \
             scraper-ABC-Lavpris.yml \
@@ -108,18 +119,74 @@ jobs:
             fi
             if gh workflow run "$wf" --ref "${{ github.ref_name }}" -R "${{ github.repository }}"; then
               echo "Startet: $wf"
+              ANTAL=$((ANTAL + 1))
             else
               echo "::error::Kunne ikke starte $wf"
               FEJL=1
             fi
           done
+          echo "antal=$ANTAL" >> "$GITHUB_OUTPUT"
           exit $FEJL
 
-      - name: Start cache-updater
+      # Kun om natten: en manuel start midt på dagen må ikke give en ekstra
+      # D1-reseed samme døgn (se D1-skrivebudget i CLAUDE.md).
+      - name: Vent på scraperne og start cache-updater
+        if: ${{ !cancelled() && steps.slot.outputs.slot == 'scrapers' && github.event_name == 'schedule' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          START: ${{ steps.scrapers.outputs.start }}
+          ANTAL: ${{ steps.scrapers.outputs.antal || '0' }}
+        run: |
+          # Venter til alle nattens scrapere er færdige (højst 40 min), så
+          # cache-updateren får de nye priser med. Kører en scraper fast,
+          # startes cache-updateren alligevel med det, der er nået.
+          SLUT=$(( $(date +%s) + 40 * 60 ))
+          sleep 20
+          while :; do
+            TAL=$(gh run list -R "$REPO" -e workflow_dispatch -L 60 \
+              --json workflowName,status,createdAt \
+              --jq "[.[] | select(.createdAt >= \"$START\" and (.workflowName | startswith(\"Scraper\")))] | \"\(length) \([.[] | select(.status != \"completed\")] | length)\"" \
+              || echo "0 0")
+            SET=${TAL% *}; AABNE=${TAL#* }
+            echo "Scrapere set: $SET af $ANTAL, ikke færdige: $AABNE"
+            if [ "$SET" -ge "$ANTAL" ] && [ "$AABNE" = "0" ]; then
+              break
+            fi
+            if [ "$(date +%s)" -ge "$SLUT" ]; then
+              echo "::warning::Scraperne var ikke færdige efter 40 min - starter cache-updater alligevel"
+              break
+            fi
+            sleep 30
+          done
+          # D1-skrivebudgettet nulstilles 00:00 UTC. Kommer cron'en til tiden
+          # (23:01 UTC), ville reseedet ramme gårsdagens budget, som nattens
+          # forrige reseed allerede har brugt. Så venter vi til efter midnat.
+          if [ "$(date -u +%H)" = "23" ]; then
+            VENT=$(( $(date -u -d 'tomorrow 00:00:30' +%s) - $(date +%s) ))
+            echo "Venter $VENT s til efter 00:00 UTC (D1-budget)"
+            sleep "$VENT"
+          fi
+          gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "$REPO"
+          echo "Startet: cache-updater.yml"
+
+      - name: Start cache-updater (sikkerhedsnet)
         if: steps.slot.outputs.slot == 'cache-fallback'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "${{ github.repository }}"
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
+            SIDST=$(gh run list -R "$REPO" -w cache-updater.yml -L 1 \
+              --json createdAt --jq '.[0].createdAt // ""')
+            if [ -n "$SIDST" ] && \
+               [ $(( $(date +%s) - $(date -d "$SIDST" +%s) )) -lt $(( 8 * 3600 )) ]; then
+              echo "Cache-updater kørte allerede $SIDST - intet at gøre"
+              exit 0
+            fi
+          fi
+          gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "$REPO"
 
       # Startes herfra og ikke af et workflow_run paa "Update Product Cache":
       # cache-updateren dispatches selv af denne bot, og GitHub udloeser ikke
