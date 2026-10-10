@@ -717,6 +717,44 @@ def test_kendte_huller() -> None:
 
 
 
+def test_egne_maerker_voldgift_2026_10_10() -> None:
+    print("\nVoldgift: kædernes egne mærker side om side (10-10-2026)")
+    from updater import (_arbitrate_ean_clusters, _drop_cross_conflicting_matches,
+                         _drop_silent_own_brand_organic, _NO_VARIANT_FLAGS)
+
+    def m(name, brand, ean, cls, oko=False):
+        return {'name': name, 'brand': brand, 'ean': ean, '_brand_cls': cls,
+                '_variants': (oko,) + _NO_VARIANT_FLAGS[1:], 'price': 10.0}
+    salling = m('Æblemos', 'Salling', '5712873289370', 'pl')
+    fp = m('Fp Æblemos', 'Fp', '7311041074039', 'pl')
+    egne = {'bilka': salling, 'foetex': dict(salling), 'meny': fp, 'spar': dict(fp)}
+    kept = _arbitrate_ean_clusters(egne, 'ÆBLEMOS', 'REMA 1000 Æblemos', 'REMA 1000', True)
+    check("to kæders egne mærker beholdes begge", set(kept) == set(egne))
+    kept = _drop_cross_conflicting_matches(kept, None, frozenset())
+    check("... og kryds-oprydningen smider dem ikke ud", set(kept) == set(egne))
+
+    banderos = m('Banderos Tacosauce', 'Banderos', '7611612700757', 'nat')
+    blandet = {'bilka': m('Tacosauce', 'Salling', '5712874926953', 'pl'), 'mk': banderos}
+    kept = _arbitrate_ean_clusters(blandet, 'TACOSAUCE', 'REMA 1000 Tacosauce', 'REMA 1000', True)
+    check("Rema-eget mod mærkevare: mærkevaren ryger, eget mærke bliver", set(kept) == {'bilka'})
+
+    mutti = {'bilka': m('Pizzasauce', 'Mutti', '8005110551215', 'nat'),
+             'foetex': m('Pizzasauce', 'Mutti', '5712875246708', 'nat')}
+    kept = _arbitrate_ean_clusters(mutti, 'PIZZASAUCE', '', '', False)
+    check("to mærkevare-stregkoder voldgiftes stadig (uafgjort = ingen)",
+          not any(k in kept for k in mutti))
+
+    oko = (True,) + _NO_VARIANT_FLAGS[1:]
+    blandet = {'mk': m('Fp Skummetmælk', 'Fp', '1', 'pl'),
+               'bilka': m('Skummetmælk øko', 'Salling ØKO', '2', 'pl', oko=True),
+               'meny': m('Arla Skummetmælk', 'Arla', '3', 'nat')}
+    kept = _drop_silent_own_brand_organic(blandet, oko)
+    check("øko Rema-vare: eget mærke uden øko droppes, mærkevare og øko-udgave bliver",
+          set(kept) == {'bilka', 'meny'})
+    check("ikke-øko Rema-vare: intet droppes",
+          _drop_silent_own_brand_organic(blandet, _NO_VARIANT_FLAGS) == blandet)
+
+
 def main() -> int:
     print("=" * 62)
     print("MATCHMOTOR - REGRESSIONSTEST")
@@ -749,6 +787,7 @@ def main() -> int:
     test_farve_og_trin_gates()
     test_ean_konflikt_og_varianter_2026_09_09()
     test_rema_ordregel_2026_10_07()
+    test_egne_maerker_voldgift_2026_10_10()
     test_kendte_huller()
 
     print()
