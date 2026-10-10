@@ -11,6 +11,7 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Category: { slug: string; title: string };
   Sale: undefined;
+  StoreOffers: { storeKey: string; label: string; avisUrl: string };
   Cart: undefined;
   ProductDetail: { product: import('../api/types').Product };
   RecipeDetail: { recipeId: number };

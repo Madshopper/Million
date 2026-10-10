@@ -275,7 +275,10 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
     except (TypeError, ValueError):
         price = 0.0
     sale_price = p.get("/product/sale_price")
-    is_sale = 1 if (sale_price is not None or p.get("/product/is_any_sale")) else 0
+    # own_sale: butikkens eget tilbud uden førpris (updater.py), så "Tilbud
+    # hos …" (app.py::_build_store_offer_listing) finder dem via indekset.
+    is_sale = 1 if (sale_price is not None or p.get("/product/is_any_sale")
+                    or p.get("/product/own_sale")) else 0
     try:
         eff_price = float(sale_price) if sale_price is not None else price
     except (TypeError, ValueError):
@@ -328,7 +331,10 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
     p["/product/is_lactose_free"] = bool(lactose)
     data = json.dumps(slim_product(p), separators=(",", ":"), ensure_ascii=False)
     if stats is not None:
-        _count_row(stats, category, subcategory, is_sale)
+        # Tilbudssidens antal: own_sale-varer vises ikke dér (app.py::
+        # _build_sale_listing), så de tælles heller ikke med.
+        _count_row(stats, category, subcategory,
+                   1 if (sale_price is not None or p.get("/product/is_any_sale")) else 0)
     if postings is not None and rowid is not None:
         _add_postings(postings, search_text, rowid)
     return (

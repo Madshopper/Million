@@ -2663,6 +2663,12 @@ def build_store_display_products(products: list, store_key: str) -> list:
                 '/product/cheapest_at':               None,
                 '/product/cheaper_at':                None,
                 '/product/multi_deal':                p.get('multi_deal', ''),
+                # Butikken selv kalder varen et tilbud, også når førprisen
+                # mangler (sale_price er så None, se ovenfor). Uden flaget gik
+                # det tabt for solokort - fx næsten alle ABC Lavpris' og mange
+                # af Løvbjergs avisvarer - så "Tilbud hos …" (Feature
+                # 'butiksaviser') ikke kunne finde dem. Læses af seed-d1.py.
+                '/product/own_sale':                  bool(p.get('is_sale')),
             })
         except Exception:
             continue
@@ -2676,13 +2682,14 @@ def _display_item_to_match(p: dict) -> dict:
     så vi kan konvertere det til samme format som de øvrige store_matches-poster.
     """
     sale = p.get('/product/sale_price')
-    is_sale = sale is not None
+    # own_sale: tilbud uden førpris (build_store_display_products).
+    is_sale = sale is not None or bool(p.get('/product/own_sale'))
     try:
-        price = float(sale) if is_sale else float(p.get('/product/price', 0) or 0)
+        price = float(sale) if sale is not None else float(p.get('/product/price', 0) or 0)
     except (TypeError, ValueError):
         price = 0.0
     normal_price = None
-    if is_sale:
+    if sale is not None:
         try:
             normal_price = float(p.get('/product/price', 0) or 0)
         except (TypeError, ValueError):

@@ -23,6 +23,14 @@ export async function fetchSale(params?: ListingParams): Promise<ListingResponse
   return apiGet('/api/sale', params);
 }
 
+/** Én butiks tilbud (Feature-panelet 'butiksaviser'), uafhængigt af butiksvalget. */
+export async function fetchStoreOffers(
+  storeKey: string,
+  params?: ListingParams,
+): Promise<ListingResponse> {
+  return apiGet(`/api/store-offers/${encodeURIComponent(storeKey)}`, params);
+}
+
 export async function fetchCategory(
   slug: string,
   params?: ListingParams,

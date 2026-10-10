@@ -54,6 +54,15 @@ export type StoreInfo = {
   logo: string;
 };
 
+/** En butik i forsidens tilbudsaviser (Feature-panelet 'butiksaviser'). */
+export type OfferStore = {
+  key: string;
+  label: string;
+  logo: string;
+  /** Butikkens egen avis; vi viser kun et link til den. */
+  avis_url: string;
+};
+
 export type HomeSection = {
   key: string;
   title: string;
@@ -77,6 +86,9 @@ export type HomeResponse = {
   stats_enabled?: boolean;
   swipe_enabled?: boolean;
   mejeri_navn_enabled?: boolean;
+  /** Er "Tilbudsavis pr. butik" udgivet i Feature-panelet? */
+  butiksaviser_enabled?: boolean;
+  offer_stores?: OfferStore[];
   /** Stub — reel data hentes client-side via get_personal_savings (JWT). */
   personal_savings: { available: boolean; message: string };
   error?: string;
@@ -94,6 +106,9 @@ export type ListingResponse = {
   available_subcategories?: string[];
   current_subcategory?: string | null;
   query?: string;
+  /** /api/store-offers/<butik>: butikkens navn og egen avis. */
+  label?: string;
+  avis_url?: string;
   error?: string;
 };
 

@@ -23,6 +23,23 @@
       <button type="button" class="savings-badge savings-badge--btn" id="savingsLoginBtn">Log ind</button>
     </div>
 
+    {% if butiksaviser_enabled %}
+    {# Tilbudsavis pr. butik (Feature 'butiksaviser'). script.js skjuler
+       logoerne for butikker, man har fravalgt. #}
+    <section class="offer-stores" id="offerStores" aria-labelledby="offerStoresHeading">
+      <h2 id="offerStoresHeading">Tilbudsaviser</h2>
+      <div class="offer-stores-row">
+        {% for store in offer_stores %}
+        <a class="offer-store" href="/tilbud/{{ store.key }}" data-store-label="{{ store.label }}"
+           aria-label="Se ugens tilbud hos {{ store.label }}">
+          <img src="{{ url_for('static', filename=store.logo.replace('/static/', '', 1)) }}" alt="" loading="lazy" width="56" height="56">
+          <span>{{ store.label }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
     <div class="filters-wrapper">
 
 

@@ -24,6 +24,14 @@
 <div class="page-wrap">
   <div class="container-category">
     <h1 class="category-title">{{ category_name }}</h1>
+    {% if store_avis is defined and store_avis %}
+    {# Tilbudsavis pr. butik (Feature 'butiksaviser'): priserne er vores egne,
+       hentet direkte fra butikken. Avisen selv vises kun hos butikken. #}
+    <p class="store-avis-intro">
+      Ugens tilbud hos {{ store_avis.label }}, hentet direkte fra butikken.
+      <a href="{{ store_avis.url }}" target="_blank" rel="noopener">Se hele avisen hos {{ store_avis.label }}</a>
+    </p>
+    {% endif %}
     <div class="filters-wrapper">
 
 

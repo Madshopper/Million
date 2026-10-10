@@ -15,10 +15,11 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fetchHome } from '../api/listing';
-import type { HomeSection, Product } from '../api/types';
+import type { HomeSection, OfferStore, Product } from '../api/types';
 import type { Recipe } from '../api/recipes';
 import { useAuth } from '../auth/AuthContext';
 import { CategoriesDrawer } from '../components/CategoriesDrawer';
+import { OfferStoresSection } from '../components/OfferStoresSection';
 import { applyClientFilters, FiltersBar, type FiltersValue } from '../components/FiltersBar';
 import { ProductCard } from '../components/ProductCard';
 import { RecipeCard } from '../components/RecipeCard';
@@ -40,6 +41,7 @@ import type { RootStackParamList } from '../navigation/types';
 
 type HomeRow =
   | { key: string; kind: 'cats' }
+  | { key: string; kind: 'offerStores'; stores: OfferStore[] }
   | { key: string; kind: 'filters' }
   | { key: string; kind: 'error'; message: string }
   | { key: string; kind: 'section'; section: HomeSection; products: Product[] }
@@ -72,6 +74,9 @@ export function HomeScreen() {
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [catsOpen, setCatsOpen] = React.useState(false);
+  // Tilbudsavis pr. butik (Feature-panelet 'butiksaviser'): /api/home sender
+  // kun butikkerne, når den er udgivet, så web og app følges ad.
+  const [offerStores, setOfferStores] = React.useState<OfferStore[]>([]);
   const [error, setError] = React.useState<string | null>(null);
 
   const loadSavings = React.useCallback(async () => {
@@ -113,6 +118,7 @@ export function HomeScreen() {
         setServerStatsEnabled(data.stats_enabled);
         setServerSwipeEnabled(data.swipe_enabled);
         setServerMejeriNavnEnabled(data.mejeri_navn_enabled);
+        setOfferStores(data.butiksaviser_enabled ? data.offer_stores || [] : []);
         await loadSavings();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Kunne ikke hente forsiden');
@@ -141,6 +147,9 @@ export function HomeScreen() {
   const rows = React.useMemo<HomeRow[]>(() => {
     const out: HomeRow[] = [
       { key: 'savings', kind: 'savings', savings },
+      ...(offerStores.length
+        ? [{ key: 'offerStores', kind: 'offerStores', stores: offerStores } as const]
+        : []),
       { key: 'cats', kind: 'cats' },
       { key: 'filters', kind: 'filters' },
     ];
@@ -158,7 +167,7 @@ export function HomeScreen() {
       out.push({ key: 'recipes', kind: 'recipes', recipes });
     }
     return out;
-  }, [sections, filters, error, savings, recipes]);
+  }, [sections, filters, error, savings, recipes, offerStores]);
 
   if (!ready || (loading && !sections.length)) {
     return (
@@ -205,6 +214,21 @@ export function HomeScreen() {
                 <Text style={[styles.catsButtonText, { color: colors.text }]}>Kategorier</Text>
                 <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </Pressable>
+            );
+          }
+
+          if (item.kind === 'offerStores') {
+            return (
+              <OfferStoresSection
+                stores={item.stores}
+                onOpen={(s) =>
+                  navigation.navigate('StoreOffers', {
+                    storeKey: s.key,
+                    label: s.label,
+                    avisUrl: s.avis_url,
+                  })
+                }
+              />
             );
           }
 
