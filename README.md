@@ -265,6 +265,11 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
   (-smag/-fyld/-overtræk/-stang) are stripped first so "saltkaramelsmag" still
   yields caramel, and longer keywords consume their text so "hvidløg" (garlic)
   never also yields "løg" (onion).
+- **Ice** - ice cream vs non-ice is rejected when the side that doesn't say
+  "is"/"flødeis"/"ispinde"/... isn't in Frost either (skildpadde-chokolade ≠
+  skildpadde-is, also without weight). One-sided on purpose: Dagrofa names ice
+  by brand ("Magnum Euphoria") while Salling writes "Mælkeis m. ...", both in
+  Frost. Bare "is" needs a word boundary on both sides (ris/melis/iste)
 - **Weight-less candidates** - a candidate with neither weight, EAN nor a
   comparable unit count (typical for Dagrofa/Løvbjerg feeds) can't be validated
   by any physical gate, so the name score alone must reach 0.75 instead of the

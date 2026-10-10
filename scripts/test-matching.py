@@ -32,7 +32,7 @@ import updater  # noqa: E402
 from updater import (  # noqa: E402
     _merge_cards_sharing_ean, annotate_match_signals,
     backfill_attributes_by_ean, brands_conflict, build_token_idf,
-    cross_store_pair_verdict, cross_store_tokens, distinctive_token_shared,
+    cross_store_pair_verdict, cross_store_tokens, distinctive_token_shared, is_ice_text,
     photo_distance, stk_validates_pack_size,
 )
 
@@ -147,6 +147,21 @@ def test_smag_og_variant() -> None:
     must_not_match("Protein drik vs protein budding",
                    product('Arla Protein Drik Chokolade', 'Arla', '250 ml', 'Køl'),
                    product('Arla Protein Budding Chokolade', 'Arla', '250 ml', 'Køl'))
+    # Is: skildpadde-chokolade er ikke skildpadde-is, heller ikke uden vægt
+    # (Lidl/tilbudsaviser), hvor vægt-gaten er blind.
+    must_not_match("Skildpadde-chokolade vs skildpadde-is (uden vægt)",
+                   product('Toms Skildpadde', 'Toms', '', 'Kiosk - Slik Og Snack - Chokolade'),
+                   product('Toms Skildpadde Is', 'Toms', '', 'Kolonial'))
+    # Mærkenavngivet is (Dagrofa) mod "Mælkeis m. ..." (Salling) er samme vare:
+    # siden uden "is" ligger i Frost, så is-gaten må ikke afvise.
+    must_match("Magnum (Frost) vs Mælkeis m. ... (is-gaten tier)",
+               product('Magnum Classic Mælkeis', 'Magnum', '440 ml', 'Frost'),
+               product('Magnum Classic', 'Magnum', '440 ml', 'Frost'))
+    # Bart "is" kræver hel ordgrænse: ris/melis/iste er ikke is.
+    for txt in ('Jasminris', 'Flormelis', 'Iste m. ferskensmag', 'Chablis', 'Riskage'):
+        check(f"{txt!r} er ikke is", not is_ice_text(txt))
+    for txt in ('Skildpaddeis i bæger', 'Mælkeispinde m. solbær', 'Frys-selv-is', 'Toms Skildpadde Is'):
+        check(f"{txt!r} er is", is_ice_text(txt))
 
 
 def test_vaegt_og_antal() -> None:
