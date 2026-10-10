@@ -24,16 +24,22 @@ type Props = NativeStackScreenProps<RootStackParamList, 'StoreOffers'>;
 const SECTION_ITEMS = 4;
 const BEST_ITEMS = 6;
 
+/** Logo-flisens størrelse i baggrunden (static/images/avis/<butik>.png er 460x300). */
+const TILE_W = 230;
+const TILE_H = 150;
+
 /**
- * Tilbudsavis for én butik (Feature-panelet 'butiksaviser'), samme som
- * hjemmesidens /tilbud/<butik> (templates/butiksavis.html): bånd i butikkens
- * farver, "Ugens bedste tilbud" og et afsnit pr. kategori med de største
- * besparelser først. Bygget af de priser vi selv henter fra butikken;
- * butikkens egen avis åbnes kun som link.
+ * Tilbudsavis for én butik (Feature-panelet 'butiksaviser'), samme skabelon
+ * som hjemmesidens /tilbud/<butik> (templates/butiksavis.html): ét stykke
+ * "avispapir" med butikkens logo svagt gentaget i baggrunden, overskrift,
+ * uge, bånd over hvert afsnit og varefelter med rødt SPAR-mærke og gult
+ * prisskilt. Ens for alle butikker; kun logoet skifter. Bygget af de priser
+ * vi selv henter fra butikken; butikkens egen avis åbnes kun som link.
  */
 export function StoreAvisScreen({ route, navigation }: Props) {
   const { storeKey, label, avisUrl } = route.params;
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const [paper, setPaper] = useState({ w: 0, h: 0 });
   const { logoUrl } = useStoreCatalog();
   const [avis, setAvis] = useState<StoreAvisResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +91,7 @@ export function StoreAvisScreen({ route, navigation }: Props) {
     <View style={styles.grid}>
       {products.map((p) => (
         <View key={p.id} style={styles.gridItem}>
-          <ProductCard product={p} onPress={openProduct} />
+          <ProductCard product={p} onPress={openProduct} variant="avis" />
         </View>
       ))}
     </View>
@@ -93,9 +99,11 @@ export function StoreAvisScreen({ route, navigation }: Props) {
 
   const head = (title: string, count: number, kategori?: string) => (
     <View style={styles.sectionHead}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]} accessibilityRole="header">
-        {title}
-      </Text>
+      <View style={[styles.ribbon, { backgroundColor: colors.text }]}>
+        <Text style={[styles.ribbonText, { color: colors.surface }]} accessibilityRole="header">
+          {title.toUpperCase()}
+        </Text>
+      </View>
       <Pressable
         onPress={() => openList(kategori ? `${label}: ${title}` : `Tilbud hos ${label}`, kategori)}
         accessibilityRole="button"
@@ -110,27 +118,46 @@ export function StoreAvisScreen({ route, navigation }: Props) {
   return (
     <StackScreenBody style={{ backgroundColor: colors.bg }}>
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 32 }}>
-        <View style={[styles.banner, { backgroundColor: avis.color }]}>
-          <Image source={{ uri: logoUrl(avis.logo) }} style={styles.bannerLogo} resizeMode="contain" />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.kicker, { color: avis.text_color }]}>TILBUDSAVIS · UGE {avis.week}</Text>
-            <Text style={[styles.bannerTitle, { color: avis.text_color }]} accessibilityRole="header">
-              {avis.label}
-            </Text>
-            <Text style={{ color: avis.text_color, opacity: 0.9 }}>
-              {avis.total} tilbud denne uge, hentet direkte fra butikken
-            </Text>
-          </View>
-        </View>
-        <Pressable
-          onPress={() => void Linking.openURL(avis.avis_url)}
-          accessibilityRole="link"
-          accessibilityHint="Åbner butikkens hjemmeside"
-          style={styles.avisLink}
-          hitSlop={8}
+        <View
+          style={[styles.paper, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onLayout={(e) => setPaper({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
         >
-          <Text style={{ color: colors.primary, fontWeight: '700' }}>Se {avis.label}s egen avis</Text>
-        </Pressable>
+          {avis.watermark && paper.h ? (
+            <View style={styles.watermark} pointerEvents="none" importantForAccessibility="no-hide-descendants">
+              {Array.from({ length: Math.ceil(paper.h / TILE_H) }, (_, r) => (
+                <View key={r} style={styles.watermarkRow}>
+                  {Array.from({ length: Math.ceil(paper.w / TILE_W) }, (_, c) => (
+                    <Image
+                      key={c}
+                      source={{ uri: logoUrl(avis.watermark!) }}
+                      style={[styles.tile, isDark && { tintColor: '#FFFFFF', opacity: 0.08 }]}
+                      accessible={false}
+                    />
+                  ))}
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header" accessibilityLabel={`Tilbudsavis fra ${avis.label}`}>
+            TILBUDSAVIS
+          </Text>
+          <View style={[styles.headMeta, { borderBottomColor: colors.text }]}>
+            <View style={[styles.week, { backgroundColor: colors.text }]}>
+              <Text style={[styles.weekText, { color: colors.surface }]}>Uge {avis.week}</Text>
+            </View>
+            <Text style={{ color: colors.text, fontWeight: '600' }}>{avis.total} tilbud</Text>
+            <Pressable
+              onPress={() => void Linking.openURL(avis.avis_url)}
+              accessibilityRole="link"
+              accessibilityHint="Åbner butikkens hjemmeside"
+              hitSlop={8}
+            >
+              <Text style={{ color: colors.primary, fontWeight: '700', textDecorationLine: 'underline' }}>
+                Se {avis.label}s egen avis
+              </Text>
+            </Pressable>
+          </View>
 
         {avis.sections.length ? (
           <ScrollView
@@ -143,7 +170,7 @@ export function StoreAvisScreen({ route, navigation }: Props) {
               <Pressable
                 key={s.slug}
                 accessibilityRole="button"
-                onPress={() => scrollRef.current?.scrollTo({ y: sectionY.current[s.slug] ?? 0, animated: true })}
+                onPress={() => scrollRef.current?.scrollTo({ y: (sectionY.current[s.slug] ?? 0) + 12, animated: true })}
                 style={[styles.chip, { backgroundColor: colors.surface, borderColor: colors.border }]}
               >
                 <Text style={{ color: colors.text, fontWeight: '600' }}>{s.title}</Text>
@@ -175,6 +202,7 @@ export function StoreAvisScreen({ route, navigation }: Props) {
             {grid(s.products.slice(0, SECTION_ITEMS))}
           </View>
         ))}
+        </View>
       </ScrollView>
     </StackScreenBody>
   );
@@ -183,20 +211,31 @@ export function StoreAvisScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   center: { padding: 24, alignItems: 'center', gap: 10 },
   retry: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+  paper: {
     margin: 12,
-    marginBottom: 6,
-    padding: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
     borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
-  bannerLogo: { width: 60, height: 60, borderRadius: 12, backgroundColor: '#fff' },
-  kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 1, opacity: 0.85 },
-  bannerTitle: { fontSize: 28, fontWeight: '900' },
-  avisLink: { paddingHorizontal: 16, paddingVertical: 6 },
-  chips: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  watermark: { ...StyleSheet.absoluteFillObject },
+  watermarkRow: { flexDirection: 'row' },
+  tile: { width: TILE_W, height: TILE_H, opacity: 0.12 },
+  title: { fontSize: 32, fontWeight: '900', letterSpacing: -0.5, paddingHorizontal: 14 },
+  headMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 14,
+    marginTop: 4,
+    paddingBottom: 12,
+    borderBottomWidth: 3,
+  },
+  week: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  weekText: { fontWeight: '800' },
+  chips: { paddingHorizontal: 12, paddingVertical: 12, gap: 8 },
   chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1 },
   empty: { padding: 24, textAlign: 'center' },
   section: { marginTop: 12 },
@@ -204,10 +243,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    gap: 10,
+    paddingHorizontal: 12,
     marginBottom: 8,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 4 },
-  gridItem: { width: '50%', paddingHorizontal: 2 },
+  // Mørkt, skråt bånd over hvert afsnit, som .avis-ribbon på web.
+  ribbon: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginLeft: -4,
+    transform: [{ skewX: '-10deg' }],
+    flexShrink: 1,
+  },
+  ribbonText: { fontSize: 15, fontWeight: '900', fontStyle: 'italic', letterSpacing: 0.3 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 6 },
+  gridItem: { width: '50%' },
 });

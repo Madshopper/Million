@@ -19,12 +19,15 @@ import { joinLabel, spokenKr } from '../a11y/speech';
 type Props = {
   product: Product;
   onPress: (product: Product) => void;
-  /** `rail` = horisontal forside-række (fast bredde, ingen 48%-max). */
-  variant?: 'grid' | 'rail';
+  /** `rail` = horisontal forside-række (fast bredde, ingen 48%-max).
+   *  `avis` = felt i tilbudsavisen (StoreAvisScreen): ingen kant eller
+   *  baggrund, rødt SPAR-mærke og gult prisskilt, som .avis-paper på web. */
+  variant?: 'grid' | 'rail' | 'avis';
 };
 
 export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
   const { colors, isDark } = useTheme();
+  const avis = variant === 'avis';
   const { addItem } = useCart();
   const { catalog } = useStoreCatalog();
   const [added, setAdded] = useState(false);
@@ -118,29 +121,33 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
         styles.card,
         variant === 'rail' ? styles.cardRail : styles.cardGrid,
         { backgroundColor: colors.surface, borderColor: colors.border },
+        avis && [styles.cardAvis, { borderColor: colors.border }],
       ]}
     >
       <View
         style={[
           styles.imageWrap,
           {
-            backgroundColor: isDark ? '#252825' : '#F3F5F0',
+            backgroundColor: avis ? 'transparent' : isDark ? '#252825' : '#F3F5F0',
           },
+          avis && styles.imageWrapAvis,
         ]}
       >
         {onSale ? (
-          <View style={styles.saleBadge}>
-            <Text style={styles.saleText}>{discountPct ? `SPAR ${discountPct}%` : 'TILBUD'}</Text>
+          <View style={[styles.saleBadge, avis && styles.saleBadgeAvis]}>
+            <Text style={[styles.saleText, avis && styles.saleTextAvis]}>{discountPct ? `SPAR ${discountPct}%` : 'TILBUD'}</Text>
           </View>
         ) : null}
         {/* Neutral flade med en grøn prik: grøn er primærfarven, gul er
             forbeholdt tilbud (theme/colors.ts). */}
-        <View style={[styles.storeBadge, { backgroundColor: colors.surface }]}>
-          <StoreDot store={product.store} size={7} />
-          <Text style={[styles.storeText, { color: colors.text }]} numberOfLines={1}>
-            {product.store}
-          </Text>
-        </View>
+        {avis ? null : (
+          <View style={[styles.storeBadge, { backgroundColor: colors.surface }]}>
+            <StoreDot store={product.store} size={7} />
+            <Text style={[styles.storeText, { color: colors.text }]} numberOfLines={1}>
+              {product.store}
+            </Text>
+          </View>
+        )}
         {product.image ? (
           <Image source={{ uri: product.image }} style={styles.image} resizeMode="contain" />
         ) : (
@@ -181,14 +188,25 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
           (app_support.py::product_to_api_dict), så et Rema-kort UDEN
           krydsmatch har has_match=true - webben viste badget, appen gjorde
           ikke, selvom varen faktisk kun findes ét sted. */}
-      {Object.keys(product.store_matches || {}).length === 0 ? (
+      {!avis && Object.keys(product.store_matches || {}).length === 0 ? (
         <Text style={[styles.only, { color: colors.textMuted }]}>
           Kun hos {product.store}
         </Text>
       ) : null}
       <View style={styles.footer}>
         <View style={styles.priceCol}>
-          {product.is_sale ? (
+          {avis ? (
+            <>
+              {product.is_sale && product.normal_price > product.price ? (
+                <Text style={[styles.original, { color: colors.textMuted }]}>
+                  Før {product.normal_price.toFixed(2)} kr
+                </Text>
+              ) : null}
+              <View style={styles.priceTag}>
+                <Text style={styles.priceTagText}>{product.price.toFixed(2)} kr</Text>
+              </View>
+            </>
+          ) : product.is_sale ? (
             <>
               <Text style={[styles.original, { color: colors.textMuted }]}>
                 {product.normal_price.toFixed(2)} kr
@@ -248,6 +266,15 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'stretch',
   },
+  cardAvis: {
+    borderWidth: 0,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: 0,
+    marginHorizontal: 0,
+    marginVertical: 0,
+    backgroundColor: 'transparent',
+  },
   cardRail: {
     width: '100%',
     marginHorizontal: 2,
@@ -264,6 +291,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
+  imageWrapAvis: { height: 132, paddingHorizontal: 0 },
   image: {
     width: '100%',
     height: '100%',
@@ -286,6 +314,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#DFA300',
   },
   saleText: { color: '#1A1C19', fontSize: 11, fontWeight: '800', letterSpacing: 0.2 },
+  // Avis: rødt, skråt mærke nederst til højre på billedet, som på web.
+  saleBadgeAvis: {
+    top: undefined,
+    left: undefined,
+    bottom: 6,
+    right: 4,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    backgroundColor: '#C8102E',
+    transform: [{ rotate: '-8deg' }],
+  },
+  saleTextAvis: { color: '#FFFFFF' },
   storeBadge: {
     position: 'absolute',
     top: 8,
@@ -319,6 +360,16 @@ const styles = StyleSheet.create({
   // Tilbudspris: gul tekst på kortets egen baggrund. Kun SPAR-mærkatet har
   // gul flade (Kalle 04-10-2026).
   dealPrice: { fontWeight: '800' },
+  priceTag: {
+    marginTop: 2,
+    paddingHorizontal: 7,
+    paddingTop: 1,
+    paddingBottom: 3,
+    borderRadius: 6,
+    backgroundColor: '#FFD84D',
+    transform: [{ rotate: '-2deg' }],
+  },
+  priceTagText: { color: '#1A1C19', fontSize: 19, fontWeight: '900', letterSpacing: -0.3 },
   addBtn: {
     position: 'absolute',
     right: 8,

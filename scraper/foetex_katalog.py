@@ -225,7 +225,14 @@ def build_rows(hits: list[dict]) -> list[dict]:
                     normalpris = round(price_ore * uom / uom_offer / 100, 2)
             on_offer = True
 
-        tilbud = 'Ja' if (on_offer or multikob) else 'Nej'
+        # 'Avis' = i ugens avis (isInCurrentLeaflet). Stadig et tilbud for
+        # updater.py, men kun de varer tæller i "Tilbudsavis pr. butik"
+        # (Feature 'butiksaviser'): Sallings øvrige tilbud (Skarp pris,
+        # webkampagner, multikøb) gav Føtex over 2.000 "avisvarer".
+        if hit.get('isInCurrentLeaflet'):
+            tilbud = 'Avis'
+        else:
+            tilbud = 'Ja' if (on_offer or multikob) else 'Nej'
         producent = (hit.get('brand') or hit.get('manufacturer') or 'Salling').strip() or 'Salling'
         images = hit.get('images') or []
         billede = images[0] if images else ''
