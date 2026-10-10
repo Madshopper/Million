@@ -9,9 +9,10 @@ name: MadShopper Test (opdatering over nettet)
 #
 # Kun testappen (APP_VARIANT=test, dk.madshopper.app.test) lytter på kanalen.
 # Butiksappen har opdateringer slået fra (app.config.js) og får aldrig noget
-# herfra. Ændres native-delen (ny pakke, ikon, tilladelse), giver fingerprint
-# en ny runtimeVersion, og opdateringen lander ikke i den gamle app: så skal
-# Mac'en bygge MadShopper Test én gang til.
+# herfra. Ændres native-delen (ny pakke, ikon, tilladelse), skal runtimeVersion
+# i app.config.js hæves i samme PR (test-1 -> test-2), og Mac'en skal bygge
+# MadShopper Test én gang til. Ellers kan en opdatering lande i en app, der
+# ikke har den nye native kode.
 #
 # Kræver to GitHub-secrets (Settings > Secrets and variables > Actions):
 #   EXPO_TOKEN       adgangsnøgle fra expo.dev (Account settings > Access tokens)

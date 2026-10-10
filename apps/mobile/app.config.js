@@ -205,11 +205,16 @@ const config = {
   },
   // Kun testappen henter ny kode over luften (kanalen "test"). Butiksappen
   // har opdateringer slået fra og får kun ny kode via App Store.
-  // fingerprint: en opdatering lander kun i et build med samme native-del,
-  // så en ny native-pakke aldrig sendes til en app der ikke kan køre den.
+  // runtimeVersion: en opdatering lander kun i et build med samme værdi.
+  // HÆV den (test-2, test-3 ...) i samme PR som en ændring af native-delen
+  // (ny pakke med native kode, ikon, tilladelse, plugin), og byg testappen på
+  // Mac'en igen. Fast værdi i stedet for policy 'fingerprint', fordi
+  // fingerprintet blev regnet forskelligt på Mac'en og GitHubs Linux (målt
+  // 10-10-2026: 65f6bf13... mod d39078e0... på samme commit), så ingen
+  // opdatering nogensinde ville lande.
   ...(IS_TEST_APP
     ? {
-        runtimeVersion: { policy: 'fingerprint' },
+        runtimeVersion: 'test-1',
         updates: {
           url: 'https://u.expo.dev/61fb2d3e-805e-4d2f-9c78-5e9705d28fd8',
           requestHeaders: { 'expo-channel-name': 'test' },
