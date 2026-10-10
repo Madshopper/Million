@@ -1,0 +1,71 @@
+name: MadShopper Test (opdatering over nettet)
+
+# MadShopper Test er dev-siden på Kalles telefon (Kalle, 10-10-2026: "dev skal
+# altid være synkroniseret med main"). Serveren (dev.madshopper.dk) følger
+# allerede main via deploy-edge-dev.yml. Denne kørsel gør det samme for selve
+# appen: ved hvert merge til main, der rører appen, sendes den nye appkode til
+# testappen via EAS Update (kanalen "test"). Appen henter den, når den åbnes
+# (src/updates/testAppUpdates.ts), uanset hvor telefonen er.
+#
+# Kun testappen (APP_VARIANT=test, dk.madshopper.app.test) lytter på kanalen.
+# Butiksappen har opdateringer slået fra (app.config.js) og får aldrig noget
+# herfra. Ændres native-delen (ny pakke, ikon, tilladelse), giver fingerprint
+# en ny runtimeVersion, og opdateringen lander ikke i den gamle app: så skal
+# Mac'en bygge MadShopper Test én gang til.
+#
+# Kræver to GitHub-secrets (Settings > Secrets and variables > Actions):
+#   EXPO_TOKEN       adgangsnøgle fra expo.dev (Account settings > Access tokens)
+#   STAGING_APP_KEY  samme værdi som worker-secret'et på madshopper-dev, så
+#                    appen slipper ind på dev.madshopper.dk (src/worker.py)
+# Uden dem springes opdateringen over med en advarsel.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/test-app-update.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: test-app-update
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_STAGING_APP_KEY: ${{ secrets.STAGING_APP_KEY }}
+      APP_VARIANT: test
+    steps:
+      - name: Tjek secrets
+        id: secrets
+        run: |
+          if [ -z "$EXPO_TOKEN" ] || [ -z "$EXPO_PUBLIC_STAGING_APP_KEY" ]; then
+            echo "::warning::EXPO_TOKEN eller STAGING_APP_KEY mangler i GitHub-secrets - MadShopper Test får ikke denne opdatering."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.ok == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.ok == 'true'
+        with:
+          node-version: 22
+
+      - name: Install mobile deps
+        if: steps.secrets.outputs.ok == 'true'
+        working-directory: apps/mobile
+        run: npm ci
+
+      - name: Send til MadShopper Test
+        if: steps.secrets.outputs.ok == 'true'
+        working-directory: apps/mobile
+        run: |
+          MSG="$(git log -1 --pretty=%s | cut -c1-100)"
+          npx --yes eas-cli@16 update --channel test --platform ios \
+            --message "$MSG" --non-interactive
