@@ -41,7 +41,7 @@ from app_support import (  # noqa: E402
     _fold, _get_subcategory, _STORE_CONFIGS, CAT_MEJERI,
     is_organic, is_lactose_free, parse_weight_to_grams,
     normalize_name, _PLACEHOLDER_IMGS,
-    is_non_food_name, is_age_restricted, is_rema_tobacco_id,
+    is_non_food_name, is_age_restricted, is_rema_tobacco_id, store_match_names,
 )
 from updater import get_search_flavor_keywords  # noqa: E402
 
@@ -305,7 +305,10 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
     ])
     img_url = str(p.get("/product/imageLink", ""))
     flavor_kw = get_search_flavor_keywords(base_text, img_url)
-    search_text = normalize_name(f"{base_text} {flavor_kw}".strip())
+    # De andre butikkers navne for varen med (app_support.store_match_names):
+    # Spar kalder Føtex' "Flødeis m. romsmag ..." for "Toms Skildpadde".
+    names = store_match_names(p.get("/product/store_matches"))
+    search_text = normalize_name(f"{base_text} {flavor_kw} {names}".strip())
     # Samme regex-tunge opslag som lige er brugt til search_text ovenfor -
     # send resultatet med ind i data-JSON'en, så app_support._product_flavor_
     # search_field() kan slå det op i stedet for at genberegne det live pr.
