@@ -213,6 +213,8 @@ _features_raw = None
 _CACHEABLE_QUERY_PARAMS = frozenset({
     "lactose", "max_price", "max_weight", "min_price", "min_weight",
     "organic", "page", "q", "sale", "sort", "stores", "subcategory",
+    # Afsnit i en butiks tilbudsavis (app.py::_build_store_offer_listing).
+    "kategori",
 })
 
 # Single-flight for cache-miss renders pr. isolate. Uden dette renderer N

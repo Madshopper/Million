@@ -6366,8 +6366,10 @@ body[data-theme="dark"] {
 }
 
 .store-avis-intro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
   margin: -4px 0 12px;
-  color: var(--gray-700);
   font-size: 0.95rem;
 }
 
@@ -6376,3 +6378,84 @@ body[data-theme="dark"] {
   font-weight: 700;
   white-space: nowrap;
 }
+
+.offer-store { position: relative; }
+
+.offer-store-count {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Avisens forside: bånd i butikkens farver (app.py::_OFFER_STORE_COLORS) */
+.avis-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  margin: 8px 0 14px;
+  padding: 18px 20px;
+  border-radius: var(--radius-lg, 16px);
+  background: var(--avis-bg);
+  color: var(--avis-fg);
+  box-shadow: var(--shadow-sm);
+}
+
+.avis-banner-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  padding: 6px;
+  border-radius: 14px;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.avis-banner-text { flex: 1 1 200px; min-width: 0; }
+
+.avis-banner-kicker {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.avis-banner h1 {
+  margin: 2px 0;
+  font-size: 1.9rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: inherit;
+}
+
+.avis-banner-meta { font-size: 0.9rem; opacity: 0.9; }
+
+.avis-banner-link {
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: #fff;
+  color: #1a1a1a;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.avis-banner-link:hover,
+.avis-banner-link:focus-visible { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5); }
+
+.avis-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 10px;
+  margin-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.avis-chips .subcategory-pill { text-decoration: none; }
+
+.product-type[id^="afsnit-"] { scroll-margin-top: 140px; }

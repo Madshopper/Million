@@ -17,7 +17,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { useCart } from '../cart/CartContext';
 import { CartIcon } from '../components/CartIcon';
 import { HomeScreen } from '../screens/HomeScreen';
-import { CategoryScreen, SaleScreen, StoreOffersScreen } from '../screens/CategoryScreen';
+import { CategoryScreen, SaleScreen, StoreOffersListScreen } from '../screens/CategoryScreen';
+import { StoreAvisScreen } from '../screens/StoreAvisScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { RecipesScreen } from '../screens/RecipesScreen';
 import { CartScreen } from '../screens/CartScreen';
@@ -314,8 +315,13 @@ export function RootNavigator() {
         <Stack.Screen name="Sale" component={SaleScreen} options={{ title: 'Ugens Tilbud' }} />
         <Stack.Screen
           name="StoreOffers"
-          component={StoreOffersScreen}
-          options={({ route }) => ({ title: `Tilbud hos ${route.params.label}` })}
+          component={StoreAvisScreen}
+          options={({ route }) => ({ title: `Tilbudsavis fra ${route.params.label}` })}
+        />
+        <Stack.Screen
+          name="StoreOffersList"
+          component={StoreOffersListScreen}
+          options={({ route }) => ({ title: route.params.title })}
         />
         <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Indkøbsliste' }} />
         <Stack.Screen

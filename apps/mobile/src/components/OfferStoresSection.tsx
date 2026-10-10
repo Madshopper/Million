@@ -33,7 +33,7 @@ export function OfferStoresSection({
           <Pressable
             key={s.key}
             accessibilityRole="button"
-            accessibilityLabel={`Se ugens tilbud hos ${s.label}`}
+            accessibilityLabel={`Se ugens tilbud hos ${s.label}${s.count ? `, ${s.count} tilbud` : ''}`}
             onPress={() => onOpen(s)}
             style={({ pressed }) => [
               styles.logoBtn,
@@ -48,6 +48,16 @@ export function OfferStoresSection({
             <Text style={[styles.logoText, { color: colors.text }]} numberOfLines={2}>
               {s.label}
             </Text>
+            {s.count ? (
+              <Text
+                style={[
+                  styles.count,
+                  { backgroundColor: s.color ?? colors.primary, color: s.text_color ?? '#fff' },
+                ]}
+              >
+                {s.count} tilbud
+              </Text>
+            ) : null}
           </Pressable>
         ))}
       </ScrollView>
@@ -70,4 +80,12 @@ const styles = StyleSheet.create({
   },
   logo: { width: 52, height: 52, borderRadius: 10, backgroundColor: '#fff' },
   logoText: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  count: {
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
 });

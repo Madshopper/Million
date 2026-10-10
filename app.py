@@ -255,7 +255,7 @@ _CACHEABLE_ENDPOINTS = {
     'api_home', 'api_category', 'api_sale', 'api_search',
     # Tilbudsavis pr. butik (Feature 'butiksaviser'): skifter kun ved seedet,
     # og afhænger ikke af butiksvalget (siden ER én butik).
-    'store_offers', 'api_store_offers',
+    'store_offers', 'api_store_offers', 'api_store_avis',
     # Prishistorik og ernæring: data ændrer sig højst én gang i døgnet og er
     # GET uden rate-limit - edge-cache (samme 24t CDN-Cache-Control via
     # cache_version som resten af _CACHEABLE_ENDPOINTS, se _EDGE_CACHE_SECONDS)
@@ -297,7 +297,7 @@ _CACHEABLE_JSON_ENDPOINTS = {
     'get_stores', 'get_separate_products', 'get_product_info',
     'get_price_history', 'get_nutrition',
     'api_home', 'api_category', 'api_sale', 'api_search', 'autocomplete',
-    'get_recipes', 'api_store_offers',
+    'get_recipes', 'api_store_offers', 'api_store_avis',
 }
 _JSON_BROWSER_CACHE_SECONDS = 300
 # INGEN browser-cache af HTML: browseren skal hente frisk HTML ved hvert
@@ -1782,13 +1782,16 @@ _FEATURES = (
                'udgivet her. MadShopper Test har dem med det samme.',
         'parts': (
             {'kind': 'web', 'name': 'Butikslogoer på forsiden',
-             'desc': 'Kun de butikker man har valgt. Tryk åbner /tilbud/<butik>.'},
-            {'kind': 'web', 'name': 'Tilbudsside pr. butik',
-             'desc': 'Butikkens tilbud med filtre og sortering, plus et link '
-                     '"Se hele avisen hos …" til butikkens egen side.'},
+             'desc': 'Kun de butikker man har valgt, med antal tilbud. Tryk '
+                     'åbner /tilbud/<butik>.'},
+            {'kind': 'web', 'name': 'Avisen pr. butik',
+             'desc': 'Bånd i butikkens farver med uge og antal tilbud, "Ugens '
+                     'bedste tilbud" og et afsnit pr. kategori med de største '
+                     'besparelser først. "Se alle" giver hele listen med filtre, '
+                     'og et link fører til butikkens egen avis.'},
             {'kind': 'app', 'name': 'Tilbudsavis i appen',
-             'desc': 'Samme logoer på appens forside og samme tilbudsside '
-                     '(/api/store-offers/<butik>).'},
+             'desc': 'Samme logoer og samme avis i appen '
+                     '(/api/store-avis/<butik>, /api/store-offers/<butik>).'},
             {'kind': 'idea', 'name': 'Coop-butikkerne og 365 Discount',
              'desc': 'Tilføjes, når Coop har svaret og tilbuddene ikke '
                      'længere kommer fra Tjek.'},
@@ -2048,16 +2051,54 @@ _OFFER_STORE_AVIS_URLS = {
 }
 
 
-def _offer_stores() -> list:
-    """Logoerne til forsidens tilbudsavis (web og /api/home)."""
-    return [
-        {'key': k, 'label': _STORE_CONFIGS[k]['label'],
-         'logo': _STORE_CONFIGS[k]['logo'], 'avis_url': url}
-        for k, url in _OFFER_STORE_AVIS_URLS.items()
-    ]
+# Avisens bånd i butikkens farver: (baggrund, tekst). Kun farver, intet af
+# butikkens eget materiale.
+_OFFER_STORE_COLORS = {
+    'netto':      ('#FFD200', '#1A1A1A'),
+    'foetex':     ('#002D72', '#FFFFFF'),
+    'bilka':      ('#0072BC', '#FFFFFF'),
+    'rema':       ('#003F87', '#FFFFFF'),
+    'lidl':       ('#0050AA', '#FFFFFF'),
+    'meny':       ('#C8102E', '#FFFFFF'),
+    'spar':       ('#E3001B', '#FFFFFF'),
+    'mk':         ('#D2232A', '#FFFFFF'),
+    'loevbjerg':  ('#00703C', '#FFFFFF'),
+    'abclavpris': ('#E30613', '#FFFFFF'),
+}
+# Avisens afsnit i den rækkefølge en papiravis typisk har dem, med slug'en
+# fra _CATEGORY_SLUG_MAP (bruges i "Se alle"-linket ?kategori=<slug>).
+_OFFER_SECTIONS = (
+    (CAT_FRUGT_GROENT, 'Frugt_og_groent'),
+    (CAT_KOED_FISK, 'Koed_og_fisk'),
+    (CAT_MEJERI, 'Mejeri'),
+    (CAT_BROED_KAGER, 'Broed_og_kager'),
+    (CAT_KOLONIAL, 'Kolonial'),
+    (CAT_FROST, 'Frost'),
+    (CAT_DRIKKEVARER, 'Drikkevarer'),
+    (CAT_SLIK, 'Slik'),
+    ('Andre varer', 'Andre'),
+)
+_OFFER_SECTION_BY_SLUG = {slug: cat for cat, slug in _OFFER_SECTIONS}
+# Varer pr. afsnit i avisen og i "Ugens bedste tilbud". Resten ligger bag
+# "Se alle", så en kold render aldrig parser tusindvis af varer (Bilka har
+# over 2.000 tilbud).
+_AVIS_SECTION_ITEMS = 10
+_AVIS_BEST_ITEMS = 10
 
 
-app.jinja_env.globals['offer_stores'] = tuple(_offer_stores())
+def _offer_stores(counts: dict | None = None) -> list:
+    """Logoerne til forsidens tilbudsavis (web og /api/home), med antal
+    tilbud pr. butik når det kendes."""
+    out = []
+    for k, url in _OFFER_STORE_AVIS_URLS.items():
+        bg, fg = _OFFER_STORE_COLORS.get(k, ('#047857', '#FFFFFF'))
+        entry = {'key': k, 'label': _STORE_CONFIGS[k]['label'],
+                 'logo': _STORE_CONFIGS[k]['logo'], 'avis_url': url,
+                 'color': bg, 'text_color': fg}
+        if counts and isinstance(counts.get(k), int):
+            entry['count'] = counts[k]
+        out.append(entry)
+    return out
 
 
 def _category_display_name(category: str) -> str:
@@ -3803,10 +3844,10 @@ def _as_store_offer(product: dict, store_key: str, label: str) -> dict | None:
     None. Visningsbutikkens egen pris ligger på kortet selv (Rema har ingen
     store_matches-post); de andre butikkers ligger i store_matches. own_sale er
     butikkens tilbud uden førpris (updater.py), fx det meste af ABC Lavpris."""
-    if product.get('/product/store') == label:
-        if product.get('/product/sale_price') is not None or product.get('/product/own_sale'):
-            return product
-        return None
+    if product.get('/product/store') == label and (
+            product.get('/product/sale_price') is not None
+            or product.get('/product/own_sale')):
+        return product
     match = (product.get('/product/store_matches') or {}).get(store_key)
     if isinstance(match, dict) and match.get('is_sale') and match.get('name'):
         try:
@@ -3818,42 +3859,244 @@ def _as_store_offer(product: dict, store_key: str, label: str) -> dict | None:
     return None
 
 
-def _build_store_offer_listing(store_key: str, args, page: int):
-    """Én butiks tilbud (Feature 'butiksaviser'), til /tilbud/<butik> og
-    /api/store-offers/<butik>. Uafhængig af brugerens butiksvalg: siden ER
-    butikken. Returnerer display-dicts + meta som _build_sale_listing."""
+def _store_offer_sql(store_key: str) -> tuple[str, str]:
+    """(betingelse, besparelse) som SQL for én butiks tilbud. Begge bruger
+    én bundet parameter: butikkens label. Nøglen indsættes direkte i
+    JSON-stien, men kommer kun fra _STORE_CONFIGS (små bogstaver og tal)."""
+    if not store_key.isalnum():
+        raise ValueError(store_key)
+    sale = """json_extract(data, '$."/product/sale_price"')"""
+    price = """json_extract(data, '$."/product/price"')"""
+    own = (f"""(store = ? AND ({sale} IS NOT NULL"""
+           """ OR json_extract(data, '$."/product/own_sale"') = 1))""")
+    m = f"""json_extract(data, '$."/product/store_matches".{store_key}"""
+    m_sale, m_price, m_normal = f"{m}.is_sale')", f"{m}.price')", f"{m}.normal_price')"
+    cond = f"({own} OR {m_sale} = 1)"
+    savings = (
+        f"CASE WHEN {own} THEN (CASE WHEN {sale} IS NOT NULL AND {price} > {sale}"
+        f" THEN 1.0 - {sale} * 1.0 / {price} ELSE 0 END)"
+        f" WHEN {m_sale} = 1 THEN (CASE WHEN {m_normal} > {m_price}"
+        f" THEN 1.0 - {m_price} * 1.0 / {m_normal} ELSE 0 END) END"
+    )
+    return cond, savings
+
+
+def _offer_display(product: dict, store_key: str, label: str) -> dict | None:
+    adjusted = _as_store_offer(product, store_key, label)
+    if not adjusted:
+        return None
+    try:
+        return product_to_display_dict(
+            adjusted,
+            default_category='Andre varer',
+            sale_end_date=parse_sale_end_date(adjusted),
+            force_sale=True,
+        )
+    except (ValueError, TypeError, KeyError) as e:
+        logger.warning("Error converting store offer %s: %s",
+                       product.get('/product/id'), e)
+        return None
+
+
+def _offer_savings(product: dict, store_key: str, label: str) -> float:
+    """Samme besparelse som _store_offer_sql, i Python (lokalt uden D1)."""
+    try:
+        if product.get('/product/store') == label and (
+                product.get('/product/sale_price') is not None
+                or product.get('/product/own_sale')):
+            p, s = product.get('/product/price'), product.get('/product/sale_price')
+            return 1.0 - float(s) / float(p) if s is not None and float(p) > float(s) else 0.0
+        m = (product.get('/product/store_matches') or {}).get(store_key) or {}
+        n, p = m.get('normal_price'), m.get('price')
+        return 1.0 - float(p) / float(n) if n and float(n) > float(p) else 0.0
+    except (TypeError, ValueError, ZeroDivisionError):
+        return 0.0
+
+
+def _build_store_avis(store_key: str) -> dict:
+    """Én butiks tilbudsavis (Feature 'butiksaviser'): "Ugens bedste tilbud"
+    og et afsnit pr. kategori med de største besparelser først, samt antal
+    tilbud pr. afsnit. Bruges af /tilbud/<butik> og /api/store-avis/<butik>.
+
+    På edge vælges de højst _AVIS_SECTION_ITEMS varer pr. afsnit i D1
+    (vinduesfunktion), så kun ~100 varer krydser broen og parses, uanset om
+    butikken har 30 eller 2.000 tilbud. Én scanning af tilbudsindekset."""
     label = _STORE_CONFIGS[store_key]['label']
+    picked = []   # (kategori, besparelse, rå vare)
+    counts = {}
+    if _use_d1():
+        cond, savings = _store_offer_sql(store_key)
+        rows = _d1_rows(
+            "WITH v AS (SELECT data, category, " + savings + " AS sv"
+            " FROM products WHERE is_sale = 1),"
+            " r AS (SELECT data, category, sv,"
+            " ROW_NUMBER() OVER (PARTITION BY category ORDER BY sv DESC) AS rn,"
+            " COUNT(*) OVER (PARTITION BY category) AS n"
+            " FROM v WHERE sv IS NOT NULL)"
+            f" SELECT data, category, sv, n FROM r WHERE rn <= {int(_AVIS_SECTION_ITEMS)}",
+            (label,),
+        )
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            counts[row.get('category')] = int(row.get('n') or 0)
+            try:
+                raw = json.loads(row.get('data') or '')
+            except (TypeError, ValueError):
+                continue
+            picked.append((row.get('category'), float(row.get('sv') or 0), raw))
+    else:
+        by_cat = {}
+        for raw in load_sale_raw():
+            if not _as_store_offer(raw, store_key, label):
+                continue
+            cat = str(raw.get('/product/product_type') or 'Andre varer')
+            by_cat.setdefault(cat, []).append(
+                (cat, _offer_savings(raw, store_key, label), raw))
+        for cat, items in by_cat.items():
+            counts[cat] = len(items)
+            items.sort(key=lambda t: t[1], reverse=True)
+            picked.extend(items[:_AVIS_SECTION_ITEMS])
+
+    allowed = {id(p) for p in filter_products_by_stores([t[2] for t in picked], None)}
+    sections_raw = {}
+    best = []
+    for cat, sv, raw in picked:
+        if id(raw) not in allowed:
+            continue
+        disp = _offer_display(raw, store_key, label)
+        if not disp:
+            continue
+        sections_raw.setdefault(cat, []).append(disp)
+        if sv > 0:
+            best.append((sv, disp))
+    best.sort(key=lambda t: t[0], reverse=True)
+    # Højst to varer pr. mærke forrest, så fem slags Philadelphia ikke fylder
+    # hele "Ugens bedste tilbud".
+    per_brand, varied = {}, []
+    for sv, d in best:
+        brand = str(d.get('brand') or d.get('name') or '').strip().lower()
+        if per_brand.get(brand, 0) >= 2:
+            continue
+        per_brand[brand] = per_brand.get(brand, 0) + 1
+        varied.append((sv, d))
+    best = varied
+
+    known = {cat for cat, _slug in _OFFER_SECTIONS}
+    sections = []
+    for cat, slug in _OFFER_SECTIONS:
+        items = list(sections_raw.get(cat, []))
+        n = counts.get(cat, 0)
+        if cat == 'Andre varer':
+            # Ukendte kategorier samles her, så intet tilbud forsvinder.
+            for other, other_items in sections_raw.items():
+                if other not in known:
+                    items.extend(other_items)
+                    n += counts.get(other, 0)
+        if not items:
+            continue
+        sections.append({
+            'slug': slug,
+            'title': _category_display_name(cat),
+            'count': n,
+            'products': items[:_AVIS_SECTION_ITEMS],
+        })
+    bg, fg = _OFFER_STORE_COLORS.get(store_key, ('#047857', '#FFFFFF'))
+    return {
+        'store': store_key,
+        'label': label,
+        'logo': _STORE_CONFIGS[store_key]['logo'],
+        'avis_url': _OFFER_STORE_AVIS_URLS[store_key],
+        'color': bg,
+        'text_color': fg,
+        'week': datetime.now(timezone.utc).isocalendar()[1],
+        'total': sum(counts.values()),
+        'best': [d for _sv, d in best[:_AVIS_BEST_ITEMS]],
+        'sections': sections,
+    }
+
+
+_OFFER_COUNTS_NONE = object()
+
+
+def _offer_store_counts() -> dict | None:
+    """Antal tilbud pr. butik til logoerne på forsiden. Fra d1_stats_v1
+    (seed-d1.py skriver 'offer_counts'), ellers én scanning af
+    tilbudsindekset med en SUM pr. butik. None = ukendt, logoerne vises så
+    uden tal."""
+    try:
+        cached = g.get('_offer_counts', _OFFER_COUNTS_NONE)
+    except RuntimeError:
+        cached = _OFFER_COUNTS_NONE
+    if cached is not _OFFER_COUNTS_NONE:
+        return cached
+    counts = None
+    try:
+        if _use_d1():
+            stats = _d1_stats()
+            if stats and isinstance(stats.get('offer_counts'), dict):
+                counts = stats['offer_counts']
+            else:
+                parts, params = [], []
+                for k in _OFFER_STORE_AVIS_URLS:
+                    cond, _sv = _store_offer_sql(k)
+                    parts.append(f"SUM(CASE WHEN {cond} THEN 1 ELSE 0 END) AS {k}")
+                    params.append(_STORE_CONFIGS[k]['label'])
+                row = _d1_scalar(
+                    "SELECT " + ", ".join(parts) + " FROM products WHERE is_sale = 1",
+                    tuple(params),
+                )
+                if isinstance(row, dict):
+                    counts = {k: int(row.get(k) or 0) for k in _OFFER_STORE_AVIS_URLS}
+        else:
+            raws = load_sale_raw()
+            counts = {
+                k: sum(1 for r in raws
+                       if _as_store_offer(r, k, _STORE_CONFIGS[k]['label']))
+                for k in _OFFER_STORE_AVIS_URLS
+            }
+    except Exception as e:
+        logger.warning("offer counts: %s", e)
+        counts = None
+    try:
+        g._offer_counts = counts
+    except RuntimeError:
+        pass
+    return counts
+
+
+# Forsidens logoer (templates/index.html), kun kaldt når featuren er til.
+app.jinja_env.globals['offer_stores'] = lambda: _offer_stores(_offer_store_counts())
+
+
+def _build_store_offer_listing(store_key: str, args, page: int):
+    """Én butiks tilbud (Feature 'butiksaviser'), til "Se alle" fra avisen
+    (/tilbud/<butik>?kategori=<slug>) og /api/store-offers/<butik>.
+    Uafhængig af brugerens butiksvalg: siden ER butikken. ?kategori=
+    begrænser til ét afsnit. Returnerer display-dicts + meta som
+    _build_sale_listing."""
+    label = _STORE_CONFIGS[store_key]['label']
+    category = _OFFER_SECTION_BY_SLUG.get(args.get('kategori', '') or '')
     per_page = _LISTING_PER_PAGE
     if _use_d1():
         # `is_sale = 1` skal stå bogstaveligt, så det partielle indeks bruges
         # (seed-d1.py); json_extract afgøres i D1, hvis CPU ikke tæller mod
         # workerens. Stien bygges kun af nøgler fra _STORE_CONFIGS.
+        cond, _sv = _store_offer_sql(store_key)
+        where, params = ["is_sale = 1", cond], [label]
+        if category:
+            where.append("category = ?")
+            params.append(category)
         raw_page, total_pages, page = _d1_listing(
-            ["is_sale = 1",
-             "((store = ? AND (json_extract(data, '$.\"/product/sale_price\"') IS NOT NULL"
-             " OR json_extract(data, '$.\"/product/own_sale\"') = 1))"
-             " OR json_extract(data, ?) = 1)"],
-            [label, f'$."/product/store_matches".{store_key}.is_sale'],
-            args, page, per_page, None,
+            where, params, args, page, per_page, None,
         )
         source = filter_products_by_stores(raw_page, None)
     else:
         source = filter_products_by_stores(load_sale_raw(), None)
-    offers = []
-    for product in source:
-        try:
-            adjusted = _as_store_offer(product, store_key, label)
-            if not adjusted:
-                continue
-            offers.append(product_to_display_dict(
-                adjusted,
-                default_category='Andre varer',
-                sale_end_date=parse_sale_end_date(adjusted),
-                force_sale=True,
-            ))
-        except (ValueError, TypeError, KeyError) as e:
-            logger.warning("Error converting store offer %s: %s",
-                           product.get('/product/id'), e)
+        if category:
+            source = [p for p in source
+                      if str(p.get('/product/product_type') or 'Andre varer') == category]
+    offers = [d for d in (_offer_display(p, store_key, label) for p in source) if d]
     offers = apply_product_filters(offers, args)
     if _use_d1():
         return offers, page, total_pages, None
@@ -5113,7 +5356,8 @@ def api_home():
             'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
             # Tilbudsavis pr. butik: appen viser logoerne, når den er udgivet.
             'butiksaviser_enabled': _feature_enabled('butiksaviser'),
-            'offer_stores': _offer_stores() if _feature_enabled('butiksaviser') else [],
+            'offer_stores': (_offer_stores(_offer_store_counts())
+                             if _feature_enabled('butiksaviser') else []),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
                 'available': False,
@@ -5157,24 +5401,37 @@ def store_offers(store_key):
     if not _feature_enabled('butiksaviser') or store_key not in _OFFER_STORE_AVIS_URLS:
         return render_template('not_found.html'), 404
     try:
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        # Uden ?kategori= og filtre vises avisen; "Se alle" og filtrene giver
+        # den almindelige liste (category.html) for ét afsnit eller alt.
+        if not is_ajax and not any(k in request.args for k in (
+                'kategori', 'page', 'sort', 'min_price', 'max_price', 'organic',
+                'lactose', 'min_weight', 'max_weight', 'sale')):
+            avis = _build_store_avis(store_key)
+            return render_template('butiksavis.html', avis=avis)
         page = request.args.get('page', 1, type=int)
         products, page, total_pages, _total = _build_store_offer_listing(
             store_key, request.args, page,
         )
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        if is_ajax:
             return render_template('partials/product_grid.html',
                                    products=products,
                                    current_page=page,
                                    total_pages=total_pages)
         label = _STORE_CONFIGS[store_key]['label']
+        section = _OFFER_SECTION_BY_SLUG.get(request.args.get('kategori', '') or '')
+        title = f'Tilbud hos {label}'
+        if section:
+            title += f': {_category_display_name(section)}'
         return render_template('category.html',
-                               category_name=f'Tilbud hos {label}',
+                               category_name=title,
                                products=products,
                                current_page=page,
                                total_pages=total_pages,
                                available_subcategories=[],
                                current_subcategory=None,
                                store_avis={
+                                   'key': store_key,
                                    'label': label,
                                    'logo': _STORE_CONFIGS[store_key]['logo'],
                                    'url': _OFFER_STORE_AVIS_URLS[store_key],
@@ -5183,6 +5440,23 @@ def store_offers(store_key):
         logger.error("Error loading store offers %s: %s", store_key, e)
         _mark_data_degraded('store_offers_exception')
         return "Der opstod en fejl. Prøv igen om lidt.", 500
+
+
+@app.route('/api/store-avis/<store_key>')
+@rate_limit(api_limiter)
+def api_store_avis(store_key):
+    """JSON til appens tilbudsavis (samme indhold som /tilbud/<butik>)."""
+    if not _feature_enabled('butiksaviser') or store_key not in _OFFER_STORE_AVIS_URLS:
+        return jsonify(success=False, error='Ukendt butik.'), 404
+    try:
+        avis = _build_store_avis(store_key)
+        avis['best'] = products_to_api_list(avis['best'])
+        for sec in avis['sections']:
+            sec['products'] = products_to_api_list(sec['products'])
+        return jsonify(success=True, **avis)
+    except Exception as e:
+        logger.exception("api/store-avis error: %s", e)
+        return jsonify(success=False, error='Kunne ikke hente avisen.'), 500
 
 
 @app.route('/api/store-offers/<store_key>')

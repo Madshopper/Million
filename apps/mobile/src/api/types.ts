@@ -61,6 +61,27 @@ export type OfferStore = {
   logo: string;
   /** Butikkens egen avis; vi viser kun et link til den. */
   avis_url: string;
+  /** Avisens farver (baggrund og tekst). */
+  color?: string;
+  text_color?: string;
+  /** Antal tilbud denne uge, når serveren kender det. */
+  count?: number;
+};
+
+/** /api/store-avis/<butik>: butikkens tilbudsavis bygget af vores egne priser. */
+export type StoreAvisResponse = {
+  success: boolean;
+  store: string;
+  label: string;
+  logo: string;
+  avis_url: string;
+  color: string;
+  text_color: string;
+  week: number;
+  total: number;
+  best: Product[];
+  sections: Array<{ slug: string; title: string; count: number; products: Product[] }>;
+  error?: string;
 };
 
 export type HomeSection = {
@@ -125,4 +146,6 @@ export type ListingParams = {
   page?: number;
   subcategory?: string;
   q?: string;
+  /** Ét afsnit i en butiks tilbudsavis (/api/store-offers/<butik>). */
+  kategori?: string;
 };
