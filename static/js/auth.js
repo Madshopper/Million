@@ -509,7 +509,7 @@
         // textContent, ikke innerHTML: product_name er klient-leveret ved
         // oprettelsen og maa aldrig fortolkes som markup.
         txt.textContent = (row.product_name || 'Ukendt vare') +
-          ' · under ' + Number(row.target_price).toFixed(2) + ' kr';
+          ' · ved ' + Number(row.target_price).toFixed(2) + ' kr eller lavere';
         li.appendChild(txt);
 
         var btn = document.createElement('button');

@@ -10,7 +10,7 @@ Status: **Live.** `RESEND_API_KEY` er sat som GitHub Actions-secret siden 31-07-
 2. `savePriceAlert()` i `static/js/script.js` kalder `create_price_alert`-RPC'en **direkte fra browseren** via `window.AuthBridge` (samme mønster som `carts` - ingen tur om `app.py`). Er brugeren ikke logget ind, åbner `AuthBridge.requireAuth()` login-modalen i stedet.
 3. RPC'en (SECURITY DEFINER, `scripts/supabase-price-alerts-v2.sql`) kræver `auth.uid()` og henter email fra JWT'et - kan ikke forfalskes af klienten. Én alarm pr. bruger+produkt (nyt kald opdaterer target).
 4. Hver nat, som del af `updater.py`s `run_updater()`, tjekker `check_price_alerts()` alle alarmer med `notified_at IS NULL` mod nattens friske priser (samme kilde som prishistorikken, `collect_store_prices()` - laveste pris på tværs af alle butikker).
-5. Rammer prisen målprisen eller derunder, sendes en mail via **Resends HTTP API** (`_send_price_alert_email()`), og alarmen markeres `notified_at = now()` så den ikke sender igen. En ny alarm på samme vare nulstiller `notified_at` (RPC'en).
+5. Rammer prisen målprisen eller derunder (sammenlignet i hele øre, så 5,00 kr udløser ved præcis 5,00 kr; Kalle 11-10-2026), sendes en mail via **Resends HTTP API** (`_send_price_alert_email()`), og alarmen markeres `notified_at = now()` så den ikke sender igen. En ny alarm på samme vare nulstiller `notified_at` (RPC'en).
 
 ## Beskeder på telefonen (push) - bygget 04-10-2026
 
