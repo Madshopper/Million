@@ -3769,7 +3769,11 @@ def check_price_alerts(products: list) -> None:
             # kørsel, ikke pr. alarm) så det i det mindste er synligt.
             unresolved.append(pid)
             continue
-        if price_now > float(target):
+        # Alarmen gælder FRA den indtastede pris: 5,00 kr giver besked ved
+        # 5,00 kr og derunder (Kalle 11-10-2026). Sammenlign i hele øre, så
+        # kommatal-støj (fx 5.0000001 fra en kg-prisberegning) aldrig gør
+        # "lig med" til "over".
+        if round(price_now * 100) > round(float(target) * 100):
             continue
         hits.append((alert, price_now))
 
