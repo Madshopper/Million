@@ -339,7 +339,13 @@ export async function check(env, scheduledTime = Date.now()) {
 // står både på 22:01 og 23:01 UTC, og kun den der rammer midnat dansk tid
 // (sommer- eller vintertid) gør noget. Uden GH_DISPATCH_TOKEN gør den intet,
 // og GitHubs egen cron er sikkerhedsnet.
+//
+// Cache-updateren (D1-reseed) startes kl. 00:01 UTC af CACHE_CRON, ikke lige
+// efter scraperne: D1's skrivebudget nulstilles 00:00 UTC, og et reseed
+// bruger det meste af døgnets budget. Ventede dispatcheren selv til 00:00 UTC,
+// kostede det ~2 timers GitHub Actions-minutter hver nat (målt 11-10-2026).
 const NIGHT_CRONS = ["1 22 * * *", "1 23 * * *"];
+const CACHE_CRON = "1 0 * * *";
 const DISPATCH_URL =
   "https://api.github.com/repos/Madshopper/Million/actions/workflows/nightly-dispatcher.yml/dispatches";
 
@@ -351,6 +357,10 @@ function danishHour(ms) {
 
 export async function startNight(env, scheduledTime = Date.now()) {
   if (danishHour(scheduledTime) !== "00") return "ikke midnat dansk tid";
+  return dispatch(env, "nat");
+}
+
+async function dispatch(env, slot) {
   if (!env.GH_DISPATCH_TOKEN) return "GH_DISPATCH_TOKEN mangler";
   const res = await fetch(DISPATCH_URL, {
     method: "POST",
@@ -361,13 +371,13 @@ export async function startNight(env, scheduledTime = Date.now()) {
       "User-Agent": "MadShopper-Uptime",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ ref: "main", inputs: { slot: "nat" } }),
+    body: JSON.stringify({ ref: "main", inputs: { slot } }),
   });
   if (res.status !== 204) {
     const text = (await res.text()).slice(0, 300);
     throw new Error(`GitHub svarede ${res.status}: ${text}`);
   }
-  return "startet";
+  return `startet (${slot})`;
 }
 
 export default {
@@ -376,6 +386,13 @@ export default {
       ctx.waitUntil(startNight(env, event.scheduledTime).then(
         (r) => console.log("nat:", r),
         (err) => console.error("nat: kunne ikke starte nightly-dispatcher:", String(err)),
+      ));
+      return;
+    }
+    if (event.cron === CACHE_CRON) {
+      ctx.waitUntil(dispatch(env, "cache-fallback").then(
+        (r) => console.log("nat-cache:", r),
+        (err) => console.error("nat-cache: kunne ikke starte cache-updater:", String(err)),
       ));
       return;
     }

@@ -11,7 +11,8 @@ workers_dev = false
 [triggers]
 # */5: uptime-tjekket. 22:01 og 23:01 UTC: start nattens hentning af butikkerne
 # kl. 00:01 dansk tid (sommer- og vintertid), se startNight() i worker.js.
-crons = ["*/5 * * * *", "1 22 * * *", "1 23 * * *"]
+# 00:01 UTC: start cache-updateren lige efter at D1-budgettet er nulstillet.
+crons = ["*/5 * * * *", "1 22 * * *", "1 23 * * *", "1 0 * * *"]
 
 # Logs er slået TIL her, modsat madshopper/madshopper-dev. Nedbruddet
 # 2026-07-19 skyldtes observability-introspektionen i Pyodide-workeren under
