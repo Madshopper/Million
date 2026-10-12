@@ -31,7 +31,7 @@ const TILE_H = 150;
 
 /** Tom kant på hver side af avisen, hvor pilene står, så de aldrig dækker
  *  en pris eller en kurv-knap (Kalle 12-10-2026). */
-const NAV_GUTTER = 30;
+const NAV_GUTTER = 40;
 
 /** Varer pr. side og på forsiden; samme som app.py::_AVIS_PAGE_ITEMS/_AVIS_FRONT_ITEMS. */
 const PAGE_ITEMS = 4;
@@ -370,9 +370,10 @@ const styles = StyleSheet.create({
   nav: {
     position: 'absolute',
     top: '50%',
-    marginTop: -30,
-    width: NAV_GUTTER - 4,
-    height: 60,
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0.92,
@@ -382,7 +383,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  navPrev: { left: 0, borderTopRightRadius: 12, borderBottomRightRadius: 12 },
-  navNext: { right: 0, borderTopLeftRadius: 12, borderBottomLeftRadius: 12 },
+  navPrev: { left: 2 },
+  navNext: { right: 2 },
   navText: { fontSize: 26, fontWeight: '700', marginTop: -3 },
 });
