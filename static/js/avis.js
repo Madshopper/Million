@@ -62,6 +62,16 @@
       track.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   });
+  // Telefon: pilene står fast midt på skærmen og vises kun, mens avisen er
+  // synlig, så de ikke hænger over sidefoden.
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      book.classList.toggle('avis-in-view', entries[0].isIntersecting);
+    }, { rootMargin: '-35% 0px -35% 0px' }).observe(track);
+  } else {
+    book.classList.add('avis-in-view');
+  }
+
   if (location.hash) jump(location.hash.slice(1));
   update();
 })();
