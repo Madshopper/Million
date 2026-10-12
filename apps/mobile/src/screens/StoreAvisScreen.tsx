@@ -29,9 +29,13 @@ type Props = NativeStackScreenProps<RootStackParamList, 'StoreOffers'>;
 const TILE_W = 230;
 const TILE_H = 150;
 
+/** Tom kant på hver side af avisen, hvor pilene står, så de aldrig dækker
+ *  en pris eller en kurv-knap (Kalle 12-10-2026). */
+const NAV_GUTTER = 40;
+
 /** Varer pr. side og på forsiden; samme som app.py::_AVIS_PAGE_ITEMS/_AVIS_FRONT_ITEMS. */
-const PAGE_ITEMS = 6;
-const FRONT_ITEMS = 4;
+const PAGE_ITEMS = 4;
+const FRONT_ITEMS = 2;
 
 type AvisSection = StoreAvisResponse['sections'][number];
 type AvisPage = {
@@ -98,7 +102,7 @@ function Watermark({ uri, isDark }: { uri: string; isDark: boolean }) {
  * Tilbudsavis for én butik (Feature-panelet 'butiksaviser'), samme skabelon
  * som hjemmesidens /tilbud/<butik> (templates/butiksavis.html): en rigtig
  * avis med sider (Kalle 10-10-2026), som man bladrer i ved at swipe eller med
- * pilene i siderne. Forsiden har de fire bedste tilbud; derefter seks varer
+ * pilene i siderne. Forsiden har de to bedste tilbud; derefter fire varer
  * pr. side, afsnit for afsnit. Butikkens logo står svagt i baggrunden; ellers
  * ens for alle butikker. Bygget af de priser vi selv henter fra butikken;
  * butikkens egen avis åbnes kun som link.
@@ -327,7 +331,7 @@ const styles = StyleSheet.create({
   chips: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1 },
   empty: { padding: 24, textAlign: 'center' },
-  pageScroll: { padding: 10, paddingBottom: 28 },
+  pageScroll: { paddingVertical: 10, paddingHorizontal: NAV_GUTTER, paddingBottom: 28 },
   paper: {
     paddingTop: 14,
     paddingBottom: 10,
@@ -362,22 +366,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 10,
   },
+  // Pilene: midt på skærmen helt ude i kanten, i den tomme kant (NAV_GUTTER).
   nav: {
     position: 'absolute',
-    top: '45%',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    top: '50%',
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 0.9,
+    opacity: 0.92,
     shadowColor: '#000',
     shadowOpacity: 0.25,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  navPrev: { left: 4 },
-  navNext: { right: 4 },
-  navText: { fontSize: 30, fontWeight: '700', marginTop: -4 },
+  navPrev: { left: 2 },
+  navNext: { right: 2 },
+  navText: { fontSize: 26, fontWeight: '700', marginTop: -3 },
 });

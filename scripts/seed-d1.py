@@ -16,14 +16,17 @@ import tempfile
 import time
 import urllib.request
 
-# DEPLOY_ENV=staging seeder madshopper-dev i stedet for produktions-D1/KV
-# (samme skelnen som scripts/build-pages.sh bruger til selve worker-deployet).
-if os.environ.get("DEPLOY_ENV") == "staging":
-    DB_NAME = "madshopper-dev"
-    KV_NAMESPACE_ID = "b879e69c3a1f477c9c69bbc7e7b041df"
-else:
-    DB_NAME = "madshopper"
-    KV_NAMESPACE_ID = "0e60bdf03ed4490cbfac5fa72c8adca5"
+DB_NAME = "madshopper"
+KV_NAMESPACE_ID = "0e60bdf03ed4490cbfac5fa72c8adca5"
+# dev.madshopper.dk (madshopper-dev) læser SAMME D1 som produktionen (Kalle,
+# 12-10-2026). Dens egen kopi blev kun fyldt ved manuelle staging-seeds, som
+# budgettet herunder ikke har plads til hver dag, så den stod uger bagud (fx
+# 3088 gamle Tjek-tilbud for Føtex i stedet for ugens 716 i avisen). Det, der
+# hører til tabellen i KV (søgeindeks, d1_stats_v1, forsidepuljer og
+# cache_version), skrives derfor til BEGGE namespaces i samme kørsel, så
+# staging aldrig peger på en anden tabelversion end den der ligger i D1.
+STAGING_KV_NAMESPACE_ID = "b879e69c3a1f477c9c69bbc7e7b041df"
+KV_NAMESPACE_IDS = (KV_NAMESPACE_ID, STAGING_KV_NAMESPACE_ID)
 
 # D1's gratis-plan-budget (100k rows written / 5M rows read pr. dag) er
 # KONTO-bredt - delt mellem madshopper og madshopper-dev, ikke pr. database
@@ -83,7 +86,7 @@ def _home_is_allowed(p: dict) -> bool:
     return True
 
 # Skrive-tabellen cart_popularity er miljø-adskilt ligesom i app.py::_table_suffix.
-TABLE_SUFFIX = "_dev" if os.environ.get("DEPLOY_ENV") == "staging" else ""
+TABLE_SUFFIX = ""
 
 SUPABASE_URL = (
     os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
@@ -460,6 +463,23 @@ def build_search_shards(postings: dict, version: int) -> tuple[list[dict], dict]
     return entries, manifest
 
 
+def _kv_all(args: list[str]) -> None:
+    """`wrangler kv <args>` mod produktionens namespace og derefter stagings
+    (se KV_NAMESPACE_IDS). En fejl i produktionen rejses som før; en fejl på
+    staging giver kun en advarsel, så dev aldrig kan vælte nattens seed."""
+    for ns in KV_NAMESPACE_IDS:
+        try:
+            subprocess.run(
+                ["npx", "wrangler", "kv", *args, "--namespace-id", ns, "--remote"],
+                cwd=WRANGLER_CWD,
+                check=True,
+            )
+        except Exception as e:
+            if ns == KV_NAMESPACE_ID:
+                raise
+            print(f"  advarsel: staging-KV ikke opdateret ({' '.join(args[:3])}): {e}")
+
+
 def write_search_shards(entries: list[dict]) -> bool:
     """Skriver shards FØR tabel-swappen: de er uvirksomme, indtil
     _SIDX_VER_KEY peger på deres version."""
@@ -467,12 +487,7 @@ def write_search_shards(entries: list[dict]) -> bool:
         json.dump(entries, f, separators=(",", ":"), ensure_ascii=False)
         path = f.name
     try:
-        subprocess.run(
-            ["npx", "wrangler", "kv", "bulk", "put", path,
-             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
-            cwd=WRANGLER_CWD,
-            check=True,
-        )
+        _kv_all(["bulk", "put", path])
         return True
     except Exception as e:
         print(f"  advarsel: kunne ikke skrive søgeindeks: {e}")
@@ -485,12 +500,7 @@ def write_search_version(manifest: dict) -> None:
     """Peger app.py på den nye indeksversion - EFTER tabel-swappen."""
     payload = json.dumps(manifest, separators=(",", ":"))
     try:
-        subprocess.run(
-            ["npx", "wrangler", "kv", "key", "put", _SIDX_VER_KEY, payload,
-             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
-            cwd=WRANGLER_CWD,
-            check=True,
-        )
+        _kv_all(["key", "put", _SIDX_VER_KEY, payload])
     except Exception as e:
         # Den gamle version bliver stående: dens rowid'er findes ikke i den
         # nye tabel, så app.py opdager det og bruger LIKE-søgningen.
@@ -518,12 +528,7 @@ def write_d1_stats(stats: dict) -> None:
         json.dump(payload, f, separators=(",", ":"), ensure_ascii=False)
         path = f.name
     try:
-        subprocess.run(
-            ["npx", "wrangler", "kv", "key", "put", _D1_STATS_KV_KEY, f"--path={path}",
-             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
-            cwd=WRANGLER_CWD,
-            check=True,
-        )
+        _kv_all(["key", "put", _D1_STATS_KV_KEY, f"--path={path}"])
     except Exception as e:
         print(f"  advarsel: kunne ikke skrive {_D1_STATS_KV_KEY}: {e}")
     finally:
@@ -694,12 +699,7 @@ def write_home_data(data: dict) -> None:
         f.write(payload)
         path = f.name
     try:
-        subprocess.run(
-            ["npx", "wrangler", "kv", "key", "put", _HOME_KV_KEY, f"--path={path}",
-             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
-            cwd=WRANGLER_CWD,
-            check=True,
-        )
+        _kv_all(["key", "put", _HOME_KV_KEY, f"--path={path}"])
         print(f"  {_HOME_KV_KEY} opdateret ({len(payload) / 1024:.0f} KB)")
     except Exception as e:
         print(f"  advarsel: kunne ikke skrive {_HOME_KV_KEY}: {e}")
@@ -713,12 +713,7 @@ def set_cache_version() -> None:
     med det samme). Fejler blødt - caching virker stadig med gammel version."""
     version = str(int(time.time()))
     try:
-        subprocess.run(
-            ["npx", "wrangler", "kv", "key", "put", "cache_version", version,
-             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
-            cwd=WRANGLER_CWD,
-            check=True,
-        )
+        _kv_all(["key", "put", "cache_version", version])
         print(f"  cache_version = {version}")
     except Exception as e:
         print(f"  advarsel: kunne ikke sætte cache_version: {e}")
@@ -767,6 +762,11 @@ def mark_seeded() -> None:
 
 
 def main() -> int:
+    if os.environ.get("DEPLOY_ENV") == "staging":
+        # Staging har ingen egen D1 længere (12-10-2026). Uden dette værn ville
+        # en gammel DEPLOY_ENV=staging-kommando seede PRODUKTIONENS tabel.
+        print("Staging læser produktionens D1; nattens seed skriver også dens KV. Intet at gøre.")
+        return 0
     # D1's gratis-plan-budget (100k rows written/dag, KONTO-bredt - delt
     # mellem madshopper og madshopper-dev) blev sprunget 7x på én dag
     # 2026-07-19 af gentagne fulde reseeds, og igen 2026-07-20. En fuld

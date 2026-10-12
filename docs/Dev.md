@@ -1,7 +1,7 @@
 Dev-miljø (test af nye features uden at røre produktion)
 
 Live test-URL: https://dev.madshopper.dk (skjult ligesom /admin: alle uden adgang får 404, også på `/staging-login`, `/robots.txt` og `/static/`). Eneste vej ind for et menneske er knappen "Se dev-siden" i madshopper.dk/admin, som kun admins ser: den giver et engangslink (?t=, 2 min., signeret med samme secret, som produktionen har som STAGING_LINK_SECRET) og en cookie der holder 24t. CI bruger ?k=<STAGING_ACCESS_SECRET> til sin egen warmup/røgtest. Mail+adgangskode-login blev fjernet 05-10-2026.
-Egen Worker (madshopper-dev), egen KV-namespace og egen D1-database - helt adskilt fra madshopper.dk. Bruger samme Supabase-projekt som produktion: produktdata og prishistorik LÆSES fra de delte tabeller (altid friske data), mens SKRIVNINGER (kurv-klik i cart_popularity, prisalarmer i price_alerts) går til separate *_dev-tabeller via TABLE_SUFFIX-env-varen - så test aldrig forurener produktionens statistik. Engangsopsætning: kør scripts/supabase-dev-tables.sql i Supabase SQL Editor. Lokal kørsel (python app.py) bruger også automatisk *_dev-tabellerne.
+Egen Worker (madshopper-dev) og eget KV-namespace, men samme D1-database som madshopper.dk (kun læsning; dev's egen kopi stod uger bagud, ændret 12-10-2026). Bruger samme Supabase-projekt som produktion: produktdata og prishistorik LÆSES fra de delte tabeller (altid friske data), mens SKRIVNINGER (kurv-klik i cart_popularity, prisalarmer i price_alerts) går til separate *_dev-tabeller via TABLE_SUFFIX-env-varen - så test aldrig forurener produktionens statistik. Engangsopsætning: kør scripts/supabase-dev-tables.sql i Supabase SQL Editor. Lokal kørsel (python app.py) bruger også automatisk *_dev-tabellerne.
 
 
 NÅR DU ÅBNER EN ANDEN COMPUTER (første gang)
@@ -47,8 +47,7 @@ Byg + deploy dev-workeren direkte fra din maskine (kræver wrangler-login):
 DEPLOY_ENV=staging bash scripts/build-pages.sh
 cd dist && npx wrangler deploy
 
-Genseed dev-D1 med friske produktdata fra Supabase:
-DEPLOY_ENV=staging python3 scripts/seed-d1.py
+Dev har ingen egen D1 længere (12-10-2026): den læser produktionens, og nattens seed skriver også dev's KV-nøgler. Der er intet at genseede.
 
 
 HUSK

@@ -115,7 +115,7 @@ The app will be available at `http://localhost:5001`. Local runs always use the 
 
 ### Dev / staging environment
 
-A second Cloudflare Worker (`madshopper-dev`, own KV namespace + D1 database, `env.staging` in `wrangler.toml`) exists to test features on a real edge deployment without touching production:
+A second Cloudflare Worker (`madshopper-dev`, own KV namespace, reading the production D1 database, `env.staging` in `wrangler.toml`) exists to test features on a real edge deployment without touching production:
 
 - Live at `https://dev.madshopper.dk`, hidden exactly like `/admin`: every path answers 404 except for admins, who open it with the "Se dev-siden" button in `/admin` (CI uses a secret key)
 - Everything is switched on there, including features still hidden on production

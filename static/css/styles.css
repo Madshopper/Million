@@ -6575,7 +6575,7 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
   color: var(--gray-700);
 }
 
-/* Varerne som avisfelter, 2 x 3 pr. side: ingen kortramme, tynde
+/* Varerne som avisfelter, 2 x 2 pr. side: ingen kortramme, tynde
    skillelinjer, stor pris i et gult prisskilt og et rødt "Spar"-mærke. */
 .avis-page .products {
   display: grid;
@@ -6639,15 +6639,81 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
 
 .avis-page .product-price .price-original::before { content: "Før "; }
 
+/* Telefon: én side skal kunne ses på én skærm, som en rigtig avisside
+   (Kalle 12-10-2026). Mindre felter, ingen mærkenavn, og pilene står i en
+   række over siden i stedet for midt på den. */
+.avis-pager { display: none; }
+
+@media (max-width: 899px) {
+  .avis-bar { margin-bottom: 6px; font-size: 0.8rem; gap: 4px 10px; }
+  .avis-bar-title { font-size: 1rem; }
+  .avis-bar .avis-week { display: none; }
+  .avis-chips { padding-bottom: 6px; gap: 6px; }
+  .avis-chips .subcategory-pill { padding: 5px 11px; font-size: 0.8rem; }
+
+  .avis-pager {
+    display: flex;
+    justify-content: center;
+    margin: 2px 0 6px;
+  }
+  .avis-pager-count { font-weight: 800; color: var(--gray-900); }
+  .avis-counter { display: none; }
+
+  /* Pilene: midt på skærmen helt ude i kanten. Avisen er rykket ind, så
+     pilene står i en tom kant og aldrig dækker en pris eller en kurv. De
+     vises kun, mens avisen er på skærmen (avis.js sætter .avis-in-view). */
+  .avis-viewport { margin: 0 24px; }
+  .avis-nav {
+    position: fixed;
+    top: 50%;
+    width: 36px;
+    height: 36px;
+    margin-top: -18px;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+  .avis-nav svg { width: 20px; height: 20px; }
+  .avis-nav--prev { left: 2px; }
+  .avis-nav--next { right: 2px; }
+  .avis-in-view .avis-nav { opacity: 0.92; pointer-events: auto; }
+  .avis-in-view .avis-nav:disabled { opacity: 0; pointer-events: none; }
+
+  .avis-page { padding: 10px 8px 8px; }
+  .avis-front-head { padding-bottom: 6px; margin-bottom: 8px; border-bottom-width: 2px; }
+  .avis-front-title { font-size: 1.6rem; }
+  .avis-front-meta { margin-top: 4px; font-size: 0.85rem; }
+  .avis-front-meta .avis-week { padding: 1px 8px; }
+  .avis-section-head { margin-bottom: 4px; }
+  .avis-ribbon { font-size: 0.8rem; padding: 4px 12px 5px; }
+
+  .avis-page .product-image-container { height: 104px; padding: 4px; }
+  .avis-page--front .product-image-container { height: 190px; }
+  .avis-page .product-brand { display: none; }
+  .avis-page .product-content { padding: 4px 8px 0; gap: 0; }
+  .avis-page .product-content h3 { font-size: 0.82rem; line-height: 1.25; min-height: 2.5em; }
+  .avis-page .product-footer { padding: 2px 8px 6px; gap: 4px; }
+  .avis-page .product-price .price-original { font-size: 0.66rem; line-height: 1.1; }
+  .avis-page .product-price .price-sale,
+  .avis-page .product-price .price-main { font-size: 1.05rem; padding: 1px 7px 2px; }
+  .avis-page .add-to-cart-btn { width: 34px; height: 34px; }
+  .avis-page .add-to-cart-btn svg { width: 16px; height: 16px; }
+  .avis-page .sale-badge { font-size: 0.62rem; padding: 4px 7px; bottom: 2px; right: 2px; }
+  .avis-page-foot { padding-top: 4px; font-size: 0.76rem; white-space: nowrap; }
+  .avis-page-foot a { overflow: hidden; text-overflow: ellipsis; }
+}
+
 /* Brede skærme: to sider ved siden af hinanden, som et opslag. Begge sider
-   har samme gitter (2 x 3, forsiden 2 x 2 under overskriften), så opslaget
+   har samme gitter (2 x 2, forsiden 2 under overskriften), så opslaget
    står lige, og pilene ligger uden for siderne, så de ikke dækker en vare. */
 @media (min-width: 900px) {
   .avis-book { max-width: 1060px; margin-left: auto; margin-right: auto; }
   .avis-viewport { margin: 0 64px; }
   .avis-page { flex-basis: 50%; padding: 22px 20px 16px; }
-  .avis-page .product-image-container { height: 112px; }
-  .avis-page--front .product-image-container { height: 170px; }
+  .avis-page .product-image-container { height: 170px; }
+  .avis-page--front .product-image-container { height: 300px; }
   .avis-page .product-content { padding-top: 6px; padding-bottom: 8px; }
   .avis-page .product-price .price-sale,
   .avis-page .product-price .price-main { font-size: 1.3rem; }

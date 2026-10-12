@@ -10,7 +10,7 @@
       Her kan du læse, hvilke oplysninger MadShopper behandler, hvorfor, og hvilke
       rettigheder du har.
     </p>
-    <p class="static-page-updated">Sidst opdateret: 9. oktober 2026</p>
+    <p class="static-page-updated">Sidst opdateret: 12. oktober 2026</p>
 
     <section>
       <h2>Dataansvarlig</h2>
@@ -41,12 +41,18 @@
     </section>
 
     <section>
-      <h2>Anonym statistik om kurv-aktivitet</h2>
+      <h2>Anonym statistik om kurv, søgninger og sete varer</h2>
       <p>
-        Siden gemmer <strong>anonym</strong> statistik om, hvilke produkter der
-        lægges i kurv eller indgår i en prissammenligning (kun produkt-id, antal
-        og time - ikke dig som person). Det bruges til at vise "Populære
-        varer" og til at forbedre siden.
+        Siden og appen gemmer <strong>anonym</strong> statistik om, hvilke
+        produkter der lægges i kurv, indgår i en prissammenligning eller bliver
+        set, og hvilke ord der søges på. Der gemmes kun selve varen eller
+        søgeordet, et antal og et tidspunkt. Der gemmes aldrig, hvem du er, din
+        konto eller din IP-adresse. Det bruges til at vise "Populære varer" og
+        til at forbedre siden.
+      </p>
+      <p>
+        Skriv derfor ikke personlige oplysninger i søgefeltet. Et søgeord gemmes
+        kun som et tal for, hvor mange der har søgt på det den dag.
       </p>
     </section>
 
@@ -98,11 +104,12 @@
         </li>
         <li>
           <strong>Prisalarm (valgfrit):</strong> opretter du en alarm på en vare,
-          gemmes din e-mailadresse sammen med alarmen, så en udbyder af
-          e-mailudsendelse på mine vegne kan sende dig én mail, når prisen er
-          nået. Når "besked på telefonen" er slået til på sitet, kommer alarmen i stedet kun som en besked,
-          og der gemmes en teknisk adresse til din telefon eller browser, indtil
-          du slår det fra, logger ud eller sletter kontoen. Alarmen bruges ikke, og adressen gemmes ikke til andet
+          gemmes varen, den pris du vil vente på, og din kontos e-mailadresse
+          sammen med alarmen. Når prisen er nået, får du en besked på din
+          telefon eller i din browser, hvis du har slået beskeder til. Der sendes
+          ikke mails om prisalarmer. Til beskederne gemmes en teknisk adresse til
+          din telefon eller browser, indtil du slår det fra, logger ud eller
+          sletter kontoen. Alarmen og adressen bruges ikke til andet
         </li>
         <li>
           <strong>Abonnement på opskrifter (valgfrit):</strong> køber du
@@ -141,7 +148,9 @@
       <p>
         <strong>Nødvendige cookies</strong> sættes altid, uanset dit valg. De
         bruges til at huske dit samtykke og til grundlæggende drift og sikkerhed
-        af siden.
+        af siden. Er du logget ind, sætter siden også cookien
+        <code>ms_session</code>, som husker dit login i højst et døgn, så siden
+        kan se, at det er dig.
       </p>
       <p>
         <strong>Analyse-cookies</strong> sættes kun, hvis du aktivt siger ja til
@@ -243,29 +252,52 @@
       <p>
         Jeg bruger eksterne leverandører til at drive de tekniske dele af
         MadShopper - samme praksis som stort set enhver moderne hjemmeside.
-        Nedenfor står, hvilken <em>type</em> leverandør der behandler hvad, og
-        til hvilket formål. Flere af kategorierne dækkes af selskaber med hjemsted
-        uden for EU/EØS; overførsel af data til dem sker på det pågældende
-        selskabs eget databeskyttelsesgrundlag.
+        Nedenfor står, hvem de er, hvad de behandler, og til hvilket formål.
+        Flere af dem har hjemsted uden for EU/EØS (især USA); overførsel af data
+        til dem sker på det pågældende selskabs eget databeskyttelsesgrundlag,
+        typisk EU's standardkontrakter eller EU-US Data Privacy Framework.
       </p>
       <ul>
-        <li><strong>Database- og loginudbyder</strong> - konto, login, kurv, delt kurv, prisalarmer, besparelsesoversigt, feedback</li>
-        <li><strong>Hosting- og sikkerhedsudbyder</strong> - drift af siden, teknisk cache, anonym besøgsstatistik uden cookies, botbeskyttelse ved login/feedback, og selve cookiesamtykke-værktøjet</li>
-        <li><strong>Udbyder af e-mailudsendelse</strong> - afsendelse af prisalarm-mails</li>
-        <li><strong>Udbydere af push-beskeder</strong> (Expo, Apple, Google eller din browsers egen tjeneste) - kun hvis du selv slår beskeder på telefonen til</li>
-        <li><strong>Udbyder af trafikmåling</strong> - kun med dit analyse-samtykke (se cookieafsnittet)</li>
-        <li><strong>Udbyder af automatiserede driftsjobs</strong> - de bagvedliggende jobs der bl.a. opdaterer priser</li>
-        <li><strong>Google eller Apple</strong> - kun hvis du selv aktivt vælger at logge ind med en Google- eller Apple-konto</li>
+        <li><strong>Supabase</strong> (database og login): konto, login, kurv, delt kurv, prisalarmer, besparelsesoversigt, abonnement, feedback og den anonyme statistik</li>
+        <li><strong>Cloudflare</strong> (hosting og sikkerhed): drift af siden, teknisk cache, anonym besøgsstatistik uden cookies, botbeskyttelse ved login og feedback, og selve cookiesamtykke-værktøjet</li>
+        <li><strong>Resend</strong> (e-mailudsendelse): mails når du opretter konto eller nulstiller din adgangskode</li>
+        <li><strong>Expo, Apple, Google eller din browsers egen tjeneste</strong> (beskeder): kun hvis du selv slår beskeder på telefonen til</li>
+        <li><strong>Google Analytics</strong> (trafikmåling): kun med dit analyse-samtykke (se cookieafsnittet)</li>
+        <li><strong>GitHub</strong> (automatiske driftsjobs): de jobs der bl.a. opdaterer priser og sender prisalarmer</li>
+        <li><strong>Google eller Apple</strong> (login): kun hvis du selv aktivt vælger at logge ind med en Google- eller Apple-konto</li>
+        <li><strong>Apple</strong> (betaling): kun hvis du køber abonnementet i appen</li>
       </ul>
-      <p>
-        Ønsker du de konkrete firmanavne bag disse kategorier, kan du få dem
-        ved at skrive til mig - se kontaktoplysningerne øverst.
-      </p>
       <p>
         Herudover henter varekortenes billeder direkte fra den enkelte butiks
         egen billed-server (fx Rema 1000, Salling-kæderne), som derfor ser din
         IP-adresse i det øjeblik, du får vist et produktbillede - på samme måde
         som når du besøger butikkens egen hjemmeside.
+      </p>
+    </section>
+
+    <section>
+      <h2>Hvor længe gemmes data</h2>
+      <ul>
+        <li><strong>Konto, gemt kurv, delt kurv, besparelsesoversigt og prisalarmer:</strong> så længe du har kontoen. De slettes med det samme, når du sletter kontoen</li>
+        <li><strong>Adresse til beskeder på telefonen:</strong> indtil du slår beskeder fra, logger ud eller sletter kontoen</li>
+        <li><strong>Abonnement:</strong> så længe du har kontoen. Det slettes sammen med kontoen</li>
+        <li><strong>Login-cookien:</strong> højst et døgn ad gangen</li>
+        <li><strong>Butiksvalg-cookien:</strong> 1 år, eller til du trækker samtykket tilbage</li>
+        <li><strong>Anonym kurv-aktivitet pr. time:</strong> 30 dage</li>
+        <li><strong>Anonyme dagstal for varer og søgeord:</strong> gemmes uden tidsgrænse, fordi de ikke kan føres tilbage til nogen person</li>
+        <li><strong>Feedback:</strong> indtil jeg har svaret og ryddet op, eller til du beder mig slette den</li>
+        <li><strong>Sikkerhedslog uden personoplysninger:</strong> så længe det er nødvendigt for drift og sikkerhed</li>
+        <li><strong>Søgeresultater i den tekniske cache:</strong> højst 24 timer</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Hvis der sker et brud på sikkerheden</h2>
+      <p>
+        Skulle personoplysninger komme i forkerte hænder, anmelder jeg det til
+        Datatilsynet senest 72 timer efter, jeg har opdaget det. Er der høj
+        risiko for dig, får du også selv besked hurtigst muligt, med hvad der
+        er sket, og hvad du kan gøre.
       </p>
     </section>
 
@@ -276,15 +308,16 @@
       </p>
       <ul>
         <li>
-          <strong>Samtykke</strong> - analyse- og funktionelle cookies (du kan
-          trække samtykket tilbage når som helst)
+          <strong>Samtykke</strong> - analyse- og funktionelle cookies og
+          beskeder på telefonen (du kan trække samtykket tilbage når som helst)
         </li>
         <li>
-          <strong>Kontrakt / din anmodning</strong> - konto, gemt kurv og
-          feedback, du selv sender
+          <strong>Kontrakt / din anmodning</strong> - konto, gemt kurv, delt
+          kurv, prisalarmer, besparelsesoversigt, abonnement og feedback, du
+          selv sender
         </li>
         <li>
-          <strong>Legitim interesse</strong> - anonym kurv-statistik, drift og
+          <strong>Legitim interesse</strong> - anonym statistik, drift og
           sikkerhed af siden
         </li>
       </ul>

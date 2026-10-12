@@ -6,9 +6,9 @@
   var book = document.querySelector('[data-avis-book]');
   if (!book) return;
   var track = book.querySelector('[data-avis-track]');
-  var prev = book.querySelector('[data-avis-prev]');
-  var next = book.querySelector('[data-avis-next]');
-  var counter = book.querySelector('[data-avis-counter]');
+  var prevs = book.querySelectorAll('[data-avis-prev]');
+  var nexts = book.querySelectorAll('[data-avis-next]');
+  var counters = book.querySelectorAll('[data-avis-counter]');
   var pages = track ? track.querySelectorAll('.avis-page') : [];
   if (!track || !pages.length) return;
 
@@ -20,9 +20,10 @@
     var i = current();
     var n = perView();
     var last = Math.min(pages.length, i + n);
-    if (counter) counter.textContent = last > i + 1 ? 'Side ' + (i + 1) + '-' + last : 'Side ' + (i + 1);
-    if (prev) prev.disabled = i <= 0;
-    if (next) next.disabled = last >= pages.length;
+    var text = last > i + 1 ? 'Side ' + (i + 1) + '-' + last : 'Side ' + (i + 1);
+    counters.forEach(function (c) { c.textContent = text; });
+    prevs.forEach(function (b) { b.disabled = i <= 0; });
+    nexts.forEach(function (b) { b.disabled = last >= pages.length; });
   }
 
   function goTo(i) {
@@ -30,8 +31,8 @@
     track.scrollTo({ left: i * pageWidth(), behavior: 'smooth' });
   }
 
-  if (prev) prev.addEventListener('click', function () { goTo(current() - perView()); });
-  if (next) next.addEventListener('click', function () { goTo(current() + perView()); });
+  prevs.forEach(function (b) { b.addEventListener('click', function () { goTo(current() - perView()); }); });
+  nexts.forEach(function (b) { b.addEventListener('click', function () { goTo(current() + perView()); }); });
 
   var t = null;
   track.addEventListener('scroll', function () {
@@ -61,6 +62,16 @@
       track.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   });
+  // Telefon: pilene står fast midt på skærmen og vises kun, mens avisen er
+  // synlig, så de ikke hænger over sidefoden.
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      book.classList.toggle('avis-in-view', entries[0].isIntersecting);
+    }, { rootMargin: '-35% 0px -35% 0px' }).observe(track);
+  } else {
+    book.classList.add('avis-in-view');
+  }
+
   if (location.hash) jump(location.hash.slice(1));
   update();
 })();

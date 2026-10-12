@@ -4071,16 +4071,17 @@ def _build_store_avis(store_key: str) -> dict:
     }
 
 
-# Varer pr. avisside (2 x 3) og på forsiden (2 x 2). Appen deler avisen op
+# Varer pr. avisside (2 x 2) og på forsiden (2 under overskriften), så en
+# side kan ses på én telefonskærm (Kalle 12-10-2026). Appen deler avisen op
 # efter samme regel (apps/mobile/src/screens/StoreAvisScreen.tsx::avisPages).
-_AVIS_PAGE_ITEMS = 6
-_AVIS_FRONT_ITEMS = 4
+_AVIS_PAGE_ITEMS = 4
+_AVIS_FRONT_ITEMS = 2
 
 
 def _avis_pages(avis):
     """Deler avisen op i sider, som en rigtig avis (Kalle 10-10-2026):
-    forsiden med de fire bedste tilbud, resten af "Ugens bedste tilbud" og
-    så hvert afsnit, seks varer pr. side. Sidste side i et afsnit får
+    forsiden med de to bedste tilbud, resten af "Ugens bedste tilbud" og
+    så hvert afsnit, fire varer pr. side. Sidste side i et afsnit får
     "Se alle"-linket."""
     pages = []
     best = avis.get('best') or []

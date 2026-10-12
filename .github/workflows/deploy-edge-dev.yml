@@ -1,6 +1,6 @@
 name: Deploy Edge Worker (staging)
 
-# Samme flow som deploy-edge.yml, men til madshopper-dev (egen KV/D1,
+# Samme flow som deploy-edge.yml, men til madshopper-dev (egen KV, samme D1 som produktionen,
 # dev.madshopper.dk) i stedet for produktion - så features kan testes på en
 # rigtig edge-deployment uden at røre madshopper.dk.
 #
@@ -36,8 +36,7 @@ on:
       - 'uv.lock'
 
 
-# Se begrundelsen i deploy-edge.yml. Samme gruppe som cache-updater bruger ved
-# staging_only, så et staging-seed og en staging-deploy ikke kan overlappe.
+# Se begrundelsen i deploy-edge.yml.
 concurrency:
   group: madshopper-edge-staging
   cancel-in-progress: false
