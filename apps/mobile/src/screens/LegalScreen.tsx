@@ -58,19 +58,22 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
         kurv (lokalt på enheden, og hos en ekstern database- og loginudbyder hvis du er
         logget ind - beskyttet af adgangskontrol og krypteret forbindelse/lager, men ikke
         krypteret feltvis så kun du kan læse den), dine butiksvalg, samt anonym statistik
-        over hvilke varer der lægges i kurven (uden personhenførbare data).
+        over hvilke varer der lægges i kurven eller bliver set, og hvilke ord der søges
+        på. Statistikken gemmer kun varen eller søgeordet, et antal og et tidspunkt, aldrig
+        hvem du er.
       </Paragraph>
       <Paragraph colors={colors}>
         Opretter du en konto, gemmer vi din email og et krypteret kodeord hos vores
         database- og loginudbyder. Ved login med Google eller Apple modtager vi kun din
-        email og dit navn — aldrig dit kodeord hos dem.
+        email og dit navn, aldrig dit kodeord hos dem.
       </Paragraph>
       <Paragraph colors={colors}>
         <Text style={{ fontWeight: '700' }}>Delt kurv og prisalarm (valgfrit): </Text>
         Opretter eller tilslutter du dig en delt kurv med op til 5 andre, ser I hinandens
-        visningsnavn, varer og gemte lister. Opretter du en prisalarm, gemmes din
-        e-mailadresse sammen med den, så en udbyder af e-mailudsendelse på vores vegne kan
-        sende dig én mail, når prisen er nået.
+        visningsnavn, varer og gemte lister. Opretter du en prisalarm, gemmes varen, den
+        pris du venter på, og din kontos e-mailadresse sammen med den. Når prisen er nået,
+        får du en besked på telefonen, hvis du har slået beskeder til. Der sendes ikke
+        mails om prisalarmer.
       </Paragraph>
       <Paragraph colors={colors}>
         <Text style={{ fontWeight: '700' }}>Abonnement på opskrifter (valgfrit): </Text>
@@ -80,9 +83,9 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
       </Paragraph>
       <Paragraph colors={colors}>
         <Text style={{ fontWeight: '700' }}>Feedback: </Text>
-        Skriver du til os via Feedback, sendes din besked (og et evt. navn/e-mail du selv
-        angiver) videre til et administrativt regneark hos en databehandler, som vi selv
-        rydder op i. Feedback er ikke koblet til en evt. konto og fjernes derfor ikke
+        Skriver du til os via Feedback, gemmes din besked (og et evt. navn/e-mail du selv
+        angiver) i vores egen database, hvor kun vi kan læse den, og vi rydder selv op i
+        den. Feedback er ikke koblet til en evt. konto og fjernes derfor ikke
         automatisk, hvis du senere sletter kontoen.
       </Paragraph>
       <Paragraph colors={colors}>
@@ -91,7 +94,7 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
         systemtilladelser, du selv godkender ved installation eller første brug. Vi beder
         ikke om adgang til kamera, kontakter eller placering. Notifikationer beder vi kun
         om, hvis du selv trykker "Slå til" under Mine prisalarmer: så får du prisalarmer
-        som besked på telefonen i stedet for e-mail, og vi gemmer en teknisk adresse til
+        som besked på telefonen, og vi gemmer en teknisk adresse til
         din telefon, indtil du slår det fra, logger ud eller sletter kontoen. Din telefons
         indstillinger viser altid, hvilke tilladelser appen reelt har.
       </Paragraph>
@@ -102,6 +105,18 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
         andre medlemmer tilbage, overdrages ejerskabet automatisk i stedet for at slette
         kurven under dem). Feedback du har sendt, er som nævnt en separat henvendelse og
         fjernes ikke automatisk.
+      </Paragraph>
+      <Paragraph colors={colors}>
+        <Text style={{ fontWeight: '700' }}>Hvor længe: </Text>
+        Konto, kurv, prisalarmer og abonnement gemmes, så længe du har kontoen. Anonym
+        kurv-aktivitet pr. time gemmes i 30 dage. Anonyme dagstal for varer og søgeord
+        gemmes uden tidsgrænse, fordi de ikke kan føres tilbage til nogen.
+      </Paragraph>
+      <Paragraph colors={colors}>
+        <Text style={{ fontWeight: '700' }}>Hvis der sker et brud på sikkerheden: </Text>
+        Kommer personoplysninger i forkerte hænder, anmelder vi det til Datatilsynet senest
+        72 timer efter, vi har opdaget det. Er der høj risiko for dig, får du også selv
+        besked hurtigst muligt.
       </Paragraph>
       <Paragraph colors={colors}>
         Fuld liste over hvem der behandler data på vores vegne, dine rettigheder efter
