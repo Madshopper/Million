@@ -80,55 +80,63 @@
     return { stores: rows, radius: radius };
   }
 
-  function permutations(arr) {
-    if (arr.length <= 1) return [arr.slice()];
-    var out = [];
-    arr.forEach(function (x, i) {
-      var rest = arr.slice(0, i).concat(arr.slice(i + 1));
-      permutations(rest).forEach(function (p) { out.push([x].concat(p)); });
-    });
-    return out;
-  }
-
   /**
-   * Korteste tur i fugleflugt gennem én butik af hver kæde. roundTrip: hjem
-   * igen bagefter (rigtig placering); ellers slutter turen i sidste butik
-   * (postnummer, hvor vi ikke kender hjemmet).
+   * Korteste tur i fugleflugt gennem én butik af hver kæde, blandt de tre
+   * nærmeste butikker i hver kæde. roundTrip: hjem igen bagefter (rigtig
+   * placering); ellers slutter turen i sidste butik (postnummer, hvor vi ikke
+   * kender hjemmet). Held-Karp over kæderne: hurtigt nok til 8 kæder på en
+   * telefon; flere end det får "tag altid den nærmeste næste".
    */
   function planRoute(data, pos, keys, roundTrip) {
-    var perChain = keys.length <= 5 ? 3 : 2;
-    var cands = keys.map(function (k) { return nearestOfChain(data, pos, k, perChain); })
+    var cands = keys.map(function (k) { return nearestOfChain(data, pos, k, 3); })
       .filter(function (c) { return c.length; });
     if (!cands.length) return null;
-    var best = null;
-    function legKm(stops) {
-      var t = 0, prev = pos;
-      stops.forEach(function (s) { t += km(prev.lat, prev.lon, s.lat, s.lon); prev = s; });
-      if (roundTrip) t += km(prev.lat, prev.lon, pos.lat, pos.lon);
-      return t;
-    }
-    if (cands.length <= 6) {
-      permutations(cands).forEach(function (order) {
-        // Alle kombinationer af kandidat-butikker i den rækkefølge.
-        (function walk(i, chosen) {
-          if (i === order.length) {
-            var t = legKm(chosen);
-            if (!best || t < best.km) best = { km: t, stops: chosen.slice() };
-            return;
+    var pts = [], chainOf = [];
+    cands.forEach(function (c, ci) { c.forEach(function (s) { pts.push(s); chainOf.push(ci); }); });
+    var home = pts.map(function (p) { return km(pos.lat, pos.lon, p.lat, p.lon); });
+    var stops;
+    if (cands.length <= 8) {
+      var n = pts.length, full = (1 << cands.length) - 1;
+      var D = pts.map(function (a) { return pts.map(function (b) { return km(a.lat, a.lon, b.lat, b.lon); }); });
+      var cost = {}, prev = {};
+      for (var i = 0; i < n; i++) { cost[(1 << chainOf[i]) + ':' + i] = home[i]; }
+      for (var mask = 1; mask <= full; mask++) {
+        for (var a = 0; a < n; a++) {
+          var ca = cost[mask + ':' + a];
+          if (ca === undefined) continue;
+          for (var b = 0; b < n; b++) {
+            if (mask & (1 << chainOf[b])) continue;
+            var key = (mask | (1 << chainOf[b])) + ':' + b, c = ca + D[a][b];
+            if (cost[key] === undefined || c < cost[key]) { cost[key] = c; prev[key] = a; }
           }
-          order[i].forEach(function (s) { chosen.push(s); walk(i + 1, chosen); chosen.pop(); });
-        })(0, []);
-      });
-    } else {
-      // Mange butikker: tag altid den nærmeste næste.
-      var left = cands.map(function (c) { return c[0]; }), stops = [], at = pos;
-      while (left.length) {
-        left.sort(function (a, b) { return km(at.lat, at.lon, a.lat, a.lon) - km(at.lat, at.lon, b.lat, b.lon); });
-        at = left.shift(); stops.push(at);
+        }
       }
-      best = { km: legKm(stops), stops: stops };
+      var bestEnd = -1, bestKm = Infinity;
+      for (var e = 0; e < n; e++) {
+        var ce = cost[full + ':' + e];
+        if (ce === undefined) continue;
+        if (roundTrip) ce += home[e];
+        if (ce < bestKm) { bestKm = ce; bestEnd = e; }
+      }
+      stops = [];
+      for (var m = full, at = bestEnd; at !== undefined; ) {
+        stops.unshift(pts[at]);
+        var p = prev[m + ':' + at];
+        m &= ~(1 << chainOf[at]);
+        at = p;
+      }
+    } else {
+      var left = cands.map(function (c) { return c[0]; }), here = pos;
+      stops = [];
+      while (left.length) {
+        left.sort(function (x, y) { return km(here.lat, here.lon, x.lat, x.lon) - km(here.lat, here.lon, y.lat, y.lon); });
+        here = left.shift(); stops.push(here);
+      }
     }
-    return best;
+    var total = 0, from = pos;
+    stops.forEach(function (s) { total += km(from.lat, from.lon, s.lat, s.lon); from = s; });
+    if (roundTrip) total += km(from.lat, from.lon, pos.lat, pos.lon);
+    return { km: total, stops: stops };
   }
 
   function mapsUrl(pos, stops, roundTrip) {

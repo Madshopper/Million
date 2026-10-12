@@ -37,8 +37,10 @@ export function km(aLat: number, aLon: number, bLat: number, bLon: number): numb
   const r = Math.PI / 180;
   const dLat = (bLat - aLat) * r;
   const dLon = (bLon - aLon) * r;
+  // Skrevet præcis som lokation.js, så de to giver samme tur ned til sidste decimal.
   const h =
-    Math.sin(dLat / 2) ** 2 + Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin(dLon / 2) ** 2;
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return 12742 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
@@ -78,18 +80,11 @@ export function nearbyChains(
   return { stores: rows.map((s) => ({ ...s, near: s.dist <= radius })), radius };
 }
 
-function permutations<T>(arr: T[]): T[][] {
-  if (arr.length <= 1) return [arr.slice()];
-  const out: T[][] = [];
-  arr.forEach((x, i) => {
-    for (const p of permutations([...arr.slice(0, i), ...arr.slice(i + 1)])) out.push([x, ...p]);
-  });
-  return out;
-}
-
 /**
- * Korteste tur i fugleflugt gennem én butik af hver kæde. roundTrip: hjem
- * igen bagefter (rigtig placering); ellers slutter turen i sidste butik.
+ * Korteste tur i fugleflugt gennem én butik af hver kæde, blandt de tre
+ * nærmeste i hver kæde. roundTrip: hjem igen bagefter (rigtig placering);
+ * ellers slutter turen i sidste butik. Held-Karp over kæderne (op til 8),
+ * ellers "tag altid den nærmeste næste". Samme som lokation.js.
  */
 export function planRoute(
   data: StoreLocations,
@@ -97,49 +92,80 @@ export function planRoute(
   keys: string[],
   roundTrip: boolean,
 ): { km: number; stops: Place[] } | null {
-  const perChain = keys.length <= 5 ? 3 : 2;
-  const cands = keys.map((k) => nearestOfChain(data, pos, k, perChain)).filter((c) => c.length);
+  const cands = keys.map((k) => nearestOfChain(data, pos, k, 3)).filter((c) => c.length);
   if (!cands.length) return null;
-  const legKm = (stops: Place[]) => {
-    let t = 0;
-    let prev: { lat: number; lon: number } = pos;
-    for (const s of stops) {
-      t += km(prev.lat, prev.lon, s.lat, s.lon);
-      prev = s;
+  const pts: Place[] = [];
+  const chainOf: number[] = [];
+  cands.forEach((c, ci) =>
+    c.forEach((s) => {
+      pts.push(s);
+      chainOf.push(ci);
+    }),
+  );
+  const home = pts.map((p) => km(pos.lat, pos.lon, p.lat, p.lon));
+  let stops: Place[] = [];
+  if (cands.length <= 8) {
+    const n = pts.length;
+    const full = (1 << cands.length) - 1;
+    const D = pts.map((a) => pts.map((b) => km(a.lat, a.lon, b.lat, b.lon)));
+    const cost = new Map<string, number>();
+    const prev = new Map<string, number>();
+    for (let i = 0; i < n; i++) cost.set(`${1 << chainOf[i]}:${i}`, home[i]);
+    for (let mask = 1; mask <= full; mask++) {
+      for (let a = 0; a < n; a++) {
+        const ca = cost.get(`${mask}:${a}`);
+        if (ca === undefined) continue;
+        for (let b = 0; b < n; b++) {
+          if (mask & (1 << chainOf[b])) continue;
+          const key = `${mask | (1 << chainOf[b])}:${b}`;
+          const c = ca + D[a][b];
+          const old = cost.get(key);
+          if (old === undefined || c < old) {
+            cost.set(key, c);
+            prev.set(key, a);
+          }
+        }
+      }
     }
-    if (roundTrip) t += km(prev.lat, prev.lon, pos.lat, pos.lon);
-    return t;
-  };
-  let best: { km: number; stops: Place[] } | null = null;
-  if (cands.length <= 6) {
-    for (const order of permutations(cands)) {
-      const walk = (i: number, chosen: Place[]) => {
-        if (i === order.length) {
-          const t = legKm(chosen);
-          if (!best || t < best.km) best = { km: t, stops: chosen.slice() };
-          return;
-        }
-        for (const s of order[i]) {
-          chosen.push(s);
-          walk(i + 1, chosen);
-          chosen.pop();
-        }
-      };
-      walk(0, []);
+    let bestEnd = -1;
+    let bestKm = Infinity;
+    for (let e = 0; e < n; e++) {
+      let ce = cost.get(`${full}:${e}`);
+      if (ce === undefined) continue;
+      if (roundTrip) ce += home[e];
+      if (ce < bestKm) {
+        bestKm = ce;
+        bestEnd = e;
+      }
+    }
+    let m = full;
+    let at: number | undefined = bestEnd;
+    while (at !== undefined) {
+      stops.unshift(pts[at]);
+      const p: number | undefined = prev.get(`${m}:${at}`);
+      m &= ~(1 << chainOf[at]);
+      at = p;
     }
   } else {
     const left = cands.map((c) => c[0]);
-    const stops: Place[] = [];
-    let at: { lat: number; lon: number } = pos;
+    let here: { lat: number; lon: number } = pos;
+    stops = [];
     while (left.length) {
-      const here = at;
-      left.sort((a, b) => km(here.lat, here.lon, a.lat, a.lon) - km(here.lat, here.lon, b.lat, b.lon));
-      at = left.shift() as Place;
-      stops.push(at as Place);
+      const h = here;
+      left.sort((x, y) => km(h.lat, h.lon, x.lat, x.lon) - km(h.lat, h.lon, y.lat, y.lon));
+      const next = left.shift() as Place;
+      stops.push(next);
+      here = next;
     }
-    best = { km: legKm(stops), stops };
   }
-  return best;
+  let total = 0;
+  let from: { lat: number; lon: number } = pos;
+  for (const s of stops) {
+    total += km(from.lat, from.lon, s.lat, s.lon);
+    from = s;
+  }
+  if (roundTrip) total += km(from.lat, from.lon, pos.lat, pos.lon);
+  return { km: total, stops };
 }
 
 export function mapsUrl(pos: Pos, stops: Place[], roundTrip: boolean): string {
