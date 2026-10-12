@@ -8,13 +8,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '17 3 2 * *'
-  # Kun mens funktionen bygges: giver første udgave af filen på PR-grenen.
-  # Fjernes før merge.
-  push:
-    branches: [claude/project-thread-glla2j]
-    paths:
-      - scripts/build-store-locations.py
-      - .github/workflows/store-locations.yml
 
 concurrency:
   group: store-locations
