@@ -6656,3 +6656,69 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
   .avis-nav--next { right: -64px; }
 }
 }
+
+/* ── Butikker nær mig (Feature-panelet 'lokation', static/js/lokation.js) ── */
+.lok-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 9px 14px; border-radius: 10px; border: 1px solid var(--gray-300);
+  background: var(--white); color: var(--gray-800); font: inherit; font-weight: 600;
+  font-size: 0.9rem; cursor: pointer; text-decoration: none;
+}
+.lok-btn:disabled { opacity: 0.5; cursor: default; }
+.lok-btn-primary { background: var(--green); border-color: var(--green); color: #fff; }
+.lok-btn-primary:hover { background: var(--green-dark); }
+[data-theme="dark"] .lok-btn:not(.lok-btn-primary) { background: #2c2c2e; border-color: #3a3a3c; color: #f5f5f5; }
+.lok-settings-btn { margin-top: 12px; }
+
+.lok-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lok-or { color: var(--gray-500); font-size: 0.85rem; }
+.lok-pc { display: flex; gap: 6px; }
+.lok-pc input {
+  width: 7.5em; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--gray-300);
+  font: inherit; font-size: 0.95rem; background: var(--white); color: var(--gray-800);
+}
+[data-theme="dark"] .lok-pc input { background: #1c1c1e; border-color: #3a3a3c; color: #f5f5f5; }
+.lok-msg { margin: 8px 0 0; color: var(--gray-600); font-size: 0.85rem; min-height: 1em; }
+.lok-msg:empty { display: none; }
+.lok-desc { color: var(--gray-600); font-size: 0.85rem; margin: 4px 0 10px; }
+[data-theme="dark"] .lok-desc, [data-theme="dark"] .lok-msg { color: #a1a1a6; }
+.lok-attrib { margin: 10px 0 0; font-size: 0.72rem; color: var(--gray-500); }
+.lok-attrib a { color: inherit; }
+
+.lok-route {
+  margin: 0 0 14px; padding: 14px 16px; border-radius: 14px;
+  border: 1px solid var(--gray-200); background: var(--white);
+}
+[data-theme="dark"] .lok-route { background: #1c1c1e; border-color: #3a3a3c; }
+.lok-route-title { font-weight: 700; color: var(--gray-800); }
+[data-theme="dark"] .lok-route-title { color: #f5f5f5; }
+.lok-stops { margin: 12px 0 6px; padding-left: 1.4em; }
+.lok-stops li { margin: 0 0 8px; }
+.lok-stops strong { display: block; color: var(--gray-800); }
+[data-theme="dark"] .lok-stops strong { color: #f5f5f5; }
+.lok-addr, .lok-dist { display: block; font-size: 0.82rem; color: var(--gray-600); }
+[data-theme="dark"] .lok-addr, [data-theme="dark"] .lok-dist { color: #a1a1a6; }
+.lok-total { font-size: 0.85rem; color: var(--gray-700); margin: 4px 0 10px; }
+[data-theme="dark"] .lok-total { color: #d1d1d6; }
+.lok-nr {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 22px; height: 22px; border-radius: 50%; background: var(--green); color: #fff;
+  font-weight: 700; font-size: 0.78rem;
+}
+
+.lok-overlay { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.lok-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); }
+.lok-modal {
+  position: relative; width: 100%; max-width: 440px; max-height: 92vh; overflow-y: auto;
+  background: var(--white); border-radius: 18px; padding: 22px 20px 18px; box-sizing: border-box;
+}
+[data-theme="dark"] .lok-modal { background: #1c1c1e; color: #f5f5f5; }
+.lok-modal h3 { margin: 0 0 4px; font-size: 1.15rem; }
+.lok-close { position: absolute; top: 10px; right: 12px; border: 0; background: none; font-size: 1.6rem; line-height: 1; color: var(--gray-500); cursor: pointer; }
+.lok-near-head { margin: 14px 0 6px; font-size: 0.85rem; font-weight: 600; }
+.lok-chains { display: grid; gap: 4px; }
+.lok-chain { display: flex; align-items: center; gap: 10px; padding: 6px 2px; cursor: pointer; }
+.lok-chain input { width: 18px; height: 18px; accent-color: var(--green); }
+.lok-chain span:first-of-type { flex: 1; }
+.lok-chain .lok-dist { display: inline; }
+.lok-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }

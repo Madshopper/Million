@@ -111,6 +111,8 @@ export type HomeResponse = {
   mejeri_navn_enabled?: boolean;
   /** Er "Tilbudsavis pr. butik" udgivet i Feature-panelet? */
   butiksaviser_enabled?: boolean;
+  /** Er "Butikker nær mig" udgivet i Feature-panelet? */
+  lokation_enabled?: boolean;
   offer_stores?: OfferStore[];
   /** Stub — reel data hentes client-side via get_personal_savings (JWT). */
   personal_savings: { available: boolean; message: string };

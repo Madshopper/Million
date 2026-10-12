@@ -2246,7 +2246,7 @@ async function showButiksrute() {
                     <span class="br-item-price">${(price * (item.quantity || 1)).toFixed(2)} kr</span>
                 </div>`).join('');
             return `
-                <div class="br-store-group">
+                <div class="br-store-group" data-store="${escapeHtml(storeName)}">
                     <div class="br-store-header">
                         ${logoHtml}
                         <span class="br-store-name">${escapeHtml(storeName)}</span>
@@ -2269,6 +2269,14 @@ async function showButiksrute() {
                     </div>
                     <div class="br-store-items">${unavailableHtml}</div>
                 </div>`;
+        }
+
+        // Rækkefølge og vej mellem butikkerne (Feature-panelet 'lokation',
+        // static/js/lokation.js indlæses kun når den er slået til).
+        if (window.Lokation && storeCount > 0) {
+            const routeEl = document.createElement('div');
+            storesEl.insertBefore(routeEl, storesEl.firstChild);
+            window.Lokation.renderRoute(routeEl, storesSorted.map(([name]) => name), storesEl);
         }
 
     } catch (err) {
