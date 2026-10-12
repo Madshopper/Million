@@ -30,8 +30,8 @@ const TILE_W = 230;
 const TILE_H = 150;
 
 /** Varer pr. side og på forsiden; samme som app.py::_AVIS_PAGE_ITEMS/_AVIS_FRONT_ITEMS. */
-const PAGE_ITEMS = 6;
-const FRONT_ITEMS = 4;
+const PAGE_ITEMS = 4;
+const FRONT_ITEMS = 2;
 
 type AvisSection = StoreAvisResponse['sections'][number];
 type AvisPage = {
@@ -98,7 +98,7 @@ function Watermark({ uri, isDark }: { uri: string; isDark: boolean }) {
  * Tilbudsavis for én butik (Feature-panelet 'butiksaviser'), samme skabelon
  * som hjemmesidens /tilbud/<butik> (templates/butiksavis.html): en rigtig
  * avis med sider (Kalle 10-10-2026), som man bladrer i ved at swipe eller med
- * pilene i siderne. Forsiden har de fire bedste tilbud; derefter seks varer
+ * pilene i siderne. Forsiden har de to bedste tilbud; derefter fire varer
  * pr. side, afsnit for afsnit. Butikkens logo står svagt i baggrunden; ellers
  * ens for alle butikker. Bygget af de priser vi selv henter fra butikken;
  * butikkens egen avis åbnes kun som link.

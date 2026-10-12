@@ -25,6 +25,18 @@
         {% for sec in avis.sections %}<a class="subcategory-pill" href="#afsnit-{{ sec.slug }}" data-avis-jump="afsnit-{{ sec.slug }}">{{ sec.title }}</a>{% endfor %}
       </nav>
 
+      {# Telefon: pilene og sidetallet står samlet over siden, så de altid kan
+         ses; på computer sidder pilene i siderne af opslaget. #}
+      <div class="avis-pager">
+        <button type="button" class="avis-pager-btn" data-avis-prev aria-label="Forrige side" disabled>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span class="avis-pager-count"><span data-avis-counter>Side 1</span> af {{ pages|length }}</span>
+        <button type="button" class="avis-pager-btn" data-avis-next aria-label="Næste side">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+
       <div class="avis-viewport">
         <button type="button" class="avis-nav avis-nav--prev" data-avis-prev aria-label="Forrige side" disabled>
           <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
