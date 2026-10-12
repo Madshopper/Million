@@ -1812,7 +1812,8 @@ _FEATURES = (
                 'handle i, når kurven er delt på flere butikker. Adresserne '
                 'kommer fra OpenStreetMap (gratis). Placeringen bruges kun på '
                 'telefonen eller i browseren og bliver aldrig sendt til os. '
-                'Privatlivspolitikken skal nævne det, før den udgives.',
+                'Privatlivspolitikken får sit eget afsnit om det, når den '
+                'udgives.',
         'app': 'Appen viser den fra den næste app-version, når den er '
                'udgivet her. MadShopper Test har den med det samme, men kun '
                'med postnummer, indtil appen kan bruge telefonens placering.',

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLokationEnabled } from '../location/nearby';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { env } from '../config/env';
@@ -51,6 +52,7 @@ function TermsBody({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }
 }
 
 function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }) {
+  const lokation = useLokationEnabled();
   return (
     <>
       <Paragraph colors={colors}>
@@ -75,6 +77,16 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
         får du en besked på telefonen, hvis du har slået beskeder til. Der sendes ikke
         mails om prisalarmer.
       </Paragraph>
+      {lokation ? (
+        // Feature-panelet 'lokation'.
+        <Paragraph colors={colors}>
+          <Text style={{ fontWeight: '700' }}>Butikker nær dig (valgfrit): </Text>
+          Skriver du dit postnummer, bruges det kun på telefonen til at finde de nærmeste
+          butikker og den korteste tur. Det gemmes kun på telefonen og sendes aldrig til os.
+          Trykker du "Åbn turen i Google Maps", sendes turens punkter til Google. Butikkernes
+          adresser kommer fra OpenStreetMap (© OpenStreetMap-bidragydere).
+        </Paragraph>
+      ) : null}
       <Paragraph colors={colors}>
         <Text style={{ fontWeight: '700' }}>Abonnement på opskrifter (valgfrit): </Text>
         Køber du abonnementet, gemmer vi Apples nummer for købet, produktet og udløbsdatoen

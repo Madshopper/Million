@@ -40,6 +40,26 @@
       </p>
     </section>
 
+    {% if lokation_enabled %}
+    {# Feature-panelet 'lokation' (static/js/lokation.js). #}
+    <section>
+      <h2>Butikker nær dig og din placering</h2>
+      <p>
+        Bruger du "Butikker nær mig" eller rækkefølgen i "Billigste butikker",
+        kan du vælge at dele din placering eller skrive dit postnummer. Din
+        placering bruges kun i din browser eller på din telefon til at finde de
+        nærmeste butikker og den korteste tur. Den bliver aldrig sendt til mig
+        og bliver ikke gemt. Et postnummer, du skriver, gemmes kun lokalt hos
+        dig, og på hjemmesiden kun hvis du har tilladt funktionelle cookies.
+      </p>
+      <p>
+        Trykker du "Åbn turen i Google Maps", sendes turens punkter til Google,
+        som når du selv søger en rute der. Butikkernes adresser kommer fra
+        OpenStreetMap (© OpenStreetMap-bidragydere).
+      </p>
+    </section>
+
+    {% endif %}
     <section>
       <h2>Anonym statistik om kurv, søgninger og sete varer</h2>
       <p>
