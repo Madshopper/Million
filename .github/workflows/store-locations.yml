@@ -34,8 +34,19 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Hent butikker fra OpenStreetMap
-        run: python scripts/build-store-locations.py
+      # Geofabriks gratis Danmark-udtræk (opdateres dagligt). Overpass gav 504
+      # på hele Danmark fra alle tre servere, så vi filtrerer selv med osmium.
+      - name: Hent OpenStreetMap-udtræk for Danmark
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+          curl -fsSL --retry 3 -o /tmp/dk.osm.pbf https://download.geofabrik.de/europe/denmark-latest.osm.pbf
+          osmium tags-filter /tmp/dk.osm.pbf \
+            nwr/shop=supermarket,convenience,department_store,general,hypermarket,discount,food \
+            -o /tmp/shops.osm.pbf --overwrite
+          osmium export /tmp/shops.osm.pbf -f geojsonseq -o /tmp/shops.geojsonseq --overwrite
+
+      - name: Byg butikslisten
+        run: python scripts/build-store-locations.py --geojsonseq /tmp/shops.geojsonseq
 
       - name: Gem filen hvis den er ændret
         run: |

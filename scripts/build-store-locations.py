@@ -8,8 +8,12 @@ sendes derfor aldrig til os.
 Kilden er OpenStreetMap via Overpass (gratis, ingen nøgle). Data er under
 ODbL: "© OpenStreetMap-bidragydere" skal stå hvor listen bruges.
 
-    python scripts/build-store-locations.py            # skriver filen
+    python scripts/build-store-locations.py            # via Overpass
+    python scripts/build-store-locations.py --geojsonseq butikker.geojsonseq
     python scripts/build-store-locations.py --check    # kun tæl, skriv intet
+
+Overpass-serverne giver tit 504 på hele Danmark, så den månedlige kørsel
+bruger i stedet Geofabriks gratis Danmark-udtræk og osmium (se workflowet).
 
 Kører én gang om måneden i store-locations.yml. Fejler hellere end at skrive
 en halv liste: hver kæde skal have mindst én butik, og der skal være mindst
@@ -109,6 +113,35 @@ def fetch() -> list[dict]:
     raise SystemExit(f"Ingen Overpass-server svarede: {last}")
 
 
+def read_geojsonseq(path: str) -> list[dict]:
+    """Butikker fra `osmium export -f geojsonseq` (Geofabriks Danmark-udtræk),
+    lavet om til samme form som Overpass' svar."""
+    out = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip().lstrip("\x1e")
+            if not line:
+                continue
+            feat = json.loads(line)
+            geom = feat.get("geometry") or {}
+            pts = []
+            def walk(c):
+                if c and isinstance(c[0], (int, float)):
+                    pts.append(c)
+                else:
+                    for x in c or []:
+                        walk(x)
+            walk(geom.get("coordinates"))
+            if not pts:
+                continue
+            out.append({
+                "lat": sum(p[1] for p in pts) / len(pts),
+                "lon": sum(p[0] for p in pts) / len(pts),
+                "tags": feat.get("properties") or {},
+            })
+    return out
+
+
 def build(elements: list[dict]) -> dict:
     stores = []
     seen = set()
@@ -172,7 +205,12 @@ def check(data: dict) -> None:
 
 
 def main() -> None:
-    data = build(fetch())
+    # --geojsonseq FIL: Geofabriks udtræk (store-locations.yml), ellers Overpass.
+    if "--geojsonseq" in sys.argv:
+        elements = read_geojsonseq(sys.argv[sys.argv.index("--geojsonseq") + 1])
+    else:
+        elements = fetch()
+    data = build(elements)
     check(data)
     if "--check" in sys.argv:
         return
