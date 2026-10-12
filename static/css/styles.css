@@ -6655,7 +6655,6 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
   .avis-nav--prev { left: -64px; }
   .avis-nav--next { right: -64px; }
 }
-}
 
 /* ── Butikker nær mig (Feature-panelet 'lokation', static/js/lokation.js) ── */
 .lok-btn {
