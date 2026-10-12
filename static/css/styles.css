@@ -6653,26 +6653,33 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
 
   .avis-pager {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin: 2px 0 8px;
+    justify-content: center;
+    margin: 2px 0 6px;
   }
   .avis-pager-count { font-weight: 800; color: var(--gray-900); }
-  .avis-pager-btn {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: 50%;
-    background: var(--gray-900);
-    color: var(--white);
-    cursor: pointer;
+  .avis-counter { display: none; }
+
+  /* Pilene: midt på skærmen helt ude i kanten. Avisen er rykket ind, så
+     pilene står i en tom kant og aldrig dækker en pris eller en kurv. De
+     vises kun, mens avisen er på skærmen (avis.js sætter .avis-in-view). */
+  .avis-viewport { margin: 0 18px; }
+  .avis-nav {
+    position: fixed;
+    top: 50%;
+    width: 30px;
+    height: 60px;
+    margin-top: -30px;
+    border-radius: 0 12px 12px 0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
   }
-  .avis-pager-btn:disabled { opacity: 0.25; }
-  .avis-nav, .avis-counter { display: none; }
+  .avis-nav svg { width: 20px; height: 20px; }
+  .avis-nav--prev { left: 0; }
+  .avis-nav--next { right: 0; border-radius: 12px 0 0 12px; }
+  .avis-in-view .avis-nav { opacity: 0.92; pointer-events: auto; }
+  .avis-in-view .avis-nav:disabled { opacity: 0; pointer-events: none; }
 
   .avis-page { padding: 10px 8px 8px; }
   .avis-front-head { padding-bottom: 6px; margin-bottom: 8px; border-bottom-width: 2px; }
