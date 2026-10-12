@@ -9,7 +9,8 @@ Kilden er OpenStreetMap via Overpass (gratis, ingen nøgle). Data er under
 ODbL: "© OpenStreetMap-bidragydere" skal stå hvor listen bruges.
 
     python scripts/build-store-locations.py            # via Overpass
-    python scripts/build-store-locations.py --geojsonseq butikker.geojsonseq
+    python scripts/build-store-locations.py --geojsonseq butikker.geojsonseq \
+        --addresses adresser.geojsonseq
     python scripts/build-store-locations.py --check    # kun tæl, skriv intet
 
 Overpass-serverne giver tit 504 på hele Danmark, så den månedlige kørsel
@@ -113,10 +114,9 @@ def fetch() -> list[dict]:
     raise SystemExit(f"Ingen Overpass-server svarede: {last}")
 
 
-def read_geojsonseq(path: str) -> list[dict]:
-    """Butikker fra `osmium export -f geojsonseq` (Geofabriks Danmark-udtræk),
-    lavet om til samme form som Overpass' svar."""
-    out = []
+def read_geojsonseq(path: str):
+    """Punkter fra `osmium export -f geojsonseq` (Geofabriks Danmark-udtræk) i
+    samme form som Overpass' svar. Læses én ad gangen: adressefilen er stor."""
     with open(path, encoding="utf-8") as fh:
         for line in fh:
             line = line.strip().lstrip("\x1e")
@@ -134,12 +134,42 @@ def read_geojsonseq(path: str) -> list[dict]:
             walk(geom.get("coordinates"))
             if not pts:
                 continue
-            out.append({
+            yield {
                 "lat": sum(p[1] for p in pts) / len(pts),
                 "lon": sum(p[0] for p in pts) / len(pts),
                 "tags": feat.get("properties") or {},
-            })
-    return out
+            }
+
+
+def attach_addresses(elements: list[dict], path: str) -> None:
+    """I dansk OpenStreetMap står adressen sjældent på selve butikken, men på et
+    adressepunkt ved siden af (importeret fra DAR). Giv hver butik uden adresse
+    det nærmeste adressepunkt inden for ca. 80 m."""
+    cell = lambda lat, lon: (int(lat * 500), int(lon * 300))  # ca. 220 x 190 m
+    want: dict[tuple, list] = defaultdict(list)
+    for el in elements:
+        t = el["tags"]
+        if t.get("addr:postcode"):
+            continue
+        c = cell(el["lat"], el["lon"])
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                want[(c[0] + dy, c[1] + dx)].append(el)
+    best: dict[int, tuple] = {}
+    for pt in read_geojsonseq(path):
+        tags = pt["tags"]
+        if not tags.get("addr:postcode"):
+            continue
+        for el in want.get(cell(pt["lat"], pt["lon"]), ()):
+            d = ((pt["lat"] - el["lat"]) * 111_000) ** 2 + ((pt["lon"] - el["lon"]) * 62_000) ** 2
+            if d <= 80 ** 2 and (id(el) not in best or d < best[id(el)][0]):
+                best[id(el)] = (d, tags)
+    for el in elements:
+        hit = best.get(id(el))
+        if hit:
+            for k in ("addr:street", "addr:housenumber", "addr:postcode", "addr:city"):
+                if hit[1].get(k) and not el["tags"].get(k):
+                    el["tags"][k] = hit[1][k]
 
 
 def build(elements: list[dict]) -> dict:
@@ -196,7 +226,8 @@ def check(data: dict) -> None:
     counts = Counter(s[0] for s in data["stores"])
     for key in ALL_KEYS:
         print(f"  {key:12} {counts.get(key, 0)}")
-    print(f"  {'i alt':12} {len(data['stores'])}, {len(data['postcodes'])} postnumre")
+    print(f"  {'i alt':12} {len(data['stores'])}, {len(data['postcodes'])} postnumre, "
+          f"{sum(1 for st in data['stores'] if st[4])} med postnummer")
     missing = [k for k in ALL_KEYS if not counts.get(k)]
     if missing:
         raise SystemExit(f"Ingen butikker fundet for: {', '.join(missing)}. Skriver ikke filen.")
@@ -207,7 +238,10 @@ def check(data: dict) -> None:
 def main() -> None:
     # --geojsonseq FIL: Geofabriks udtræk (store-locations.yml), ellers Overpass.
     if "--geojsonseq" in sys.argv:
-        elements = read_geojsonseq(sys.argv[sys.argv.index("--geojsonseq") + 1])
+        elements = list(read_geojsonseq(sys.argv[sys.argv.index("--geojsonseq") + 1]))
+        if "--addresses" in sys.argv:
+            elements = [e for e in elements if classify(e["tags"])]
+            attach_addresses(elements, sys.argv[sys.argv.index("--addresses") + 1])
     else:
         elements = fetch()
     data = build(elements)
