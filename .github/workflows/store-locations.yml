@@ -1,0 +1,55 @@
+name: Butikkernes adresser
+
+# Henter alle butikker i vores kæder fra OpenStreetMap og gemmer dem i
+# static/data/butikker.json (Feature 'lokation', scripts/build-store-locations.py).
+# Butikker åbner og lukker sjældent, så én gang om måneden er nok. Filen kommer
+# ud med næste deploy; committen har [skip ci], så den ikke selv starter et.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 2 * *'
+  # Kun mens funktionen bygges: giver første udgave af filen på PR-grenen.
+  # Fjernes før merge.
+  push:
+    branches: [claude/project-thread-glla2j]
+    paths:
+      - scripts/build-store-locations.py
+      - .github/workflows/store-locations.yml
+
+concurrency:
+  group: store-locations
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Hent butikker fra OpenStreetMap
+        run: python scripts/build-store-locations.py
+
+      - name: Gem filen hvis den er ændret
+        run: |
+          # "updated" skifter hver gang; kun gem når selve butikkerne har ændret sig.
+          if git diff --quiet -- static/data/butikker.json; then
+            echo "Ingen ny fil"; exit 0
+          fi
+          if git show HEAD:static/data/butikker.json > /tmp/old.json 2>/dev/null; then
+            if python -c "import json,sys; a=json.load(open('/tmp/old.json')); b=json.load(open('static/data/butikker.json')); sys.exit(0 if (a['stores'],a['postcodes'])==(b['stores'],b['postcodes']) else 1)"; then
+              echo "Kun datoen er ændret"; exit 0
+            fi
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static/data/butikker.json
+          git commit -m "Butikkernes adresser fra OpenStreetMap [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
