@@ -51,7 +51,7 @@ jobs:
       - name: Gem filen hvis den er ændret
         run: |
           # "updated" skifter hver gang; kun gem når selve butikkerne har ændret sig.
-          if git diff --quiet -- static/data/butikker.json; then
+          if [ -z "$(git status --porcelain -- static/data/butikker.json)" ]; then
             echo "Ingen ny fil"; exit 0
           fi
           if git show HEAD:static/data/butikker.json > /tmp/old.json 2>/dev/null; then
