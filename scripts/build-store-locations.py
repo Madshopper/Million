@@ -38,10 +38,17 @@ OVERPASS_URLS = (
 # Butikstyper der kan være et af vores supermarkeder. Spar, Min Købmand og
 # Dagli'Brugsen er ofte mærket som "convenience", Bilka nogle steder som
 # "department_store".
-QUERY = """
-[out:json][timeout:120];
+_NAMES = ("rema|bilka|f(ø|o)tex|netto|lidl|meny|brugsen|kvickly|365|"
+          "l(ø|o)vbjerg|abc lavpris|k(ø|o)bmand|spar")
+# Kun butikker hvis brand eller navn ligner en af kæderne. En forespørgsel på
+# alle butikker i Danmark var for tung: alle tre servere svarede 504.
+QUERY = f"""
+[out:json][timeout:240];
 area["ISO3166-1"="DK"][admin_level=2]->.dk;
-nwr["shop"~"^(supermarket|convenience|department_store|general|hypermarket)$"](area.dk);
+(
+  nwr["shop"]["brand"~"{_NAMES}",i](area.dk);
+  nwr["shop"]["name"~"{_NAMES}",i](area.dk);
+);
 out center tags;
 """
 
@@ -63,6 +70,10 @@ _CHAINS = (
     ("mk", re.compile(r"\bmin\s*k(ø|o|oe)bmand\b", re.I)),
     ("spar", re.compile(r"\b(kwik\s*|euro)?spar\b", re.I)),
 )
+# Spar, Min Købmand og Dagli'Brugsen er ofte mærket "convenience", Bilka
+# nogle steder "department_store".
+_SHOP_TYPES = {"supermarket", "convenience", "department_store", "general",
+               "hypermarket", "discount", "food"}
 ALL_KEYS = tuple(k for k, _ in _CHAINS)
 MIN_TOTAL = 1500
 
@@ -89,12 +100,12 @@ def fetch() -> list[dict]:
                 req = urllib.request.Request(url, data=body, headers={
                     "User-Agent": "madshopper.dk butiksliste (hej@madshopper.dk)",
                 })
-                with urllib.request.urlopen(req, timeout=180) as resp:
+                with urllib.request.urlopen(req, timeout=300) as resp:
                     return json.loads(resp.read().decode())["elements"]
             except Exception as e:  # næste server
                 last = e
                 print(f"Overpass {url} fejlede ({e}), prøver igen", file=sys.stderr)
-                time.sleep(10 * (attempt + 1))
+                time.sleep(30 * (attempt + 1))
     raise SystemExit(f"Ingen Overpass-server svarede: {last}")
 
 
@@ -103,6 +114,8 @@ def build(elements: list[dict]) -> dict:
     seen = set()
     for el in elements:
         tags = el.get("tags") or {}
+        if tags.get("shop") not in _SHOP_TYPES:
+            continue
         key = classify(tags)
         if not key:
             continue
