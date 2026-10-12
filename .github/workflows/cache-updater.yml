@@ -12,10 +12,6 @@ on:
   # eneste vej lige siden, og trigger-workflowet er fjernet.
   workflow_dispatch:
     inputs:
-      staging_only:
-        description: 'Kun madshopper-dev (seed dev-D1, rør ikke produktions-D1/cache)'
-        type: boolean
-        default: false
       force_reseed:
         description: 'Tving D1-reseed (ignorer 6t-spærre)'
         type: boolean
@@ -35,7 +31,7 @@ on:
 # opskriften bag nedbruddet 2026-07-19. Gruppen er miljøopdelt, så et
 # staging-seed ikke unødigt blokerer en produktions-deploy.
 concurrency:
-  group: madshopper-edge-${{ inputs.staging_only && 'staging' || 'production' }}
+  group: madshopper-edge-production
   cancel-in-progress: false
 
 env:
@@ -59,17 +55,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Updateren genopbygger produktionens app_cache og skriver VARIG
-      # prishistorik. Hverken app_cache eller price_history har en _dev-variant,
-      # så den rammer produktionens data uanset DEPLOY_ENV - og gør det med
-      # DEPLOY_KEY. En staging_only-kørsel må derfor ikke køre den: et umerget
-      # matching-eksperiment ville ellers ændre hvad rigtige besøgende ser,
-      # før nogen har set på det, og price_history selvheler ikke.
-      # staging_only re-seeder stadig dev-D1 nedenfor, så staging får den nye
-      # kode - blot mod det app_cache som main sidst byggede. Skal en matching-
-      # ændring måles, køres updateren bevidst fra main (eller lokalt).
+      # Der er ingen staging_only-kørsel længere: dev.madshopper.dk læser
+      # produktionens D1, og seed-d1.py skriver dens KV-nøgler i samme kørsel
+      # (Kalle, 12-10-2026). Skal en matching-ændring måles, så lokalt med
+      # scripts/eval-matching.py.
       - name: Run updater script
-        if: ${{ !inputs.staging_only }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.DEPLOY_KEY }}
@@ -87,7 +77,6 @@ jobs:
       # Skriver opskrifternes pris-snapshot til produktionens tabel - samme
       # begrundelse som updater-steppet ovenfor.
       - name: Genberegn opskrift-priser
-        if: ${{ !inputs.staging_only }}
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -102,7 +91,6 @@ jobs:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          DEPLOY_ENV: ${{ inputs.staging_only && 'staging' || '' }}
           # Push til matching-/kategori-kode (updater/app_support) skal altid
           # reseed'e - ellers serverer edge stadig gamle produktkort inden for
           # 6t-spærren (skete 2026-07-26 med Toms slik↔is).
@@ -128,7 +116,7 @@ jobs:
       # Tidspunktet (~01:00) er samtidig døgnets laveste trafik, så en kort
       # kold periode rammer færrest muligt.
       - name: Purge zone-CDN efter seed
-        if: ${{ steps.seed.outcome == 'success' && !inputs.staging_only }}
+        if: ${{ steps.seed.outcome == 'success' }}
         continue-on-error: true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -158,7 +146,6 @@ jobs:
       # sker nu udelukkende server-side i src/worker.py (_queue_background_warm).
 
       - name: Opdater hjemmesidens cache
-        if: ${{ !inputs.staging_only }}
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CACHE_REFRESH_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}

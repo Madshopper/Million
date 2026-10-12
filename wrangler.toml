@@ -75,5 +75,6 @@ id = "b879e69c3a1f477c9c69bbc7e7b041df"
 
 [[env.staging.d1_databases]]
 binding = "DB"
-database_name = "madshopper-dev"
-database_id = "fa7fab55-a5e8-485a-9084-068890e9c8c5"
+# Samme D1 som produktionen (12-10-2026), se scripts/build-pages.sh.
+database_name = "madshopper"
+database_id = "8a43b0d1-1733-4abe-ad71-aa9bde4d4d12"

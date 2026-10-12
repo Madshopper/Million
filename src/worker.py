@@ -527,7 +527,10 @@ def _sec_flush(env, ctx) -> None:
         _sec_flush_at = now
 
         db = getattr(env, 'DB', None)
-        if db is None:
+        # Staging deler D1 med produktionen (12-10-2026). Dens hændelser
+        # (fx 404 på den lukkede dev-side) må ikke blandes ind i produktionens
+        # alarmer i scripts/relay-security-events.py, som kun læser denne D1.
+        if db is None or str(getattr(env, 'TABLE_SUFFIX', '') or ''):
             _sec_counts.clear()
             return
 

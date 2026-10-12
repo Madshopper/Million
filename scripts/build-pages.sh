@@ -25,7 +25,7 @@ require_int() {
   esac
 }
 
-# DEPLOY_ENV=staging bygger madshopper-dev (egen KV/D1, custom domain
+# DEPLOY_ENV=staging bygger madshopper-dev (egen KV, samme D1 som produktionen, custom domain
 # dev.madshopper.dk + den gratis workers.dev-URL som fallback) i stedet for
 # produktions-workeren. Bruges af deploy-edge-dev.yml (kun main) og kan
 # køres lokalt til test.
@@ -49,8 +49,12 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   WORKER_NAME="madshopper-dev"
   WORKERS_DEV="true"
   KV_NAMESPACE_ID="b879e69c3a1f477c9c69bbc7e7b041df"
-  D1_DATABASE_NAME="madshopper-dev"
-  D1_DATABASE_ID="fa7fab55-a5e8-485a-9084-068890e9c8c5"
+  # Samme D1 som produktionen (Kalle, 12-10-2026): dev'ens egen kopi kunne
+  # ikke seedes dagligt inden for det konto-brede skrivebudget og stod uger
+  # bagud. Staging skriver ikke til D1 (sikkerhedslogningen er slået fra dér,
+  # se src/worker.py::_sec_flush), og seed-d1.py skriver dens KV-nøgler.
+  D1_DATABASE_NAME="madshopper"
+  D1_DATABASE_ID="8a43b0d1-1733-4abe-ad71-aa9bde4d4d12"
   SITE_URL_VALUE="https://dev.madshopper.dk"
   TABLE_SUFFIX_VALUE="_dev"
   # Opskrifterne er skjult for brugerne på madshopper.dk, men skal kunne
