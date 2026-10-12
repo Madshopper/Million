@@ -6662,22 +6662,22 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
   /* Pilene: midt på skærmen helt ude i kanten. Avisen er rykket ind, så
      pilene står i en tom kant og aldrig dækker en pris eller en kurv. De
      vises kun, mens avisen er på skærmen (avis.js sætter .avis-in-view). */
-  .avis-viewport { margin: 0 18px; }
+  .avis-viewport { margin: 0 24px; }
   .avis-nav {
     position: fixed;
     top: 50%;
-    width: 30px;
-    height: 60px;
-    margin-top: -30px;
-    border-radius: 0 12px 12px 0;
+    width: 36px;
+    height: 36px;
+    margin-top: -18px;
+    border-radius: 50%;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.15s ease;
   }
   .avis-nav svg { width: 20px; height: 20px; }
-  .avis-nav--prev { left: 0; }
-  .avis-nav--next { right: 0; border-radius: 12px 0 0 12px; }
+  .avis-nav--prev { left: 2px; }
+  .avis-nav--next { right: 2px; }
   .avis-in-view .avis-nav { opacity: 0.92; pointer-events: auto; }
   .avis-in-view .avis-nav:disabled { opacity: 0; pointer-events: none; }
 
