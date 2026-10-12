@@ -144,7 +144,8 @@ def read_geojsonseq(path: str):
 def attach_addresses(elements: list[dict], path: str) -> None:
     """I dansk OpenStreetMap står adressen sjældent på selve butikken, men på et
     adressepunkt ved siden af (importeret fra DAR). Giv hver butik uden adresse
-    det nærmeste adressepunkt inden for ca. 80 m."""
+    det nærmeste adressepunkt inden for 250 m (Bilkas bygninger er så store, at
+    midten kan ligge langt fra indgangens adresse)."""
     cell = lambda lat, lon: (int(lat * 500), int(lon * 300))  # ca. 220 x 190 m
     want: dict[tuple, list] = defaultdict(list)
     for el in elements:
@@ -152,8 +153,8 @@ def attach_addresses(elements: list[dict], path: str) -> None:
         if t.get("addr:postcode"):
             continue
         c = cell(el["lat"], el["lon"])
-        for dy in (-1, 0, 1):
-            for dx in (-1, 0, 1):
+        for dy in (-2, -1, 0, 1, 2):
+            for dx in (-2, -1, 0, 1, 2):
                 want[(c[0] + dy, c[1] + dx)].append(el)
     best: dict[int, tuple] = {}
     for pt in read_geojsonseq(path):
@@ -162,7 +163,7 @@ def attach_addresses(elements: list[dict], path: str) -> None:
             continue
         for el in want.get(cell(pt["lat"], pt["lon"]), ()):
             d = ((pt["lat"] - el["lat"]) * 111_000) ** 2 + ((pt["lon"] - el["lon"]) * 62_000) ** 2
-            if d <= 80 ** 2 and (id(el) not in best or d < best[id(el)][0]):
+            if d <= 250 ** 2 and (id(el) not in best or d < best[id(el)][0]):
                 best[id(el)] = (d, tags)
     for el in elements:
         hit = best.get(id(el))
