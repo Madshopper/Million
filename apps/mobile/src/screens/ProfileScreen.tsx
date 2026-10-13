@@ -254,6 +254,11 @@ export function ProfileScreen() {
       </Text>
       {(
         [
+          // Feature-panelet 'lokation': placering eller postnummer, også for
+          // dem der ikke gav telefonen lov.
+          ...(lokation
+            ? ([['Butikker nær mig', 'Din placering eller dit postnummer', 'location-outline', () => navigation.navigate('Nearby', {})]] as const)
+            : []),
           ['Indstillinger', 'Udseende, butikker og slet konto', 'settings-outline', () => navigation.navigate('Settings')],
           ['Feedback', 'Ris, ros eller en fejl? Skriv til os', 'chatbubble-ellipses-outline', () => navigation.navigate('Feedback')],
         ] as const

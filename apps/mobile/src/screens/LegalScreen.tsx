@@ -81,8 +81,13 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
         // Feature-panelet 'lokation'.
         <Paragraph colors={colors}>
           <Text style={{ fontWeight: '700' }}>Butikker nær dig (valgfrit): </Text>
-          Skriver du dit postnummer, bruges det kun på telefonen til at finde de nærmeste
-          butikker og den korteste tur. Det gemmes kun på telefonen og sendes aldrig til os.
+          Trykker du "Brug min placering", spørger telefonen først om lov. Har du sagt ja,
+          bruger appen din placering, mens den er åben, til at finde de nærmeste butikker og
+          den korteste tur, aldrig i baggrunden. Placeringen bliver kun brugt på telefonen og
+          bliver hverken gemt eller sendt til os. Du kan altid tage lov tilbage under
+          telefonens Indstillinger. Skriver du i stedet dit postnummer, gemmes det på
+          telefonen og, når du er logget ind, på din konto, så du ikke skal skrive det igen.
+          Det slettes sammen med kontoen.
           Trykker du "Åbn turen i Google Maps", sendes turens punkter til Google. Butikkernes
           adresser kommer fra OpenStreetMap (© OpenStreetMap-bidragydere).
         </Paragraph>
@@ -104,7 +109,7 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
         <Text style={{ fontWeight: '700' }}>App-tilladelser: </Text>
         I stedet for cookies (som på vores hjemmeside) bruger app-versionen kun de
         systemtilladelser, du selv godkender ved installation eller første brug. Vi beder
-        ikke om adgang til kamera, kontakter eller placering. Notifikationer beder vi kun
+        ikke om adgang til kamera eller kontakter.{lokation ? ' Placering beder vi kun om, når du selv trykker "Brug min placering" (se Butikker nær dig).' : ' Vi beder heller ikke om placering.'} Notifikationer beder vi kun
         om, hvis du selv trykker "Slå til" under Mine prisalarmer: så får du prisalarmer
         som besked på telefonen, og vi gemmer en teknisk adresse til
         din telefon, indtil du slår det fra, logger ud eller sletter kontoen. Din telefons

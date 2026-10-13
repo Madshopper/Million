@@ -49,8 +49,15 @@
         kan du vælge at dele din placering eller skrive dit postnummer. Din
         placering bruges kun i din browser eller på din telefon til at finde de
         nærmeste butikker og den korteste tur. Den bliver aldrig sendt til mig
-        og bliver ikke gemt. Et postnummer, du skriver, gemmes kun lokalt hos
-        dig, og på hjemmesiden kun hvis du har tilladt funktionelle cookies.
+        og bliver ikke gemt. Har du givet lov, bruges den af sig selv, når du
+        åbner funktionen, så det også passer, når du er et andet sted; aldrig i
+        baggrunden. Lov kan altid tages tilbage i din browser eller under
+        telefonens Indstillinger. Et postnummer, du selv skriver, gemmes på din
+        konto, når du er logget ind, så du ikke skal skrive det igen på en ny
+        telefon eller computer. Det bruges kun til at finde butikker tæt på,
+        og det slettes, når du sletter din konto. Er du ikke logget ind,
+        gemmes det kun hos dig, og på hjemmesiden kun hvis du har tilladt
+        funktionelle cookies.
       </p>
       <p>
         Trykker du "Åbn turen i Google Maps", sendes turens punkter til Google,
@@ -102,6 +109,13 @@
           men du kan ændre det selv. Det bruges kun ét sted: så de andre i en
           <em>delt kurv</em> (se nedenfor) kan se, hvem der er med
         </li>
+        {% if lokation_enabled %}
+        <li>
+          Dit postnummer, hvis du selv skriver det (fx når du opretter dig).
+          Det bruges kun til at vælge de butikker, der ligger tæt på dig. Din
+          præcise placering gemmes aldrig
+        </li>
+        {% endif %}
         <li>
           Din indkøbskurv: vare-id, antal, og til visning også navn, billede,
           butik og senest kendte pris. Sammenligningspriser hentes friske, når

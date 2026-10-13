@@ -25,9 +25,12 @@ savings history server-side, and signs the user out.
 **Language:** the app ships in Danish only, as it compares prices in Danish
 supermarkets for a Danish audience.
 
-**Permissions:** the app requests no camera, contacts, location or photo
-permissions, contains no advertising or analytics SDKs, and does not use the
-advertising identifier.
+**Permissions:** the app requests no camera, contacts or photo permissions.
+Location ("when in use" only, never in the background) is requested only when
+the user taps "Brug min placering" ("Use my location") to find nearby stores;
+it is used on the device only and never sent to our servers. The app
+contains no advertising or analytics SDKs, and does not use the advertising
+identifier.
 
 Contact for any questions during review: kontakt@madshopper.dk
 

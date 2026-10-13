@@ -822,6 +822,11 @@
     var pw = el('auth-password');
     var nameRow = el('auth-name-row');
     var turnstileRow = el('auth-turnstile-row');
+    var locationRow = el('auth-location-row');
+    if (locationRow) {
+      locationRow.style.display = (authMode === 'signup') ? 'block' : 'none';
+      if (authMode === 'signup' && window.Lokation) window.Lokation.signupField();
+    }
     if (authMode === 'signup') {
       if (title) title.textContent = 'Opret konto';
       if (sub) sub.textContent = 'Opret konto';
@@ -995,6 +1000,14 @@
           return false;
         }
       }
+      // "Hvor bor du?" (Feature 'lokation'): tjek postnummeret før kontoen
+      // oprettes, så en tastefejl kan rettes. Tomt felt = spørg efter login.
+      var signupPos = null;
+      if (authMode === 'signup' && window.Lokation && el('auth-location-row')) {
+        try { signupPos = await window.Lokation.signupPosition(); }
+        catch (err) { setError(err.message); return false; }
+        window.Lokation.beforeSignup(signupPos);
+      }
       var res = (authMode === 'signup')
         ? await SB.auth.signUp({
             email: email, password: pw,
@@ -1005,10 +1018,18 @@
             // bagefter - det er ét brugt engangs-token, ufarligt at beholde.
             options: {
               emailRedirectTo: window.location.origin,
-              data: { display_name: signupName, turnstile_token: tsToken }
+              data: Object.assign(
+                { display_name: signupName, turnstile_token: tsToken },
+                // Postnummeret fra "Hvor bor du?" gemmes på kontoen (aldrig placeringen).
+                (signupPos && !signupPos.precise && /^\d{4}$/.test((el('auth-postcode') || {}).value || ''))
+                  ? { postnummer: el('auth-postcode').value } : {}
+              )
             }
           })
         : await SB.auth.signInWithPassword({ email: email, password: pw });
+      if (authMode === 'signup' && window.Lokation && signupPos !== null) {
+        window.Lokation.afterSignup(signupPos, !res.error);
+      }
       if (res.error) { console.error('[auth] Supabase-fejl:', res.error.status, res.error.message, res.error); setError(translateErr(res.error)); return false; }
       // Email-bekræftelse er slået FRA i v1, så signup returnerer en session og
       // logger direkte ind → onAuthStateChange lukker modalen. Skulle bekræftelse
@@ -1017,6 +1038,7 @@
       else if (authMode === 'signup') { setError('Tjek din email for at bekræfte kontoen.'); }
     } catch (err) {
       console.error('[auth] Undtagelse under login/signup:', err);
+      if (signupPos && window.Lokation) window.Lokation.afterSignup(null, false);
       setError('Noget gik galt. Prøv igen.');
     } finally {
       if (authMode === 'signup') turnstileReset('auth-turnstile-widget');
@@ -1532,6 +1554,22 @@
       return false;
     },
     getDisplayName: getDisplayName,
+    // Postnummeret man selv har skrevet (Feature 'lokation'). Gemmes på
+    // kontoen i user_metadata ligesom navnet, så det følger med til en ny
+    // telefon og slettes sammen med kontoen. Placeringen gemmes aldrig.
+    getPostcode: function () {
+      var pc = currentUser && currentUser.user_metadata && currentUser.user_metadata.postnummer;
+      return /^\d{4}$/.test(String(pc || '')) ? String(pc) : '';
+    },
+    savePostcode: async function (pc) {
+      if (!SB || !currentUser || !/^\d{4}$/.test(String(pc || ''))) return;
+      var meta = currentUser.user_metadata || {};
+      if (meta.postnummer === pc) return;
+      try {
+        var res = await SB.auth.updateUser({ data: { postnummer: pc } });
+        if (!res.error && res.data && res.data.user) currentUser = res.data.user;
+      } catch (e) { /* prøver igen næste gang */ }
+    },
     // Sandt når beskeder er slået til i denne browser (script.js' "Alarm sat").
     pushActive: function () { return pushActive; },
     // Sandt når "Beskeder på telefonen" er udgivet (blokken findes i siden).

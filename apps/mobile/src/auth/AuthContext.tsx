@@ -101,6 +101,7 @@ type AuthContextValue = {
     email: string,
     password: string,
     displayName: string,
+    postcode?: string,
   ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signInGoogle: () => Promise<string | null>;
   signInApple: () => Promise<string | null>;
@@ -662,7 +663,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUpEmail = useCallback(
-    async (email: string, password: string, name: string) => {
+    async (email: string, password: string, name: string, postcode?: string) => {
       const sb = getSupabase();
       if (!sb) return { error: 'Supabase er ikke konfigureret', needsConfirmation: false };
       // Web-paritet (auth.js submitForm): bot-tjek FØR selve konto-oprettelsen.
@@ -681,7 +682,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
         password,
         options: {
-          data: { display_name: normalizeDisplayName(name), turnstile_token: token },
+          data: {
+            display_name: normalizeDisplayName(name),
+            turnstile_token: token,
+            // "Hvor bor du?" (Feature 'lokation'): postnummeret gemmes på kontoen.
+            ...(postcode && /^\d{4}$/.test(postcode) ? { postnummer: postcode } : {}),
+          },
           // Bekræftelseslinket skal åbne APPEN, ikke hjemmesiden (før
           // env.apiBaseUrl = madshopper.dk, så man blev logget ind på webben).
           emailRedirectTo: makeRedirectUri({ scheme: 'madshopper' }),
