@@ -101,9 +101,17 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
       <Paragraph colors={colors}>
         <Text style={{ fontWeight: '700' }}>Feedback: </Text>
         Skriver du til os via Feedback, gemmes din besked (og et evt. navn/e-mail du selv
-        angiver) i vores egen database, hvor kun vi kan læse den, og vi rydder selv op i
+        angiver, samt hvilken side du skrev fra) i vores egen database, hvor kun vi kan læse den, og vi rydder selv op i
         den. Feedback er ikke koblet til en evt. konto og fjernes derfor ikke
         automatisk, hvis du senere sletter kontoen.
+      </Paragraph>
+      <Paragraph colors={colors}>
+        <Text style={{ fontWeight: '700' }}>Login og sikkerhed: </Text>
+        Når du logger ind, gemmer login-udbyderen af sikkerhedshensyn, hvornår du loggede
+        ind, fra hvilken IP-adresse, og om det var appen eller en browser. Vi bruger kun
+        det sidste til at tælle, hvor mange der bruger appen, aldrig til at følge den
+        enkelte. For at stoppe misbrug tælles også kortvarigt, hvor mange forespørgsler
+        der kommer fra samme IP-adresse; det tal gemmes ikke hos os.
       </Paragraph>
       <Paragraph colors={colors}>
         <Text style={{ fontWeight: '700' }}>App-tilladelser: </Text>
