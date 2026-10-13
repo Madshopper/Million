@@ -204,7 +204,7 @@ def load_store_comparison_data(store_key: str) -> tuple:
                     weight_str = str(row.get('netto_vaegt') or '')
                     weight_g = parse_weight_to_grams(weight_str)
                     ppk = parse_kg_price(row.get('kg_price') or '')
-                    price = sanitize_price(price, ppk, weight_g,
+                    ppk = sanitize_kg_price(price, ppk, weight_g,
                                             context=f"{cfg['label']}: {row.get('navn')}")
                     
                     is_sale_raw = str(row.get('tilbud', 'nej')).lower()
@@ -284,6 +284,9 @@ def load_store_comparison_data(store_key: str) -> tuple:
                         # Kun Bilka/Føtex/Netto kender avisen; se app.py::
                         # _AVIS_LEAFLET_STORES. Følger med i store_matches.
                         'in_avis':     in_avis,
+                        # Avisens tilbud, som varianterne deles om (Bilka/
+                        # Føtex' leafletTitle); seed-d1.py tæller pr. titel.
+                        'avis_titel':  _clean_field(row.get('avis_titel')) if in_avis else '',
                         'multi_deal':  multi_deal,
                         'image':       str(row.get('billede_url') or ''),
                         '_image_hash': p_hash_hex,
@@ -547,21 +550,26 @@ def _dairy_kinds_match(a: frozenset, b: frozenset) -> bool:
     return not a or not b or a == b
 
 
-def sanitize_price(price, ppk, weight_g, context: str = ''):
-    """Fallback validation to fix scraped prices that incorrectly concatenated weight and kg-price."""
+def sanitize_kg_price(price, ppk, weight_g, context: str = ''):
+    """Kg-prisen, eller None når den ikke passer til prisen og vægten.
+
+    Tidligere rettede denne funktion i stedet PRISEN efter kg-prisen (mod
+    sammenklistrede pris+kg-pris fra gamle web-scrapere). Målt 13-10-2026 på
+    hele produkter-tabellen ramte den 18 varer, og alle 18 rettelser var
+    forkerte: multipakker, hvor butikken angiver kg-prisen pr. dåse/bæger.
+    Bilkas "Bière 12 x 0.33 liter" til 99 kr blev til 1.188 kr, og
+    Løvbjergs 30 øl til 99,99 kr blev til 3,33 kr - midt i tilbudsaviserne.
+    Prisen er det kunden betaler og står på hylden; den rører vi ikke. En
+    kg-pris der ikke passer, smides væk, så den hverken vises eller
+    snyder kg-pris-gaten i matchingen."""
     if price > 0 and ppk is not None and weight_g is not None and weight_g > 0:
         expected_price = ppk * (weight_g / 1000.0)
         if expected_price > 0 and (price > expected_price * 2.5 or price < expected_price * 0.3):
-            corrected = round(expected_price, 2)
-            # Ulogget indtil nu - umuligt at auditere hvor ofte korrektionen
-            # rammer, eller om den nogensinde har rettet i forkert retning.
-            # Se matchmotor-revisionen 2026-08-16, fund M8.
             logger.warning(
-                "sanitize_price korrigerede %s: %.2f kr -> %.2f kr (kg-pris %.2f, vægt %sg)",
-                context or '(ukendt vare)', price, corrected, ppk, weight_g)
-            # If the price is extremely off, trust the kg-price and weight
-            return corrected
-    return price
+                "kg-pris passer ikke til prisen, droppes: %s %.2f kr (kg-pris %.2f, vægt %sg)",
+                context or '(ukendt vare)', price, ppk, weight_g)
+            return None
+    return ppk
 
 
 def is_price_cheaper(new_p, current_p):
@@ -2675,6 +2683,7 @@ def build_store_display_products(products: list, store_key: str) -> list:
                 # 'butiksaviser') ikke kunne finde dem. Læses af seed-d1.py.
                 '/product/own_sale':                  bool(p.get('is_sale')),
                 '/product/own_avis':                  bool(p.get('in_avis')),
+                '/product/own_avis_titel':            p.get('avis_titel') or '',
             })
         except Exception:
             continue
@@ -2706,6 +2715,7 @@ def _display_item_to_match(p: dict) -> dict:
         'normal_price': normal_price,
         'is_sale':      bool(is_sale),
         'in_avis':      bool(p.get('/product/own_avis')),
+        'avis_titel':   p.get('/product/own_avis_titel') or '',
         'image':        p.get('/product/imageLink', ''),
         'brand':        p.get('/product/brand', ''),
         'description':  p.get('/product/description', ''),
