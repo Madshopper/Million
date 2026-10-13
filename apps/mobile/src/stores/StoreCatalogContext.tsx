@@ -59,6 +59,8 @@ type StoreCatalogValue = {
   queryLabels: Set<string>;
   toggleStore: (label: string) => void;
   selectAll: () => void;
+  /** Sæt hele valget på én gang (Butikker nær mig). Tom liste ignoreres. */
+  setSelected: (labels: string[]) => void;
   ready: boolean;
   logoUrl: (logoPath: string) => string;
 };
@@ -202,6 +204,16 @@ export function StoreCatalogProvider({ children }: { children: React.ReactNode }
     void persist(new Set(catalog.map((s) => s.label)));
   }, [catalog, persist]);
 
+  const setSelected = useCallback(
+    (labels: string[]) => {
+      const known = new Set(catalog.map((s) => s.label));
+      const next = new Set(labels.filter((l) => known.has(l)));
+      if (!next.size) return; // mindst én butik, som toggleStore
+      void persist(next);
+    },
+    [catalog, persist],
+  );
+
   const logoUrl = useCallback(
     (logoPath: string) =>
       logoPath.startsWith('http') ? logoPath : `${env.apiBaseUrl}${logoPath}`,
@@ -216,10 +228,11 @@ export function StoreCatalogProvider({ children }: { children: React.ReactNode }
       queryLabels,
       toggleStore,
       selectAll,
+      setSelected,
       ready,
       logoUrl,
     }),
-    [catalog, version, selectedLabels, queryLabels, toggleStore, selectAll, ready, logoUrl],
+    [catalog, version, selectedLabels, queryLabels, toggleStore, selectAll, setSelected, ready, logoUrl],
   );
 
   return (

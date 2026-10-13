@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
+import { useLokationEnabled } from '../location/nearby';
+import { shouldAskAfterSignup } from '../location/storage';
 import { memberInitial, useSharedCart } from '../cart/SharedCartContext';
 import { useTheme } from '../theme/ThemeContext';
 import { env } from '../config/env';
@@ -49,6 +51,15 @@ export function ProfileScreen() {
   const [nameSaving, setNameSaving] = React.useState(false);
   const [nameMsg, setNameMsg] = React.useState<{ text: string; error: boolean } | null>(null);
   React.useEffect(() => setNameInput(displayName), [displayName]);
+
+  // Ny profil: spørg én gang hvor man handler (Feature-panelet 'lokation').
+  const lokation = useLokationEnabled();
+  React.useEffect(() => {
+    if (!lokation || !user) return;
+    void shouldAskAfterSignup(user.id, user.created_at).then((ask) => {
+      if (ask) navigation.navigate('Nearby', { welcome: true });
+    });
+  }, [lokation, user, navigation]);
 
   const onSaveName = React.useCallback(async () => {
     const trimmed = nameInput.trim();

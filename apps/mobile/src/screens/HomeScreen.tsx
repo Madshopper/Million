@@ -1,4 +1,5 @@
 import React from 'react';
+import { setServerLokationEnabled } from '../location/nearby';
 import {
   ActivityIndicator,
   FlatList,
@@ -118,6 +119,7 @@ export function HomeScreen() {
         setServerStatsEnabled(data.stats_enabled);
         setServerSwipeEnabled(data.swipe_enabled);
         setServerMejeriNavnEnabled(data.mejeri_navn_enabled);
+        setServerLokationEnabled(data.lokation_enabled);
         setOfferStores(data.butiksaviser_enabled ? data.offer_stores || [] : []);
         await loadSavings();
       } catch (e) {

@@ -28,6 +28,7 @@ import { ProductDetailScreen } from '../screens/ProductDetailScreen';
 import { RecipeDetailScreen } from '../screens/RecipeDetailScreen';
 import { ScoScreen } from '../screens/ScoScreen';
 import { RouteScreen } from '../screens/RouteScreen';
+import { NearbyStoresScreen } from '../screens/NearbyStoresScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { LegalScreen } from '../screens/LegalScreen';
@@ -354,6 +355,7 @@ export function RootNavigator() {
         />
         {/* Indstillinger var en fane indtil 02-10-2026; nu åbnes de fra Profil. */}
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Indstillinger' }} />
+        <Stack.Screen name="Nearby" component={NearbyStoresScreen} options={{ title: 'Butikker nær mig' }} />
         <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: 'Feedback' }} />
         {/* Abonnement på opskrifterne, nås fra Opskrift-fanen (src/recipes/access.ts). */}
         <Stack.Screen name="RecipeAccess" component={RecipeAccessScreen} options={{ title: 'Opskrifter' }} />

@@ -26,6 +26,7 @@ export type RootStackParamList = {
   Route: undefined;
   Auth: undefined;
   Settings: undefined;
+  Nearby: { welcome?: boolean } | undefined;
   Feedback: undefined;
   RecipeAccess: undefined;
   Legal: { kind: 'terms' | 'privacy' | 'about' };

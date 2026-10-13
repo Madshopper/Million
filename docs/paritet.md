@@ -82,6 +82,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | "Find billigste" (SCO) | ✅ | ✅ | ✅ `/api/products` | ✅ | Complete |
 | Alternativer til manglende varer | ✅ | ✅ | ✅ `/api/alternatives` | ✅ | Complete |
 | Butiksrute (flere butikker) | ✅ | ✅ | – | ❌ | Complete |
+| Butikker nær mig (rækkefølge og korteste tur i butiksruten med link til Google Maps; "Vælg butikker nær mig" i Indstillinger; spørgsmål "Hvor handler du?" ved ny profil), Feature `lokation` | ✅ `static/js/lokation.js`, placering eller postnummer | ✅ `RouteOrder` + `NearbyStoresScreen`, kun postnummer | ✅ `lokation_enabled` i sidekontekst og `/api/home`; butikslisten `static/data/butikker.json` fra OpenStreetMap (`store-locations.yml`), alt regnes ud på enheden | ✅ `scripts/test-lokation.mjs`, `nearby.test.ts` | Skjult på madshopper.dk, til på dev. Appen mangler telefonens placering (kræver nyt build) *(12-10-2026)* |
 | Personlig besparelse (anbefalet butik mod dyreste på fælles varer, `compareSavingsRange`) | ✅ | ✅ | ✅ RPC `get_personal_savings` / `record_compare_savings` | ✅ `sco.test.ts` | Complete |
 
 ### Konto

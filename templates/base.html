@@ -96,6 +96,10 @@
   <script src="{{ url_for('static', filename='js/supabase.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
+  {% if lokation_enabled %}
+  {# Butikker nær mig og rækkefølgen i "Billigste butikker" (Feature-panelet 'lokation'). #}
+  <script src="{{ url_for('static', filename='js/lokation.js') }}" defer></script>
+  {% endif %}
 </head>
 
 <body>
@@ -415,6 +419,10 @@
           <label class="store-checkbox"><input type="checkbox" value="Løvbjerg" checked onchange="saveStoreDefaults()"> <span>Løvbjerg</span></label>
           <label class="store-checkbox"><input type="checkbox" value="ABC Lavpris" checked onchange="saveStoreDefaults()"> <span>ABC Lavpris</span></label>
         </div>
+        {% if lokation_enabled %}
+        {# Feature-panelet 'lokation': slår kæderne tæt på til (static/js/lokation.js). #}
+        <button type="button" class="lok-btn lok-settings-btn" onclick="window.Lokation && window.Lokation.openNearby()">Vælg butikker nær mig</button>
+        {% endif %}
       </div>
 
       <!-- BEVIDST INGEN "Notifikationer"-sektion.

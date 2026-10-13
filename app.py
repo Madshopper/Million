@@ -205,6 +205,8 @@ _EDGE_ENV_VARS = (
     'TILBUD_GUL_ENABLED',
     # Kun på staging: tilbudsavis pr. butik (_FEATURES 'butiksaviser').
     'BUTIKSAVISER_ENABLED',
+    # Kun på staging: butikker nær mig (_FEATURES 'lokation').
+    'LOKATION_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -527,6 +529,8 @@ def _inject_site_meta():
         'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
         # Butikslogoer med tilbudsavis på forsiden (Feature-panelet 'butiksaviser').
         'butiksaviser_enabled': _feature_enabled('butiksaviser'),
+        # Butikker nær mig og rækkefølgen i "Billigste butikker" (Feature-panelet 'lokation').
+        'lokation_enabled': _feature_enabled('lokation'),
         'vapid_public_key': _VAPID_PUBLIC_KEY,
         # Sandt naar SIDENS render byggede paa ufuldstaendige data (samme
         # isolate-kollision i D1-broen som saetter X-Data-Degraded-headeren,
@@ -1797,6 +1801,37 @@ _FEATURES = (
             {'kind': 'idea', 'name': 'Coop-butikkerne og 365 Discount',
              'desc': 'Tilføjes, når Coop har svaret og tilbuddene ikke '
                      'længere kommer fra Tjek.'},
+        ),
+    },
+    {
+        'key': 'lokation',
+        'name': 'Butikker nær mig',
+        'env': 'LOKATION_ENABLED',
+        'desc': 'Kalles ønske (12-10-2026): find de butikker der ligger tæt '
+                'på, slå dem til som standard, og vis rækkefølgen man skal '
+                'handle i, når kurven er delt på flere butikker. Adresserne '
+                'kommer fra OpenStreetMap (gratis). Placeringen bruges kun på '
+                'telefonen eller i browseren og bliver aldrig sendt til os. '
+                'Privatlivspolitikken får sit eget afsnit om det, når den '
+                'udgives.',
+        'app': 'Appen viser den fra den næste app-version, når den er '
+               'udgivet her. MadShopper Test har den med det samme, men kun '
+               'med postnummer, indtil appen kan bruge telefonens placering.',
+        'parts': (
+            {'kind': 'web', 'name': 'Rækkefølge i "Billigste butikker"',
+             'desc': 'Nærmeste butik af hver kæde, den korteste tur og en knap '
+                     'der åbner turen i Google Maps.'},
+            {'kind': 'web', 'name': '"Vælg butikker nær mig"',
+             'desc': 'Under Indstillinger: slår kæderne tæt på til og resten fra.'},
+            {'kind': 'web', 'name': 'Spørgsmål ved ny profil',
+             'desc': 'Lige efter man har oprettet en profil: "Hvor handler du?"'},
+            {'kind': 'job', 'name': 'Butikkernes adresser',
+             'desc': 'Hentes fra OpenStreetMap én gang om måneden '
+                     '(store-locations.yml).'},
+            {'kind': 'app', 'name': 'Rækkefølge og butikker nær mig i appen',
+             'desc': 'Samme rute og samme valg i appen, med postnummer.'},
+            {'kind': 'idea', 'name': 'Telefonens placering i appen',
+             'desc': 'Kræver en ny opbygning af appen på Mac\'en.'},
         ),
     },
 )
@@ -5443,6 +5478,8 @@ def api_home():
             'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
             # Tilbudsavis pr. butik: appen viser logoerne, når den er udgivet.
             'butiksaviser_enabled': _feature_enabled('butiksaviser'),
+            # Butikker nær mig: appen viser rute og "nær mig", når den er udgivet.
+            'lokation_enabled': _feature_enabled('lokation'),
             'offer_stores': (_offer_stores(_offer_store_counts())
                              if _feature_enabled('butiksaviser') else []),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).

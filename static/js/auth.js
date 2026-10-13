@@ -1489,6 +1489,10 @@
       syncServerSession(session);
       if (session && session.user) handleSignedIn(session.user);
       else handleSignedOut(event === 'SIGNED_OUT');
+      // Ny profil: spørg hvor man handler (Feature-panelet 'lokation').
+      if (event === 'SIGNED_IN' && session && session.user && window.Lokation) {
+        window.Lokation.afterSignIn(session.user);
+      }
     });
     // Luk modal på Escape.
     document.addEventListener('keydown', function (ev) {
