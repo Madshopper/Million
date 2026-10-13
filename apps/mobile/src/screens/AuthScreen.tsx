@@ -16,7 +16,8 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
-import { lookupPostcode, nearbyChains, useLokationEnabled } from '../location/nearby';
+import { lookupPostcode, nearbyChains, useLokationEnabled, type Pos } from '../location/nearby';
+import { canUseDeviceLocation, devicePosition } from '../location/device';
 import {
   loadStoreLocations,
   markAnsweredAtSignup,
@@ -76,6 +77,20 @@ export function AuthScreen({ navigation }: Props) {
   const lokation = useLokationEnabled();
   const { catalog, setSelected } = useStoreCatalog();
   const [postcode, setPostcode] = useState('');
+  const [devicePos, setDevicePos] = useState<Pos | null>(null);
+  const [locMsg, setLocMsg] = useState<string | null>(null);
+  const useDevice = async () => {
+    setLocMsg('Finder din placering…');
+    try {
+      const pos = await devicePosition();
+      setDevicePos(pos);
+      setPostcode('');
+      setLocMsg('Placering fundet. Vi bruger den kun til at vælge butikker og gemmer den ikke.');
+    } catch (e) {
+      setDevicePos(null);
+      setLocMsg(e instanceof Error ? e.message : 'Noget gik galt. Prøv igen.');
+    }
+  };
   useEffect(() => {
     if (lokation) void savedPostcode().then((pc) => setPostcode((cur) => cur || pc));
   }, [lokation]);
@@ -151,7 +166,15 @@ export function AuthScreen({ navigation }: Props) {
         // Butikkerne tæt på postnummeret, regnet ud på telefonen.
         let nearLabels: string[] = [];
         const pc = postcode.trim();
-        if (lokation && pc) {
+        if (lokation && devicePos) {
+          const data = await loadStoreLocations().catch(() => null);
+          if (data) {
+            const labelOf = (key: string) => catalog.find((s) => s.key === key)?.label || key;
+            nearLabels = nearbyChains(data, devicePos, catalog.map((s) => s.key))
+              .stores.filter((s) => s.near)
+              .map((s) => labelOf(s.key));
+          }
+        } else if (lokation && pc) {
           if (!/^\d{4}$/.test(pc)) {
             setError('Postnummeret skal have 4 cifre.');
             return;
@@ -273,7 +296,11 @@ export function AuthScreen({ navigation }: Props) {
               <>
                 <TextInput
                   value={postcode}
-                  onChangeText={(t) => setPostcode(t.replace(/\D/g, '').slice(0, 4))}
+                  onChangeText={(t) => {
+                    setPostcode(t.replace(/\D/g, '').slice(0, 4));
+                    setDevicePos(null);
+                    setLocMsg(null);
+                  }}
                   placeholder="Postnummer (valgfrit)"
                   placeholderTextColor={colors.textMuted}
                   accessibilityLabel="Hvor bor du? Postnummer, valgfrit"
@@ -283,8 +310,23 @@ export function AuthScreen({ navigation }: Props) {
                   maxLength={4}
                   style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, marginBottom: 4 }]}
                 />
-                <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
-                  Så slår vi de butikker til, der ligger tæt på dig. Du kan altid ændre det bagefter.
+                {canUseDeviceLocation() ? (
+                  <Pressable
+                    onPress={() => void useDevice()}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    style={[styles.btnOutline, { borderColor: colors.border, marginBottom: 6, paddingVertical: 10 }]}
+                  >
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>
+                      {devicePos ? 'Placering fundet ✓' : 'Brug min placering i stedet'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                <Text
+                  style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}
+                  accessibilityLiveRegion="polite"
+                >
+                  {locMsg ?? 'Så slår vi de butikker til, der ligger tæt på dig. Du kan altid ændre det bagefter.'}
                 </Text>
               </>
             ) : null}

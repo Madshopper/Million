@@ -214,7 +214,7 @@ const config = {
   // opdatering nogensinde ville lande.
   ...(IS_TEST_APP
     ? {
-        runtimeVersion: 'test-1',
+        runtimeVersion: 'test-2',
         updates: {
           url: 'https://u.expo.dev/61fb2d3e-805e-4d2f-9c78-5e9705d28fd8',
           requestHeaders: { 'expo-channel-name': 'test' },
@@ -253,6 +253,19 @@ const config = {
     ['expo-notifications', { color: '#059669' }],
     'expo-asset',
     'expo-apple-authentication',
+    // Butikker nær mig (Feature 'lokation', src/location/device.ts): kun mens
+    // appen er åben, og kun når man trykker "Brug min placering". Aldrig i
+    // baggrunden. Teksten er det, iPhone viser i spørgsmålet om lov.
+    [
+      'expo-location',
+      {
+        locationWhenInUsePermission:
+          'MadShopper bruger din placering til at finde de butikker, der ligger tæt på dig, og den korteste tur mellem dem. Placeringen bliver kun brugt på telefonen og bliver ikke gemt.',
+        isIosBackgroundLocationEnabled: false,
+        isAndroidBackgroundLocationEnabled: false,
+        isAndroidForegroundServiceEnabled: false,
+      },
+    ],
     // Abonnement på opskrifterne (src/recipes/access.ts): køb i appen via App Store.
     'expo-iap',
     [

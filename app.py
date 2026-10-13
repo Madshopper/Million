@@ -1815,14 +1815,16 @@ _FEATURES = (
                 'Privatlivspolitikken får sit eget afsnit om det, når den '
                 'udgives.',
         'app': 'Appen viser den fra den næste app-version, når den er '
-               'udgivet her. MadShopper Test har den med det samme, men kun '
-               'med postnummer, indtil appen kan bruge telefonens placering.',
+               'udgivet her. Telefonens placering kræver et nyt build af '
+               'MadShopper Test på Mac\'en (runtimeVersion test-2); indtil da '
+               'har testappen kun postnummer.',
         'parts': (
             {'kind': 'web', 'name': 'Rækkefølge i "Billigste butikker"',
              'desc': 'Nærmeste butik af hver kæde, den korteste tur og en knap '
                      'der åbner turen i Google Maps.'},
             {'kind': 'web', 'name': '"Vælg butikker nær mig"',
-             'desc': 'Under Indstillinger: slår kæderne tæt på til og resten fra.'},
+             'desc': 'Under Indstillinger og under profilen: slår kæderne tæt '
+                     'på til og resten fra, ud fra placering eller postnummer.'},
             {'kind': 'web', 'name': '"Hvor bor du?" når man opretter sig',
              'desc': 'Formularen spørger om postnummer eller placering ved siden '
                      'af navnet og slår butikkerne tæt på til af sig selv. '
@@ -1832,9 +1834,12 @@ _FEATURES = (
              'desc': 'Hentes fra OpenStreetMap én gang om måneden '
                      '(store-locations.yml).'},
             {'kind': 'app', 'name': 'Rækkefølge og butikker nær mig i appen',
-             'desc': 'Samme rute og samme valg i appen, med postnummer.'},
-            {'kind': 'idea', 'name': 'Telefonens placering i appen',
-             'desc': 'Kræver en ny opbygning af appen på Mac\'en.'},
+             'desc': 'Samme rute og samme valg i appen.'},
+            {'kind': 'app', 'name': 'Telefonens placering i appen',
+             'desc': 'Telefonen spørger om lov, når man trykker "Brug min '
+                     'placering" (også når man opretter sig). Har man sagt ja, '
+                     'bruger appen der hvor man er lige nu, også i en anden by. '
+                     'Kun mens appen er åben.'},
         ),
     },
 )

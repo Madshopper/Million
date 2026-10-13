@@ -254,6 +254,26 @@
     return { auto: pc };
   }
 
+  /** Har man allerede givet browseren lov, bruges placeringen af sig selv,
+   *  så det passer, også når man er et andet sted end hjemme. */
+  function autoPosition() {
+    if (!navigator.permissions || !navigator.geolocation) return Promise.resolve(null);
+    return navigator.permissions.query({ name: 'geolocation' }).then(function (st) {
+      return st.state === 'granted' ? devicePosition().catch(function () { return null; }) : null;
+    }, function () { return null; });
+  }
+
+  /** Første bud på placering, når et felt åbner: hukommelsen, så browserens
+   *  placering (hvis der er lov), ellers det gemte postnummer. */
+  function startPicker(root, picker, show) {
+    if (lastPos && lastPos.precise) { show(lastPos); return; }
+    autoPosition().then(function (pos) {
+      if (pos) { lastPos = pos; show(pos); }
+      else if (lastPos) show(lastPos);
+      else if (picker.auto) root.querySelector('[data-lok="pcform"]').requestSubmit();
+    });
+  }
+
   // ── Rækkefølge i "Billigste butikker" ──────────────────────────────────
   function renderRoute(container, labels, groupsEl) {
     var keys = labels.map(keyOf).filter(Boolean);
@@ -299,8 +319,7 @@
       }).catch(function () { result.innerHTML = '<p class="lok-msg">Butikslisten kunne ikke hentes. Prøv igen.</p>'; });
     }
     var picker = positionPicker(container.querySelector('.lok-route-picker'), show);
-    if (lastPos) show(lastPos);
-    else if (picker.auto) container.querySelector('[data-lok="pcform"]').requestSubmit();
+    startPicker(container, picker, show);
   }
 
   // ── "Vælg butikker nær mig" ────────────────────────────────────────────
@@ -354,8 +373,7 @@
       }).catch(function () { result.innerHTML = '<p class="lok-msg">Butikslisten kunne ikke hentes. Prøv igen.</p>'; });
     }
     var picker = positionPicker(wrap.querySelector('.lok-dialog-picker'), show);
-    if (lastPos) show(lastPos);
-    else if (picker.auto) wrap.querySelector('[data-lok="pcform"]').requestSubmit();
+    startPicker(wrap, picker, show);
 
     save.addEventListener('click', function () {
       var chosen = Array.prototype.map.call(result.querySelectorAll('input:checked'), function (i) { return i.value; });
