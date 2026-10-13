@@ -80,7 +80,7 @@ ALGOLIA_APP_ID = 'F9VBJLR1BK'
 ALGOLIA_KEY    = 'd4f161f51f749bdd5baf699175d5f956'
 ALGOLIA_INDEX  = 'prod_FOETEX_PRODUCTS'
 ALGOLIA_URL    = f'https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/{ALGOLIA_INDEX}/query'
-ALGOLIA_ATTRS  = ['name', 'isInCurrentLeaflet', 'gtin', 'objectID', 'brand', 'subBrand', 'manufacturer',
+ALGOLIA_ATTRS  = ['name', 'isInCurrentLeaflet', 'leafletTitle', 'gtin', 'objectID', 'brand', 'subBrand', 'manufacturer',
                   'units', 'unitsOfMeasure', 'netcontent',
                   'consumerFacingHierarchy', 'categories', 'images',
                   'productType', 'properties',
@@ -256,6 +256,10 @@ def build_rows(hits: list[dict]) -> list[dict]:
             'billede_hash': reused_hash,
             'tilbud':       tilbud,
             'multikob':     multikob or None,
+            # Avisens tilbud ("Haribo slikpose") deles af alle varianterne
+            # under det; tælles som ét tilbud på logoerne (seed-d1.py).
+            'avis_titel':   (hit.get('leafletTitle') or '').strip() or None
+                            if hit.get('isInCurrentLeaflet') else None,
         })
     enrich_billede_hashes(rows)
     return rows

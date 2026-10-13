@@ -284,6 +284,9 @@ def load_store_comparison_data(store_key: str) -> tuple:
                         # Kun Bilka/Føtex/Netto kender avisen; se app.py::
                         # _AVIS_LEAFLET_STORES. Følger med i store_matches.
                         'in_avis':     in_avis,
+                        # Avisens tilbud, som varianterne deles om (Bilka/
+                        # Føtex' leafletTitle); seed-d1.py tæller pr. titel.
+                        'avis_titel':  _clean_field(row.get('avis_titel')) if in_avis else '',
                         'multi_deal':  multi_deal,
                         'image':       str(row.get('billede_url') or ''),
                         '_image_hash': p_hash_hex,
@@ -2675,6 +2678,7 @@ def build_store_display_products(products: list, store_key: str) -> list:
                 # 'butiksaviser') ikke kunne finde dem. Læses af seed-d1.py.
                 '/product/own_sale':                  bool(p.get('is_sale')),
                 '/product/own_avis':                  bool(p.get('in_avis')),
+                '/product/own_avis_titel':            p.get('avis_titel') or '',
             })
         except Exception:
             continue
@@ -2706,6 +2710,7 @@ def _display_item_to_match(p: dict) -> dict:
         'normal_price': normal_price,
         'is_sale':      bool(is_sale),
         'in_avis':      bool(p.get('/product/own_avis')),
+        'avis_titel':   p.get('/product/own_avis_titel') or '',
         'image':        p.get('/product/imageLink', ''),
         'brand':        p.get('/product/brand', ''),
         'description':  p.get('/product/description', ''),

@@ -236,8 +236,11 @@ def fetch_products() -> list[dict]:
 # blob-størrelsen (mindre JSON-parsing i worker'en + mindre D1).
 # NB: /product/ean og store_matches 'ean' BEHOLDES nu - nutrition_candidate_keys
 # (app_support.py) slår næring op via EAN, så de skal med ud til edge/D1.
-_TOP_DROP = frozenset({"/product/image_hash", "/product/weight_grams"})
-_MATCH_DROP = frozenset({"_hash_int", "_norm_name", "_image_hash", "_weight_g", "_stk_count"})
+# own_avis_titel/avis_titel bruges kun til optællingen (_count_store_offers).
+_TOP_DROP = frozenset({"/product/image_hash", "/product/weight_grams",
+                       "/product/own_avis_titel"})
+_MATCH_DROP = frozenset({"_hash_int", "_norm_name", "_image_hash", "_weight_g", "_stk_count",
+                         "avis_titel"})
 
 
 def slim_product(p: dict) -> dict:
@@ -384,8 +387,22 @@ def _count_store_offers(stats: dict, p: dict) -> None:
                      or p.get("/product/own_sale"))) or m.get("is_sale"):
             counts[key] = counts.get(key, 0) + 1
         # Kun ugens avisvarer (Salling, tilbud='Avis'): app.py::_avis_leaflet.
-        if (own and p.get("/product/own_avis")) or m.get("in_avis"):
-            avis[key] = avis.get(key, 0) + 1
+        # Ét tilbud i avisen ("Tapas", "Haribo slikpose") dækker ofte mange
+        # varianter: Bilka havde 1.304 avisvarer men kun ~140 tilbud
+        # (13-10-2026). Varer med samme avistitel tælles derfor én gang;
+        # varer uden titel (Netto) tælles hver for sig.
+        if own and p.get("/product/own_avis"):
+            title = p.get("/product/own_avis_titel")
+        elif m.get("in_avis"):
+            title = m.get("avis_titel")
+        else:
+            continue
+        if title:
+            titles = stats.setdefault("_avis_titles", {}).setdefault(key, set())
+            if title in titles:
+                continue
+            titles.add(title)
+        avis[key] = avis.get(key, 0) + 1
 
 
 def _count_row(stats: dict, category: str, subcategory: str, is_sale: int) -> None:
