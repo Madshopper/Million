@@ -120,8 +120,10 @@ jobs:
             case "$1" in
               scraper-Bilka.yml) echo "5 6" ;;
               # Netto- og Føtex-katalog inkl. ugens tilbud (siden #83):
-              # Føtex fredag og lørdag, Netto søndag.
-              scraper-Katalog.yml) echo "5 6 7" ;;
+              # hver nat. Med kun fre-søn viste Netto tirsdag 13-10-2026
+              # stadig 200 avisvarer, som Netto selv ikke længere havde på
+              # tilbud (fx Havredrik til 12 kr, der kostede 15 kr igen).
+              # Kører ~3 min, ingen ekstra D1-skrivning.
               scraper-Spar.yml|scraper-minkobmand.yml) echo "6" ;;
               scraper-Lovbjerg.yml) echo "5" ;;
               # Lidls uge starter søndag og weekendpriserne torsdag
