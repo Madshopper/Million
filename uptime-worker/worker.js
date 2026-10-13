@@ -340,12 +340,20 @@ export async function check(env, scheduledTime = Date.now()) {
 // (sommer- eller vintertid) gør noget. Uden GH_DISPATCH_TOKEN gør den intet,
 // og GitHubs egen cron er sikkerhedsnet.
 //
-// Cache-updateren (D1-reseed) startes kl. 00:01 UTC af CACHE_CRON, ikke lige
-// efter scraperne: D1's skrivebudget nulstilles 00:00 UTC, og et reseed
-// bruger det meste af døgnets budget. Ventede dispatcheren selv til 00:00 UTC,
-// kostede det ~2 timers GitHub Actions-minutter hver nat (målt 11-10-2026).
+// Cache-updateren (D1-reseed) startes lige efter 00:00 UTC, ikke lige efter
+// scraperne: D1's skrivebudget nulstilles 00:00 UTC, og et reseed bruger det
+// meste af døgnets budget. Ventede dispatcheren selv til 00:00 UTC, kostede
+// det ~2 timers GitHub Actions-minutter hver nat (målt 11-10-2026).
+//
+// Den startes af 5-minutters-cron'en, ikke af sin egen: en egen cron "1 0 * * *"
+// blev aldrig kørt af Cloudflare natten til 13-10-2026 (ingen kørsel i
+// workersInvocationsScheduled, mens 22:01 og 23:01 kørte), og siden blev ikke
+// opdateret. Nu prøver hvert tick fra 00:00 til 00:30 UTC, til én er lykkedes.
+// KV-nøglen CACHE_KEY husker datoen, så det sker én gang pr. døgn; en dublet
+// der slipper igennem, stoppes af nightly-dispatcher (concurrency + højst én pr. UTC-døgn).
 const NIGHT_CRONS = ["1 22 * * *", "1 23 * * *"];
-const CACHE_CRON = "1 0 * * *";
+const CACHE_KEY = "nat_cache_v1";
+const CACHE_WINDOW_MIN = 30;
 const DISPATCH_URL =
   "https://api.github.com/repos/Madshopper/Million/actions/workflows/nightly-dispatcher.yml/dispatches";
 
@@ -358,6 +366,22 @@ function danishHour(ms) {
 export async function startNight(env, scheduledTime = Date.now()) {
   if (danishHour(scheduledTime) !== "00") return "ikke midnat dansk tid";
   return dispatch(env, "nat");
+}
+
+export async function startCache(env, scheduledTime = Date.now()) {
+  const when = new Date(scheduledTime);
+  if (when.getUTCHours() !== 0 || when.getUTCMinutes() >= CACHE_WINDOW_MIN) return null;
+  const today = when.toISOString().slice(0, 10);
+  if ((await env.STATE.get(CACHE_KEY)) === today) return null;
+  // Datoen skrives før kaldet, så en dublet af samme tick ikke også starter.
+  // Fejler kaldet, slettes den igen, og næste tick prøver.
+  await env.STATE.put(CACHE_KEY, today);
+  try {
+    return await dispatch(env, "cache-fallback");
+  } catch (err) {
+    await env.STATE.delete(CACHE_KEY);
+    throw err;
+  }
 }
 
 async function dispatch(env, slot) {
@@ -389,13 +413,10 @@ export default {
       ));
       return;
     }
-    if (event.cron === CACHE_CRON) {
-      ctx.waitUntil(dispatch(env, "cache-fallback").then(
-        (r) => console.log("nat-cache:", r),
-        (err) => console.error("nat-cache: kunne ikke starte cache-updater:", String(err)),
-      ));
-      return;
-    }
+    ctx.waitUntil(startCache(env, event.scheduledTime).then(
+      (r) => r && console.log("nat-cache:", r),
+      (err) => console.error("nat-cache: kunne ikke starte cache-updater:", String(err)),
+    ));
     ctx.waitUntil(check(env, event.scheduledTime).then((r) => {
       const failing = Object.keys(r.down);
       if (failing.length) console.error("uptime: nede:", JSON.stringify(r.results));

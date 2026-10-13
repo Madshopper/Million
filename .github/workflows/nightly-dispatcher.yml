@@ -10,15 +10,15 @@ name: Nightly Dispatcher
 # 00:01 vintertid) gør intet, hvis natten allerede er startet; næring kører
 # 03:00 / 02:00.
 #
-# CACHE-UPDATEREN KL. 00:01 UTC (Kalle, 10-10-2026: siden skal opdateres så
+# CACHE-UPDATEREN LIGE EFTER 00:00 UTC (Kalle, 10-10-2026: siden skal opdateres så
 # hurtigt som muligt). Den må højst køre én gang pr. UTC-døgn (D1's
-# skrivebudget, se CLAUDE.md), så Cloudflare starter slot cache-fallback kl.
-# 00:01 UTC (02:01 dansk sommertid / 01:01 vintertid), og siden er opdateret
+# skrivebudget, se CLAUDE.md), så Cloudflare starter slot cache-fallback lige
+# efter 00:00 UTC (02:01 dansk sommertid / 01:01 vintertid), og siden er opdateret
 # ca. et kvarter efter. Kommer GitHubs scraper-cron først efter midnat UTC
 # (sikkerhedsnettet), venter slottet på scraperne og starter den straks. Før
 # 10-10-2026 havde den sin egen GitHub-cron og blev opdateret ca. 06:25.
-# Cron-slottet cache-fallback gør kun noget, hvis cache-updateren ikke har
-# kørt de sidste 20 t.
+# Slottet cache-fallback gør kun noget, hvis cache-updateren ikke allerede
+# har kørt i dette UTC-døgn.
 #
 # BUTIKSDAGE (Kalle, 09-10-2026, for at spare GitHub Actions-minutter): hver
 # butik hentes kun de nætter, hvor dens nye avis/tilbud kommer (målt i
@@ -54,6 +54,12 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     timeout-minutes: 50
+    # To starter af samme slot lige efter hinanden (fx en dublet fra
+    # Cloudflare) kører efter hinanden, så den anden ser at cache-updateren
+    # allerede er startet.
+    concurrency:
+      group: nightly-${{ inputs.slot || github.event.schedule }}
+      cancel-in-progress: false
     steps:
       - name: Bestem slot ud fra cron-linjen
         id: slot
@@ -175,14 +181,14 @@ jobs:
           # reseed bruger det meste. Har cache-updateren allerede kørt i dette
           # UTC-døgn (det normale, når natten starter kl. 00:01 dansk tid), må
           # den ikke køre igen før 00:00 UTC. Så startes den ikke herfra:
-          # Cloudflare (uptime-worker, CACHE_CRON) starter slot cache-fallback
-          # kl. 00:01 UTC. At vente her kostede ~2 timers Actions-minutter
+          # Cloudflare (uptime-worker, startCache) starter slot cache-fallback
+          # lige efter 00:00 UTC. At vente her kostede ~2 timers Actions-minutter
           # hver nat (målt 11-10-2026). Kommer GitHubs cron først efter
           # midnat UTC (sikkerhedsnettet), startes den straks.
           SIDST=$(gh run list -R "$REPO" -w cache-updater.yml -L 1 \
             --json createdAt --jq '.[0].createdAt // ""' || echo "")
           if [ "${SIDST:0:10}" = "$(date -u +%F)" ]; then
-            echo "Cache-updater kørte allerede i dag (UTC, $SIDST) - Cloudflare starter den kl. 00:01 UTC"
+            echo "Cache-updater kørte allerede i dag (UTC, $SIDST) - Cloudflare starter den lige efter 00:00 UTC"
             exit 0
           fi
           # Venter til alle nattens scrapere er færdige (højst 40 min), så
@@ -216,14 +222,14 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           REPO: ${{ github.repository }}
         run: |
-          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
-            SIDST=$(gh run list -R "$REPO" -w cache-updater.yml -L 1 \
-              --json createdAt --jq '.[0].createdAt // ""')
-            if [ -n "$SIDST" ] && \
-               [ $(( $(date +%s) - $(date -d "$SIDST" +%s) )) -lt $(( 20 * 3600 )) ]; then
-              echo "Cache-updater kørte allerede $SIDST - intet at gøre"
-              exit 0
-            fi
+          # Højst én cache-updater pr. UTC-døgn (D1's skrivebudget), også når
+          # Cloudflare starter slottet. Vil man tvinge en ekstra kørsel, startes
+          # cache-updater.yml direkte.
+          SIDST=$(gh run list -R "$REPO" -w cache-updater.yml -L 1 \
+            --json createdAt --jq '.[0].createdAt // ""')
+          if [ "${SIDST:0:10}" = "$(date -u +%Y-%m-%d)" ]; then
+            echo "Cache-updater kørte allerede $SIDST (samme UTC-døgn) - intet at gøre"
+            exit 0
           fi
           gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "$REPO"
 
