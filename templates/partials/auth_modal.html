@@ -50,6 +50,19 @@
         <input type="text" id="auth-name" autocomplete="nickname" maxlength="40" placeholder="fx Kasper">
         <span class="auth-hint">Vises når I deler kurv, så andre kan se hvem der er med</span>
       </label>
+      {% if lokation_enabled %}
+      <!-- Feature 'lokation': vælger butikkerne tæt på, når kontoen er oprettet
+           (static/js/lokation.js). Valgfrit; placeringen sendes ikke til os. -->
+      <div class="auth-field" id="auth-location-row" style="display:none;">
+        <label for="auth-postcode">Hvor bor du? <span class="auth-optional">(valgfrit)</span></label>
+        <div class="lok-signup">
+          <input type="text" id="auth-postcode" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="postal-code" placeholder="Postnummer">
+          <span class="lok-or">eller</span>
+          <button type="button" class="lok-btn" data-lok="signup-gps">Brug min placering</button>
+        </div>
+        <span class="auth-hint lok-signup-msg" role="status" aria-live="polite">Så slår vi de butikker til, der ligger tæt på dig. Du kan altid ændre det bagefter.</span>
+      </div>
+      {% endif %}
       <div class="auth-field" id="auth-turnstile-row" style="display:none;">
         <div id="auth-turnstile-widget" class="cf-turnstile" data-sitekey="0x4AAAAAAD_TUldIm22rh6Lz"
              data-action="turnstile-spin-v1"></div>
@@ -72,7 +85,7 @@
       <a href="{{ url_for('terms_of_service') }}">vilkår</a>
       og
       <a href="{{ url_for('privacy_policy') }}">privatlivspolitik</a>.
-      Vi gemmer kun din email, dit valgte navn og din kurv.
+      Vi gemmer kun din email, dit valgte navn og din kurv{% if lokation_enabled %}. Dit postnummer bliver på din enhed{% endif %}.
     </p>
   </div>
 

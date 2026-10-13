@@ -42,11 +42,29 @@ export async function savePostcode(pc: string): Promise<void> {
   }
 }
 
-/** Sand første gang for en ny konto; derefter falsk. */
+// Svaret i opret-konto-formularen. Sættes før signUp, fordi den nye session
+// (og ProfileScreens spørgsmål) kan komme før signUp selv er færdig.
+const ANSWERED_KEY = `${ASKED_KEY}:ny`;
+
+export async function markAnsweredAtSignup(on: boolean): Promise<void> {
+  try {
+    if (on) await AsyncStorage.setItem(ANSWERED_KEY, '1');
+    else await AsyncStorage.removeItem(ANSWERED_KEY);
+  } catch {
+    // ingen lagring - så spørger vi bare efter login
+  }
+}
+
+/** Sand første gang for en ny konto, medmindre man svarede i formularen; derefter falsk. */
 export async function shouldAskAfterSignup(userId: string, createdAt?: string): Promise<boolean> {
   if (!createdAt || Date.now() - new Date(createdAt).getTime() > 15 * 60 * 1000) return false;
   const key = `${ASKED_KEY}:${userId}`;
   try {
+    if (await AsyncStorage.getItem(ANSWERED_KEY)) {
+      await AsyncStorage.removeItem(ANSWERED_KEY);
+      await AsyncStorage.setItem(key, '1');
+      return false;
+    }
     if (await AsyncStorage.getItem(key)) return false;
     await AsyncStorage.setItem(key, '1');
   } catch {

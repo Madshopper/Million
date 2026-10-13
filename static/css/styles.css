@@ -6787,3 +6787,9 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
 .lok-chain span:first-of-type { flex: 1; }
 .lok-chain .lok-dist { display: inline; }
 .lok-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+
+/* "Hvor bor du?" i opret-konto-formularen */
+.lok-signup { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.auth-field .lok-signup input { width: 8em; flex: 0 0 auto; }
+.lok-signup .lok-btn { padding: 9px 12px; }
+.auth-optional { font-weight: 400; color: var(--gray-500); }

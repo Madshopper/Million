@@ -16,6 +16,14 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
+import { lookupPostcode, nearbyChains, useLokationEnabled } from '../location/nearby';
+import {
+  loadStoreLocations,
+  markAnsweredAtSignup,
+  savedPostcode,
+  savePostcode,
+} from '../location/storage';
+import { useStoreCatalog } from '../stores/StoreCatalogContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Auth'>;
 
@@ -63,6 +71,14 @@ export function AuthScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  // "Hvor bor du?" (Feature 'lokation'): vælger butikkerne tæt på, når kontoen
+  // er oprettet. Valgfrit; postnummeret bliver på telefonen.
+  const lokation = useLokationEnabled();
+  const { catalog, setSelected } = useStoreCatalog();
+  const [postcode, setPostcode] = useState('');
+  useEffect(() => {
+    if (lokation) void savedPostcode().then((pc) => setPostcode((cur) => cur || pc));
+  }, [lokation]);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -132,7 +148,36 @@ export function AuthScreen({ navigation }: Props) {
           setError('Navn er påkrævet');
           return;
         }
+        // Butikkerne tæt på postnummeret, regnet ud på telefonen.
+        let nearLabels: string[] = [];
+        const pc = postcode.trim();
+        if (lokation && pc) {
+          if (!/^\d{4}$/.test(pc)) {
+            setError('Postnummeret skal have 4 cifre.');
+            return;
+          }
+          const data = await loadStoreLocations().catch(() => null);
+          if (data) {
+            const pos = lookupPostcode(data, pc);
+            if (!pos) {
+              setError(`Vi kender ikke postnummeret ${pc}.`);
+              return;
+            }
+            void savePostcode(pc);
+            const labelOf = (key: string) => catalog.find((s) => s.key === key)?.label || key;
+            nearLabels = nearbyChains(data, pos, catalog.map((s) => s.key))
+              .stores.filter((s) => s.near)
+              .map((s) => labelOf(s.key));
+          }
+        }
+        // Før signUp: den nye session (og ProfileScreens spørgsmål) kan komme
+        // før signUp selv er færdig.
+        if (nearLabels.length) await markAnsweredAtSignup(true);
         const res = await signUpEmail(email.trim(), password, displayName.trim());
+        if (nearLabels.length) {
+          if (res.error) void markAnsweredAtSignup(false);
+          else setSelected(nearLabels);
+        }
         if (res.error) setError(res.error);
         else if (res.needsConfirmation) setInfo('Tjek din mail for at bekræfte oprettelsen.');
         // Session med det samme = brugeren ER logget ind. Luk skærmen, som
@@ -224,6 +269,25 @@ export function AuthScreen({ navigation }: Props) {
               accessibilityLabel="Dit navn"
               style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
             />
+            {lokation ? (
+              <>
+                <TextInput
+                  value={postcode}
+                  onChangeText={(t) => setPostcode(t.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="Postnummer (valgfrit)"
+                  placeholderTextColor={colors.textMuted}
+                  accessibilityLabel="Hvor bor du? Postnummer, valgfrit"
+                  keyboardType="number-pad"
+                  textContentType="postalCode"
+                  autoComplete="postal-code"
+                  maxLength={4}
+                  style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, marginBottom: 4 }]}
+                />
+                <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
+                  Så slår vi de butikker til, der ligger tæt på dig. Du kan altid ændre det bagefter.
+                </Text>
+              </>
+            ) : null}
             <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}>
               Et kort sikkerhedstjek åbner i din browser, når du trykker "Opret konto".
             </Text>

@@ -1823,8 +1823,11 @@ _FEATURES = (
                      'der åbner turen i Google Maps.'},
             {'kind': 'web', 'name': '"Vælg butikker nær mig"',
              'desc': 'Under Indstillinger: slår kæderne tæt på til og resten fra.'},
-            {'kind': 'web', 'name': 'Spørgsmål ved ny profil',
-             'desc': 'Lige efter man har oprettet en profil: "Hvor handler du?"'},
+            {'kind': 'web', 'name': '"Hvor bor du?" når man opretter sig',
+             'desc': 'Formularen spørger om postnummer eller placering ved siden '
+                     'af navnet og slår butikkerne tæt på til af sig selv. '
+                     'Springer man feltet over (eller bruger Google/Apple), '
+                     'spørger vi én gang lige efter: "Hvor handler du?"'},
             {'kind': 'job', 'name': 'Butikkernes adresser',
              'desc': 'Hentes fra OpenStreetMap én gang om måneden '
                      '(store-locations.yml).'},

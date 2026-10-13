@@ -3,8 +3,10 @@
  *
  * - "Billigste butikker" viser rækkefølgen man bør køre i, og et link der
  *   åbner hele turen i Google Maps.
- * - "Vælg butikker nær mig" under Indstillinger, og én gang lige efter man
- *   har oprettet en profil: slår de kæder til, der ligger tæt på.
+ * - "Vælg butikker nær mig" under Indstillinger, og feltet "Hvor bor du?",
+ *   når man opretter en konto: slår de kæder til, der ligger tæt på. Springer
+ *   man feltet over (eller opretter sig med Google/Apple), spørger vi én gang
+ *   lige efter.
  *
  * Alt regnes ud her i browseren ud fra static/data/butikker.json
  * (scripts/build-store-locations.py, OpenStreetMap). Placeringen sendes aldrig
@@ -367,12 +369,93 @@
     });
   }
 
-  /** Kaldes af auth.js ved login: spørg én gang, når kontoen lige er oprettet. */
+  /** Slår de kæder til, der ligger tæt på pos (samme vej som kontakterne
+   *  under Indstillinger, script.js::saveStoreDefaults). Giver labels tilbage. */
+  function applyNearby(data, pos) {
+    var keys = storesList().map(function (s) { return s.key; });
+    var chosen = nearbyChains(data, pos, keys).stores
+      .filter(function (s) { return s.near; })
+      .map(function (s) { return labelOf(s.key); });
+    if (!chosen.length) return [];
+    document.querySelectorAll('.store-checkbox input[type="checkbox"]').forEach(function (cb) {
+      cb.checked = chosen.indexOf(cb.value) !== -1;
+    });
+    if (typeof saveStoreDefaults === 'function') saveStoreDefaults();
+    return chosen;
+  }
+
+  // ── Feltet "Hvor bor du?" i opret-konto-formularen ─────────────────────
+  var signupPos = null;        // fra "Brug min placering", kun i hukommelsen
+
+  function signupField() {
+    var row = document.getElementById('auth-location-row');
+    if (!row || row.dataset.lokReady) return;
+    row.dataset.lokReady = '1';
+    var input = row.querySelector('#auth-postcode');
+    var gps = row.querySelector('[data-lok="signup-gps"]');
+    var note = row.querySelector('.lok-signup-msg');
+    if (input && !input.value) input.value = savedPostcode();
+    var hint = note.textContent;
+    if (input) input.addEventListener('input', function () { signupPos = null; note.textContent = hint; });
+    if (gps) gps.addEventListener('click', function () {
+      note.textContent = 'Finder din placering…';
+      devicePosition().then(function (pos) {
+        signupPos = pos;
+        if (input) input.value = '';
+        note.textContent = 'Placering fundet. Vi bruger den kun til at vælge butikker og gemmer den ikke.';
+      }).catch(function (e) { signupPos = null; note.textContent = e.message; });
+    });
+  }
+
+  /** Før kontoen oprettes: placeringen eller postnummeret, null hvis feltet
+   *  er tomt. Afviser med en tekst til brugeren, hvis postnummeret er ukendt. */
+  function signupPosition() {
+    if (signupPos) return Promise.resolve(signupPos);
+    var input = document.getElementById('auth-postcode');
+    var v = input ? input.value.trim() : '';
+    if (!v) return Promise.resolve(null);
+    if (!/^\d{4}$/.test(v)) return Promise.reject(new Error('Postnummeret skal have 4 cifre.'));
+    return loadData().then(function (data) {
+      var pos = lookupPostcode(data, v);
+      if (!pos) throw new Error('Vi kender ikke postnummeret ' + v + '.');
+      savePostcode(v);
+      return pos;
+    }, function () { return null; });   // listen kunne ikke hentes: opret kontoen alligevel
+  }
+
+  // Supabase melder SIGNED_IN (og dermed afterSignIn) før signUp() selv er
+  // færdig, så "har svaret i formularen" skal sættes inden kaldet.
+  var ANSWERED_KEY = ASKED_KEY + ':ny';
+  function markAnswered(on) {
+    try {
+      localStorage.removeItem(ANSWERED_KEY); sessionStorage.removeItem(ANSWERED_KEY);
+      if (on) (consent() ? localStorage : sessionStorage).setItem(ANSWERED_KEY, '1');
+    } catch (e) { /* ingen lagring */ }
+  }
+
+  /** Kaldes lige før signUp(): spørg ikke igen bagefter, når der er svaret. */
+  function beforeSignup(pos) { markAnswered(!!pos); }
+
+  /** Efter signUp(): slå butikkerne nær pos til. ok=false: kontoen blev ikke oprettet. */
+  function afterSignup(pos, ok) {
+    if (!pos || !ok) { markAnswered(false); return Promise.resolve([]); }
+    lastPos = pos;
+    signupPos = null;
+    return loadData().then(function (data) { return applyNearby(data, pos); }).catch(function () { return []; });
+  }
+
+  /** Kaldes af auth.js ved login: spørg én gang, når kontoen lige er oprettet
+   *  og man ikke allerede svarede i formularen. */
   function afterSignIn(user) {
     if (!user || !user.created_at) return;
     if (Date.now() - new Date(user.created_at).getTime() > NEW_ACCOUNT_MS) return;
     var flag = ASKED_KEY + ':' + user.id;
     try {
+      if (localStorage.getItem(ANSWERED_KEY) || sessionStorage.getItem(ANSWERED_KEY)) {
+        markAnswered(false);
+        (consent() ? localStorage : sessionStorage).setItem(flag, '1');
+        return;
+      }
       if (localStorage.getItem(flag) || sessionStorage.getItem(flag)) return;
       (consent() ? localStorage : sessionStorage).setItem(flag, '1');
     } catch (e) { /* uden lagring spørger vi bare */ }
@@ -387,6 +470,10 @@
     renderRoute: renderRoute,
     openNearby: openNearby,
     afterSignIn: afterSignIn,
+    signupField: signupField,
+    signupPosition: signupPosition,
+    beforeSignup: beforeSignup,
+    afterSignup: afterSignup,
     // Til test (scripts/test-lokation.mjs).
     _planRoute: planRoute, _nearbyChains: nearbyChains, _lookupPostcode: lookupPostcode, _mapsUrl: mapsUrl,
   };
