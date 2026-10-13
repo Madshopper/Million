@@ -10,8 +10,9 @@
  *
  * Alt regnes ud her i browseren ud fra static/data/butikker.json
  * (scripts/build-store-locations.py, OpenStreetMap). Placeringen sendes aldrig
- * til madshopper.dk og gemmes ikke. Et postnummer, man selv skriver, gemmes
- * kun i browseren og kun med funktionelle cookies.
+ * til madshopper.dk og gemmes ikke. Et postnummer, man selv skriver, gemmes på
+ * kontoen, når man er logget ind, og ellers kun i browseren med funktionelle
+ * cookies.
  *
  * Samme regler som appens apps/mobile/src/location/nearby.ts. Hold dem ens.
  */
@@ -189,10 +190,17 @@
   function consent() {
     return typeof harFunktioneltSamtykke === 'function' && harFunktioneltSamtykke();
   }
+  // Postnummeret gemmes på kontoen, når man er logget ind (auth.js::AuthBridge),
+  // og ellers kun i browseren med funktionelle cookies.
+  function bridge() { return window.AuthBridge && window.AuthBridge.getUser && window.AuthBridge.getUser() ? window.AuthBridge : null; }
   function savedPostcode() {
-    try { return localStorage.getItem(PC_KEY) || ''; } catch (e) { return ''; }
+    var b = bridge();
+    var acc = b && b.getPostcode ? b.getPostcode() : '';
+    try { return localStorage.getItem(PC_KEY) || acc; } catch (e) { return acc; }
   }
   function savePostcode(pc) {
+    var b = bridge();
+    if (b && b.savePostcode) b.savePostcode(pc);
     if (!consent()) return;
     try { localStorage.setItem(PC_KEY, pc); } catch (e) { /* ingen lagring */ }
   }

@@ -85,8 +85,9 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
           bruger appen din placering, mens den er åben, til at finde de nærmeste butikker og
           den korteste tur, aldrig i baggrunden. Placeringen bliver kun brugt på telefonen og
           bliver hverken gemt eller sendt til os. Du kan altid tage lov tilbage under
-          telefonens Indstillinger. Skriver du i stedet dit postnummer, gemmes det kun på
-          telefonen.
+          telefonens Indstillinger. Skriver du i stedet dit postnummer, gemmes det på
+          telefonen og, når du er logget ind, på din konto, så du ikke skal skrive det igen.
+          Det slettes sammen med kontoen.
           Trykker du "Åbn turen i Google Maps", sendes turens punkter til Google. Butikkernes
           adresser kommer fra OpenStreetMap (© OpenStreetMap-bidragydere).
         </Paragraph>

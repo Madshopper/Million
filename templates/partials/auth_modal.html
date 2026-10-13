@@ -60,7 +60,7 @@
           <span class="lok-or">eller</span>
           <button type="button" class="lok-btn" data-lok="signup-gps">Brug min placering</button>
         </div>
-        <span class="auth-hint lok-signup-msg" role="status" aria-live="polite">Så slår vi de butikker til, der ligger tæt på dig. Du kan altid ændre det bagefter.</span>
+        <span class="auth-hint lok-signup-msg" role="status" aria-live="polite">Så slår vi de butikker til, der ligger tæt på dig. Postnummeret gemmes på din konto, så du ikke skal skrive det igen. Din placering gemmes ikke.</span>
       </div>
       {% endif %}
       <div class="auth-field" id="auth-turnstile-row" style="display:none;">
@@ -85,7 +85,7 @@
       <a href="{{ url_for('terms_of_service') }}">vilkår</a>
       og
       <a href="{{ url_for('privacy_policy') }}">privatlivspolitik</a>.
-      Vi gemmer kun din email, dit valgte navn og din kurv{% if lokation_enabled %}. Dit postnummer bliver på din enhed{% endif %}.
+      Vi gemmer kun din email, dit valgte navn{% if lokation_enabled %}, dit postnummer, hvis du skriver det,{% endif %} og din kurv.
     </p>
   </div>
 

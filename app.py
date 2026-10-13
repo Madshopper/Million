@@ -1812,6 +1812,8 @@ _FEATURES = (
                 'handle i, når kurven er delt på flere butikker. Adresserne '
                 'kommer fra OpenStreetMap (gratis). Placeringen bruges kun på '
                 'telefonen eller i browseren og bliver aldrig sendt til os. '
+                'Et postnummer, man selv skriver, gemmes på kontoen (Kalle '
+                '13-10-2026), så det følger med til en ny telefon. '
                 'Privatlivspolitikken får sit eget afsnit om det, når den '
                 'udgives.',
         'app': 'Appen viser den fra den næste app-version, når den er '

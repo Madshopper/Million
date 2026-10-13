@@ -4,6 +4,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { env } from '../config/env';
+import { getSupabase } from '../auth/supabase';
 import type { StoreLocations } from './nearby';
 
 const PC_KEY = 'lokation_postnummer';
@@ -26,11 +27,24 @@ export function loadStoreLocations(): Promise<StoreLocations> {
   return cache;
 }
 
-export async function savedPostcode(): Promise<string> {
+// Postnummeret gemmes også på kontoen (user_metadata.postnummer, ligesom
+// navnet), når man er logget ind: så følger det med til en ny telefon og
+// slettes sammen med kontoen. Telefonens placering gemmes aldrig.
+async function accountPostcode(): Promise<string> {
   try {
-    return (await AsyncStorage.getItem(PC_KEY)) || '';
+    const { data } = (await getSupabase()?.auth.getSession()) ?? { data: { session: null } };
+    const pc = data.session?.user?.user_metadata?.postnummer;
+    return typeof pc === 'string' && /^\d{4}$/.test(pc) ? pc : '';
   } catch {
     return '';
+  }
+}
+
+export async function savedPostcode(): Promise<string> {
+  try {
+    return (await AsyncStorage.getItem(PC_KEY)) || (await accountPostcode());
+  } catch {
+    return accountPostcode();
   }
 }
 
@@ -39,6 +53,15 @@ export async function savePostcode(pc: string): Promise<void> {
     await AsyncStorage.setItem(PC_KEY, pc);
   } catch {
     // ingen lagring - så spørger vi bare igen
+  }
+  try {
+    const sb = getSupabase();
+    const { data } = (await sb?.auth.getSession()) ?? { data: { session: null } };
+    if (sb && data.session && data.session.user.user_metadata?.postnummer !== pc) {
+      await sb.auth.updateUser({ data: { postnummer: pc } });
+    }
+  } catch {
+    // prøver igen næste gang
   }
 }
 

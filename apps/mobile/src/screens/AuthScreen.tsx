@@ -196,7 +196,13 @@ export function AuthScreen({ navigation }: Props) {
         // Før signUp: den nye session (og ProfileScreens spørgsmål) kan komme
         // før signUp selv er færdig.
         if (nearLabels.length) await markAnsweredAtSignup(true);
-        const res = await signUpEmail(email.trim(), password, displayName.trim());
+        const res = await signUpEmail(
+          email.trim(),
+          password,
+          displayName.trim(),
+          // Kun det postnummer, man selv har skrevet; placeringen gemmes aldrig.
+          lokation && !devicePos && /^\d{4}$/.test(postcode.trim()) ? postcode.trim() : undefined,
+        );
         if (nearLabels.length) {
           if (res.error) void markAnsweredAtSignup(false);
           else setSelected(nearLabels);
@@ -326,7 +332,7 @@ export function AuthScreen({ navigation }: Props) {
                   style={{ color: colors.textMuted, fontSize: 12, marginBottom: 12 }}
                   accessibilityLiveRegion="polite"
                 >
-                  {locMsg ?? 'Så slår vi de butikker til, der ligger tæt på dig. Du kan altid ændre det bagefter.'}
+                  {locMsg ?? 'Så slår vi de butikker til, der ligger tæt på dig. Postnummeret gemmes på din konto, så du ikke skal skrive det igen. Din placering gemmes ikke.'}
                 </Text>
               </>
             ) : null}
