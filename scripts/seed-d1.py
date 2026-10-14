@@ -385,8 +385,20 @@ def _count_store_offers(stats: dict, p: dict) -> None:
         own = store == cfg["label"]
         if (own and (p.get("/product/sale_price") is not None
                      or p.get("/product/own_sale"))) or m.get("is_sale"):
+            # Remas data kender ikke avisens tilbud, kun varianterne: 257
+            # tilbudsvarer, men ~140 tilbud i Remas avis (14-10-2026). Samme
+            # mærke til samme tilbudspris er ét tilbud ("Tex Mex tortilla
+            # chips, 3 slags, 5 kr"); det gav 155 for 275 varer.
+            if key == "rema" and own:
+                group = (p.get("/product/sale_price"),
+                         str(p.get("/product/brand") or "").split(",")[0].strip().lower())
+                seen = stats.setdefault("_rema_offers", set())
+                if group in seen:
+                    continue  # Rema har ingen avis-optælling nedenfor
+                seen.add(group)
             counts[key] = counts.get(key, 0) + 1
-        # Kun ugens avisvarer (Salling, tilbud='Avis'): app.py::_avis_leaflet.
+        # Kun ugens avisvarer (Salling og Dagrofa, tilbud='Avis'):
+        # app.py::_avis_leaflet.
         # Ét tilbud i avisen ("Tapas", "Haribo slikpose") dækker ofte mange
         # varianter: Bilka havde 1.304 avisvarer men kun ~140 tilbud
         # (13-10-2026). Varer med samme avistitel tælles derfor én gang;
