@@ -54,8 +54,8 @@ export function RouteOrder({
         Hvilken rækkefølge?
       </Text>
       <Text style={{ color: colors.textMuted, marginVertical: 6 }}>
-        Skriv dit postnummer, så finder vi de nærmeste butikker og den korteste tur. Det gemmes kun på
-        din telefon.
+        Skriv dit postnummer, så finder vi de nærmeste butikker og den korteste tur. Er du logget ind,
+        gemmes postnummeret på din konto. Din placering gemmes ikke.
       </Text>
       <PostcodePicker onPos={(p) => void onPos(p)} />
       {msg ? <Text style={{ color: colors.textMuted, marginTop: 8 }}>{msg}</Text> : null}

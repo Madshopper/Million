@@ -62,7 +62,7 @@ export function NearbyStoresScreen() {
         {welcome
           ? 'Så viser vi kun priser fra de butikker, der ligger tæt på dig. Du kan altid ændre det under Indstillinger.'
           : 'Vi slår de butikker til, der ligger tæt på dig, og resten fra. Du kan stadig ændre det bagefter.'}{' '}
-        Postnummeret gemmes kun på din telefon.
+        Er du logget ind, gemmes postnummeret på din konto. Din placering gemmes ikke.
       </Text>
       <PostcodePicker onPos={(p) => void onPos(p)} />
       {msg ? <Text style={{ color: colors.textMuted, marginTop: 8 }}>{msg}</Text> : null}
