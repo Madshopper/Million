@@ -4,7 +4,8 @@
  * Samme regler som hjemmesidens static/js/lokation.js. Hold dem ens.
  * Butikslisten er static/data/butikker.json (OpenStreetMap, se
  * scripts/build-store-locations.py). Alt regnes ud på telefonen; placeringen
- * og postnummeret sendes aldrig til os. Postnummeret gemmes kun på telefonen.
+ * sendes aldrig til os. Et postnummer, man selv skriver, gemmes på kontoen,
+ * når man er logget ind (storage.ts), og ellers kun på telefonen.
  */
 import { useSyncExternalStore } from 'react';
 
