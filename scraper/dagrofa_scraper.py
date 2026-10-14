@@ -34,6 +34,7 @@ STORES = {
         'normal_prices_file': 'spar_normal_prices.json',
         'api_origin': 'https://longjohnapi.azurewebsites.net',
         'merchant_id': 1222,
+        'avis': ('https://ugensavis.spar.dk/', 'SPARnsteuge/'),
     },
     'meny': {
         'base_url': 'https://roenne.meny.dk/produkter',
@@ -41,6 +42,7 @@ STORES = {
         'normal_prices_file': 'meny_normal_prices.json',
         'api_origin': 'https://longjohnapi-meny.azurewebsites.net',
         'merchant_id': 558155,
+        'avis': ('https://ugensavis.meny.dk/', 'MENYnsteuge/'),
     },
     'mk': {
         'base_url': 'https://hollufpile.minkobmand.dk/produkter',
@@ -48,12 +50,14 @@ STORES = {
         'normal_prices_file': 'mk_normal_prices.json',
         'api_origin': 'https://longjohnapi.azurewebsites.net',
         'merchant_id': 769,
+        'avis': ('https://ugensavis.xn--minkbmand-o8a.dk/', 'MKnsteuge/'),
     },
 }
 
 # Sættes af run() - bruges af API-vejen (scrape_via_api)
 API_ORIGIN = ""
 MERCHANT_ID = 0
+AVIS_URLS: tuple = ()  # (denne uges avis, næste uges sti), sættes af run()
 
 # Sættes af run() - én butik pr. proces, præcis som de gamle enkeltstående scripts
 BASE_URL = ""
@@ -714,9 +718,93 @@ def _fmt_kr(v):
     return f"{v:.2f}".replace(".", ",")
 
 
+# ── Ugens avis (iPaper på kædens eget domæne) ────────────────────────────────
+# Webshoppens rabatter er langt flere end avisens: Meny Rønne havde 1.156
+# madvarer med rabat, men kun 254 af dem stod i avisen (14-10-2026). Resten
+# er butikkens egne og faste tilbud. Avisen ligger som iPaper på
+# ugensavis.<kæde>.dk, og dens "berigelser" fortæller præcis hvilke varer
+# (EAN) der er med, og under hvilket tilbud: type 6 er et tilbud med flere
+# varianter (alttext = tilbuddets titel), type 13 er én vare (productId =
+# EAN), med parentid når den hører under et type 6-tilbud.
+_AVIS_ENRICH_RE = re.compile(
+    r'https://cdn\.ipaper\.io/iPaper/Papers/[^"\s]*?Enrichments[^"\s]*?\.json\?[^"\s]*')
+
+
+def _fetch_avis_edition(url):
+    """{ean: (tilbudstitel, avispris)} for én udgave af avisen."""
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                             "AppleWebKit/537.36 (KHTML, like Gecko) "
+                             "Chrome/124.0.0.0 Safari/537.36"}
+    def get(u):
+        last = None
+        for attempt in range(3):
+            try:
+                r = requests.get(u, headers=headers, timeout=30)
+                r.raise_for_status()
+                return r
+            except Exception as e:
+                last = e
+                time.sleep(2 * (attempt + 1))
+        raise last
+
+    html = get(url).text
+    links = sorted({u.replace('\\u0026', '&') for u in _AVIS_ENRICH_RE.findall(html)})
+    if not links:
+        raise RuntimeError(f"ingen avis-data på {url}")
+    items = []
+    for link in links:
+        items.extend(get(link).json().get("enrichments") or [])
+    groups = {e.get("id"): (e.get("alttext") or "").strip()
+              for e in items if e.get("type") == 6}
+    out = {}
+    for e in items:
+        ean = str(e.get("productId") or "").strip()
+        if e.get("type") != 13 or not re.fullmatch(r"\d{8,}", ean):
+            continue
+        title = (groups.get(e.get("parentid"))
+                 or (e.get("alttext") or e.get("name") or "").strip())
+        try:
+            price = float(e.get("price") or 0)
+        except (TypeError, ValueError):
+            price = 0.0
+        out.setdefault(ean, (title, price))
+    return out
+
+
+def fetch_avis(parsed):
+    """{ean: tilbudstitel} for den avis, webshoppens tilbud lige nu hører
+    til. Webshoppen skifter pris ved midnat, avisens forside ikke
+    nødvendigvis samtidig, så både denne og næste uges udgave hentes, og den
+    der har flest varer med samme pris som webshoppens tilbud vinder. Mindst
+    halvdelen af avisens varer i webshoppen skal have avisens pris; ellers er
+    det en anden uges avis (næste uges gav 23 af ~300, 14-10-2026). Fejler
+    det, returneres {} - så tæller butikken bare alle tilbud som før."""
+    if not AVIS_URLS:
+        return {}
+    base, next_path = AVIS_URLS
+    sale_price = {it["varenummer"]: it["price"] for it in parsed
+                  if it["is_sale"] and it["varenummer"]}
+    in_shop = {it["varenummer"] for it in parsed if it["varenummer"]}
+    best, best_score = {}, 0
+    for url in (base, base + next_path):
+        try:
+            edition = _fetch_avis_edition(url)
+        except Exception as e:
+            print(f"  ⚠ Avisen kunne ikke læses ({url}): {e}")
+            continue
+        score = sum(1 for ean, (_t, p) in edition.items()
+                    if ean in sale_price and abs(sale_price[ean] - p) < 0.01)
+        known = sum(1 for ean in edition if ean in in_shop)
+        print(f"  Avis {url}: {len(edition)} varer, {known} i webshoppen, "
+              f"{score} med webshoppens tilbudspris")
+        if score > best_score and score * 2 >= known:
+            best, best_score = edition, score
+    return {ean: t for ean, (t, _p) in best.items()}
+
+
 def scrape_via_api():
     """Hent hele butikkens sortiment via API'et. Returnerer rækker i
-    'bilka'-formatet (11 kolonner + multikøb). Fejler hvis vi ikke når
+    'bilka'-formatet (11 kolonner + multikøb + avistitel). Fejler hvis vi ikke når
     API'ets egen `total`, så et ufuldstændigt sæt aldrig gemmes."""
     cats = _api_get("/Category", {"merchantId": MERCHANT_ID})
     top_of, sub_of = {}, {}
@@ -814,12 +902,19 @@ def scrape_via_api():
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as ex:
         hashes = list(ex.map(img_hash_for, parsed))
 
-    return [
-        [it["kategori"], it["name"], it["producer"], it["netto_vaegt"],
-         it["kg_price"], it["price"], it["normal_price"], it["varenummer"],
-         it["img_url"], h, "Ja" if it["is_sale"] else "Nej", it["multikob"] or None]
-        for it, h in zip(parsed, hashes)
-    ]
+    # 'Avis' = tilbud der står i ugens avis (som Salling-katalogerne), med
+    # avisens tilbudstitel, så seed-d1.py tæller tilbud og ikke varianter.
+    avis = fetch_avis(parsed)
+    rows = []
+    for it, h in zip(parsed, hashes):
+        title = avis.get(it["varenummer"]) if it["is_sale"] else None
+        tilbud = "Avis" if title else ("Ja" if it["is_sale"] else "Nej")
+        rows.append([it["kategori"], it["name"], it["producer"], it["netto_vaegt"],
+                     it["kg_price"], it["price"], it["normal_price"], it["varenummer"],
+                     it["img_url"], h, tilbud, it["multikob"] or None, title])
+    in_avis = [r for r in rows if r[10] == "Avis"]
+    print(f"  ✓ Avis: {len(in_avis)} varer i {len({r[12] for r in in_avis})} af avisens tilbud")
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -1027,8 +1122,9 @@ def main():
 def run(store: str) -> None:
     """Konfigurér modulet for én butik og kør scrapingen."""
     cfg = STORES[store]
-    global BASE_URL, BASE_ORIGIN, DB_KEY, NORMAL_PRICES_FILE, API_ORIGIN, MERCHANT_ID
+    global BASE_URL, BASE_ORIGIN, DB_KEY, NORMAL_PRICES_FILE, API_ORIGIN, MERCHANT_ID, AVIS_URLS
     API_ORIGIN = cfg['api_origin']
+    AVIS_URLS = cfg.get('avis') or ()
     MERCHANT_ID = cfg['merchant_id']
     BASE_URL = cfg['base_url']
     BASE_ORIGIN = BASE_URL.rsplit('/produkter', 1)[0]

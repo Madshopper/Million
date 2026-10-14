@@ -319,7 +319,8 @@ def save_to_supabase(results, butik, row_type="full"):
     """
     row_type:
       'full'    → Meny, Spar, minkøbmand: 11 kolonner
-      'bilka'   → Bilka: 12 kolonner (med multikøb)
+      'bilka'   → Meny, Spar, minkøbmand via API: 12 kolonner (med multikøb)
+                  + valgfri 13. kolonne: avisens tilbudstitel
       'simple'  → 365discount, Brugsen, Kvickly, SuperBrugsen: 12 kolonner (med enhed)
     """
     # Sikkerhed: en tom scraping må ALDRIG slette eksisterende data.
@@ -350,6 +351,8 @@ def save_to_supabase(results, butik, row_type="full"):
                 "billede_hash": img_hash,
                 "tilbud":       str(row[10]),
                 "multikob":     row[11] if len(row) > 11 else None,
+                # Avisens tilbudstitel (Dagrofa, tilbud='Avis'); se updater.py.
+                "avis_titel":   row[12] if len(row) > 12 else None,
             }
         elif row_type == "simple":
             record = {

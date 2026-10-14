@@ -3887,11 +3887,13 @@ def _build_sale_listing(active_stores, args, page: int):
 
 
 # Butikker hvor vi ved præcis hvilke varer der er i ugens avis (Sallings
-# isInCurrentLeaflet, gemt som tilbud='Avis' af *_katalog.py). For dem tæller
-# kun avisvarerne: deres øvrige tilbud (Skarp pris, webkampagner, multikøb)
-# gav Føtex over 2.000 "avisvarer" (Kalle 10-10-2026). De andre butikkers
-# tilbud er i forvejen ugens tilbud.
-_AVIS_LEAFLET_STORES = frozenset({'bilka', 'foetex', 'netto'})
+# isInCurrentLeaflet, gemt som tilbud='Avis' af *_katalog.py; Meny/Spar/Min
+# Købmand fra deres egen iPaper-avis i dagrofa_scraper.py). For dem tæller
+# kun avisvarerne: deres øvrige tilbud (Skarp pris, webkampagner, multikøb,
+# butikkens egne rabatter) gav Føtex over 2.000 og Meny 830 "avisvarer"
+# (Kalle 10-10 og 14-10-2026). De andre butikkers tilbud er i forvejen
+# ugens tilbud.
+_AVIS_LEAFLET_STORES = frozenset({'bilka', 'foetex', 'netto', 'meny', 'spar', 'mk'})
 
 
 def _as_store_offer(product: dict, store_key: str, label: str,

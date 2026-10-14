@@ -2523,6 +2523,13 @@ def _apply_cheapest_display(target: dict, store_key: str, match: dict) -> None:
     """
     target['/product/title'] = match['name']
     target['/product/store'] = _STORE_CONFIGS[store_key]['label']
+    # Kortet er nu den nye butiks vare, så butikkens egne tilbuds- og
+    # avismærker skal også være dens. Før blev de stående fra den gamle
+    # forside: Meny-kort med Bilkas avismærke og tilbud (14-10-2026), som
+    # Menys tilbudstal og -avis så talte med.
+    target['/product/own_sale'] = bool(match.get('is_sale'))
+    target['/product/own_avis'] = bool(match.get('in_avis'))
+    target['/product/own_avis_titel'] = match.get('avis_titel') or ''
     if match.get('is_sale'):
         normal_price = match.get('normal_price')
         if not normal_price:
