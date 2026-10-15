@@ -1702,6 +1702,10 @@ _FEATURES = (
                 'dag for dag. Kurv og prissammenligning tælles allerede; '
                 'visninger og søgninger tælles først, når den er udgivet. '
                 'Der gemmes kun tal pr. dag, intet om den enkelte bruger.',
+        'app': 'Appen tæller fra version 1.0.4. Udgives automatisk her, når '
+               '1.0.4 er i App Store (feature-auto-publish.yml), så web og '
+               'app tæller fra samme dag (Kalle 15-10-2026).',
+        'with_app': '1.0.4',
         'parts': (
             {'kind': 'web', 'name': 'Fanen Varer i admin',
              'desc': 'Mest populære varer, udvikling over tid og de mest '
@@ -1816,10 +1820,12 @@ _FEATURES = (
                 '13-10-2026), så det følger med til en ny telefon. '
                 'Privatlivspolitikken får sit eget afsnit om det, når den '
                 'udgives.',
-        'app': 'Appen viser den fra den næste app-version, når den er '
-               'udgivet her. Telefonens placering kræver et nyt build af '
-               'MadShopper Test på Mac\'en (runtimeVersion test-2); indtil da '
-               'har testappen kun postnummer.',
+        'app': 'Appen viser den fra version 1.0.4. Udgives automatisk her, '
+               'når 1.0.4 er i App Store (feature-auto-publish.yml), så web og '
+               'app følges ad (Kalle 15-10-2026). Telefonens placering kræver '
+               'et nyt build af MadShopper Test på Mac\'en (runtimeVersion '
+               'test-2); indtil da har testappen kun postnummer.',
+        'with_app': '1.0.4',
         'parts': (
             {'kind': 'web', 'name': 'Rækkefølge i "Billigste butikker"',
              'desc': 'Nærmeste butik af hver kæde, den korteste tur og en knap '
