@@ -1,0 +1,70 @@
+// Port af templates/terms.html.
+import type { RequestInfo, SiteContext } from '../context'
+import { urlFor } from '../context'
+import { Layout } from '../Layout'
+
+export interface TermsPageProps {
+  site: SiteContext
+  req: RequestInfo
+}
+
+export function TermsPage({ site, req }: TermsPageProps) {
+  return (
+    <Layout site={site} req={req} title={'Vilkår og betingelser - MadShopper'}>
+      <div className="page-wrap">
+        <article className="static-page">
+          <h1>Vilkår og betingelser</h1>
+          <p className="static-page-lead">Her kan du læse, hvad MadShopper er, hvad du må bruge det til, og hvad du skal være opmærksom på.</p>
+          <p className="static-page-updated">Sidst opdateret: 25. juli 2026</p>
+          <section>
+            <h2>Hvad er MadShopper?</h2>
+            <p>MadShopper er et gratis prissammenligningsværktøj til dagligvarer, drevet af mig som privatperson og studerende - ikke en virksomhed.</p>
+            <p>Jeg sælger ikke varer og er ikke involveret i dine køb. Når du handler i en butik, er det udelukkende mellem dig og den butik.</p>
+          </section>
+          <section>
+            <h2>Priser og produktoplysninger</h2>
+            <p>Alle priser er hentet fra offentligt tilgængelige kilder. Jeg gør mit bedste for at holde dem opdaterede, men kan ikke garantere at de altid er helt korrekte. Priser kan ændre sig fra dag til dag.</p>
+            <p>Tjek altid den endelige pris direkte i butikken inden du køber.</p>
+          </section>
+          <section>
+            <h2>Sådan må du bruge siden</h2>
+            <p>MadShopper er til personlig brug. Du må selvfølgelig søge, sammenligne og planlægge dit indkøb. Det er ikke tilladt at:</p>
+            <ul>
+              <li>Forsøge at hacke siden eller skaffe sig uautoriseret adgang til data</li>
+              <li>Uploade skadelige filer eller programmer</li>
+              <li>Med vilje sætte siden ud af drift</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Billeder og butiksnavne</h2>
+            <p>Produktbilleder, logoer og butiksnavne tilhører de respektive butikker og brands. De vises kun for at gøre det nemmere at sammenligne priser. MadShopper er ikke tilknyttet eller godkendt af nogen af de viste butikker.</p>
+          </section>
+          <section>
+            <h2>Privatliv og cookies</h2>
+            <p>
+              {" Du kan bruge hele siden uden konto. Hvilke oplysninger der behandles (lokalt i browseren, anonym kurv-statistik, valgfri konto, cookies m.m.), står i "}
+              <a href={urlFor('privacy_policy')}>privatlivspolitikken</a>
+              {". Cookie-valg kan du ændre via \"Cookie-indstillinger\" nederst på siden. "}
+            </p>
+          </section>
+          <section>
+            <h2>Ansvar</h2>
+            <p>MadShopper stilles til rådighed, som det er. Jeg er en enkelt studerende og kan ikke holdes ansvarlig for fejl i prisoplysninger, tekniske problemer eller beslutninger du træffer på baggrund af det, du ser på siden.</p>
+          </section>
+          <section>
+            <h2>Ændringer</h2>
+            <p>Disse vilkår kan blive opdateret efterhånden som siden udvikler sig. Den nyeste version er altid den, der ligger her - med dato for hvornår den sidst blev ændret.</p>
+          </section>
+          <section>
+            <h2>Kontakt</h2>
+            <p>
+              {" Har du spørgsmål eller kommentarer? "}
+              <a href={urlFor('feedback_page')}>Skriv til mig via feedback-siden</a>
+              {". "}
+            </p>
+          </section>
+        </article>
+      </div>
+    </Layout>
+  )
+}
