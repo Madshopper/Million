@@ -351,9 +351,17 @@ export async function check(env, scheduledTime = Date.now()) {
 // opdateret. Nu prøver hvert tick fra 00:00 til 00:30 UTC, til én er lykkedes.
 // KV-nøglen CACHE_KEY husker datoen, så det sker én gang pr. døgn; en dublet
 // der slipper igennem, stoppes af nightly-dispatcher (concurrency + højst én pr. UTC-døgn).
+//
+// LØRDAG kl. 04:00 UTC i stedet (06:00 dansk sommertid / 05:00 vintertid):
+// Nettos nye avis starter lørdag, men Netto lægger den først ud efter
+// midnat. Nattens hentning kl. 00:02 dansk tid fik derfor sidste uges avis,
+// og siden viste den gamle pris hele lørdagen (Skildpadde is 54,95 kr i
+// stedet for avisens 32 kr, 17-10-2026: 182 af 201 avisvarer manglede).
+// nightly-dispatcher henter Netto og Føtex igen lige før cache-updateren.
 const NIGHT_CRONS = ["1 22 * * *", "1 23 * * *"];
 const CACHE_KEY = "nat_cache_v1";
 const CACHE_WINDOW_MIN = 30;
+const CACHE_HOUR_UTC_SATURDAY = 4;
 const DISPATCH_URL =
   "https://api.github.com/repos/Madshopper/Million/actions/workflows/nightly-dispatcher.yml/dispatches";
 
@@ -370,7 +378,8 @@ export async function startNight(env, scheduledTime = Date.now()) {
 
 export async function startCache(env, scheduledTime = Date.now()) {
   const when = new Date(scheduledTime);
-  if (when.getUTCHours() !== 0 || when.getUTCMinutes() >= CACHE_WINDOW_MIN) return null;
+  const hour = when.getUTCDay() === 6 ? CACHE_HOUR_UTC_SATURDAY : 0;
+  if (when.getUTCHours() !== hour || when.getUTCMinutes() >= CACHE_WINDOW_MIN) return null;
   const today = when.toISOString().slice(0, 10);
   if ((await env.STATE.get(CACHE_KEY)) === today) return null;
   // Datoen skrives før kaldet, så en dublet af samme tick ikke også starter.
