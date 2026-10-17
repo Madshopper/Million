@@ -193,6 +193,12 @@ jobs:
             echo "Cache-updater kørte allerede i dag (UTC, $SIDST) - Cloudflare starter den lige efter 00:00 UTC"
             exit 0
           fi
+          # Lørdag (UTC) starter Cloudflare den først kl. 04:00 UTC efter en ny
+          # hentning af Netto (se cache-fallback herunder).
+          if [ "$(date -u +%u)" = "6" ]; then
+            echo "Lørdag: cache-updateren startes af slot cache-fallback efter Nettos nye avis"
+            exit 0
+          fi
           # Venter til alle nattens scrapere er færdige (højst 40 min), så
           # cache-updateren får de nye priser med. Kører en scraper fast,
           # startes cache-updateren alligevel med det, der er nået.
@@ -232,6 +238,32 @@ jobs:
           if [ "${SIDST:0:10}" = "$(date -u +%Y-%m-%d)" ]; then
             echo "Cache-updater kørte allerede $SIDST (samme UTC-døgn) - intet at gøre"
             exit 0
+          fi
+          # LØRDAG: Nettos nye avis starter lørdag, men ligger først hos Netto
+          # efter midnat. Hentningen kl. 00:01 dansk tid fik derfor sidste uges
+          # avis (17-10-2026: Skildpadde is 54,95 kr i stedet for 32 kr, 182 af
+          # 201 avisvarer manglede). Cloudflare starter derfor dette slot kl.
+          # 04:00 UTC om lørdagen (uptime-worker/worker.js), og Netto + Føtex
+          # hentes igen her lige før cache-updateren (~4 min).
+          if [ "$(TZ=Europe/Copenhagen date +%u)" = "6" ]; then
+            START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            gh workflow run scraper-Katalog.yml --ref "${{ github.ref_name }}" -R "$REPO"
+            echo "Startet: scraper-Katalog.yml (Nettos lørdagsavis)"
+            SLUT=$(( $(date +%s) + 25 * 60 ))
+            sleep 20
+            while :; do
+              STATUS=$(gh run list -R "$REPO" -w scraper-Katalog.yml -L 5 \
+                --json status,createdAt \
+                --jq "[.[] | select(.createdAt >= \"$START\")] | .[0].status // \"\"" \
+                || echo "")
+              echo "scraper-Katalog: ${STATUS:-ikke set endnu}"
+              [ "$STATUS" = "completed" ] && break
+              if [ "$(date +%s)" -ge "$SLUT" ]; then
+                echo "::warning::scraper-Katalog var ikke færdig efter 25 min - starter cache-updater alligevel"
+                break
+              fi
+              sleep 30
+            done
           fi
           gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "$REPO"
 
