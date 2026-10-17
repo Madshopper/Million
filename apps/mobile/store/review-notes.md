@@ -26,11 +26,15 @@ savings history server-side, and signs the user out.
 supermarkets for a Danish audience.
 
 **Permissions:** the app requests no camera, contacts or photo permissions.
-Location ("when in use" only, never in the background) is requested only when
-the user taps "Brug min placering" ("Use my location") to find nearby stores;
-it is used on the device only and never sent to our servers. The app
-contains no advertising or analytics SDKs, and does not use the advertising
-identifier.
+Location ("when in use", approximate is enough, never in the background) is
+requested only when the user taps "Brug min placering" ("Use my location") to
+pick nearby stores and plan the shortest route between them. It is optional:
+the user can type a postcode instead or choose stores by hand. The position is
+used on the device only and never sent to our servers; a postcode the user
+types is saved on their account so nearby stores follow them to a new phone.
+The app contains no third-party advertising or analytics SDKs and does not use
+the advertising identifier. The only usage statistics are our own anonymous
+counts of product views and searches, sent to our own server.
 
 Contact for any questions during review: kontakt@madshopper.dk
 
