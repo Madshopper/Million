@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLokationEnabled } from '../location/nearby';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { env } from '../config/env';
 import { useTheme } from '../theme/ThemeContext';

@@ -8,12 +8,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { Text } from '../theme/Typography';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchStoreAvis } from '../api/listing';
 import type { Product, StoreAvisResponse } from '../api/types';

@@ -338,6 +338,29 @@ export function compareSavingsRange(
   return best;
 }
 
+/**
+ * Hvor meget dyrere `other` er end vinderen, regnet KUN på de varer begge har
+ * (kurvens vinderkort, version C: "Spar 8,55" og "+8,55"). `shared` er antal
+ * fælles varer; 0 betyder at tallet ikke siger noget.
+ */
+export function extraCostVs(
+  winner: string,
+  other: string,
+  matchedItemsPerStore: Record<string, ScoMatchedItem[]>,
+): { diff: number; shared: number } {
+  const winnerLines = new Map<string, number>();
+  for (const m of matchedItemsPerStore[winner] || []) winnerLines.set(m.cart_id, m.lineTotal);
+  let diff = 0;
+  let shared = 0;
+  for (const m of matchedItemsPerStore[other] || []) {
+    const w = winnerLines.get(m.cart_id);
+    if (w == null) continue;
+    diff += m.lineTotal - w;
+    shared++;
+  }
+  return { diff: round2(diff), shared };
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }

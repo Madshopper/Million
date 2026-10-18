@@ -114,6 +114,8 @@ export type HomeResponse = {
   /** Er "Butikker nær mig" udgivet i Feature-panelet? */
   lokation_enabled?: boolean;
   offer_stores?: OfferStore[];
+  /** Antal tilbud i alt (d1_stats_v1), til forsidens "214 tilbud"-link. */
+  sale_count?: number | null;
   /** Stub — reel data hentes client-side via get_personal_savings (JWT). */
   personal_savings: { available: boolean; message: string };
   error?: string;

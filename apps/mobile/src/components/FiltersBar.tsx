@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../theme/Typography';
 import type { ListingParams, Product } from '../api/types';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -17,6 +18,8 @@ type Props = {
   onChange: (next: FiltersValue) => void;
   /** Reserveret plads til undercategory-chips, som renderes af parent-skærmen. */
   showSubcats?: boolean;
+  /** Vises til venstre i samme række som "Filter" (forsidens "Kategorier"). */
+  leading?: React.ReactNode;
 };
 
 const SORT_OPTIONS: Array<{ value: NonNullable<ListingParams['sort']>; label: string }> = [
@@ -47,7 +50,7 @@ function countActiveFilters(values: FiltersValue): number {
   return n;
 }
 
-export function FiltersBar({ values, onChange, showSubcats }: Props) {
+export function FiltersBar({ values, onChange, showSubcats, leading }: Props) {
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
   const sort = values.sort || 'relevance';
@@ -81,7 +84,8 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
 
   return (
     <View style={showSubcats ? styles.wrapWithSubcats : styles.wrap}>
-      <View style={styles.triggerRow}>
+      <View style={[styles.triggerRow, leading ? styles.triggerRowSplit : null]}>
+        {leading}
         <Pressable
           onPress={() => setOpen(true)}
           accessibilityRole="button"
@@ -92,14 +96,15 @@ export function FiltersBar({ values, onChange, showSubcats }: Props) {
           style={[
             styles.trigger,
             {
-              backgroundColor: activeCount > 0 ? colors.primary : colors.surface,
-              borderColor: colors.border,
+              // Version C: hvid pille, aktiv = lysegrøn med mørkegrøn tekst.
+              backgroundColor: activeCount > 0 ? colors.primaryMuted : colors.surface,
+              borderColor: activeCount > 0 ? colors.primaryMuted : colors.border,
             },
           ]}
         >
           <Text
             style={{
-              color: activeCount > 0 ? '#fff' : colors.text,
+              color: activeCount > 0 ? colors.primaryDark : colors.text,
               fontWeight: '700',
               fontSize: 14,
             }}
@@ -347,12 +352,15 @@ const styles = StyleSheet.create({
   triggerRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
     paddingHorizontal: 16,
   },
+  triggerRowSplit: { justifyContent: 'space-between', gap: 8 },
   trigger: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 36,
+    justifyContent: 'center',
+    borderRadius: 999,
     borderWidth: 1,
   },
   backdrop: {

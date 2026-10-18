@@ -5,9 +5,9 @@ import {
   Linking,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '../theme/Typography';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchCategory, fetchSale, fetchStoreOffers } from '../api/listing';
 import type { Product } from '../api/types';

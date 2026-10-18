@@ -1,5 +1,6 @@
 import React from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import { address, fmtKm, mapsUrl, planRoute, type Place, type Pos } from '../location/nearby';
 import { loadStoreLocations } from '../location/storage';
 import type { StoreInfo } from '../api/types';

@@ -3,7 +3,7 @@
  * Kør: node --experimental-strip-types src/cart/sco.test.ts
  */
 import { applyDealPrice } from './multiDeal.ts';
-import { calculateStoreComparisons, compareSavingsRange, sortScoStores } from './sco.ts';
+import { calculateStoreComparisons, compareSavingsRange, extraCostVs, sortScoStores } from './sco.ts';
 import type { CartItem } from './types.ts';
 import type { StoreInfo } from '../api/types.ts';
 
@@ -142,5 +142,12 @@ assert(
   `delvis kurv skal give 20/22, fik ${JSON.stringify(partialRange)}`,
 );
 assert(compareSavingsRange(partialSorted.slice(0, 1), partial.matchedItemsPerStore) === null, 'én butik: ingen besparelse');
+
+// Vinderkortet: merpris kun på fælles varer (Rema har ingen Bilka-Ost osv.).
+const vsRema = extraCostVs('Bilka', 'Rema 1000', result.matchedItemsPerStore);
+assert(vsRema.diff === 7 && vsRema.shared === 2, `Rema 7 kr dyrere end Bilka, fik ${JSON.stringify(vsRema)}`);
+const vsSelf = extraCostVs('Rema 1000', 'Netto', partial.matchedItemsPerStore);
+assert(vsSelf.diff === 2 && vsSelf.shared === 1, `Netto 2 kr dyrere på mælken, fik ${JSON.stringify(vsSelf)}`);
+assert(extraCostVs('Bilka', 'Ukendt', result.matchedItemsPerStore).shared === 0, 'ukendt butik: ingen fælles varer');
 
 console.log('sco tests OK');

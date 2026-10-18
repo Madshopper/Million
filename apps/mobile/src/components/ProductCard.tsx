@@ -4,16 +4,20 @@ import {
   Animated,
   Image,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Text, AnimatedText } from '../theme/Typography';
 import type { Product } from '../api/types';
 import { useTheme } from '../theme/ThemeContext';
 import { useCart } from '../cart/CartContext';
 import { buildStorePrices } from '../cart/buildStorePrices';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { StoreDot } from './StoreChip';
+import { StoreLogo } from '../stores/storeLogos';
+import { cardShadow } from '../theme/Typography';
+import { ShelfPrice } from './ShelfPrice';
+import { QuantityStepper } from './QuantityStepper';
 import { joinLabel, spokenKr } from '../a11y/speech';
 
 type Props = {
@@ -25,7 +29,251 @@ type Props = {
   variant?: 'grid' | 'rail' | 'avis';
 };
 
-export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
+/** Byg kurv-varen ud fra et produkt (samme felter som før version C). */
+function cartItemFrom(product: Product, catalog: ReturnType<typeof useStoreCatalog>['catalog']) {
+  const { storePrices, storeMultiDeals } = buildStorePrices(product, catalog);
+  return {
+    id: `product${product.id}`,
+    name: product.name,
+    description: product.description || '',
+    store: product.store,
+    price: product.price,
+    storePrices,
+    storeMultiDeals,
+    image: product.image,
+    category: product.category || 'Andre varer',
+    unitMeasure: product.unit_measure,
+    kgPrice: product.kg_price != null ? `${product.kg_price.toFixed(2)} kr/kg` : '',
+    multiDeal: product.multi_deal || undefined,
+  };
+}
+
+export function ProductCard(props: Props) {
+  if (props.variant === 'avis') return <AvisProductCard {...props} />;
+  return <GridProductCard {...props} />;
+}
+
+/**
+ * Produktkortet i version C (18-10-2026): hvidt, rundt kort uden kant,
+ * butikslogo i billedet, rundt gult tilbudsmærke, pris som hyldeskilt og en
+ * "+" der bliver til "− 1 +" koblet direkte til kurven.
+ */
+function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
+  const { colors } = useTheme();
+  const { items, addItem, updateQuantity } = useCart();
+  const { catalog } = useStoreCatalog();
+  const cartId = `product${product.id}`;
+  const quantity = items.find((i) => i.id === cartId)?.quantity ?? 0;
+
+  const onSale = product.is_sale || product.is_any_sale;
+  const hasBefore = product.is_sale && product.normal_price > product.price;
+  const discountPct = hasBefore
+    ? Math.round((1 - product.price / product.normal_price) * 100)
+    : null;
+  const onlyHere = Object.keys(product.store_matches || {}).length === 0;
+  const kgPrice =
+    product.kg_price != null && product.kg_price > 0
+      ? `${product.kg_price.toFixed(2).replace('.', ',')} kr/kg`
+      : null;
+
+  const add = () => {
+    if (quantity > 0) {
+      updateQuantity(cartId, quantity + 1);
+      AccessibilityInfo.announceForAccessibility(`${quantity + 1} ${product.name} i kurven`);
+      return;
+    }
+    addItem(cartItemFrom(product, catalog));
+    AccessibilityInfo.announceForAccessibility(`${product.name} lagt i kurven`);
+  };
+  const remove = () => {
+    updateQuantity(cartId, quantity - 1);
+    AccessibilityInfo.announceForAccessibility(
+      quantity - 1 > 0 ? `${quantity - 1} ${product.name} i kurven` : `${product.name} fjernet fra kurven`,
+    );
+  };
+
+  // Hele kortet er ét element for VoiceOver (det samler sine børn), så
+  // kurv-knapperne ligger også som handlinger på kortet.
+  const a11yLabel = joinLabel([
+    product.name,
+    product.brand,
+    product.description,
+    product.stk_count ? `${product.stk_count} stk` : null,
+    onSale ? (discountPct ? `Tilbud, spar ${discountPct} procent` : 'Tilbud') : null,
+    spokenKr(product.price),
+    hasBefore ? `før ${spokenKr(product.normal_price)}` : null,
+    kgPrice ? `${spokenKr(product.kg_price)} pr. kilo` : null,
+    onlyHere ? `kun hos ${product.store}` : `hos ${product.store}`,
+    quantity > 0 ? `${quantity} i kurven` : null,
+  ]);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      delayPressIn={80}
+      onPress={() => onPress(product)}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityHint="Åbner varen"
+      accessibilityActions={
+        quantity > 0
+          ? [
+              { name: 'add', label: 'Tilføj en' },
+              { name: 'remove', label: 'Fjern en' },
+            ]
+          : [{ name: 'add', label: `Læg ${product.name} i kurv` }]
+      }
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'add') add();
+        else if (e.nativeEvent.actionName === 'remove') remove();
+      }}
+      style={[
+        cStyles.card,
+        variant === 'rail' ? cStyles.cardRail : cStyles.cardGrid,
+        { backgroundColor: colors.surface },
+        cardShadow(colors.shadow),
+      ]}
+    >
+      <View style={[cStyles.imageWrap, { backgroundColor: colors.logoBg }]}>
+        {product.image ? (
+          <Image source={{ uri: product.image }} style={cStyles.image} resizeMode="contain" />
+        ) : (
+          <View style={[cStyles.imagePlaceholder, { backgroundColor: colors.border }]} />
+        )}
+        <View
+          style={[cStyles.logoPill, { backgroundColor: colors.logoBg, borderColor: colors.border }]}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <StoreLogo store={product.store} maxWidth={56} />
+        </View>
+      </View>
+
+      {onSale ? (
+        // Klistermærket stikker ud over kortets hjørne: kortet klipper ikke
+        // (overflow visible), kun billedfeltet gør.
+        <View
+          style={[cStyles.sticker, { backgroundColor: colors.deal }]}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          {discountPct ? (
+            <>
+              <Text style={[cStyles.stickerSmall, { color: colors.dealText }]}>Spar</Text>
+              <Text style={[cStyles.stickerBig, { color: colors.dealText }]}>{discountPct}%</Text>
+            </>
+          ) : (
+            <Text style={[cStyles.stickerSmall, { color: colors.dealText, fontSize: 12 }]}>
+              Tilbud
+            </Text>
+          )}
+        </View>
+      ) : null}
+
+      <View style={cStyles.body}>
+        <Text style={[cStyles.name, { color: colors.text }]} numberOfLines={2}>
+          {product.name}
+        </Text>
+        {/* Vægt/beskrivelse, antal og kg-pris: de samme linjer som webbens
+            produktkort (templates/macros/product_card.html). */}
+        {product.description || product.stk_count ? (
+          <Text style={[cStyles.meta, { color: colors.textMuted }]} numberOfLines={1}>
+            {[product.description, product.stk_count ? `${product.stk_count} stk` : '']
+              .filter(Boolean)
+              .join(' · ')}
+          </Text>
+        ) : null}
+        {kgPrice ? (
+          <Text style={[cStyles.meta, { color: colors.textMuted }]} numberOfLines={1}>
+            {kgPrice}
+          </Text>
+        ) : null}
+        {onlyHere ? (
+          <Text style={[cStyles.meta, { color: colors.textMuted }]} numberOfLines={1}>
+            Kun hos {product.store}
+          </Text>
+        ) : null}
+
+        <View style={cStyles.footer}>
+          <View style={cStyles.priceCol}>
+            {hasBefore ? (
+              <Text style={[cStyles.before, { color: colors.textMuted }]}>
+                {product.normal_price.toFixed(2).replace('.', ',')}
+              </Text>
+            ) : null}
+            <ShelfPrice value={product.price} color={colors.text} size={quantity > 0 && product.price >= 100 ? 22 : 26} />
+          </View>
+          <QuantityStepper quantity={quantity} name={product.name} onAdd={add} onRemove={remove} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const cStyles = StyleSheet.create({
+  card: {
+    borderRadius: 22,
+    marginHorizontal: 5,
+    marginVertical: 6,
+    paddingBottom: 12,
+    position: 'relative',
+    overflow: 'visible',
+  },
+  cardGrid: { flex: 1, width: '100%', alignSelf: 'stretch' },
+  cardRail: { width: '100%' },
+  imageWrap: {
+    margin: 8,
+    height: 128,
+    borderRadius: 16,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  image: { width: 112, height: 112, maxWidth: '100%' },
+  imagePlaceholder: { width: 72, height: 72, borderRadius: 16 },
+  logoPill: {
+    position: 'absolute',
+    right: 6,
+    bottom: 6,
+    height: 24,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: '80%',
+  },
+  sticker: {
+    position: 'absolute',
+    top: -8,
+    left: -6,
+    zIndex: 3,
+    elevation: 3,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-10deg' }],
+  },
+  stickerSmall: { fontSize: 10, fontWeight: '700', lineHeight: 12 },
+  stickerBig: { fontSize: 17, fontWeight: '900', lineHeight: 19 },
+  body: { paddingHorizontal: 12 },
+  name: { fontSize: 14, fontWeight: '600', lineHeight: 18, minHeight: 36 },
+  meta: { fontSize: 12, marginTop: 2 },
+  footer: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  priceCol: { flexShrink: 1 },
+  before: { fontSize: 12, textDecorationLine: 'line-through' },
+});
+
+/** Tilbudsavisens felt (StoreAvisScreen) - uændret af version C. */
+function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
   const { colors, isDark } = useTheme();
   const avis = variant === 'avis';
   const { addItem } = useCart();
@@ -239,11 +487,11 @@ export function ProductCard({ product, onPress, variant = 'grid' }: Props) {
         onPress={addToCart}
         style={[styles.addBtn, { backgroundColor: colors.primary }]}
       >
-        <Animated.Text
+        <AnimatedText
           style={[styles.addBtnText, { transform: [{ scale: addScale }] }]}
         >
           {added ? '✓' : '+'}
-        </Animated.Text>
+        </AnimatedText>
       </TouchableOpacity>
     </TouchableOpacity>
   );

@@ -2007,6 +2007,23 @@ _PROJECTS = (
         ),
     },
     {
+        'key': 'app_design_c',
+        'name': 'Nyt udseende i appen (version C)',
+        'status': 'doing',
+        'desc': 'Ny skrift, runde kort med butikslogo og rundt gult '
+                'tilbudsmærke, "Køb igen" på forsiden og kurven med den '
+                'billigste butik øverst. Kun appen; hjemmesiden får det ikke '
+                'nu (18-10-2026).',
+        'parts': (
+            {'done': True, 'name': 'Bygget',
+             'desc': 'Forside, produktkort, kurv og bundmenu, lys og mørk.'},
+            {'done': False, 'name': 'Prøvet på MadShopper Test',
+             'desc': 'Kommer af sig selv på testappen, når PR\'en er merget.'},
+            {'done': False, 'name': 'Med i næste App Store-version',
+             'desc': 'Butiksappen får det først med et nyt build.'},
+        ),
+    },
+    {
         'key': 'tests',
         'name': 'Flere automatiske tests',
         'status': 'idea',
@@ -5498,6 +5515,9 @@ def api_home():
             'butiksaviser_enabled': _feature_enabled('butiksaviser'),
             # Butikker nær mig: appen viser rute og "nær mig", når den er udgivet.
             'lokation_enabled': _feature_enabled('lokation'),
+            # Antal tilbud i alt (KV d1_stats_v1, samme tal som Ugens Tilbuds
+            # total uden filtre), til appens "214 tilbud"-link. Intet D1-kald.
+            'sale_count': _home_sale_count(),
             'offer_stores': (_offer_stores(_offer_store_counts())
                              if _feature_enabled('butiksaviser') else []),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
@@ -5509,6 +5529,12 @@ def api_home():
     except Exception as e:
         logger.exception("api/home error: %s", e)
         return jsonify(success=False, error='Kunne ikke hente forsiden.'), 500
+
+
+def _home_sale_count():
+    stats = _d1_stats()
+    n = stats.get('sale') if stats else None
+    return n if isinstance(n, int) and n > 0 else None
 
 
 @app.route('/api/sale')

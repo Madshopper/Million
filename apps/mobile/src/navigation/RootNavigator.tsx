@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text, fontStyle } from '../theme/Typography';
 import {
   NavigationContainer,
   createNavigationContainerRef,
@@ -13,9 +14,11 @@ import { askOnFirstLaunch, usePushFeature } from '../push/push';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useCart } from '../cart/CartContext';
 import { CartIcon } from '../components/CartIcon';
+import { HomeHeaderTitle, LocationPill } from '../components/HomeHeader';
 import { HomeScreen } from '../screens/HomeScreen';
 import { CategoryScreen, SaleScreen, StoreOffersListScreen } from '../screens/CategoryScreen';
 import { StoreAvisScreen } from '../screens/StoreAvisScreen';
@@ -111,12 +114,13 @@ function CartHeaderButton({ onPress }: { onPress: () => void }) {
             height: 18,
             borderRadius: 9,
             paddingHorizontal: 4,
-            backgroundColor: colors.primary,
+            // Version C: lille gul badge med antallet.
+            backgroundColor: colors.deal,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: colors.surface, fontSize: 11, fontWeight: '700' }}>
+          <Text style={{ color: colors.dealText, fontSize: 11, fontWeight: '800' }}>
             {count > 99 ? '99+' : count}
           </Text>
         </View>
@@ -167,22 +171,57 @@ function tabIcon(focused: boolean, active: TabIconName, inactive: TabIconName): 
   return focused ? active : inactive;
 }
 
+/** Version C: den aktive fane får en lysegrøn pille (56x30) bag ikonet. */
+function TabIcon({
+  focused,
+  color,
+  active,
+  inactive,
+}: {
+  focused: boolean;
+  color: string;
+  active: TabIconName;
+  inactive: TabIconName;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        width: 56,
+        height: 30,
+        borderRadius: 999,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: focused ? colors.primaryMuted : 'transparent',
+      }}
+    >
+      <Ionicons name={tabIcon(focused, active, inactive)} size={22} color={color} />
+    </View>
+  );
+}
+
 function MainTabs() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,
+        headerTitleStyle: fontStyle('700'),
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          paddingTop: 4,
+          paddingTop: 6,
+          // Plads til pillen (30) og teksten (12) over hjemme-stregen.
+          height: 62 + insets.bottom,
         },
-        tabBarActiveTintColor: colors.primary,
+        // Pillen bag ikonet er 30 høj; uden plads til den skubbes teksten ud.
+        tabBarIconStyle: { width: 56, height: 30 },
+        tabBarActiveTintColor: colors.primaryDark,
         tabBarInactiveTintColor: colors.tabInactive,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
+        tabBarLabelStyle: { fontSize: 12, marginTop: 2, ...fontStyle('600') },
         sceneStyle: { flex: 1, minHeight: 0 },
       }}
     >
@@ -192,15 +231,19 @@ function MainTabs() {
         options={({ navigation }) => ({
           title: 'MadShopper',
           tabBarLabel: 'Hjem',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={tabIcon(focused, 'home', 'home-outline')}
-              size={size}
-              color={color}
-            />
+          // Version C: eget top-felt med logo, lokation og kurv.
+          headerTitle: () => <HomeHeaderTitle />,
+          headerTitleAlign: 'left',
+          headerStyle: { backgroundColor: colors.bg },
+          headerShadowVisible: false,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} active="home" inactive="home-outline" />
           ),
           headerRight: () => (
-            <CartHeaderButton onPress={() => navigation.getParent()?.navigate('Cart')} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <LocationPill />
+              <CartHeaderButton onPress={() => navigation.getParent()?.navigate('Cart')} />
+            </View>
           ),
         })}
       />
@@ -210,12 +253,8 @@ function MainTabs() {
         options={({ navigation }) => ({
           title: 'Søg',
           tabBarLabel: 'Søg',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={tabIcon(focused, 'search', 'search-outline')}
-              size={size}
-              color={color}
-            />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} active="search" inactive="search-outline" />
           ),
           headerRight: () => (
             <CartHeaderButton onPress={() => navigation.getParent()?.navigate('Cart')} />
@@ -229,13 +268,9 @@ function MainTabs() {
           options={({ navigation }) => ({
             title: 'Opskrifter',
             tabBarLabel: 'Opskrifter',
-            tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons
-                name={tabIcon(focused, 'restaurant', 'restaurant-outline')}
-                size={size}
-                color={color}
-              />
-            ),
+            tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} active="restaurant" inactive="restaurant-outline" />
+          ),
             headerRight: () => (
               <CartHeaderButton onPress={() => navigation.getParent()?.navigate('Cart')} />
             ),
@@ -248,12 +283,8 @@ function MainTabs() {
         options={({ navigation }) => ({
           title: 'Profil',
           tabBarLabel: 'Profil',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={tabIcon(focused, 'person-circle', 'person-circle-outline')}
-              size={size}
-              color={color}
-            />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} active="person-circle" inactive="person-circle-outline" />
           ),
           headerRight: () => (
             <CartHeaderButton onPress={() => navigation.getParent()?.navigate('Cart')} />
@@ -301,6 +332,7 @@ export function RootNavigator() {
         screenOptions={({ navigation }) => ({
           headerStyle: { backgroundColor: colors.surface },
           headerTintColor: colors.text,
+          headerTitleStyle: fontStyle('700'),
           contentStyle: { flex: 1, backgroundColor: colors.bg },
           headerBackVisible: false,
           headerLeft: ({ canGoBack }) =>
@@ -324,7 +356,17 @@ export function RootNavigator() {
           component={StoreOffersListScreen}
           options={({ route }) => ({ title: route.params.title })}
         />
-        <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Indkøbsliste' }} />
+        {/* Version C: overskriften "Kurv" står i selve skærmen. */}
+        <Stack.Screen
+          name="Cart"
+          component={CartScreen}
+          options={{
+            title: 'Kurv',
+            headerTitle: '',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.bg },
+          }}
+        />
         <Stack.Screen
           name="ProductDetail"
           component={ProductDetailScreen}

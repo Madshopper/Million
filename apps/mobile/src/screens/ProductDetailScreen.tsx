@@ -10,10 +10,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput, AnimatedText } from '../theme/Typography';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchNutrition, fetchPriceHistory, type Nutrition } from '../api/productExtras';
 import type { PricePoint, PriceSeries } from '../components/PriceHistoryChart';
@@ -501,9 +500,9 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         }
         style={[styles.btn, { backgroundColor: colors.primary }]}
       >
-        <Animated.Text style={[styles.btnText, { transform: [{ scale: addScale }] }]}>
+        <AnimatedText style={[styles.btnText, { transform: [{ scale: addScale }] }]}>
           {added ? 'Tilføjet ✓' : `Tilføj til kurv · ${product.store}`}
-        </Animated.Text>
+        </AnimatedText>
       </Pressable>
 
       <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">

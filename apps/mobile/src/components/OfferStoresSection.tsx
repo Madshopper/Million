@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import type { OfferStore } from '../api/types';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';

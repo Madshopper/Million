@@ -37,6 +37,21 @@ export const lightColors = {
   // tilbud, IKKE en positiv besparelse.
   warning: '#D97706',
   warningMuted: '#FEF3C7',
+  // Version C (18-10-2026): ét neutralt grå bag antalsvælgeren i kurven.
+  stepperBg: '#F2F4EF',
+  // Fast hvid på de faste grønne flader (vinderkort, besparelses-banner) og
+  // den lidt lysere boks inde i vinderkortet.
+  onPrimary: '#FFFFFF',
+  onPrimarySoft: 'rgba(255,255,255,0.14)',
+  // Besparelses-banneret: samme mørkegrønne flade i lys og mørk tilstand
+  // (#047857, sekundær grøn), med lysegrøn tekst (#D6F5E3, tertiær grøn).
+  bannerBg: '#047857',
+  bannerSoft: '#D6F5E3',
+  // Meget let skygge under kort.
+  shadow: '#1A1C19',
+  // Butikslogoerne har hvid baggrund i selve billedet, så deres pille er hvid
+  // i begge tilstande.
+  logoBg: '#FFFFFF',
 };
 
 export const darkColors = {
@@ -60,6 +75,13 @@ export const darkColors = {
   tabInactive: '#6B7268',
   warning: '#F5B94D',
   warningMuted: '#3A2E12',
+  stepperBg: '#2C312B',
+  onPrimary: '#FFFFFF',
+  onPrimarySoft: 'rgba(255,255,255,0.14)',
+  bannerBg: '#047857',
+  bannerSoft: '#D6F5E3',
+  shadow: '#000000',
+  logoBg: '#FFFFFF',
 };
 
 export type ThemeColors = typeof lightColors;

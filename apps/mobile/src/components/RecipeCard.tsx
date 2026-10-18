@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import { Ionicons } from '@expo/vector-icons';
 import type { Recipe } from '../api/recipes';
 import { useTheme } from '../theme/ThemeContext';

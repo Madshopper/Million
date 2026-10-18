@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '../theme/ThemeContext';
 import { spokenKr } from '../a11y/speech';
