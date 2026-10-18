@@ -1,6 +1,7 @@
 /** "Ugens madplan" øverst i Opskrift-fanen (web: static/js/madplan.js). */
 import React, { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '../theme/ThemeContext';
 import type { Recipe } from '../api/recipes';

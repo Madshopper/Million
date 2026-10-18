@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { fmtKm, nearbyChains, type NearbyChain, type Pos } from '../location/nearby';
 import { loadStoreLocations } from '../location/storage';

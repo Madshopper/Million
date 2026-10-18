@@ -5,11 +5,10 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+import { Text, TextInput } from '../theme/Typography';
 import { useTheme } from '../theme/ThemeContext';
 import type { Recipe } from '../api/recipes';
 import {

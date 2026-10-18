@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -7,10 +8,10 @@ import {
   Pressable,
   Share,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Text, TextInput, cardShadow } from '../theme/Typography';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
@@ -20,7 +21,20 @@ import type { CartItem } from '../cart/types';
 import { cartItemTitle } from '../cart/stripStoreBrand';
 import { useTheme } from '../theme/ThemeContext';
 import { StackScreenBody } from '../components/ScreenBody';
-import { StoreChip } from '../components/StoreChip';
+import { StoreLogo } from '../stores/storeLogos';
+import { useStoreCatalog } from '../stores/StoreCatalogContext';
+import { QuantityStepper } from '../components/QuantityStepper';
+import { kr } from '../components/ShelfPrice';
+import {
+  calculateStoreComparisons,
+  extraCostVs,
+  sortScoStores,
+  type ScoResult,
+  type ScoStoreResult,
+} from '../cart/sco';
+import { cachedProductPrices } from '../cart/livePrices';
+import { recordSavingsOnce } from '../cart/recordSavings';
+import { alternativeAsCartItem, fetchAlternatives, type AlternativeItem } from '../cart/alternatives';
 import { SwipeableCartRow } from '../cart/SwipeableCartRow';
 import { useSwipeEnabled } from '../cart/swipeFlag';
 import { joinLabel, spokenKr } from '../a11y/speech';
@@ -28,41 +42,11 @@ import type { RootStackParamList } from '../navigation/types';
 
 type PromptMode = 'save' | 'share' | 'join' | 'rename' | null;
 
-/** Pris med små øre — Rema-agtig, men uden deres typografi. */
-function PriceText({
-  value,
-  color,
-  size = 22,
-}: {
-  value: number;
-  color: string;
-  size?: number;
-}) {
-  const [kr, ore] = value.toFixed(2).split('.');
-  return (
-    // "24" og "95" er to tekster; uden samlet etiket læser VoiceOver dem
-    // som to løse tal.
-    <View style={styles.priceRow} accessible accessibilityLabel={spokenKr(value)}>
-      <Text style={{ color, fontSize: size, fontWeight: '800', letterSpacing: -0.3 }}>{kr}</Text>
-      <Text
-        style={{
-          color,
-          fontSize: size * 0.55,
-          fontWeight: '800',
-          lineHeight: size * 0.7,
-          marginTop: 1,
-        }}
-      >
-        {ore}
-      </Text>
-    </View>
-  );
-}
-
 export function CartScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { items, updateQuantity, removeItem, clearCart, count } = useCart();
+  const { items, updateQuantity, removeItem, clearCart, replaceItem, count } = useCart();
+  const { catalog, selectedLabels, ready } = useStoreCatalog();
   const { user } = useAuth();
   const {
     active, title, members, maxMembers, inviteUrl,
@@ -74,7 +58,7 @@ export function CartScreen() {
   const [promptValue, setPromptValue] = useState('');
   const [promptError, setPromptError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [listTitle, setListTitle] = useState('Min kurv');
+  const [listTitle, setListTitle] = useState('Kurv');
   const [menuOpen, setMenuOpen] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
   const [listBusy, setListBusy] = useState<string | null>(null);
@@ -84,6 +68,68 @@ export function CartScreen() {
   const swipeEnabled = useSwipeEnabled();
 
   const displayTitle = active ? title || 'Fælles kurv' : listTitle;
+
+  // ── Vinderkortet (version C): samme sammenligning som "Find billigste",
+  // regnet direkte i kurven. Priserne hentes live (cart/livePrices.ts).
+  const [compare, setCompare] = useState<ScoResult | null>(null);
+  const [compareState, setCompareState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const compareRun = useRef(0);
+  useEffect(() => {
+    if (!ready) return;
+    if (!items.length) {
+      setCompare(null);
+      setCompareState('idle');
+      return;
+    }
+    const run = ++compareRun.current;
+    setCompareState((prev) => (compare ? prev : 'loading'));
+    // Lidt ro, så hurtige tryk på "+" giver én beregning.
+    const timer = setTimeout(() => {
+      calculateStoreComparisons(items, catalog, selectedLabels, cachedProductPrices)
+        .then((r) => {
+          if (run !== compareRun.current) return;
+          setCompare(r);
+          setCompareState('idle');
+          if (user) {
+            recordSavingsOnce(items, selectedLabels, sortScoStores(r.stores), r.matchedItemsPerStore);
+          }
+        })
+        .catch(() => {
+          if (run !== compareRun.current) return;
+          setCompare(null);
+          setCompareState('error');
+        });
+    }, 250);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, items, catalog, selectedLabels, user]);
+
+  const ranked = useMemo(() => (compare ? sortScoStores(compare.stores) : []), [compare]);
+  const winner: ScoStoreResult | undefined = ranked[0];
+  const runnersUp = ranked.slice(1, 3).map((st) => ({
+    store: st,
+    extra: winner && compare ? extraCostVs(winner.name, st.name, compare.matchedItemsPerStore) : null,
+  }));
+  const spar = runnersUp[0]?.extra && runnersUp[0].extra.shared > 0 ? runnersUp[0].extra.diff : 0;
+
+  // Varer vinderbutikken ikke har, med forslag fra /api/alternatives.
+  const [alternatives, setAlternatives] = useState<Record<string, AlternativeItem>>({});
+  const altKey = useRef('');
+  useEffect(() => {
+    if (!winner || !winner.missingDetails.length) {
+      altKey.current = '';
+      setAlternatives({});
+      return;
+    }
+    const key = `${winner.name}:${winner.missingDetails.map((m) => m.cart_id).join(',')}`;
+    if (altKey.current === key) return;
+    altKey.current = key;
+    fetchAlternatives(winner)
+      .then((map) => {
+        if (altKey.current === key) setAlternatives(map);
+      })
+      .catch(() => setAlternatives({}));
+  }, [winner]);
 
   const groups = useMemo(() => {
     const map = new Map<string, CartItem[]>();
@@ -267,26 +313,35 @@ export function CartScreen() {
       ) : null}
 
       <View style={styles.titleRow}>
-        <Text
-          style={[styles.listTitle, { color: colors.text }]}
-          numberOfLines={2}
-          accessibilityRole="header"
-        >
-          {displayTitle}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[styles.listTitle, { color: colors.text }]}
+            numberOfLines={2}
+            accessibilityRole="header"
+          >
+            {displayTitle}
+          </Text>
+          {items.length ? (
+            <Text style={[styles.subTitle, { color: colors.textMuted }]}>
+              {count} {count === 1 ? 'vare' : 'varer'} · sammenlignet i {selectedLabels.size || catalog.length}{' '}
+              butikker
+            </Text>
+          ) : null}
+        </View>
         {!active ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Omdøb listen"
-            onPress={() => openPrompt('rename')}
-            style={[styles.editBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            accessibilityLabel={user ? 'Del kurv' : 'Del kurv, kræver login'}
+            onPress={onSharePress}
+            style={[styles.headerPill, { backgroundColor: colors.surface, borderColor: colors.border }]}
             hitSlop={6}
           >
-            <Text style={{ color: colors.textMuted, fontSize: 14 }}>✎</Text>
+            <Ionicons name="share-outline" size={16} color={colors.text} />
+            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13 }}>Del kurv</Text>
           </Pressable>
         ) : null}
-        {/* "✎" og "···" er rene symboler - uden etiket annoncerer VoiceOver
-            dem som "pil" / "prik prik prik". */}
+        {/* "···" er et rent symbol - uden etiket annoncerer VoiceOver det
+            som "prik prik prik". */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Flere handlinger"
@@ -295,12 +350,21 @@ export function CartScreen() {
           style={[styles.editBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
           hitSlop={6}
         >
-          <Text style={{ color: colors.textMuted, fontSize: 16, fontWeight: '700' }}>···</Text>
+          <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMuted} />
         </Pressable>
       </View>
 
       {menuOpen ? (
         <View style={[styles.menu, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {!active ? (
+            <Pressable
+              onPress={() => openPrompt('rename')}
+              style={styles.menuItem}
+              accessibilityRole="button"
+            >
+              <Text style={{ color: colors.text }}>Omdøb kurv</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={onSavePress}
             style={styles.menuItem}
@@ -376,18 +440,130 @@ export function CartScreen() {
         accessibilityRole="button"
         accessibilityLabel="Tilføj vare"
         accessibilityHint="Åbner søgning"
-        style={[styles.addBar, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        style={[styles.addBar, { backgroundColor: colors.surface }, cardShadow(colors.shadow)]}
       >
-        <Text style={{ color: colors.textMuted, fontSize: 16 }}>🔍</Text>
+        <Ionicons name="search" size={18} color={colors.textMuted} />
         <Text style={[styles.addPlaceholder, { color: colors.textMuted }]}>Tilføj vare</Text>
       </Pressable>
+
+      {items.length ? winnerCard() : null}
     </View>
   );
 
+  function winnerCard() {
+    if (!winner) {
+      if (compareState === 'loading' || (compareState === 'idle' && !compare)) {
+        return (
+          <View style={[styles.winner, styles.winnerLoading, { backgroundColor: colors.primary }]}>
+            <ActivityIndicator color={colors.onPrimary} accessibilityLabel="Sammenligner butikker" />
+          </View>
+        );
+      }
+      // Fejl, eller ingen butik har varerne: "Find billigste" kan stadig åbnes.
+      return (
+        <Pressable
+          onPress={() => navigation.navigate('Sco')}
+          accessibilityRole="button"
+          style={[styles.compareLink, { backgroundColor: colors.surface }, cardShadow(colors.shadow)]}
+        >
+          <Text style={{ color: colors.text, fontWeight: '700', flex: 1 }}>
+            {compareState === 'error' ? 'Kunne ikke sammenligne lige nu' : 'Sammenlign butikker'}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
+      );
+    }
+    return (
+      <Pressable
+        onPress={() => navigation.navigate('Sco')}
+        accessibilityRole="button"
+        accessibilityLabel={joinLabel([
+          `Billigst i ${winner.name}`,
+          spokenKr(winner.totalPrice),
+          winner.coverage < winner.totalItems
+            ? `har ${winner.coverage} af ${winner.totalItems} varer`
+            : null,
+          spar > 0 ? `spar ${spokenKr(spar)}` : null,
+          ...runnersUp.map(({ store, extra }) =>
+            joinLabel([
+              store.name,
+              spokenKr(store.totalPrice),
+              extra && extra.shared > 0 && extra.diff > 0 ? `${spokenKr(extra.diff)} dyrere` : null,
+            ]),
+          ),
+        ])}
+        accessibilityHint="Åbner hele sammenligningen"
+        style={[
+          styles.winner,
+          {
+            backgroundColor: colors.primary,
+            shadowColor: colors.primary,
+            shadowOpacity: 0.25,
+            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 6 },
+            elevation: 4,
+          },
+        ]}
+      >
+        <View style={styles.winnerTop}>
+          <View style={[styles.winnerLogo, { backgroundColor: colors.logoBg }]}>
+            <StoreLogo store={winner.name} maxWidth={36} maxHeight={24} minHeight={12} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.winnerLabel, { color: colors.onPrimary }]} numberOfLines={1}>
+              Billigst i {winner.name}
+            </Text>
+            <Text style={[styles.winnerTotal, { color: colors.onPrimary }]}>
+              {kr(winner.totalPrice)}
+            </Text>
+            {winner.coverage < winner.totalItems ? (
+              <Text style={[styles.winnerNote, { color: colors.onPrimary }]}>
+                Har {winner.coverage} af {winner.totalItems} varer
+              </Text>
+            ) : null}
+          </View>
+          {spar > 0 ? (
+            <View style={[styles.sparPill, { backgroundColor: colors.deal }]}>
+              <Text style={[styles.sparText, { color: colors.dealText }]}>
+                Spar {spar.toFixed(2).replace('.', ',')}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        {runnersUp.length ? (
+          <View style={[styles.runners, { backgroundColor: colors.onPrimarySoft }]}>
+            {runnersUp.map(({ store, extra }) => (
+              <View key={store.name} style={styles.runnerRow}>
+                <View style={[styles.runnerLogo, { backgroundColor: colors.logoBg }]}>
+                  <StoreLogo store={store.name} maxWidth={20} maxHeight={16} minHeight={8} />
+                </View>
+                <Text style={[styles.runnerName, { color: colors.onPrimary }]} numberOfLines={1}>
+                  {store.name}
+                </Text>
+                <Text style={[styles.runnerTotal, { color: colors.onPrimary }]}>{kr(store.totalPrice)}</Text>
+                <Text style={[styles.runnerExtra, { color: colors.onPrimary }]}>
+                  {extra && extra.shared > 0 && extra.diff > 0
+                    ? `+${extra.diff.toFixed(2).replace('.', ',')}`
+                    : store.coverage < store.totalItems
+                      ? `mangler ${store.totalItems - store.coverage}`
+                      : ''}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.winnerMore}>
+          <Text style={{ color: colors.onPrimary, fontSize: 13, fontWeight: '600' }}>
+            Se hele sammenligningen
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.onPrimary} />
+        </View>
+      </Pressable>
+    );
+  }
+
   const renderItemRow = (item: CartItem) => {
     const lineTotal = item.price * item.quantity;
-    // Butikken vises som et grønt mærkat, så man med det samme kan se hvilken
-    // butik hver vare er fra (Kalle 03-10-2026).
     return (
       <SwipeableCartRow
         key={item.id}
@@ -397,124 +573,170 @@ export function CartScreen() {
         enabled={swipeEnabled}
       >
         <View style={[styles.itemRow, { backgroundColor: colors.surface }]}>
-          {/* Billede og antals-mærkat er med i etiketten nedenfor. */}
           <View
-            style={styles.thumbWrap}
+            style={[styles.thumbWrap, { backgroundColor: colors.logoBg }]}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           >
             {item.image ? (
               <Image source={{ uri: item.image }} style={styles.thumb} resizeMode="contain" />
-            ) : (
-              <View style={[styles.thumb, { backgroundColor: colors.border }]} />
-            )}
-            <View style={[styles.qtyBadge, { backgroundColor: colors.text }]}>
-              <Text style={[styles.qtyBadgeText, { color: colors.surface }]}>{item.quantity}</Text>
-            </View>
+            ) : null}
           </View>
 
-          <View style={styles.itemBody}>
-            {/* Varens oplysninger som ét element; knapperne under er egne. */}
-            {/* Samme to handlinger som swipe, så de også kan bruges med
-                VoiceOver/TalkBack (stryg op/ned og tryk to gange). */}
-            <View
-              accessible
-              accessibilityActions={
-                swipeEnabled
-                  ? [
-                      { name: 'addOne', label: 'Tilføj én mere til kurven' },
-                      { name: 'removeAll', label: 'Fjern fra kurv' },
-                    ]
-                  : undefined
-              }
-              onAccessibilityAction={(e) => {
-                if (e.nativeEvent.actionName === 'addOne') {
-                  updateQuantity(item.id, item.quantity + 1);
-                } else if (e.nativeEvent.actionName === 'removeAll') {
-                  removeItem(item.id);
-                }
-              }}
-              accessibilityLabel={joinLabel([
-                cartItemTitle(item),
-                `${item.quantity} stk`,
-                item.store,
-                item.unitMeasure,
-                item.kgPrice ? item.kgPrice.replace('kr/kg', 'kr pr. kilo').replace('.', ',') : null,
-                !item.kgPrice ? item.multiDeal : null,
-                `i alt ${spokenKr(lineTotal)}`,
-              ])}
-            >
-              {item.store || item.unitMeasure ? (
-                <View style={styles.storeRow}>
-                  {item.store ? <StoreChip store={item.store} /> : null}
-                  {item.unitMeasure ? (
-                    <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                      {item.unitMeasure.toUpperCase()}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-              <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
-                {cartItemTitle(item)}
-              </Text>
-              {item.kgPrice ? (
-                <Text style={[styles.itemMeta, { color: colors.textMuted }]}>{item.kgPrice}</Text>
-              ) : item.multiDeal ? (
-                <Text style={[styles.itemMeta, { color: colors.badge }]}>{item.multiDeal}</Text>
-              ) : null}
-            </View>
-
-            {/* Etiketterne naevner varen. En kurv med ti linjer har ellers ti
-                identiske "minus"-knapper, og VoiceOver kan ikke skelne dem. */}
-            <View style={styles.qtyControls}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Færre ${item.name}`}
-                onPress={() => updateQuantity(item.id, item.quantity - 1)}
-                style={[styles.qtyCtrl, { borderColor: colors.border }]}
-                hitSlop={6}
-              >
-                <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '600' }}>−</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Fjern ${item.name} fra kurven`}
-                onPress={() => removeItem(item.id)}
-                hitSlop={8}
-              >
-                <Text style={{ color: colors.textMuted, fontSize: 12 }}>Fjern</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Flere ${item.name}`}
-                onPress={() => updateQuantity(item.id, item.quantity + 1)}
-                style={[styles.qtyCtrl, { borderColor: colors.border }]}
-                hitSlop={6}
-              >
-                <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '600' }}>+</Text>
-              </Pressable>
-            </View>
-          </View>
-
+          {/* Varens oplysninger som ét element; stepperen er egne knapper.
+              Samme to handlinger som swipe, så de også kan bruges med
+              VoiceOver/TalkBack (stryg op/ned og tryk to gange). */}
           <View
-            style={styles.itemPriceCol}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
+            style={styles.itemBody}
+            accessible
+            accessibilityActions={
+              swipeEnabled
+                ? [
+                    { name: 'addOne', label: 'Tilføj én mere til kurven' },
+                    { name: 'removeAll', label: 'Fjern fra kurv' },
+                  ]
+                : undefined
+            }
+            onAccessibilityAction={(e) => {
+              if (e.nativeEvent.actionName === 'addOne') {
+                updateQuantity(item.id, item.quantity + 1);
+              } else if (e.nativeEvent.actionName === 'removeAll') {
+                removeItem(item.id);
+              }
+            }}
+            accessibilityLabel={joinLabel([
+              cartItemTitle(item),
+              `${item.quantity} stk`,
+              item.store,
+              item.unitMeasure,
+              item.kgPrice ? item.kgPrice.replace('kr/kg', 'kr pr. kilo').replace('.', ',') : null,
+              !item.kgPrice ? item.multiDeal : null,
+              `i alt ${spokenKr(lineTotal)}`,
+            ])}
           >
-            <PriceText value={lineTotal} color={colors.text} size={20} />
+            <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
+              {cartItemTitle(item)}
+            </Text>
+            {item.kgPrice ? (
+              <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                {item.kgPrice.replace('.', ',')}
+              </Text>
+            ) : item.multiDeal ? (
+              <Text style={[styles.itemMeta, { color: colors.badge }]} numberOfLines={1}>
+                {item.multiDeal}
+              </Text>
+            ) : item.unitMeasure ? (
+              <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                {item.unitMeasure}
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.itemPriceCol}>
+            <Text
+              style={[styles.itemPrice, { color: colors.text }]}
+              accessibilityElementsHidden
+              importantForAccessibility="no"
+            >
+              {kr(lineTotal)}
+            </Text>
+            <QuantityStepper
+              variant="row"
+              quantity={item.quantity}
+              name={cartItemTitle(item)}
+              onAdd={() => updateQuantity(item.id, item.quantity + 1)}
+              onRemove={() => updateQuantity(item.id, item.quantity - 1)}
+            />
           </View>
         </View>
       </SwipeableCartRow>
     );
   };
 
+  const missingInWinner = winner
+    ? winner.missingDetails
+        .map((m) => ({ m, item: items.find((i) => i.id === m.cart_id) }))
+        .filter((x) => !!x.item)
+    : [];
+
+  const itemsCard = (
+    <View style={[styles.itemsCard, { backgroundColor: colors.surface }, cardShadow(colors.shadow)]}>
+      {groups.map(([cat, catItems], gi) => (
+        <View key={cat}>
+          {groups.length > 1 ? (
+            <Text
+              style={[styles.cat, { color: colors.textMuted }, gi > 0 && { marginTop: 6 }]}
+              accessibilityRole="header"
+              accessibilityLabel={cat}
+            >
+              {cat.toUpperCase()}
+            </Text>
+          ) : null}
+          {catItems.map((item, idx) => (
+            <View key={item.id}>
+              {renderItemRow(item)}
+              {idx < catItems.length - 1 ? (
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              ) : null}
+            </View>
+          ))}
+        </View>
+      ))}
+      {winner
+        ? missingInWinner.map(({ m }) => {
+            const alt = alternatives[m.cart_id];
+            return (
+              <View key={m.cart_id} style={[styles.missing, { backgroundColor: colors.warningMuted }]}>
+                {m.image ? (
+                  <Image source={{ uri: m.image }} style={styles.missingImg} resizeMode="contain" />
+                ) : null}
+                <View
+                  style={{ flex: 1 }}
+                  accessible
+                  accessibilityLabel={joinLabel([
+                    `${m.name} findes ikke i ${winner.name}`,
+                    alt ? `forslag: ${alt.alt_name}, ${spokenKr(alt.alt_price)}` : null,
+                  ])}
+                >
+                  <Text style={[styles.missingTitle, { color: colors.text }]} numberOfLines={2}>
+                    {m.name} findes ikke i {winner.name}
+                  </Text>
+                  {alt ? (
+                    <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={2}>
+                      Forslag: {alt.alt_name}, {kr(alt.alt_price)}
+                    </Text>
+                  ) : null}
+                </View>
+                {alt ? (
+                  <Pressable
+                    onPress={() =>
+                      replaceItem(
+                        alt.cart_id,
+                        alternativeAsCartItem(alt, items.find((i) => i.id === alt.cart_id)),
+                      )
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`Byt ${m.name} til ${alt.alt_name}`}
+                    hitSlop={6}
+                    style={[styles.swapBtn, { backgroundColor: colors.surface }]}
+                  >
+                    <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13 }}>Byt</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            );
+          })
+        : null}
+    </View>
+  );
+
   return (
     <StackScreenBody style={{ backgroundColor: colors.bg }}>
       <FlatList
         style={{ flex: 1 }}
         scrollEnabled={!swiping}
-        data={groups}
-        keyExtractor={([cat]) => cat}
+        data={items.length ? ['items'] : []}
+        keyExtractor={(k) => k}
         ListHeaderComponent={header}
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -524,46 +746,25 @@ export function CartScreen() {
           </View>
         }
         contentContainerStyle={styles.listContent}
-        renderItem={({ item: [cat, catItems] }) => (
-          <View style={styles.section}>
-            <Text
-              style={[styles.cat, { color: colors.textMuted }]}
-              accessibilityRole="header"
-              accessibilityLabel={cat}
-            >
-              {cat.toUpperCase()}
-            </Text>
-            <View style={[styles.sectionCard, { backgroundColor: colors.surface }]}>
-              {catItems.map((item, idx) => (
-                <View key={item.id}>
-                  {renderItemRow(item)}
-                  {idx < catItems.length - 1 ? (
-                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                  ) : null}
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
+        renderItem={() => <View style={styles.section}>{itemsCard}</View>}
       />
 
       {items.length > 0 ? (
         <View style={[styles.footerPad, { backgroundColor: colors.bg }]}>
+          {/* Åbner den eksisterende butiksrute (RouteScreen). */}
           <Pressable
-            onPress={() => navigation.navigate('Sco')}
+            onPress={() => navigation.navigate('Route')}
             accessibilityRole="button"
-            accessibilityLabel={`Find billigste. ${count} varer, i alt ${spokenKr(footerTotal)}`}
-            accessibilityHint="Sammenligner kurven på tværs af butikker"
-            style={[styles.cta, { backgroundColor: colors.primary }]}
+            accessibilityLabel={winner ? `Vis vej til ${winner.name}` : 'Vis butiksrute'}
+            style={({ pressed }) => [
+              styles.cta,
+              { backgroundColor: colors.text, opacity: pressed ? 0.85 : 1 },
+            ]}
           >
-            <View style={styles.ctaCount}>
-              <Text style={[styles.ctaCountText, { color: colors.primary }]}>{count}</Text>
-            </View>
-            <Text style={styles.ctaLabel}>Find billigste</Text>
-            <View style={styles.ctaPrice}>
-              <PriceText value={footerTotal} color="#fff" size={20} />
-              <Text style={styles.ctaChevron}>›</Text>
-            </View>
+            <Ionicons name="location" size={18} color={colors.surface} />
+            <Text style={[styles.ctaLabel, { color: colors.surface }]}>
+              {winner ? `Vis vej til ${winner.name}` : 'Vis butiksrute'}
+            </Text>
           </Pressable>
         </View>
       ) : null}
@@ -866,10 +1067,19 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   listTitle: {
-    flex: 1,
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.5,
+  },
+  subTitle: { fontSize: 13, marginTop: 2 },
+  headerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   editBtn: {
     width: 36,
@@ -881,7 +1091,7 @@ const styles = StyleSheet.create({
   },
   menu: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 12,
     overflow: 'hidden',
   },
@@ -901,73 +1111,94 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderWidth: 1,
     borderRadius: 999,
+    height: 48,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 8,
+    marginBottom: 14,
   },
-  addPlaceholder: { fontSize: 16, flex: 1 },
-  listContent: { paddingBottom: 16 },
-  empty: { paddingHorizontal: 32, paddingTop: 48 },
-  section: { paddingHorizontal: 16, marginTop: 16 },
-  cat: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  sectionCard: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    gap: 12,
-  },
-  divider: { height: StyleSheet.hairlineWidth, marginLeft: 84 },
-  thumbWrap: { width: 64, height: 64 },
-  thumb: {
-    width: 64,
-    height: 64,
-    borderRadius: 14,
-  },
-  qtyBadge: {
-    position: 'absolute',
-    left: -4,
-    bottom: -4,
-    minWidth: 26,
-    height: 26,
-    borderRadius: 13,
+  addPlaceholder: { fontSize: 15, flex: 1 },
+  winner: { borderRadius: 24, padding: 16, marginBottom: 4 },
+  winnerLoading: { height: 112, alignItems: 'center', justifyContent: 'center' },
+  winnerTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  winnerLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
   },
-  qtyBadgeText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-  itemBody: { flex: 1, minWidth: 0, gap: 2 },
-  itemMeta: { fontSize: 11, fontWeight: '600', letterSpacing: 0.2 },
-  storeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  itemName: { fontSize: 15, fontWeight: '800', letterSpacing: 0.2 },
-  qtyControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
-  },
-  qtyCtrl: {
+  winnerLabel: { fontSize: 14, fontWeight: '600' },
+  winnerTotal: { fontSize: 30, fontWeight: '900', letterSpacing: -0.5, lineHeight: 34 },
+  winnerNote: { fontSize: 12, opacity: 0.9 },
+  sparPill: { height: 32, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center' },
+  sparText: { fontSize: 14, fontWeight: '800' },
+  runners: { borderRadius: 16, marginTop: 14, paddingHorizontal: 12, paddingVertical: 6 },
+  runnerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5 },
+  runnerLogo: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  itemPriceCol: { alignItems: 'flex-end', paddingTop: 2 },
-  priceRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  runnerName: { flex: 1, fontSize: 14, fontWeight: '600' },
+  runnerTotal: { fontSize: 14, fontWeight: '700' },
+  runnerExtra: { minWidth: 52, textAlign: 'right', fontSize: 13, fontWeight: '600', opacity: 0.9 },
+  winnerMore: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2, marginTop: 10 },
+  compareLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 4,
+  },
+  listContent: { paddingBottom: 16 },
+  empty: { paddingHorizontal: 32, paddingTop: 48 },
+  section: { paddingHorizontal: 16, marginTop: 12 },
+  itemsCard: { borderRadius: 24, paddingVertical: 6, overflow: 'hidden' },
+  cat: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginTop: 8,
+    marginBottom: 2,
+    marginLeft: 14,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 12,
+  },
+  divider: { height: StyleSheet.hairlineWidth, marginLeft: 78 },
+  thumbWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumb: { width: 46, height: 46 },
+  itemBody: { flex: 1, minWidth: 0, gap: 2 },
+  itemName: { fontSize: 14, fontWeight: '600' },
+  itemMeta: { fontSize: 12 },
+  itemPriceCol: { alignItems: 'flex-end', gap: 6 },
+  itemPrice: { fontSize: 15, fontWeight: '800' },
+  missing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 18,
+    padding: 10,
+    marginHorizontal: 8,
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  missingImg: { width: 40, height: 40, borderRadius: 10 },
+  missingTitle: { fontSize: 13, fontWeight: '700' },
+  swapBtn: { height: 32, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center' },
   footerPad: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -976,28 +1207,15 @@ const styles = StyleSheet.create({
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    gap: 12,
-  },
-  ctaCount: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 999,
+    height: 54,
+    gap: 8,
   },
-  ctaCountText: { fontWeight: '800', fontSize: 15 },
   ctaLabel: {
-    flex: 1,
-    color: '#fff',
     fontWeight: '700',
     fontSize: 16,
   },
-  ctaPrice: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ctaChevron: { color: '#fff', fontSize: 26, fontWeight: '300', marginTop: -2 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

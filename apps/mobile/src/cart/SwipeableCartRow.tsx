@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import { AnimatedText } from '../theme/Typography';
 import { useTheme } from '../theme/ThemeContext';
 
 /**
@@ -136,9 +137,9 @@ export function SwipeableCartRow({
             { backgroundColor: colors.saleSolid, opacity: removeOpacity },
           ]}
         >
-          <Animated.Text style={[styles.label, { transform: [{ scale: removeScale }] }]}>
+          <AnimatedText style={[styles.label, { transform: [{ scale: removeScale }] }]}>
             Fjern fra kurv
-          </Animated.Text>
+          </AnimatedText>
         </Animated.View>
         <Animated.View
           style={[
@@ -147,9 +148,9 @@ export function SwipeableCartRow({
             { backgroundColor: colors.primarySolid, opacity: addOpacity },
           ]}
         >
-          <Animated.Text style={[styles.label, { transform: [{ scale: addScale }] }]}>
+          <AnimatedText style={[styles.label, { transform: [{ scale: addScale }] }]}>
             Tilføj til kurv
-          </Animated.Text>
+          </AnimatedText>
         </Animated.View>
       </View>
       <Animated.View style={{ transform: [{ translateX }] }} {...responder.panHandlers}>

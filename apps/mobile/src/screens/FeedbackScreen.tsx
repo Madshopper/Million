@@ -6,10 +6,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '../theme/Typography';
 import { ApiError, apiPost } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { getTurnstileToken } from '../auth/turnstile';

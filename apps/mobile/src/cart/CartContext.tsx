@@ -10,6 +10,7 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { postCartEvent } from '../api/listing';
 import type { CartItem } from './types';
+import { loadRecentItems, rememberRecentItem } from './recentItems';
 
 const CART_KEY = 'madshopper_cart';
 
@@ -103,6 +104,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   itemsRef.current = items;
 
   useEffect(() => {
+    loadRecentItems();
+  }, []);
+
+  useEffect(() => {
     // En defekt gemt værdi (ikke en liste) ville vælte kurven ved første
     // .map, og en fejlet læsning lod `loaded` stå falsk for altid, så intet
     // nyt i kurven blev gemt. Begge falder nu tilbage til en tom kurv.
@@ -138,6 +143,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addItem = useCallback(
     (item: Omit<CartItem, 'quantity'> & { quantity?: number }, opts?: AddItemOptions) => {
       const qty = Math.max(1, item.quantity ?? 1);
+      // "Køb igen" på forsiden (cart/recentItems.ts), kun på telefonen.
+      rememberRecentItem({ ...item, quantity: qty } as CartItem);
       setItems((prev) => {
         const idx = prev.findIndex((p) => p.id === item.id);
         let next: CartItem[];

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import { useFocusEffect } from '@react-navigation/native';
 import { getSupabase } from '../auth/supabase';
 import { useAuth } from '../auth/AuthContext';
