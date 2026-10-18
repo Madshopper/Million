@@ -45,6 +45,7 @@ from app_support import (  # noqa: E402
     is_organic, is_lactose_free, parse_weight_to_grams,
     normalize_name, _PLACEHOLDER_IMGS,
     is_non_food_name, is_age_restricted, is_rema_tobacco_id, store_match_names,
+    offer_group_key,
 )
 from updater import get_search_flavor_keywords  # noqa: E402
 
@@ -236,7 +237,7 @@ def fetch_products() -> list[dict]:
 # blob-størrelsen (mindre JSON-parsing i worker'en + mindre D1).
 # NB: /product/ean og store_matches 'ean' BEHOLDES nu - nutrition_candidate_keys
 # (app_support.py) slår næring op via EAN, så de skal med ud til edge/D1.
-# own_avis_titel/avis_titel bruges kun til optællingen (_count_store_offers).
+# own_avis_titel/avis_titel erstattes af /product/offer_keys (build_row_values).
 _TOP_DROP = frozenset({"/product/image_hash", "/product/weight_grams",
                        "/product/own_avis_titel"})
 _MATCH_DROP = frozenset({"_hash_int", "_norm_name", "_image_hash", "_weight_g", "_stk_count",
@@ -335,6 +336,18 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
     p["/product/subcategory"] = subcategory
     p["/product/is_organic"] = bool(organic)
     p["/product/is_lactose_free"] = bool(lactose)
+    # Tilbuddets nøgle pr. butik, så butikkens tilbudsside viser ét kort pr.
+    # tilbud i SQL (app.py::_store_offer_key_sql) med samme regel som tallet
+    # på logoet (_count_store_offers).
+    offer_keys = {}
+    for key, cfg in _STORE_CONFIGS.items():
+        ok = offer_group_key(p, key, cfg["label"])
+        if ok:
+            offer_keys[key] = ok
+    if offer_keys:
+        p["/product/offer_keys"] = offer_keys
+    else:
+        p.pop("/product/offer_keys", None)
     data = json.dumps(slim_product(p), separators=(",", ":"), ensure_ascii=False)
     if stats is not None:
         # Tilbudssidens antal: own_sale-varer vises ikke dér (app.py::
@@ -375,45 +388,38 @@ WRANGLER_CWD = _DIST if os.path.isdir(_DIST) else ROOT
 def _count_store_offers(stats: dict, p: dict) -> None:
     """Antal tilbud pr. butik til forsidens tilbudsaviser (app.py::
     _offer_store_counts). Samme regel som app.py::_as_store_offer:
-    visningsbutikkens eget tilbud ligger på kortet, de andres i store_matches."""
+    visningsbutikkens eget tilbud ligger på kortet, de andres i store_matches.
+    Varer med samme tilbudsnøgle (app_support.offer_group_key: avistitel, eller
+    mærke + pris hos Rema) er ét tilbud: Bilka havde 1.304 avisvarer men kun
+    ~140 tilbud (13-10-2026), Rema 275 tilbudsvarer men ~155 tilbud."""
     counts = stats.setdefault("offer_counts", {})
     avis = stats.setdefault("avis_counts", {})
+    seen = stats.setdefault("_offer_keys_seen", {})
     store = p.get("/product/store")
     matches = p.get("/product/store_matches") or {}
     for key, cfg in _STORE_CONFIGS.items():
         m = matches.get(key) or {}
         own = store == cfg["label"]
+        group = offer_group_key(p, key, cfg["label"])
         if (own and (p.get("/product/sale_price") is not None
                      or p.get("/product/own_sale"))) or m.get("is_sale"):
-            # Remas data kender ikke avisens tilbud, kun varianterne: 257
-            # tilbudsvarer, men ~140 tilbud i Remas avis (14-10-2026). Samme
-            # mærke til samme tilbudspris er ét tilbud ("Tex Mex tortilla
-            # chips, 3 slags, 5 kr"); det gav 155 for 275 varer.
-            if key == "rema" and own:
-                group = (p.get("/product/sale_price"),
-                         str(p.get("/product/brand") or "").split(",")[0].strip().lower())
-                seen = stats.setdefault("_rema_offers", set())
-                if group in seen:
+            # Kun Remas grupper samler "alle tilbud"; de andre butikkers
+            # avistitler gælder kun avisoptællingen nedenfor.
+            if group and group.startswith("r:"):
+                rema = seen.setdefault(("o", key), set())
+                if group in rema:
                     continue  # Rema har ingen avis-optælling nedenfor
-                seen.add(group)
+                rema.add(group)
             counts[key] = counts.get(key, 0) + 1
         # Kun ugens avisvarer (Salling og Dagrofa, tilbud='Avis'):
-        # app.py::_avis_leaflet.
-        # Ét tilbud i avisen ("Tapas", "Haribo slikpose") dækker ofte mange
-        # varianter: Bilka havde 1.304 avisvarer men kun ~140 tilbud
-        # (13-10-2026). Varer med samme avistitel tælles derfor én gang;
-        # varer uden titel (Netto) tælles hver for sig.
-        if own and p.get("/product/own_avis"):
-            title = p.get("/product/own_avis_titel")
-        elif m.get("in_avis"):
-            title = m.get("avis_titel")
-        else:
+        # app.py::_avis_leaflet. Varer uden titel (Netto) tælles hver for sig.
+        if not ((own and p.get("/product/own_avis")) or m.get("in_avis")):
             continue
-        if title:
-            titles = stats.setdefault("_avis_titles", {}).setdefault(key, set())
-            if title in titles:
+        if group:
+            titles = seen.setdefault(("a", key), set())
+            if group in titles:
                 continue
-            titles.add(title)
+            titles.add(group)
         avis[key] = avis.get(key, 0) + 1
 
 

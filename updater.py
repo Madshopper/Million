@@ -4655,6 +4655,20 @@ def _notify_website_refresh():
         logger.error("Kunne ikke opdatere hjemmesidens cache: %s", e)
 
 
+def _mark_any_sale(products: list) -> None:
+    """Sæt is_any_sale på kort, hvor en sammenligningsbutik har tilbud.
+    Kun grupperne (fase 1 og billed-dedup) satte den; Rema-kortene gjorde
+    ikke, så D1's is_sale blev 0, og butikkens tilbudsside (/tilbud/<butik>,
+    WHERE is_sale = 1) viste ikke tilbuddet: Hatting tebirkes i Føtex' avis
+    lå på et Rema-kort (18-10-2026, ~200 tilbud skjult på tværs af butikker)."""
+    for p in products:
+        if p.get('/product/is_any_sale'):
+            continue
+        if any(isinstance(m, dict) and m.get('is_sale')
+               for m in (p.get('/product/store_matches') or {}).values()):
+            p['/product/is_any_sale'] = True
+
+
 def run_rema_updater():
     """Hent kun Rema XML og opdater Rema-priser i eksisterende cache."""
     logger.info("Starter Rema-opdatering...")
@@ -4676,6 +4690,7 @@ def run_rema_updater():
             item['/product/cheapest_at'] = REMA_KEY
             products.append(item)
 
+    _mark_any_sale(products)
     annotate_lowest_prices(products)
     search_index = {k: list(v) for k, v in build_search_index(products, normalize_name, flavor_fn=get_search_flavor_keywords).items()}
     if _save_app_cache(products, search_index):
@@ -4726,6 +4741,7 @@ def run_updater():
         )
         return
 
+    _mark_any_sale(fresh)
     annotate_lowest_prices(fresh)
     search_index = {k: list(v) for k, v in build_search_index(fresh, normalize_name, flavor_fn=get_search_flavor_keywords).items()}
     if _save_app_cache(fresh, search_index):
