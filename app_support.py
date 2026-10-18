@@ -2261,6 +2261,32 @@ def product_available_at_active_stores(product: dict, active_stores: set | None)
     return False
 
 
+def offer_group_key(product: dict, store_key: str, label: str) -> str | None:
+    """Nøglen for det tilbud, varen hører til hos store_key, eller None (varen
+    er sit eget tilbud). Ét tilbud i avisen ("Tapas") dækker ofte mange varer:
+    Bilka havde 135 tilbud men 1.344 avisvarer (18-10-2026), og Kalle vil se
+    ét kort pr. tilbud. Samme nøgle tæller logoernes tal (scripts/seed-d1.py
+    gemmer den som /product/offer_keys) og samler kortene på butikkens
+    tilbudsside (app.py::_store_offer_key_sql).
+    - Avisvarer (Salling, Dagrofa): avisens tilbudstitel.
+    - Rema: samme mærke til samme tilbudspris er ét tilbud, for Remas data
+      kender ikke avisens tilbud ("Tex Mex tortilla chips, 3 slags, 5 kr")."""
+    match = (product.get('/product/store_matches') or {}).get(store_key) or {}
+    own = product.get('/product/store') == label
+    if own and product.get('/product/own_avis'):
+        title = product.get('/product/own_avis_titel')
+        return f"a:{title}" if title else None
+    if match.get('in_avis'):
+        title = match.get('avis_titel')
+        return f"a:{title}" if title else None
+    if (store_key == 'rema' and own
+            and (product.get('/product/sale_price') is not None
+                 or product.get('/product/own_sale'))):
+        brand = str(product.get('/product/brand') or '').split(',')[0].strip().lower()
+        return f"r:{product.get('/product/sale_price')}|{brand}"
+    return None
+
+
 def _promote_match_to_product(product: dict, store_key: str, match: dict) -> dict:
     out = dict(product)
     out['/product/title'] = match['name']

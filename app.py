@@ -31,6 +31,7 @@ from app_support import (
     product_available_at_active_stores,
     product_for_active_stores,
     _promote_match_to_product,
+    offer_group_key,
     STORE_CATALOG_VERSION,
     stores_auto_enable_since,
     STORES_ADDED_IN_VERSION,
@@ -3968,6 +3969,29 @@ def _store_offer_sql(store_key: str, leaflet: bool = False) -> tuple[str, str]:
     return cond, savings
 
 
+def _store_offer_key_sql(store_key: str) -> str:
+    """Tilbuddets nøgle som SQL: én nøgle pr. tilbud i avisen (fx "Tapas",
+    112 varer), ellers varens id. Nøglerne skrives af scripts/seed-d1.py
+    (/product/offer_keys) efter app_support.offer_group_key - samme regel som
+    tallet på logoet, så siden viser lige så mange kort (Kalle 18-10-2026)."""
+    if not store_key.isalnum():
+        raise ValueError(store_key)
+    return f"""COALESCE(json_extract(data, '$."/product/offer_keys".{store_key}'), id)"""
+
+
+def _one_per_offer(items: list, store_key: str, label: str, savings_of) -> list:
+    """Uden D1: behold den vare pr. tilbud, der sparer mest (som SQL'en i
+    _build_store_avis/_build_store_offer_listing). Rækkefølgen bevares."""
+    best = {}
+    for i, raw in enumerate(items):
+        key = offer_group_key(raw, store_key, label) or ('id', i)
+        sv = savings_of(raw)
+        if key not in best or sv > best[key][0]:
+            best[key] = (sv, i)
+    keep = {i for _sv, i in best.values()}
+    return [raw for i, raw in enumerate(items) if i in keep]
+
+
 def _offer_display(product: dict, store_key: str, label: str,
                    leaflet: bool = False) -> dict | None:
     adjusted = _as_store_offer(product, store_key, label, leaflet)
@@ -4015,13 +4039,19 @@ def _build_store_avis(store_key: str) -> dict:
     counts = {}
     if _use_d1():
         cond, savings = _store_offer_sql(store_key, leaflet)
+        # Ét kort pr. tilbud (o): den variant der sparer mest. Afsnittet og
+        # antallet følger den variant, så hvert tilbud tælles én gang.
         rows = _d1_rows(
-            "WITH v AS (SELECT data, category, " + savings + " AS sv"
+            "WITH v AS (SELECT id, data, category, " + savings + " AS sv, "
+            + _store_offer_key_sql(store_key) + " AS ok"
             " FROM products WHERE is_sale = 1),"
+            " o AS (SELECT data, category, sv,"
+            " ROW_NUMBER() OVER (PARTITION BY ok ORDER BY sv DESC, id) AS orn"
+            " FROM v WHERE sv IS NOT NULL),"
             " r AS (SELECT data, category, sv,"
             " ROW_NUMBER() OVER (PARTITION BY category ORDER BY sv DESC) AS rn,"
             " COUNT(*) OVER (PARTITION BY category) AS n"
-            " FROM v WHERE sv IS NOT NULL)"
+            " FROM o WHERE orn = 1)"
             f" SELECT data, category, sv, n FROM r WHERE rn <= {int(_AVIS_SECTION_ITEMS)}",
             (label,),
         )
@@ -4036,9 +4066,10 @@ def _build_store_avis(store_key: str) -> dict:
             picked.append((row.get('category'), float(row.get('sv') or 0), raw))
     else:
         by_cat = {}
-        for raw in load_sale_raw():
-            if not _as_store_offer(raw, store_key, label, leaflet):
-                continue
+        offers = [raw for raw in load_sale_raw()
+                  if _as_store_offer(raw, store_key, label, leaflet)]
+        for raw in _one_per_offer(offers, store_key, label,
+                                  lambda r: _offer_savings(r, store_key, label)):
             cat = str(raw.get('/product/product_type') or 'Andre varer')
             by_cat.setdefault(cat, []).append(
                 (cat, _offer_savings(raw, store_key, label), raw))
@@ -4239,8 +4270,16 @@ def _build_store_offer_listing(store_key: str, args, page: int):
         # `is_sale = 1` skal stå bogstaveligt, så det partielle indeks bruges
         # (seed-d1.py); json_extract afgøres i D1, hvis CPU ikke tæller mod
         # workerens. Stien bygges kun af nøgler fra _STORE_CONFIGS.
-        cond, _sv = _store_offer_sql(store_key, leaflet)
-        where, params = ["is_sale = 1", cond], [label]
+        cond, savings = _store_offer_sql(store_key, leaflet)
+        # Ét kort pr. tilbud, samme valg som avisen (_build_store_avis).
+        one_per_offer = (
+            "id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER"
+            " (PARTITION BY ok ORDER BY sv DESC, id) AS orn FROM"
+            " (SELECT id, " + savings + " AS sv, " + _store_offer_key_sql(store_key)
+            + " AS ok FROM products WHERE is_sale = 1 AND " + cond + "))"
+            " WHERE orn = 1)"
+        )
+        where, params = ["is_sale = 1", cond, one_per_offer], [label, label, label]
         if category:
             where.append("category = ?")
             params.append(category)
@@ -4250,6 +4289,9 @@ def _build_store_offer_listing(store_key: str, args, page: int):
         source = filter_products_by_stores(raw_page, None)
     else:
         source = filter_products_by_stores(load_sale_raw(), None)
+        source = _one_per_offer(
+            [p for p in source if _as_store_offer(p, store_key, label, leaflet)],
+            store_key, label, lambda r: _offer_savings(r, store_key, label))
         if category:
             source = [p for p in source
                       if str(p.get('/product/product_type') or 'Andre varer') == category]
