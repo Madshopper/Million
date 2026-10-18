@@ -3549,7 +3549,16 @@ def home_index_html_redirect():
     return redirect('/', code=301)
 
 
-def _recipe_pool_live(limit: int = 10) -> list:
+# De 10 opskrifter forsiden viste fra starten (de eneste godkendte før de egne
+# opskrifter kom 07-10-2026). Så længe opskrifter ikke er udgivet fra
+# Feature-panelet, viser forsiden (web og app) KUN dem, i den her rækkefølge,
+# uanset nye opskrifter og klik (Kalle 18-10-2026). Staging har alt slået til
+# og viser den almindelige top 10. Samme liste som
+# scripts/seed-d1.py::_HOME_RECIPES_LOCKED_IDS.
+_HOME_RECIPES_LOCKED_IDS = (15, 14, 13, 12, 11, 9, 8, 7, 6, 5)
+
+
+def _recipe_pool_live(limit: int = 10, only_ids: tuple | None = None) -> list:
     """"Lækre opskrifter"-puljen hentet direkte fra Supabase.
 
     Bruges KUN uden for edge (lokal Flask), hvor _home_precomputed()'s
@@ -3611,12 +3620,13 @@ def _recipe_pool_live(limit: int = 10) -> list:
                 "matched_ingredient_count": snap.get("matched_ingredient_count", 0),
                 "total_ingredient_count": total,
                 "sale_ratio": round(on_sale / total, 3) if total else 0.0,
-                "plan": _recipe_plan_profile(
-                    r.get("title", ""), names_by_recipe.get(r["id"], []),
-                    instructions, r.get("servings"), r.get("total_time_minutes")),
             })
-        # Samme (total_points, created_at)-sortering som seed-d1.py.
-        ranked.sort(key=lambda r: (r["total_points"], r["created_at"]), reverse=True)
+        if only_ids is not None:
+            order = {rid: i for i, rid in enumerate(only_ids)}
+            ranked = sorted((r for r in ranked if r["id"] in order), key=lambda r: order[r["id"]])
+        else:
+            # Samme (total_points, created_at)-sortering som seed-d1.py.
+            ranked.sort(key=lambda r: (r["total_points"], r["created_at"]), reverse=True)
         top = ranked[:limit]
         for r in top:
             del r["created_at"]
@@ -3625,6 +3635,18 @@ def _recipe_pool_live(limit: int = 10) -> list:
         # Fejler blødt: en manglende opskrift-pulje må aldrig vælte forsiden.
         logger.warning("recipe-pool live-fallback fejlede: %s", e)
         return []
+
+
+def _locked_recipe_pool(precomputed: dict) -> list:
+    """Forsidens faste 10 fra nattens seed (home_data_v1.recipe_pool_locked).
+    Mangler nøglen (KV skrevet af en ældre seed), filtreres den almindelige
+    pulje til de faste id'er, så forsiden aldrig viser andre opskrifter."""
+    locked = precomputed.get('recipe_pool_locked')
+    if isinstance(locked, list):
+        return locked
+    order = {rid: i for i, rid in enumerate(_HOME_RECIPES_LOCKED_IDS)}
+    pool = [r for r in (precomputed.get('recipe_pool') or []) if r.get('id') in order]
+    return sorted(pool, key=lambda r: order[r['id']])
 
 
 def _build_home_categories(active_stores, args):
@@ -3652,7 +3674,10 @@ def _build_home_categories(active_stores, args):
         # de samme ~400 forudberegnede varer ved HVER sidevisning.
         sale_raw = _adjust_for_stores(precomputed.get('sale_raw') or [])
         mejeri_raw = _adjust_for_stores(precomputed.get('mejeri_raw') or [])
-        recipe_pool = precomputed.get('recipe_pool') or []
+        if _recipes_enabled():
+            recipe_pool = precomputed.get('recipe_pool') or []
+        else:
+            recipe_pool = _locked_recipe_pool(precomputed)
     else:
         # own_sale-varer (tilbud uden førpris) er med i is_sale, men ikke i
         # Ugens Tilbud - samme udvalg som seed-d1.py's forudberegnede pulje.
@@ -3666,7 +3691,8 @@ def _build_home_categories(active_stores, args):
         # "Lækre opskrifter" har ingen forudberegnet pulje her: _home_precomputed()
         # returnerer None uden for edge, så KV-nøglen home_data_v1 findes ikke.
         # Hentes derfor live fra Supabase - kun i denne gren, dvs. aldrig på edge.
-        recipe_pool = _recipe_pool_live()
+        recipe_pool = (_recipe_pool_live() if _recipes_enabled()
+                       else _recipe_pool_live(only_ids=_HOME_RECIPES_LOCKED_IDS))
 
     # Puljen tømmes IKKE her: webforsiden viser "Lækre opskrifter" som en
     # ikke-klikbar teaser med "Kommer snart" i alle miljøer (se home() -

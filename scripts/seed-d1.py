@@ -611,8 +611,15 @@ def fetch_popular_product_ids(limit: int = _HOME_FAV_LIMIT) -> list[str]:
 
 _HOME_RECIPE_LIMIT = 10
 
+# De 10 opskrifter forsiden viste fra starten (de eneste godkendte før de egne
+# opskrifter kom 07-10-2026), i den rækkefølge de stod i. Forsiden viser KUN
+# dem, indtil opskrifter udgives fra Feature-panelet (Kalle 18-10-2026).
+# Samme liste som app.py::_HOME_RECIPES_LOCKED_IDS.
+_HOME_RECIPES_LOCKED_IDS = (15, 14, 13, 12, 11, 9, 8, 7, 6, 5)
 
-def fetch_recipe_pool(limit: int = _HOME_RECIPE_LIMIT) -> list[dict]:
+
+def fetch_recipe_pool(limit: int = _HOME_RECIPE_LIMIT,
+                      only_ids: tuple | None = None) -> list[dict]:
     """"Lækre opskrifter"-pulje: godkendte opskrifter rangeret efter akkumuleret
     klik-pointsum (recipe_points{TABLE_SUFFIX}, nedtrappende pointværdi pr.
     klik med opskriftens alder - se scripts/supabase-recipe-clicks.sql).
@@ -677,7 +684,12 @@ def fetch_recipe_pool(limit: int = _HOME_RECIPE_LIMIT) -> list[dict]:
     # (total_points, created_at) begge faldende i én sort: højeste pointsum
     # øverst, uafgjort -> nyeste opskrift (ISO8601-strenge sammenligner
     # korrekt leksikografisk, samme UTC-format fra Supabase).
-    ranked.sort(key=lambda r: (r["total_points"], r["created_at"]), reverse=True)
+    if only_ids is not None:
+        # Fast liste: præcis de valgte, i listens rækkefølge, uanset klik.
+        order = {rid: i for i, rid in enumerate(only_ids)}
+        ranked = sorted((r for r in ranked if r["id"] in order), key=lambda r: order[r["id"]])
+    else:
+        ranked.sort(key=lambda r: (r["total_points"], r["created_at"]), reverse=True)
     top = ranked[:limit]
     for r in top:
         del r["created_at"]
@@ -725,6 +737,8 @@ def build_home_data(products: list[dict]) -> dict:
         "pop_ids": pop_ids,
         "fav_pool": fav_pool,
         "recipe_pool": fetch_recipe_pool(),
+        # Forsidens faste 10, så længe opskrifter er skjult (app.py vælger).
+        "recipe_pool_locked": fetch_recipe_pool(only_ids=_HOME_RECIPES_LOCKED_IDS),
     }
 
 
