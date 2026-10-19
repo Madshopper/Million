@@ -6793,3 +6793,916 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
 .auth-field .lok-signup input { width: 8em; flex: 0 0 auto; }
 .lok-signup .lok-btn { padding: 9px 12px; }
 .auth-optional { font-weight: 400; color: var(--gray-500); }
+
+/* ===== DESIGN C2 (Feature 'design_c2') =====
+   Samme udseende som appens design C2 (apps/mobile, PR #123), så
+   MadShopper Test og dev.madshopper.dk ligner hinanden (Kalle 19-10-2026).
+   Alt herunder gælder kun med <html class="c2"> (base.html), så
+   madshopper.dk er uændret, indtil funktionen udgives i Feature-panelet.
+   Farverne er appens tokens fra apps/mobile/src/theme/colors.ts. */
+html.c2 body {
+  --c2-bg: #F7F8F5;
+  --c2-surface: #FFFFFF;
+  --c2-text: #1A1C19;
+  --c2-muted: #5C6358;
+  --c2-border: #E2E6DE;
+  --c2-deal: #DFA300;
+  --c2-deal-text: #1A1C19;
+  --c2-stepper: #F2F4EF;
+  --c2-green-soft: #D6F5E3;
+  --c2-green-ink: #047857;
+  --c2-shadow: 0 2px 10px rgba(26, 28, 25, 0.06);
+  --font-sans: 'Schibsted Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: var(--font-sans);
+  background: var(--c2-bg);
+  color: var(--c2-text);
+}
+
+html.c2 body[data-theme="dark"] {
+  --c2-bg: #121412;
+  --c2-surface: #1C1F1B;
+  --c2-text: #F0F2ED;
+  --c2-muted: #A3AAA0;
+  --c2-border: #2C312B;
+  --c2-stepper: #2C312B;
+  /* Som appen: sekundær og tertiær grøn bytter plads i mørk tilstand. */
+  --c2-green-soft: #047857;
+  --c2-green-ink: #D6F5E3;
+  --c2-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.c2-hide {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Header og søgefelt */
+html.c2 header {
+  background: var(--c2-bg);
+  border-bottom-color: var(--c2-border);
+}
+
+html.c2 .logo-icon {
+  border-radius: 12px;
+}
+
+html.c2 .logo-text {
+  color: var(--c2-text);
+  font-weight: 800;
+}
+
+html.c2 #searchInput {
+  background: var(--c2-surface);
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  box-shadow: var(--c2-shadow);
+  color: var(--c2-text);
+  min-height: 48px;
+}
+
+html.c2 #searchInput:focus {
+  border-color: var(--green);
+}
+
+html.c2 #searchInput::placeholder {
+  color: var(--c2-muted);
+}
+
+html.c2 #cart-badge {
+  background: var(--green);
+  color: #fff;
+}
+
+html.c2 .category-nav {
+  background: var(--c2-bg);
+}
+
+/* Forsiden */
+html.c2 .home-hero {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+html.c2 .savings-widget {
+  padding: 16px 18px;
+  border-radius: 22px;
+  gap: 12px;
+  border: none;
+  box-shadow: none;
+  margin: 12px 0 20px;
+}
+
+html.c2 .savings-icon {
+  display: none;
+}
+
+html.c2 .savings-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #D6F5E3;
+  margin-bottom: 2px;
+}
+
+html.c2 .savings-amount {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+html.c2 .savings-badge {
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 0.95rem;
+}
+
+/* Kompakt banner på telefonen: tekst til venstre, knap til højre (som appen). */
+@media (max-width: 640px) {
+  html.c2 .savings-widget {
+    flex-direction: row;
+    text-align: left;
+    align-items: center;
+  }
+
+  html.c2 .savings-amount {
+    font-size: 1.05rem;
+  }
+}
+
+html.c2 .c2-avis h2,
+html.c2 .product-type h2 {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--c2-text);
+  letter-spacing: -0.01em;
+}
+
+html.c2 .c2-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+html.c2 .product-type h2 a {
+  color: var(--c2-green-ink);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+html.c2 .c2-avis .offer-stores-row {
+  gap: 14px;
+}
+
+html.c2 .c2-avis .offer-store {
+  width: 72px;
+  padding: 0;
+  gap: 6px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--c2-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+html.c2 .c2-avis-ring {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  border: 3px solid var(--c2-border);
+  padding: 3px;
+  background: var(--c2-bg);
+  display: flex;
+  transition: border-color 0.15s ease;
+}
+
+html.c2 .c2-avis .offer-store img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: contain;
+  padding: 8px;
+  background: #fff;
+}
+
+html.c2 .c2-avis .offer-store:hover .c2-avis-ring,
+html.c2 .c2-avis .offer-store:focus-visible .c2-avis-ring,
+html.c2 .c2-avis .offer-store.is-new .c2-avis-ring {
+  border-color: var(--green);
+}
+
+html.c2 .c2-avis .offer-store.is-new .c2-avis-day {
+  color: var(--c2-green-ink);
+  font-weight: 700;
+}
+
+/* Varekortet: hvidt, rundt kort uden kant, logo og "Spar"-pille i billedet */
+html.c2 .product {
+  background: var(--c2-surface);
+  border: none;
+  border-radius: 22px;
+  box-shadow: var(--c2-shadow);
+}
+
+html.c2 .product:hover {
+  transform: none;
+  box-shadow: 0 6px 18px rgba(26, 28, 25, 0.10);
+}
+
+html.c2 .product-image-container {
+  margin: 8px 8px 0;
+  border-radius: 16px;
+  background: #fff;
+  aspect-ratio: 5 / 4;
+}
+
+html.c2 .product-image {
+  padding: 10px;
+}
+
+html.c2 .sale-badge {
+  top: 8px;
+  left: 8px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--c2-deal);
+  color: var(--c2-deal-text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+/* Butikslogoet i en hvid pille nederst til højre. Navnet bliver stående som
+   tekst til skærmlæsere; script.js skifter stadig klassen (updateStoreBadges). */
+html.c2 .store-badge,
+html.c2 [data-theme="dark"] .store-badge {
+  top: auto;
+  bottom: 6px;
+  right: 6px;
+  width: 54px;
+  height: 24px;
+  padding: 0;
+  font-size: 0;
+  color: transparent;
+  padding: 5px 9px;
+  box-sizing: border-box;
+  background: #fff center / contain no-repeat;
+  background-origin: content-box;
+  box-shadow: 0 0 0 1px #E2E6DE;
+}
+
+html.c2 .store-badge.rema { background-image: url('/static/images/Rema1000-logo.png'); }
+html.c2 .store-badge.bilka { background-image: url('/static/images/bilka-logo.png'); }
+html.c2 .store-badge.netto { background-image: url('/static/images/netto-logo.png'); }
+html.c2 .store-badge.foetex { background-image: url('/static/images/foetex-logo.png'); }
+html.c2 .store-badge.mk { background-image: url('/static/images/Min_kobmand_logo.png'); }
+html.c2 .store-badge.meny { background-image: url('/static/images/meny-logo.png'); }
+html.c2 .store-badge.spar { background-image: url('/static/images/spar-logo.png'); }
+html.c2 .store-badge.sb { background-image: url('/static/images/superbrugsen-logo.png'); }
+html.c2 .store-badge.brugsen { background-image: url('/static/images/brugsen-logo.png'); }
+html.c2 .store-badge.kvickly { background-image: url('/static/images/kvickly-logo.png'); }
+html.c2 .store-badge.lidl { background-image: url('/static/images/lidl-logo.png'); }
+html.c2 .store-badge.loevbjerg { background-image: url('/static/images/loevbjerg-logo.png'); }
+html.c2 .store-badge.abclavpris { background-image: url('/static/images/abc-lavpris-logo.png'); }
+html.c2 .store-badge.discount365 { background-image: url('/static/images/365discount-logo.png'); }
+
+html.c2 .product-content {
+  padding: 10px 14px 0;
+  gap: 2px;
+}
+
+html.c2 .product-brand,
+html.c2 .product .compare-badge.only {
+  display: none;
+}
+
+html.c2 .product-content h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.3;
+  min-height: 2.6em;
+  color: var(--c2-text);
+}
+
+html.c2 .product:hover .product-content h3 {
+  color: var(--c2-text);
+}
+
+html.c2 .product-weight,
+html.c2 .product-kg-price {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--c2-muted);
+}
+
+html.c2 .product-footer {
+  align-items: flex-end;
+  padding: 8px 12px 12px 14px;
+}
+
+html.c2 .product .price.original {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--c2-muted);
+  margin-bottom: 2px;
+}
+
+html.c2 .product .price-main,
+html.c2 .product .price-sale,
+html.c2 .product .price.sale,
+html.c2 .product .price:not(.sale):not(.original) {
+  color: var(--c2-text);
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  display: flex;
+  align-items: flex-start;
+}
+
+html.c2 .c2-ore {
+  font-size: 0.5em;
+  font-weight: 800;
+  line-height: 1;
+  margin-left: 1px;
+  margin-top: 0.12em;
+  vertical-align: baseline;
+  letter-spacing: 0;
+}
+
+html.c2 .add-to-cart-btn {
+  width: 44px;
+  height: 44px;
+  background: var(--c2-green-soft);
+  color: var(--c2-green-ink);
+  box-shadow: none;
+}
+
+html.c2 .add-to-cart-btn:hover {
+  background: var(--green);
+  color: #fff;
+  transform: none;
+}
+
+html.c2 .add-to-cart-btn.clicked {
+  background: var(--green);
+  color: #fff;
+}
+
+html.c2 .add-to-cart-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Fælles for "Køb igen" og "Glemt noget?" */
+html.c2 .c2-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  height: 26px;
+  min-width: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #E2E6DE;
+  color: #1A1C19;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+html.c2 .c2-logo img {
+  display: block;
+  width: auto;
+  height: 13px;
+  max-width: 38px;
+  object-fit: contain;
+}
+
+html.c2 .c2-sp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 18px 2px 10px;
+  color: var(--c2-muted);
+  font-size: 0.85rem;
+}
+
+html.c2 .c2-sp-big {
+  color: var(--c2-text);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+html.c2 .c2-list {
+  background: var(--c2-surface);
+  border-radius: 20px;
+  box-shadow: var(--c2-shadow);
+  overflow: hidden;
+}
+
+html.c2 .c2-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+html.c2 .c2-row + .c2-row {
+  border-top: 1px solid var(--c2-border);
+}
+
+html.c2 .c2-row-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+html.c2 .c2-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+html.c2 .c2-row-name {
+  font-weight: 600;
+  color: var(--c2-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.c2 .c2-row-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  color: var(--c2-muted);
+  font-size: 0.8rem;
+}
+
+html.c2 .c2-row-sub .c2-logo {
+  height: 22px;
+  padding: 0 6px;
+}
+
+html.c2 .c2-row-sub span:last-child {
+  white-space: nowrap;
+}
+
+html.c2 .c2-row-price {
+  font-weight: 800;
+  color: var(--c2-text);
+  white-space: nowrap;
+}
+
+html.c2 .c2-plus {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--c2-green-soft);
+  color: var(--c2-green-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+html.c2 .c2-plus:hover {
+  background: var(--green);
+  color: #fff;
+}
+
+html.c2 .c2-plus svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Søgefeltets panel: seneste søgninger og "Køb igen" */
+html.c2 .c2-search-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 250;
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+  padding: 14px;
+  background: var(--c2-bg);
+  border: 1px solid var(--c2-border);
+  border-radius: 22px;
+  box-shadow: var(--shadow-lg);
+}
+
+html.c2 .c2-search-panel[hidden] {
+  display: none;
+}
+
+html.c2 .c2-sp-title {
+  margin: 2px 2px 10px;
+  color: var(--c2-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+html.c2 .c2-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+html.c2 .c2-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--c2-border);
+  border-radius: 999px;
+  background: var(--c2-surface);
+  color: var(--c2-text);
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+html.c2 .c2-chip svg {
+  width: 15px;
+  height: 15px;
+  color: var(--c2-muted);
+}
+
+html.c2 .c2-chip:hover {
+  border-color: var(--green);
+}
+
+/* Kurven */
+html.c2 #cart-panel {
+  background: var(--c2-bg);
+}
+
+html.c2 .cart-header {
+  border-bottom: none;
+  align-items: flex-start;
+  padding: 20px 20px 8px;
+}
+
+html.c2 .cart-header-left > svg {
+  display: none;
+}
+
+html.c2 .cart-header-left h2 {
+  font-size: 1.9rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--c2-text);
+}
+
+html.c2 .c2-cart-sub {
+  margin-top: 4px;
+  color: var(--c2-muted);
+  font-size: 0.9rem;
+}
+
+html.c2 .cart-tabs {
+  border-bottom-color: var(--c2-border);
+}
+
+html.c2 .cart-best-deal {
+  display: none;
+}
+
+html.c2 .cart-items {
+  gap: 10px;
+}
+
+html.c2 .c2-cart-top {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+html.c2 .c2-winner {
+  width: 100%;
+  border: none;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  padding: 18px;
+  border-radius: 24px;
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.22);
+}
+
+html.c2 .c2-winner-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+html.c2 .c2-winner-head > .c2-logo {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: none;
+}
+
+html.c2 .c2-winner-head > .c2-logo img {
+  max-width: 40px;
+  height: 20px;
+}
+
+html.c2 .c2-winner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+html.c2 .c2-winner-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+html.c2 .c2-winner-total {
+  font-size: 1.9rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+html.c2 .c2-spar {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--c2-deal);
+  color: var(--c2-deal-text);
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+html.c2 .c2-winner-rest {
+  margin-top: 14px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+html.c2 .c2-winner-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+html.c2 .c2-winner-row .c2-logo {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  border: none;
+}
+
+html.c2 .c2-winner-row .c2-logo img {
+  max-width: 22px;
+  height: 11px;
+}
+
+html.c2 .c2-wr-name {
+  flex: 1;
+  min-width: 0;
+}
+
+html.c2 .c2-wr-total {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+html.c2 .c2-wr-extra {
+  min-width: 72px;
+  text-align: right;
+  font-size: 0.85rem;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+html.c2 .c2-split {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--green);
+  border-radius: 22px;
+  background: var(--c2-surface);
+}
+
+html.c2 .c2-split-logos {
+  display: flex;
+  flex-shrink: 0;
+}
+
+html.c2 .c2-split-logos .c2-logo {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+html.c2 .c2-split-logos .c2-logo + .c2-logo {
+  margin-left: -10px;
+}
+
+html.c2 .c2-split-logos .c2-logo img {
+  max-width: 30px;
+  height: 12px;
+}
+
+html.c2 .c2-split-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--c2-text);
+}
+
+html.c2 .c2-split-text span {
+  color: var(--c2-green-ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+html.c2 .c2-split-btn {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--c2-green-soft);
+  color: var(--c2-green-ink);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+html.c2 .cart-category-header {
+  color: var(--c2-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
+html.c2 .cart-swipe {
+  border-radius: 18px;
+}
+
+html.c2 .cart-item {
+  background: var(--c2-surface);
+  border-radius: 18px;
+  box-shadow: var(--c2-shadow);
+}
+
+html.c2 .cart-item-image {
+  border: none;
+  background: #fff;
+}
+
+html.c2 .cart-item-store {
+  background: var(--c2-green-soft);
+  color: var(--c2-green-ink);
+}
+
+html.c2 .cart-item-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--c2-text);
+}
+
+html.c2 .cart-item-price {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--c2-text);
+}
+
+html.c2 .cart-item-quantity {
+  background: var(--c2-stepper);
+  border: none;
+  border-radius: 999px;
+}
+
+html.c2 .cart-item-quantity .quantity-btn {
+  background: transparent;
+  color: var(--c2-green-ink);
+  font-size: 1.1rem;
+}
+
+html.c2 .c2-cart-forgot .c2-sp-head {
+  margin-top: 10px;
+}
+
+html.c2 .cart-footer {
+  border-top-color: var(--c2-border);
+}
+
+/* Bundmenuen findes kun på telefon, som appens faneblade */
+html.c2 .c2-tabbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  html.c2 .c2-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 150;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 6px 8px max(8px, env(safe-area-inset-bottom));
+    background: var(--c2-surface);
+    border-top: 1px solid var(--c2-border);
+  }
+
+  html.c2 body {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+
+  html.c2 .c2-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--c2-muted);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  html.c2 .c2-tab > svg,
+  html.c2 .c2-tab-icon {
+    width: 56px;
+    height: 32px;
+    padding: 4px 16px;
+    border-radius: 999px;
+    position: relative;
+    display: block;
+  }
+
+  html.c2 .c2-tab-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  html.c2 .c2-tab.active {
+    color: var(--c2-green-ink);
+  }
+
+  html.c2 .c2-tab.active > svg {
+    background: var(--c2-green-soft);
+  }
+
+  html.c2 .c2-tab-count {
+    position: absolute;
+    top: -2px;
+    right: 8px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--green);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 18px;
+    text-align: center;
+  }
+
+  html.c2 .c2-tab-count[hidden] {
+    display: none;
+  }
+
+  /* Profil ligger i bundmenuen, så headeren får plads til navnet. */
+  html.c2 .header-actions .auth-btn {
+    display: none !important;
+  }
+
+  /* Søgepanelet fylder skærmens bredde under søgefeltet. */
+  html.c2 .c2-search-panel {
+    max-height: calc(100vh - 220px);
+  }
+}

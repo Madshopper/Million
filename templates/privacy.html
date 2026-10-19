@@ -33,6 +33,9 @@
         <li>Dit foretrukne tema</li>
         <li>Hvilke butikker du har valgt</li>
         <li>Din indkøbskurv og gemte indkøbslister</li>
+        {% if design_c2_enabled %}
+        <li>Dine seneste søgninger og de varer, du oftest lægger i kurven ("Køb igen")</li>
+        {% endif %}
       </ul>
       <p>
         Det lokale indhold kan jeg ikke se. Du kan slette det via din browsers

@@ -208,6 +208,8 @@ _EDGE_ENV_VARS = (
     'BUTIKSAVISER_ENABLED',
     # Kun på staging: butikker nær mig (_FEATURES 'lokation').
     'LOKATION_ENABLED',
+    # Kun på staging: app-designet C2 på hjemmesiden (_FEATURES 'design_c2').
+    'DESIGN_C2_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -536,6 +538,8 @@ def _inject_site_meta():
         'butiksaviser_enabled': _feature_enabled('butiksaviser'),
         # Butikker nær mig og rækkefølgen i "Billigste butikker" (Feature-panelet 'lokation').
         'lokation_enabled': _feature_enabled('lokation'),
+        # App-designet C2 på hjemmesiden (Feature-panelet 'design_c2').
+        'design_c2_enabled': _feature_enabled('design_c2'),
         'vapid_public_key': _VAPID_PUBLIC_KEY,
         # Sandt naar SIDENS render byggede paa ufuldstaendige data (samme
         # isolate-kollision i D1-broen som saetter X-Data-Degraded-headeren,
@@ -1861,6 +1865,42 @@ _FEATURES = (
                      'Kun mens appen er åben.'},
         ),
     },
+    {
+        'key': 'design_c2',
+        'name': 'Nyt udseende på hjemmesiden (C2)',
+        'env': 'DESIGN_C2_ENABLED',
+        'desc': 'Hjemmesiden får samme udseende som appen (design C2): '
+                'appens skrift, lille gul "Spar"-pille og butikslogo i '
+                'varebilledet, aviser som runde logoer, seneste søgninger og '
+                '"Køb igen" under søgefeltet, vinderkort, "Handl i 2 butikker" '
+                'og "Glemt noget?" i kurven og en bundmenu på telefonen. '
+                'Altid slået til på dev.madshopper.dk, så MadShopper Test og '
+                'dev-siden ligner hinanden (Kalle 19-10-2026).',
+        'app': 'Appen har det på MadShopper Test. Butiksappen får det først '
+               'med en ny App Store-version.',
+        'parts': (
+            {'kind': 'web', 'name': 'Skrift og farver',
+             'desc': 'Schibsted Grotesk som i appen, lys grå baggrund og '
+                     'runde kort.'},
+            {'kind': 'web', 'name': 'Varekort',
+             'desc': 'Lille gul "Spar 49%"-pille og butikslogo i billedet, kun '
+                     'kg-pris under navnet, pris med små øre og grøn "+".'},
+            {'kind': 'web', 'name': 'Forside',
+             'desc': 'Kompakt besparelse, "Aviser denne uge" som runde logoer '
+                     'med startdag eller "Ny i dag" og "Ugens største fald" '
+                     'med antal tilbud.'},
+            {'kind': 'web', 'name': 'Søgning',
+             'desc': 'Seneste søgninger og "Køb igen" (de 5 varer man oftest '
+                     'lægger i kurven), kun gemt i browseren.'},
+            {'kind': 'web', 'name': 'Kurv',
+             'desc': 'Vinderkort med de to næste butikker, "Handl i 2 '
+                     'butikker" og "Glemt noget? Du plejer at købe".'},
+            {'kind': 'web', 'name': 'Bundmenu på telefonen',
+             'desc': 'Hjem, Søg, Kurv og Profil i bunden af skærmen.'},
+            {'kind': 'app', 'name': 'Design C2 i appen',
+             'desc': 'Findes allerede på MadShopper Test (PR #123).'},
+        ),
+    },
 )
 
 # Projekter der ikke er færdige, men ikke har en knap (fx appen i butikkerne).
@@ -2069,8 +2109,10 @@ _PROJECTS = (
              'desc': 'Lysegrøn pille bag den aktive fane, grønt tal på kurven.'},
             {'done': True, 'name': 'Mørk tilstand',
              'desc': 'Kun farver fra appens tema, ingen faste farver.'},
-            {'done': False, 'name': 'Web',
-             'desc': 'Hjemmesiden har stadig det gamle udseende.'},
+            {'done': True, 'name': 'Web',
+             'desc': 'Bygget på hjemmesiden bag funktionen "Nyt udseende på '
+                     'hjemmesiden (C2)". Slået til på dev-siden, udgives '
+                     'herfra.'},
         ),
     },
     {
@@ -2206,6 +2248,18 @@ _AVIS_SECTION_ITEMS = 10
 _AVIS_BEST_ITEMS = 10
 
 
+# Ugedagen hver butiks avis starter (0 = søndag, som JavaScripts getDay()).
+# Samme tal som appens AVIS_START_DAY i OfferStoresSection.tsx (fra Tjeks
+# run_from). Bruges af "Aviser denne uge" i design C2; script.js skriver
+# "Ny i dag" på startdagen. Skifter en butik dag, rettes begge steder.
+_OFFER_STORE_START_DAY = {
+    'netto': 6, 'foetex': 5, 'bilka': 5, 'rema': 0, 'lidl': 0,
+    'meny': 5, 'spar': 5, 'mk': 5, 'loevbjerg': 5, 'abclavpris': 2,
+}
+_WEEKDAYS_DA = ('Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag',
+                'Fredag', 'Lørdag')
+
+
 def _offer_stores(counts: dict | None = None) -> list:
     """Logoerne til forsidens tilbudsavis (web og /api/home), med antal
     tilbud pr. butik når det kendes."""
@@ -2217,6 +2271,10 @@ def _offer_stores(counts: dict | None = None) -> list:
                  'color': bg, 'text_color': fg}
         if counts and isinstance(counts.get(k), int):
             entry['count'] = counts[k]
+        day = _OFFER_STORE_START_DAY.get(k)
+        if day is not None:
+            entry['start_day'] = day
+            entry['start_label'] = _WEEKDAYS_DA[day]
         out.append(entry)
     return out
 
@@ -4366,6 +4424,9 @@ def _offer_store_counts() -> dict | None:
 
 # Forsidens logoer (templates/index.html), kun kaldt når featuren er til.
 app.jinja_env.globals['offer_stores'] = lambda: _offer_stores(_offer_store_counts())
+# "Ugens største fald - 4863 tilbud" i design C2 (samme tal som appens
+# sale_count i /api/home, fra KV d1_stats_v1, intet D1-kald).
+app.jinja_env.globals['home_sale_count'] = lambda: _home_sale_count()
 
 
 def _build_store_offer_listing(store_key: str, args, page: int):

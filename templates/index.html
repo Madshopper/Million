@@ -26,6 +26,23 @@
     {% if butiksaviser_enabled %}
     {# Tilbudsavis pr. butik (Feature 'butiksaviser'). script.js skjuler
        logoerne for butikker, man har fravalgt. #}
+    {% if design_c2_enabled %}
+    {# C2: runde logoer med den ugedag avisen starter. script.js::initC2OfferStores
+       skriver "Ny i dag" og giver ringen farve på startdagen. #}
+    {% set _stores = offer_stores() %}
+    <section class="offer-stores c2-avis" id="offerStores" aria-labelledby="offerStoresHeading">
+      <h2 id="offerStoresHeading">Aviser denne uge</h2>
+      <div class="offer-stores-row">
+        {% for store in _stores %}
+        <a class="offer-store" href="/tilbud/{{ store.key }}" data-store-label="{{ store.label }}"{% if store.start_day is defined %} data-start-day="{{ store.start_day }}"{% endif %}
+           aria-label="Se ugens tilbud hos {{ store.label }}{% if store.count is defined %}, {{ store.count }} tilbud{% endif %}">
+          <span class="c2-avis-ring"><img src="{{ url_for('static', filename=store.logo.replace('/static/', '', 1)) }}" alt="" loading="lazy" width="56" height="56"></span>
+          <span class="c2-avis-day">{{ store.start_label if store.start_label is defined else store.label }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% else %}
     <section class="offer-stores" id="offerStores" aria-labelledby="offerStoresHeading">
       <h2 id="offerStoresHeading">Tilbudsaviser</h2>
       <div class="offer-stores-row">
@@ -40,6 +57,7 @@
       </div>
     </section>
     {% endif %}
+    {% endif %}
 
     <div class="filters-wrapper">
 
@@ -53,7 +71,12 @@
     <div id="dynamic-content">
       {% if categories.get('Ugens Tilbud') %}
       <section class="product-type">
+        {% if design_c2_enabled %}
+        {% set _sale_n = home_sale_count() %}
+        <h2 class="c2-section-head">Ugens største fald <a href="{{ template_mapping['Ugens Tilbud'] }}">{% if _sale_n %}{{ _sale_n }} tilbud{% else %}Vis alle{% endif %}</a></h2>
+        {% else %}
         <h2>Ugens Tilbud <a href="{{ template_mapping['Ugens Tilbud'] }}">Vis alle</a></h2>
+        {% endif %}
         <div class="products">
           {% for product in categories['Ugens Tilbud'][:10] %}{{ product_card(product) }}{% endfor %}
         </div>

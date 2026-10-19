@@ -74,6 +74,8 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   BUTIKSAVISER_LINE='BUTIKSAVISER_ENABLED = "1"'
   # Butikker nær mig (app.py::_FEATURES 'lokation') er altid til på dev.
   LOKATION_LINE='LOKATION_ENABLED = "1"'
+  # App-designet C2 på hjemmesiden (app.py::_FEATURES 'design_c2') er altid til på dev.
+  DESIGN_C2_LINE='DESIGN_C2_ENABLED = "1"'
   # Custom domain så staging er nemmere at finde end workers.dev-URL'en
   # (samme adgangsspærring gælder stadig, se STAGING_ACCESS_SECRET nedenfor).
   ROUTES_BLOCK='
@@ -114,6 +116,7 @@ else
   TILBUD_GUL_LINE=""
   BUTIKSAVISER_LINE=""
   LOKATION_LINE=""
+  DESIGN_C2_LINE=""
   # Produktion: ALDRIG overstyrbar. En glemt miljoevariabel i en terminal maa
   # ikke kunne saette beskyttelsen ud af kraft paa det rigtige site.
   RATE_LIMIT_PER_MIN=150
@@ -349,6 +352,7 @@ ${MEJERI_NAVN_LINE}
 ${TILBUD_GUL_LINE}
 ${BUTIKSAVISER_LINE}
 ${LOKATION_LINE}
+${DESIGN_C2_LINE}
 ${ANALYTICS_LINES}
 ${STAGING_LINK_LINE}
 ${STAGING_SECRET_LINE}
