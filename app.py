@@ -1956,6 +1956,11 @@ _PROJECTS = (
              'desc': 'Kædernes egne mærker (Salling, First Price, Gestus, '
                      'ØGO) bliver nu stående side om side på Rema-kortet i '
                      'stedet for at blive smidt væk (10-10-2026).'},
+            {'done': False, 'name': 'Find flere ens varer uden stregkode',
+             'desc': 'Kun ca. hver femte vare, der findes i flere kæder uden '
+                     'fælles stregkode, bliver i dag sammenlignet (målt '
+                     '07-10-2026). Næste skridt er at give motoren bedre '
+                     'oplysninger, ikke løsere regler.'},
         ),
     },
     {
