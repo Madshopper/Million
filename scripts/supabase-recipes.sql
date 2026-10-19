@@ -146,9 +146,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.recipe_price_snapshot TO service_
 REVOKE SELECT ON public.recipes FROM anon, authenticated;
 GRANT SELECT (
   id, source_url, source_name, title, image_url, servings, total_time_minutes,
-  instructions, imported_via, status, created_at, approved_at
+  imported_via, status, created_at, approved_at
 ) ON public.recipes TO anon, authenticated;
-GRANT SELECT ON public.recipe_ingredients TO anon, authenticated;
+-- Fremgangsmåden og ingredienslinjerne er betalt indhold og hentes kun via
+-- recipe_content() (scripts/supabase-recipe-lock.sql). Kun navnene er åbne.
+REVOKE ALL ON public.recipe_ingredients FROM anon, authenticated;
+GRANT SELECT (recipe_id, position, ingredient_name)
+  ON public.recipe_ingredients TO anon, authenticated;
 GRANT SELECT ON public.recipe_price_snapshot TO anon, authenticated;
 
 ALTER TABLE public.recipes ENABLE ROW LEVEL SECURITY;
