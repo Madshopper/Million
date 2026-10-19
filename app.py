@@ -1631,6 +1631,10 @@ _FEATURES = (
              'desc': 'Genvejen til opskrifterne i sidens menu.'},
             {'kind': 'web', 'name': 'Opskrifter på forsiden',
              'desc': '"Lækre opskrifter" kan trykkes på i stedet for "Kommer snart".'},
+            {'kind': 'web', 'name': 'Faste 10 opskrifter indtil udgivelse',
+             'desc': 'Så længe opskrifter er skjult, viser forsiden på web og '
+                     'i appen kun de 10 første opskrifter som "Kommer snart" '
+                     '(18-10-2026). Når den udgives, vises de nyeste igen.'},
             {'kind': 'web', 'name': 'Madplan: spørgsmål første gang',
              'desc': 'Første gang man åbner /opskrifter: hvor mange, budget '
                      'om ugen, lyst, kostbehov, ting man vil undgå og køkken. '
@@ -1784,13 +1788,15 @@ _FEATURES = (
                 'aviserne: butikkernes logoer på forsiden, og et tryk viser '
                 'butikkens tilbud denne uge, bygget af de priser vi selv '
                 'henter direkte fra butikkerne. Samme avis-skabelon for alle '
-                'butikker med butikkens logo svagt i baggrunden. Bilka, Føtex '
-                'og Netto tæller kun varer i ugens avis. Ingen avisbilleder, '
+                'butikker med butikkens logo svagt i baggrunden. Kun ugens '
+                'avis tæller, og et tilbud med mange varer tæller som ét '
+                '(18-10-2026). Ingen avisbilleder, '
                 'kun et link til butikkens egen avis. Coop-butikkerne og 365 '
                 'Discount er ikke med, før Coop har svaret (de kommer stadig '
                 'fra Tjek).',
-        'app': 'Appen viser logoerne fra den næste app-version, når den er '
-               'udgivet her. MadShopper Test har dem med det samme.',
+        'app': 'App 1.0.4 i App Store har dem med, men skjult. De vises i '
+               'appen, så snart den udgives her. MadShopper Test har dem '
+               'allerede.',
         'parts': (
             {'kind': 'web', 'name': 'Butikslogoer på forsiden',
              'desc': 'Kun de butikker man har valgt, med antal tilbud. Tryk '
@@ -1864,8 +1870,8 @@ _PROJECTS = (
         'key': 'app_store',
         'name': 'Appen i Google Play',
         'status': 'waiting',
-        'desc': 'iPhone-appen er i App Store (version 1.0.3, 1.0.4 er '
-                'klar i koden). Android-appen mangler de konti og trin, kun '
+        'desc': 'iPhone-appen er i App Store (version 1.0.4 siden '
+                '18-10-2026). Android-appen mangler de konti og trin, kun '
                 'du kan klare, før den kan udgives.',
         'parts': (
             {'done': True, 'name': 'Appen bygget',
@@ -1994,7 +2000,7 @@ _PROJECTS = (
     {
         'key': 'nat_hurtigere',
         'name': 'Hurtigere opdatering om natten',
-        'status': 'doing',
+        'status': 'waiting',
         'desc': 'Cloudflare starter hentningen af butikkerne kl. 00:01, og '
                 'siden opdateres lige efter, i stedet for at vente på '
                 'GitHubs ur, der kom 1-4 timer for sent.',
@@ -2003,8 +2009,10 @@ _PROJECTS = (
              'desc': 'Cache-opdateringen starter, når nattens hentning er færdig.'},
             {'done': True, 'name': 'Start kl. 00:01 fra Cloudflare',
              'desc': 'Merget 10-10-2026 (PR #88), nøglen er sat.'},
-            {'done': False, 'name': 'Første nat tjekket',
-             'desc': 'Tjekkes morgenen efter 10-10-2026.'},
+            {'done': True, 'name': 'Første nætter tjekket',
+             'desc': 'Butikkerne hentes kl. 00:01 dansk tid og siden '
+                     'opdateres kl. 00:01 UTC (tjekket 19-10-2026). Kan '
+                     'markeres som færdig.'},
         ),
     },
     {
@@ -2018,10 +2026,11 @@ _PROJECTS = (
         'parts': (
             {'done': True, 'name': 'Bygget',
              'desc': 'Forside, produktkort, kurv og bundmenu, lys og mørk.'},
-            {'done': False, 'name': 'Prøvet på MadShopper Test',
-             'desc': 'Kommer af sig selv på testappen, når PR\'en er merget.'},
+            {'done': True, 'name': 'På MadShopper Test',
+             'desc': 'Merget og sendt til testappen 18-10-2026 (PR #119).'},
             {'done': False, 'name': 'Med i næste App Store-version',
-             'desc': 'Butiksappen får det først med et nyt build.'},
+             'desc': 'App 1.0.4 i App Store har det ikke. Butiksappen får det '
+                     'først med et nyt build (1.0.5).'},
         ),
     },
     {
