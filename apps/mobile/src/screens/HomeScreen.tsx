@@ -1,9 +1,7 @@
 import React from 'react';
 import { setServerLokationEnabled } from '../location/nearby';
 import {
-  AccessibilityInfo,
   ActivityIndicator,
-  Image,
   FlatList,
   Pressable,
   RefreshControl,
@@ -41,14 +39,10 @@ import { setServerSwipeEnabled } from '../cart/swipeFlag';
 import { setServerMejeriNavnEnabled } from '../categories/categories';
 import { setServerStatsEnabled } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
-import { useCart } from '../cart/CartContext';
-import { useRecentItems, type RecentItem } from '../cart/recentItems';
-import { cartItemTitle } from '../cart/stripStoreBrand';
 import { cardShadow } from '../theme/Typography';
 
 type HomeRow =
   | { key: string; kind: 'search' }
-  | { key: string; kind: 'buyAgain'; items: RecentItem[] }
   | { key: string; kind: 'offerStores'; stores: OfferStore[] }
   | { key: string; kind: 'filters' }
   | { key: string; kind: 'error'; message: string }
@@ -60,8 +54,6 @@ export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { addItem } = useCart();
-  const recentItems = useRecentItems();
   // queryLabels (ikke selectedLabels): debouncet 300 ms som webben, saa et
   // hurtigt til-/fravalg af flere butikker i filter-arket giver ÉT /api/home-
   // kald i stedet for ét pr. tryk.
@@ -159,14 +151,12 @@ export function HomeScreen() {
   };
 
   const rows = React.useMemo<HomeRow[]>(() => {
-    // Version C (18-10-2026): søgefelt, besparelse, "Køb igen", tilbudsaviser,
-    // kategorier/filter og så "Ugens største fald" først af varesektionerne.
+    // C2 (19-10-2026): søgefelt, besparelse, aviser denne uge, kategorier/
+    // filter og så "Ugens største fald" først af varesektionerne. "Køb igen"
+    // ligger i Søg og nederst i kurven, ikke her.
     const out: HomeRow[] = [
       { key: 'search', kind: 'search' },
       { key: 'savings', kind: 'savings', savings },
-      ...(recentItems.length
-        ? [{ key: 'buyAgain', kind: 'buyAgain', items: recentItems } as const]
-        : []),
       ...(offerStores.length
         ? [{ key: 'offerStores', kind: 'offerStores', stores: offerStores } as const]
         : []),
@@ -199,7 +189,7 @@ export function HomeScreen() {
       out.push({ key: 'recipes', kind: 'recipes', recipes });
     }
     return out;
-  }, [sections, filters, error, savings, recipes, offerStores, recentItems]);
+  }, [sections, filters, error, savings, recipes, offerStores]);
 
   if (!ready || (loading && !sections.length)) {
     return (
@@ -245,63 +235,6 @@ export function HomeScreen() {
             );
           }
 
-          if (item.kind === 'buyAgain') {
-            return (
-              <View style={styles.section}>
-                <View style={styles.sectionHead}>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]} accessibilityRole="header">
-                    Køb igen
-                  </Text>
-                </View>
-                <FlatList
-                  horizontal
-                  data={item.items}
-                  keyExtractor={(r) => r.id}
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.buyAgainRow}
-                  renderItem={({ item: r }) => (
-                    <Pressable
-                      onPress={() => {
-                        addItem(r);
-                        AccessibilityInfo.announceForAccessibility(
-                          `${cartItemTitle(r)} lagt i kurven`,
-                        );
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Læg ${cartItemTitle(r)} i kurv igen`}
-                      style={({ pressed }) => [styles.buyAgainItem, { opacity: pressed ? 0.7 : 1 }]}
-                    >
-                      <View
-                        style={[
-                          styles.buyAgainCircle,
-                          { backgroundColor: colors.logoBg, borderColor: colors.border },
-                        ]}
-                      >
-                        {r.image ? (
-                          <Image source={{ uri: r.image }} style={styles.buyAgainImg} resizeMode="contain" />
-                        ) : null}
-                        <View
-                          style={[
-                            styles.buyAgainPlus,
-                            { backgroundColor: colors.primary, borderColor: colors.bg },
-                          ]}
-                        >
-                          <Ionicons name="add" size={16} color={colors.onPrimary} />
-                        </View>
-                      </View>
-                      <Text
-                        style={[styles.buyAgainName, { color: colors.text }]}
-                        numberOfLines={2}
-                      >
-                        {cartItemTitle(r)}
-                      </Text>
-                    </Pressable>
-                  )}
-                />
-              </View>
-            );
-          }
-
           if (item.kind === 'offerStores') {
             return (
               <OfferStoresSection
@@ -313,6 +246,7 @@ export function HomeScreen() {
                     avisUrl: s.avis_url,
                   })
                 }
+                onAll={() => navigation.navigate('Sale')}
               />
             );
           }
@@ -372,7 +306,7 @@ export function HomeScreen() {
                 >
                   <View style={styles.savingsContent}>
                     <Text style={[styles.savingsLabel, { color: colors.bannerSoft }]}>Personlig besparelse</Text>
-                    <Text style={[styles.savingsAmount, { color: colors.onPrimary }]}>
+                    <Text style={[styles.savingsLogin, { color: colors.onPrimary }]}>
                       Log ind for at tracke besparelse
                     </Text>
                   </View>
@@ -382,6 +316,7 @@ export function HomeScreen() {
                 </Pressable>
               );
             }
+            const month = monthLabel(s.month_key).toLowerCase();
             return (
               <View
                 style={[styles.savingsBanner, { backgroundColor: colors.bannerBg }, cardShadow(colors.shadow)]}
@@ -397,15 +332,19 @@ export function HomeScreen() {
                   .join('. ')}
               >
                 <View style={styles.savingsContent}>
-                  <Text style={[styles.savingsLabel, { color: colors.bannerSoft }]}>Personlig besparelse</Text>
-                  <Text style={[styles.savingsAmount, { color: colors.onPrimary }]}>
-                    Du har sparet {formatKr(s.amount)} kr denne måned
+                  <Text style={[styles.savingsLabel, { color: colors.bannerSoft }]} numberOfLines={1}>
+                    {month ? `Du har sparet i ${month}` : 'Du har sparet denne måned'}
                   </Text>
-                  {s.show_prev && s.prev_amount > 0 ? (
-                    <Text style={[styles.savingsPrev, { color: colors.bannerSoft }]}>
-                      I {monthLabel(s.prev_month_key)} sparede du {formatKr(s.prev_amount)} kr
+                  <View style={styles.savingsAmountRow}>
+                    <Text style={[styles.savingsAmount, { color: colors.onPrimary }]}>
+                      {formatKr(s.amount)} kr
                     </Text>
-                  ) : null}
+                    {s.show_prev && s.prev_amount > 0 ? (
+                      <Text style={[styles.savingsPrev, { color: colors.bannerSoft }]} numberOfLines={1}>
+                        {formatKr(s.prev_amount)} kr i {monthLabel(s.prev_month_key).toLowerCase()}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
                 <View style={[styles.savingsBadge, { backgroundColor: colors.onPrimary }]}>
                   <Text style={[styles.savingsBadgeText, { color: colors.bannerBg }]}>Top {s.top_pct}%</Text>
@@ -532,79 +471,53 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   catsButtonText: { fontSize: 14, fontWeight: '700' },
-  section: { marginTop: 18 },
+  section: { marginTop: 22 },
   sectionHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   sectionTitle: { fontSize: 17, fontWeight: '800' },
-  sectionLink: { fontSize: 14, fontWeight: '700' },
+  sectionLink: { fontSize: 13, fontWeight: '600' },
+  // C2: 2 kolonner med 16 i kanten, 12 imellem og 14 lodret (kortets margin 6/7).
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 6,
-    // Plads til tilbudsmærket, der stikker ud over kortets hjørne.
-    paddingTop: 6,
+    paddingHorizontal: 10,
   },
   gridItem: {
     width: '50%',
-    paddingHorizontal: 2,
   },
-  buyAgainRow: { paddingHorizontal: 12, gap: 6 },
-  buyAgainItem: { width: 78, alignItems: 'center' },
-  buyAgainCircle: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buyAgainImg: { width: 52, height: 52 },
-  buyAgainPlus: {
-    position: 'absolute',
-    right: -4,
-    bottom: -4,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buyAgainName: { fontSize: 12, fontWeight: '600', textAlign: 'center', marginTop: 6 },
   savingsBanner: {
     marginHorizontal: 16,
-    marginTop: 14,
-    paddingTop: 16,
-    paddingRight: 16,
-    paddingBottom: 16,
+    marginTop: 12,
+    paddingTop: 12,
+    paddingRight: 12,
+    paddingBottom: 12,
     paddingLeft: 18,
     borderRadius: 22,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  savingsContent: { flex: 1 },
+  savingsContent: { flex: 1, gap: 2 },
   savingsLabel: {
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.9,
-    marginBottom: 4,
   },
+  savingsAmountRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' },
   savingsAmount: {
-    fontSize: 18,
-    fontWeight: '800',
-    lineHeight: 23,
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -0.8,
+    lineHeight: 32,
   },
-  savingsPrev: {
-    marginTop: 4,
-    fontSize: 13,
-  },
+  savingsLogin: { fontSize: 17, fontWeight: '800', lineHeight: 22 },
+  savingsPrev: { fontSize: 13 },
   savingsBadge: {
     height: 40,
     paddingHorizontal: 14,
@@ -614,7 +527,7 @@ const styles = StyleSheet.create({
   },
   savingsBadgeText: {
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: 15,
   },
   error: { padding: 16 },
 });

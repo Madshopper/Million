@@ -26,6 +26,7 @@ import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { QuantityStepper } from '../components/QuantityStepper';
 import { kr } from '../components/ShelfPrice';
 import {
+  bestTwoStoreSplit,
   calculateStoreComparisons,
   extraCostVs,
   sortScoStores,
@@ -37,6 +38,8 @@ import { recordSavingsOnce } from '../cart/recordSavings';
 import { alternativeAsCartItem, fetchAlternatives, type AlternativeItem } from '../cart/alternatives';
 import { SwipeableCartRow } from '../cart/SwipeableCartRow';
 import { useSwipeEnabled } from '../cart/swipeFlag';
+import { useBuyAgain } from '../cart/recentItems';
+import { ForgotPills } from '../components/BuyAgain';
 import { joinLabel, spokenKr } from '../a11y/speech';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -111,6 +114,24 @@ export function CartScreen() {
     extra: winner && compare ? extraCostVs(winner.name, st.name, compare.matchedItemsPerStore) : null,
   }));
   const spar = runnersUp[0]?.extra && runnersUp[0].extra.shared > 0 ? runnersUp[0].extra.diff : 0;
+  // C2: "Handl i 2 butikker", kun når opdelingen sparer penge i forhold til
+  // vinderen alene (regnet på vinderens varer, cart/sco.ts).
+  const split = useMemo(
+    () =>
+      winner && compare
+        ? bestTwoStoreSplit(
+            winner.name,
+            ranked.slice(1, 6).map((st) => st.name),
+            compare.matchedItemsPerStore,
+          )
+        : null,
+    [winner, ranked, compare],
+  );
+
+  // C2: "Glemt noget? Du plejer at købe": de to varer man oftest lægger i
+  // kurven, som ikke allerede er der.
+  const inCart = useMemo(() => new Set(items.map((i) => i.id)), [items]);
+  const forgot = useBuyAgain(2, inCart);
 
   // Varer vinderbutikken ikke har, med forslag fra /api/alternatives.
   const [alternatives, setAlternatives] = useState<Record<string, AlternativeItem>>({});
@@ -336,8 +357,7 @@ export function CartScreen() {
             style={[styles.headerPill, { backgroundColor: colors.surface, borderColor: colors.border }]}
             hitSlop={6}
           >
-            <Ionicons name="share-outline" size={16} color={colors.text} />
-            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13 }}>Del kurv</Text>
+            <Text style={{ color: colors.text, fontWeight: '600', fontSize: 13 }}>Del kurv</Text>
           </Pressable>
         ) : null}
         {/* "···" er et rent symbol - uden etiket annoncerer VoiceOver det
@@ -435,18 +455,23 @@ export function CartScreen() {
         </View>
       ) : null}
 
-      <Pressable
-        onPress={goAddItem}
-        accessibilityRole="button"
-        accessibilityLabel="Tilføj vare"
-        accessibilityHint="Åbner søgning"
-        style={[styles.addBar, { backgroundColor: colors.surface }, cardShadow(colors.shadow)]}
-      >
-        <Ionicons name="search" size={18} color={colors.textMuted} />
-        <Text style={[styles.addPlaceholder, { color: colors.textMuted }]}>Tilføj vare</Text>
-      </Pressable>
+      {/* C2: søgefeltet "Tilføj vare" står kun i den tomme kurv; med varer
+          går "Se alle" under "Glemt noget?" til Søg. */}
+      {!items.length ? (
+        <Pressable
+          onPress={goAddItem}
+          accessibilityRole="button"
+          accessibilityLabel="Tilføj vare"
+          accessibilityHint="Åbner søgning"
+          style={[styles.addBar, { backgroundColor: colors.surface }, cardShadow(colors.shadow)]}
+        >
+          <Ionicons name="search" size={18} color={colors.textMuted} />
+          <Text style={[styles.addPlaceholder, { color: colors.textMuted }]}>Tilføj vare</Text>
+        </Pressable>
+      ) : null}
 
       {items.length ? winnerCard() : null}
+      {items.length && winner && split ? splitCard(winner.name, split) : null}
     </View>
   );
 
@@ -493,17 +518,7 @@ export function CartScreen() {
           ),
         ])}
         accessibilityHint="Åbner hele sammenligningen"
-        style={[
-          styles.winner,
-          {
-            backgroundColor: colors.primary,
-            shadowColor: colors.primary,
-            shadowOpacity: 0.25,
-            shadowRadius: 14,
-            shadowOffset: { width: 0, height: 6 },
-            elevation: 4,
-          },
-        ]}
+        style={[styles.winner, { backgroundColor: colors.primary }, cardShadow(colors.shadow)]}
       >
         <View style={styles.winnerTop}>
           <View style={[styles.winnerLogo, { backgroundColor: colors.logoBg }]}>
@@ -541,7 +556,7 @@ export function CartScreen() {
                   {store.name}
                 </Text>
                 <Text style={[styles.runnerTotal, { color: colors.onPrimary }]}>{kr(store.totalPrice)}</Text>
-                <Text style={[styles.runnerExtra, { color: colors.onPrimary }]}>
+                <Text style={[styles.runnerExtra, { color: colors.bannerSoft }]}>
                   {extra && extra.shared > 0 && extra.diff > 0
                     ? `+${extra.diff.toFixed(2).replace('.', ',')}`
                     : store.coverage < store.totalItems
@@ -552,11 +567,49 @@ export function CartScreen() {
             ))}
           </View>
         ) : null}
-        <View style={styles.winnerMore}>
-          <Text style={{ color: colors.onPrimary, fontSize: 13, fontWeight: '600' }}>
-            Se hele sammenligningen
+      </Pressable>
+    );
+  }
+
+  /** "Handl i 2 butikker" (C2): "Vis" åbner opdelingen (butiksruten). */
+  function splitCard(
+    winnerName: string,
+    sp: NonNullable<ReturnType<typeof bestTwoStoreSplit>>,
+  ) {
+    return (
+      <Pressable
+        onPress={() => navigation.navigate('Route')}
+        accessibilityRole="button"
+        accessibilityLabel={`Handl i 2 butikker, ${winnerName} og ${sp.other}: ${spokenKr(sp.total)}. Spar ${spokenKr(sp.saving)} mere end kun ${winnerName}`}
+        accessibilityHint="Viser hvilke varer du skal købe hvor"
+        style={({ pressed }) => [
+          styles.split,
+          { backgroundColor: colors.surface, borderColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+        ]}
+      >
+        <View style={styles.splitLogos}>
+          {[winnerName, sp.other].map((name, i) => (
+            <View
+              key={name}
+              style={[
+                styles.splitLogo,
+                { backgroundColor: colors.logoBg, borderColor: colors.border, marginLeft: i ? -6 : 0 },
+              ]}
+            >
+              <StoreLogo store={name} maxWidth={26} maxHeight={20} minHeight={8} />
+            </View>
+          ))}
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[styles.splitTitle, { color: colors.text }]} numberOfLines={1}>
+            Handl i 2 butikker: {kr(sp.total)}
           </Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.onPrimary} />
+          <Text style={[styles.splitSub, { color: colors.primaryDark }]} numberOfLines={1}>
+            Spar {kr(sp.saving)} mere end kun {winnerName}
+          </Text>
+        </View>
+        <View style={[styles.splitBtn, { backgroundColor: colors.primaryMuted }]}>
+          <Text style={{ color: colors.primaryDark, fontSize: 13, fontWeight: '700' }}>Vis</Text>
         </View>
       </Pressable>
     );
@@ -746,7 +799,29 @@ export function CartScreen() {
           </View>
         }
         contentContainerStyle={styles.listContent}
-        renderItem={() => <View style={styles.section}>{itemsCard}</View>}
+        renderItem={() => (
+          <>
+            <View style={styles.section}>{itemsCard}</View>
+            {forgot.length ? (
+              <View style={styles.forgot}>
+                <View style={styles.forgotHead}>
+                  <Text style={[styles.forgotTitle, { color: colors.text }]} accessibilityRole="header">
+                    Glemt noget? Du plejer at købe
+                  </Text>
+                  <Pressable
+                    onPress={goAddItem}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Se alle du plejer at købe"
+                  >
+                    <Text style={{ color: colors.primaryDark, fontSize: 13, fontWeight: '600' }}>Se alle</Text>
+                  </Pressable>
+                </View>
+                <ForgotPills items={forgot} />
+              </View>
+            ) : null}
+          </>
+        )}
       />
 
       {items.length > 0 ? (
@@ -1130,10 +1205,10 @@ const styles = StyleSheet.create({
   winnerLabel: { fontSize: 14, fontWeight: '600' },
   winnerTotal: { fontSize: 30, fontWeight: '900', letterSpacing: -0.5, lineHeight: 34 },
   winnerNote: { fontSize: 12, opacity: 0.9 },
-  sparPill: { height: 32, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center' },
-  sparText: { fontSize: 14, fontWeight: '800' },
-  runners: { borderRadius: 16, marginTop: 14, paddingHorizontal: 12, paddingVertical: 6 },
-  runnerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5 },
+  sparPill: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, justifyContent: 'center' },
+  sparText: { fontSize: 13, fontWeight: '800' },
+  runners: { borderRadius: 16, marginTop: 14, paddingHorizontal: 12, paddingVertical: 4 },
+  runnerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   runnerLogo: {
     width: 28,
     height: 28,
@@ -1141,10 +1216,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  runnerName: { flex: 1, fontSize: 14, fontWeight: '600' },
+  runnerName: { flex: 1, fontSize: 14, fontWeight: '500' },
   runnerTotal: { fontSize: 14, fontWeight: '700' },
-  runnerExtra: { minWidth: 52, textAlign: 'right', fontSize: 13, fontWeight: '600', opacity: 0.9 },
-  winnerMore: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2, marginTop: 10 },
+  runnerExtra: { minWidth: 52, textAlign: 'right', fontSize: 12 },
+  split: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingLeft: 14,
+    paddingRight: 12,
+    borderRadius: 22,
+    borderWidth: 1.5,
+  },
+  splitLogos: { flexDirection: 'row' },
+  splitLogo: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  splitTitle: { fontSize: 14, fontWeight: '700' },
+  splitSub: { fontSize: 12, fontWeight: '600', marginTop: 1 },
+  splitBtn: { height: 34, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center' },
+  forgot: { paddingHorizontal: 16, marginTop: 16, gap: 10 },
+  forgotHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
+  forgotTitle: { fontSize: 15, fontWeight: '800', flexShrink: 1 },
   compareLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1192,13 +1293,12 @@ const styles = StyleSheet.create({
     gap: 10,
     borderRadius: 18,
     padding: 10,
-    marginHorizontal: 8,
-    marginTop: 8,
-    marginBottom: 2,
+    margin: 10,
+    marginBottom: 6,
   },
-  missingImg: { width: 40, height: 40, borderRadius: 10 },
+  missingImg: { width: 44, height: 44, borderRadius: 14 },
   missingTitle: { fontSize: 13, fontWeight: '700' },
-  swapBtn: { height: 32, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center' },
+  swapBtn: { height: 36, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center' },
   footerPad: {
     paddingHorizontal: 16,
     paddingTop: 8,

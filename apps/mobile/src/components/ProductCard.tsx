@@ -54,8 +54,8 @@ export function ProductCard(props: Props) {
 }
 
 /**
- * Produktkortet i version C (18-10-2026): hvidt, rundt kort uden kant,
- * butikslogo i billedet, rundt gult tilbudsmærke, pris som hyldeskilt og en
+ * Produktkortet i version C2 (19-10-2026): hvidt, rundt kort uden kant,
+ * butikslogo i billedet, lille gul "Spar 49%"-pille, pris som hyldeskilt og en
  * "+" der bliver til "− 1 +" koblet direkte til kurven.
  */
 function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
@@ -150,23 +150,16 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
       </View>
 
       {onSale ? (
-        // Klistermærket stikker ud over kortets hjørne: kortet klipper ikke
-        // (overflow visible), kun billedfeltet gør.
+        // C2: lille, rolig gul pille øverst til venstre i billedfeltet (14 fra
+        // kortets kant), ikke drejet og inden for kortet.
         <View
-          style={[cStyles.sticker, { backgroundColor: colors.deal }]}
+          style={[cStyles.salePill, { backgroundColor: colors.deal }]}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
-          {discountPct ? (
-            <>
-              <Text style={[cStyles.stickerSmall, { color: colors.dealText }]}>Spar</Text>
-              <Text style={[cStyles.stickerBig, { color: colors.dealText }]}>{discountPct}%</Text>
-            </>
-          ) : (
-            <Text style={[cStyles.stickerSmall, { color: colors.dealText, fontSize: 12 }]}>
-              Tilbud
-            </Text>
-          )}
+          <Text style={[cStyles.salePillText, { color: colors.dealText }]}>
+            {discountPct ? `Spar ${discountPct}%` : 'Tilbud'}
+          </Text>
         </View>
       ) : null}
 
@@ -174,23 +167,11 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
         <Text style={[cStyles.name, { color: colors.text }]} numberOfLines={2}>
           {product.name}
         </Text>
-        {/* Vægt/beskrivelse, antal og kg-pris: de samme linjer som webbens
-            produktkort (templates/macros/product_card.html). */}
-        {product.description || product.stk_count ? (
+        {/* C2: kun kg-prisen under navnet (ingen ekstra prislinjer). Uden
+            kg-pris vises vægten, så man stadig kan se hvor meget man får. */}
+        {kgPrice || product.description ? (
           <Text style={[cStyles.meta, { color: colors.textMuted }]} numberOfLines={1}>
-            {[product.description, product.stk_count ? `${product.stk_count} stk` : '']
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
-        ) : null}
-        {kgPrice ? (
-          <Text style={[cStyles.meta, { color: colors.textMuted }]} numberOfLines={1}>
-            {kgPrice}
-          </Text>
-        ) : null}
-        {onlyHere ? (
-          <Text style={[cStyles.meta, { color: colors.textMuted }]} numberOfLines={1}>
-            Kun hos {product.store}
+            {kgPrice || product.description}
           </Text>
         ) : null}
 
@@ -213,23 +194,23 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
 const cStyles = StyleSheet.create({
   card: {
     borderRadius: 22,
-    marginHorizontal: 5,
-    marginVertical: 6,
+    marginHorizontal: 6,
+    marginVertical: 7,
     paddingBottom: 12,
     position: 'relative',
-    overflow: 'visible',
   },
   cardGrid: { flex: 1, width: '100%', alignSelf: 'stretch' },
   cardRail: { width: '100%' },
   imageWrap: {
     margin: 8,
-    height: 128,
+    marginBottom: 0,
+    height: 120,
     borderRadius: 16,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  image: { width: 112, height: 112, maxWidth: '100%' },
+  image: { width: 104, height: 104, maxWidth: '100%' },
   imagePlaceholder: { width: 72, height: 72, borderRadius: 16 },
   logoPill: {
     position: 'absolute',
@@ -243,22 +224,19 @@ const cStyles = StyleSheet.create({
     justifyContent: 'center',
     maxWidth: '80%',
   },
-  sticker: {
+  salePill: {
     position: 'absolute',
-    top: -8,
-    left: -6,
-    zIndex: 3,
-    elevation: 3,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    top: 14,
+    left: 14,
+    zIndex: 2,
+    height: 22,
+    paddingHorizontal: 8,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ rotate: '-10deg' }],
   },
-  stickerSmall: { fontSize: 10, fontWeight: '700', lineHeight: 12 },
-  stickerBig: { fontSize: 17, fontWeight: '900', lineHeight: 19 },
-  body: { paddingHorizontal: 12 },
+  salePillText: { fontSize: 12, fontWeight: '800', letterSpacing: -0.1 },
+  body: { paddingHorizontal: 12, paddingTop: 8 },
   name: { fontSize: 14, fontWeight: '600', lineHeight: 18, minHeight: 36 },
   meta: { fontSize: 12, marginTop: 2 },
   footer: {
