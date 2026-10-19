@@ -2034,6 +2034,32 @@ _PROJECTS = (
         ),
     },
     {
+        'key': 'app_design_c2',
+        'name': 'Nyt app-design (C2)',
+        'status': 'doing',
+        'desc': 'Videre fra version C, så appen ser mindre generisk ud: lille '
+                'gul "Spar"-pille, aviser som runde logoer, "Køb igen" og '
+                'seneste søgninger i Søg, "Handl i 2 butikker" og "Glemt '
+                'noget?" i kurven. Kun appen (19-10-2026).',
+        'parts': (
+            {'done': True, 'name': 'Forside',
+             'desc': 'Søgefelt, kompakt besparelse, aviser denne uge og '
+                     '"Ugens største fald".'},
+            {'done': True, 'name': 'Søgning',
+             'desc': 'Seneste søgninger og "Køb igen", kun gemt på telefonen.'},
+            {'done': True, 'name': 'Produktkort',
+             'desc': 'Lille gul "Spar"-pille, butikslogo og kun kg-pris.'},
+            {'done': True, 'name': 'Kurv',
+             'desc': 'Vinderkort, "Handl i 2 butikker" og "Glemt noget?".'},
+            {'done': True, 'name': 'Bundmenu',
+             'desc': 'Lysegrøn pille bag den aktive fane, grønt tal på kurven.'},
+            {'done': True, 'name': 'Mørk tilstand',
+             'desc': 'Kun farver fra appens tema, ingen faste farver.'},
+            {'done': False, 'name': 'Web',
+             'desc': 'Hjemmesiden har stadig det gamle udseende.'},
+        ),
+    },
+    {
         'key': 'tests',
         'name': 'Flere automatiske tests',
         'status': 'idea',

@@ -114,13 +114,13 @@ function CartHeaderButton({ onPress }: { onPress: () => void }) {
             height: 18,
             borderRadius: 9,
             paddingHorizontal: 4,
-            // Version C: lille gul badge med antallet.
-            backgroundColor: colors.deal,
+            // C2: grønt tal-mærke (gul er forbeholdt tilbud).
+            backgroundColor: colors.primary,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: colors.dealText, fontSize: 11, fontWeight: '800' }}>
+          <Text style={{ color: colors.onPrimary, fontSize: 11, fontWeight: '700' }}>
             {count > 99 ? '99+' : count}
           </Text>
         </View>
@@ -171,7 +171,7 @@ function tabIcon(focused: boolean, active: TabIconName, inactive: TabIconName): 
   return focused ? active : inactive;
 }
 
-/** Version C: den aktive fane får en lysegrøn pille (56x30) bag ikonet. */
+/** Version C/C2: den aktive fane får en lysegrøn pille (56x30) bag ikonet. */
 function TabIcon({
   focused,
   color,
@@ -200,6 +200,17 @@ function TabIcon({
   );
 }
 
+/** Fanetekst 12 pt: 700 på den aktive fane, 500 på de andre (C2). */
+function tabLabel(text: string) {
+  return function TabLabel({ focused, color }: { focused: boolean; color: string }) {
+    return (
+      <Text style={{ color, fontSize: 12, marginTop: 2, fontWeight: focused ? '700' : '500' }}>
+        {text}
+      </Text>
+    );
+  };
+}
+
 function MainTabs() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -213,6 +224,7 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
+          borderTopWidth: 1,
           paddingTop: 6,
           // Plads til pillen (30) og teksten (12) over hjemme-stregen.
           height: 62 + insets.bottom,
@@ -220,8 +232,9 @@ function MainTabs() {
         // Pillen bag ikonet er 30 høj; uden plads til den skubbes teksten ud.
         tabBarIconStyle: { width: 56, height: 30 },
         tabBarActiveTintColor: colors.primaryDark,
-        tabBarInactiveTintColor: colors.tabInactive,
-        tabBarLabelStyle: { fontSize: 12, marginTop: 2, ...fontStyle('600') },
+        // C2: inaktive faner i den dæmpede tekstfarve (500), den aktive i
+        // primaryDark (700).
+        tabBarInactiveTintColor: colors.textMuted,
         sceneStyle: { flex: 1, minHeight: 0 },
       }}
     >
@@ -230,7 +243,7 @@ function MainTabs() {
         component={HomeScreen}
         options={({ navigation }) => ({
           title: 'MadShopper',
-          tabBarLabel: 'Hjem',
+          tabBarLabel: tabLabel('Hjem'),
           // Version C: eget top-felt med logo, lokation og kurv.
           headerTitle: () => <HomeHeaderTitle />,
           headerTitleAlign: 'left',
@@ -252,7 +265,7 @@ function MainTabs() {
         component={SearchScreen}
         options={({ navigation }) => ({
           title: 'Søg',
-          tabBarLabel: 'Søg',
+          tabBarLabel: tabLabel('Søg'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color} active="search" inactive="search-outline" />
           ),
@@ -267,7 +280,7 @@ function MainTabs() {
           component={RecipesScreen}
           options={({ navigation }) => ({
             title: 'Opskrifter',
-            tabBarLabel: 'Opskrifter',
+            tabBarLabel: tabLabel('Opskrifter'),
             tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color} active="restaurant" inactive="restaurant-outline" />
           ),
@@ -282,7 +295,7 @@ function MainTabs() {
         component={ProfileScreen}
         options={({ navigation }) => ({
           title: 'Profil',
-          tabBarLabel: 'Profil',
+          tabBarLabel: tabLabel('Profil'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color} active="person-circle" inactive="person-circle-outline" />
           ),

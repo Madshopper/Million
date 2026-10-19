@@ -30,7 +30,7 @@ export function ShelfPrice({
           fontSize: size,
           lineHeight: Math.round(size * 1.1),
           fontWeight: '900',
-          letterSpacing: -0.5,
+          letterSpacing: -0.8,
         }}
       >
         {whole}

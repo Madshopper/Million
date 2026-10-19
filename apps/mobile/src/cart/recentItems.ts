@@ -1,16 +1,21 @@
 /**
- * "Køb igen" på forsiden (version C, 18-10-2026). Appen har ingen
- * købshistorik, så vi husker de seneste varer, man selv har lagt i kurven,
- * kun her på telefonen (AsyncStorage). Intet sendes til serveren.
+ * "Køb igen" (version C 18-10-2026, C2 19-10-2026: i Søg og nederst i
+ * kurven). Appen har ingen købshistorik, så vi husker de varer, man selv har
+ * lagt i kurven, og hvor mange gange, kun her på telefonen (AsyncStorage).
+ * Intet sendes til serveren.
  */
-import { useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { CartItem } from './types';
 
 const KEY = 'madshopper_recent_items';
-export const RECENT_MAX = 12;
+// Nok varer til at tællingen giver mening, men stadig en lille liste.
+export const RECENT_MAX = 40;
 
-export type RecentItem = Omit<CartItem, 'quantity'>;
+export type RecentItem = Omit<CartItem, 'quantity'> & {
+  /** Antal gange varen er lagt i kurven (ældre gemte lister har ikke feltet). */
+  timesAdded?: number;
+};
 
 let items: RecentItem[] = [];
 let loaded = false;
@@ -42,22 +47,32 @@ export function loadRecentItems(): void {
     .catch(() => {});
 }
 
-/** Nyeste først, én gang pr. vare, højst RECENT_MAX. */
+function timesOf(i: RecentItem): number {
+  return typeof i.timesAdded === 'number' && i.timesAdded > 0 ? i.timesAdded : 1;
+}
+
+/** Nyeste først, én gang pr. vare (antallet lægges sammen), højst RECENT_MAX. */
 export function mergeRecent(newest: RecentItem[], older: RecentItem[]): RecentItem[] {
-  const seen = new Set<string>();
+  const byId = new Map<string, RecentItem>();
   const out: RecentItem[] = [];
   for (const it of [...newest, ...older]) {
-    if (seen.has(it.id)) continue;
-    seen.add(it.id);
-    out.push(it);
-    if (out.length >= RECENT_MAX) break;
+    const seen = byId.get(it.id);
+    if (seen) {
+      seen.timesAdded = timesOf(seen) + timesOf(it);
+      continue;
+    }
+    const copy = { ...it, timesAdded: timesOf(it) };
+    byId.set(it.id, copy);
+    out.push(copy);
   }
-  return out;
+  return out.slice(0, RECENT_MAX);
 }
 
 export function rememberRecentItem(item: CartItem | RecentItem): void {
-  const { quantity: _q, ...rest } = item as CartItem;
-  items = mergeRecent([rest], items);
+  const { quantity: _q, timesAdded: _t, ...rest } = item as CartItem & RecentItem;
+  const prev = items.find((i) => i.id === rest.id);
+  const next: RecentItem = { ...rest, timesAdded: (prev ? timesOf(prev) : 0) + 1 };
+  items = [next, ...items.filter((i) => i.id !== rest.id)].slice(0, RECENT_MAX);
   persist();
   emit();
 }
@@ -72,4 +87,19 @@ export function useRecentItems(): RecentItem[] {
     },
     () => items,
   );
+}
+
+/** De varer man oftest har lagt i kurven (flest gange først, så nyeste). */
+export function topBuyAgain(list: RecentItem[], limit: number, excludeIds?: Set<string>): RecentItem[] {
+  return list
+    .map((it, idx) => ({ it, idx }))
+    .filter(({ it }) => !excludeIds?.has(it.id))
+    .sort((a, b) => timesOf(b.it) - timesOf(a.it) || a.idx - b.idx)
+    .slice(0, limit)
+    .map(({ it }) => ({ ...it, timesAdded: timesOf(it) }));
+}
+
+export function useBuyAgain(limit: number, excludeIds?: Set<string>): RecentItem[] {
+  const list = useRecentItems();
+  return useMemo(() => topBuyAgain(list, limit, excludeIds), [list, limit, excludeIds]);
 }
