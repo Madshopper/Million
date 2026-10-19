@@ -128,7 +128,10 @@ lemper hårde gates; `_PHOTO_REJECT_MAX_DIST` = 20 afviser, åbner blokeringen o
 lemper type-gaten). Brug aldrig én grænse til alle tre igen: afvisning ved 4 var
 kalibreret på par der deler billedfil, og lukkede 95,7 % af de korrekte
 kryds-feed-par ude. Medianafstanden mellem to fotos af samme vare fra to
-forskellige kilder er 22 af 64 bit.
+forskellige kilder er 22 af 64 bit. Derfor afviser billedet ikke, når begge sider har samme
+nationale mærke og samme vægt (±2 %), og ingen side alene er light/mørk/jul
+osv. (`_same_brand_same_pack`, 19-10-2026: blindtest Dagrofa mod Salling gav
+recall 20 % -> 30 % uden lavere precision).
 
 Pipeline: Rema-annotering (inkl. EAN-retro-validering + cross-member-validering) → fase 1 (EAN-gruppering) → fase 2 (stage 3 fuzzy mod unmatched) → fase 2b (stage 3 fuzzy mod stage-1-grupper) → solokort → billed-dedup.
 

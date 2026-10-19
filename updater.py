@@ -1461,6 +1461,55 @@ def _initial_runs(words: list) -> set:
     return out
 
 
+def _brands_agree(brand_a: str, brand_b: str) -> bool:
+    """True når to producent-felter beviseligt er samme nationale mærke.
+
+    Positivt bevis, modsat brands_conflict: ens mærke ("Odense"/"Odense"),
+    det ene som ord i det andet ("Oetker"/"Dr. Oetker") eller Dagrofas
+    forkortelse som præfiks ("Urt."/"Urtekram"). Egne mærker tæller aldrig:
+    to kæders generiske husmærker i samme vægt er ikke bevis for samme vare.
+    """
+    if is_private_label(brand_a) or is_private_label(brand_b):
+        return False
+    ba, bb = normalize_name(brand_a), normalize_name(brand_b)
+    fa, fb = ba.replace(' ', '').replace('-', ''), bb.replace(' ', '').replace('-', '')
+    if len(fa) < 3 or len(fb) < 3 or ba in _BRAND_NOISE or bb in _BRAND_NOISE:
+        return False
+    if fa == fb:
+        return True
+    short, long_ = sorted((fa, fb), key=len)
+    if len(short) >= 4 and long_.startswith(short):
+        return True
+    for x, y in ((ba, bb), (bb, ba)):
+        if len(x.replace(' ', '')) >= 4 and re.search(r'\b' + re.escape(x) + r'\b', y):
+            return True
+    return False
+
+
+def _same_brand_same_pack(a: dict, b: dict) -> bool:
+    """Samme mærke og samme pakkestørrelse: stærkt nok til at tilsidesætte et
+    fotoafvisning på tværs af feeds, hvor to fotos af samme vare typisk ligger
+    22 bit fra hinanden (se _PHOTO_REJECT_MAX_DIST)."""
+    wa, wb = a.get('_weight_g'), b.get('_weight_g')
+    if not wa or not wb or abs(wa - wb) > 0.02 * max(wa, wb):
+        return False
+    if not _brands_agree(a.get('brand', ''), b.get('brand', '')):
+        return False
+    # Samme mærke og vægt deles ofte af en vare og dens light-/mørk-/jule-
+    # udgave ("Mayonnaise" / "Let mayonnaise"). Nævner kun den ene side en
+    # sådan variant, er det ikke bevis nok uden fotoet.
+    wa_ = set((a.get('_xname') or a.get('_norm_name') or '').split())
+    wb_ = set((b.get('_xname') or b.get('_norm_name') or '').split())
+    return not ((wa_ ^ wb_) & _PACK_VARIANT_WORDS)
+
+
+# Ord der skelner en udgave fra grundvaren hos samme mærke i samme størrelse.
+_PACK_VARIANT_WORDS: frozenset = frozenset({
+    'let', 'light', 'lys', 'mørk', 'dark', 'fuldkorn', 'zero', 'vs', 'vsop',
+    'xo', 'x-mas', 'xmas', 'jul', 'halloween', 'mini', 'max', 'sukkerfri',
+})
+
+
 def brands_conflict(name_a: str, brand_a: str, name_b: str, brand_b: str) -> bool:
     """True kun når begge sider bærer et ÆGTE nationalt mærke, der modsiger hinanden.
 
@@ -2103,7 +2152,8 @@ def cross_store_pair_verdict(base_p: dict, target_p: dict, base_norm: str,
     # "er de så forskellige at det udelukker samme vare?" (20). At bruge 4 til
     # begge afviste 95,7 % af de korrekte par på tværs af feeds - se
     # konstanternes definition ovenfor.
-    if dist is not None and dist > _PHOTO_REJECT_MAX_DIST:
+    if (dist is not None and dist > _PHOTO_REJECT_MAX_DIST
+            and not _same_brand_same_pack(base_p, target_p)):
         return False, name_score, 'billede'
 
     # Ordregel: har BEGGE navne et betydningsbærende ord, modparten ikke har,
