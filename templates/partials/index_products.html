@@ -4,7 +4,12 @@
 <div id="dynamic-content">
   {% if categories['Ugens Tilbud'] %}
   <section class="product-type">
+    {% if design_c2_enabled %}
+    {% set _sale_n = home_sale_count() %}
+    <h2 class="c2-section-head">Ugens største fald <a href="{{ template_mapping['Ugens Tilbud'] }}">{% if _sale_n %}{{ _sale_n }} tilbud{% else %}Vis alle{% endif %}</a></h2>
+    {% else %}
     <h2>Ugens Tilbud <a href="{{ template_mapping['Ugens Tilbud'] }}">Vis alle</a></h2>
+    {% endif %}
     <div class="products">
       {% for product in categories['Ugens Tilbud'][:10] %}{{ product_card(product) }}{% endfor %}
     </div>

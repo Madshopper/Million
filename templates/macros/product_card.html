@@ -1,4 +1,12 @@
+{# Pris som hyldeskilt i design C2: store kroner og små øre ("9⁹⁵"). Punktum
+   og " kr" er skjult visuelt men står i teksten, så script.js stadig læser
+   prisen som "9.95 kr" (parsePricesFromProductCard). #}
+{% macro c2_price(value) -%}
+{%- set _s = "%.2f"|format(value) -%}
+<span class="c2-kr">{{ _s.split('.')[0] }}</span><span class="c2-hide">.</span><sup class="c2-ore">{{ _s.split('.')[1] }}</sup><span class="c2-hide"> kr</span>
+{%- endmacro %}
 {% macro product_card(product) %}
+{%- set c2 = feature_enabled('design_c2') -%}
 {%- set store_lower = (product.store or 'rema').lower() -%}
 {%- if 'bilka' in store_lower -%}
   {%- set badge_class, badge_label = 'bilka', 'Bilka' -%}
@@ -75,9 +83,10 @@
   <div class="product-content">
     <div class="product-brand">{{ product.brand }}</div>
     <h3>{{ product.name }}</h3>
-    {% if product.description %}<div class="product-weight">{{ product.description }}</div>{% endif %}
+    {# C2: kun kg-pris under navnet, ellers mængden (som appen). #}
+    {% if product.description and not (c2 and product.price_per_kg) %}<div class="product-weight">{{ product.description }}</div>{% endif %}
     {% if product.stk_count %}<div class="product-weight">{{ product.stk_count }} stk</div>{% endif %}
-    {% if product.price_per_kg %}<div class="product-kg-price">{{ "%.2f"|format(product.price_per_kg) }} kr/kg</div>{% endif %}
+    {% if product.price_per_kg %}<div class="product-kg-price">{% if c2 %}{{ ("%.2f"|format(product.price_per_kg)).replace('.', ',') }}{% else %}{{ "%.2f"|format(product.price_per_kg) }}{% endif %} kr/kg</div>{% endif %}
     {% if not product.store_matches %}
     <div class="compare-badge only">Kun hos {{ product.store or 'Rema 1000' }}</div>
     {% endif %}
@@ -85,16 +94,16 @@
   <div class="product-footer">
     <div class="product-price">
       {% if product.is_sale %}
-      <div class="price-original price original">{{ "%.2f"|format(product.price) }} kr</div>
-      <div class="price-sale price sale">{{ "%.2f"|format(product.sale_price) }} kr</div>
+      <div class="price-original price original">{% if c2 %}{{ ("%.2f"|format(product.price)).replace('.', ',') }}{% else %}{{ "%.2f"|format(product.price) }}{% endif %} kr</div>
+      <div class="price-sale price sale">{% if c2 %}{{ c2_price(product.sale_price) }}{% else %}{{ "%.2f"|format(product.sale_price) }} kr{% endif %}</div>
       {%- elif feature_enabled('tilbud_gul') and (product.store_matches[product.cheapest_at].is_sale if product.cheapest_at in product.store_matches else (product.cheapest_at == 'rema' and product.rema_is_sale)) %}
       {# Tilbud uden førpris (fx multikøb): butikken på kortet har tilbud, men
          oplyser ikke normalprisen. Prisen skal stadig være gul, så den passer
          til Tilbud-mærket. Samme regel i appens ProductCard.tsx. Bag Feature
          'tilbud_gul', indtil appen er opdateret (Kalle 07-10-2026). #}
-      <div class="price-sale price sale">{{ "%.2f"|format(product.price) }} kr</div>
+      <div class="price-sale price sale">{% if c2 %}{{ c2_price(product.price) }}{% else %}{{ "%.2f"|format(product.price) }} kr{% endif %}</div>
       {% else %}
-      <div class="price-main price">{{ "%.2f"|format(product.price) }} kr</div>
+      <div class="price-main price">{% if c2 %}{{ c2_price(product.price) }}{% else %}{{ "%.2f"|format(product.price) }} kr{% endif %}</div>
       {% endif %}
     </div>
     {# Varenavnet med i aria-label: en kategoriside har 60 knapper, og uden
@@ -102,12 +111,18 @@
        kunne skelne dem. Samme rettelse i app'ens ProductCard.tsx. #}
     <button class="add-to-cart-btn" onclick="event.stopPropagation(); addToCart(event, this.closest('.product'))"
       aria-label="Tilføj {{ product.name }} til kurv">
+      {% if c2 %}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+      </svg>
+      {% else %}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
         stroke-linejoin="round">
         <circle cx="9" cy="21" r="1" />
         <circle cx="20" cy="21" r="1" />
         <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
       </svg>
+      {% endif %}
     </button>
   </div>
   <span class="brand" style="display:none;">{{ product.brand }}</span>
