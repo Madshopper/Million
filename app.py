@@ -216,6 +216,10 @@ _EDGE_ENV_VARS = (
     # /api/recipes-preview/<nøgle> (se get_recipes_preview). Worker-secret i
     # produktion, aldrig i git.
     'RECIPES_PREVIEW_KEY',
+    # Sendes som headeren X-MadShopper-Server på tælle-RPC'erne, så kun appen
+    # (bag sin rate limiter) kan tælle, ikke enhver med den offentlige nøgle
+    # (scripts/supabase-server-rpc-gate.sql). Worker-secret, aldrig i git.
+    'SERVER_RPC_KEY',
 )
 
 
@@ -2279,6 +2283,9 @@ def _supabase_rest(method: str, path: str, params: dict | None = None,
     if params:
         url += "?" + urllib.parse.urlencode(params)
     headers = {"apikey": key, "Authorization": f"Bearer {auth_token or key}"}
+    server_key = _edge_var('SERVER_RPC_KEY') if path.startswith('rpc/') else None
+    if server_key:
+        headers["X-MadShopper-Server"] = str(server_key)
     if json_body is not None:
         headers["Content-Type"] = "application/json"
     if prefer:
@@ -3016,7 +3023,7 @@ def get_recipes(_force: bool = False):
             "GET", "recipes",
             params={
                 "select": "id,title,image_url,servings,total_time_minutes,source_name,"
-                          "source_url,instructions",
+                          "source_url",
                 "status": "eq.approved",
                 "order": "created_at.desc",
                 "limit": "200",
@@ -3059,8 +3066,9 @@ def get_recipes(_force: bool = False):
 
         result = []
         for r in rows:
-            # Fremgangsmåden bruges kun til mærkerne og sendes ikke med i listen.
-            instructions = r.pop("instructions", None)
+            # Fremgangsmåden er betalt indhold, som anon-nøglen ikke kan læse
+            # (scripts/supabase-recipe-lock.sql), så mærkerne bygges uden den.
+            instructions = None
             snap = by_recipe.get(r["id"], {})
             total = snap.get("total_ingredient_count") or 0
             on_sale = snap.get("ingredients_on_sale_count") or 0
@@ -3272,7 +3280,25 @@ def _recipe_nutrition_estimate(ingredients: list) -> dict | None:
     }
 
 
-def _fetch_recipe_detail(recipe_id):
+def _recipe_content(recipe_id, token):
+    """Fremgangsmåde + ingredienslinjer via recipe_content() med brugerens egen
+    token: databasen tjekker selv betalingen (scripts/supabase-recipe-lock.sql),
+    så anon-nøglen aldrig kan læse dem. Returnerer (instructions, ingredients)
+    eller None, hvis funktionen ikke findes endnu (SQL'en ikke kørt), så det
+    gamle opslag bruges indtil da."""
+    if not token or len(token) > 4096 or not _JWT_RE.match(token):
+        return [], []
+    data, status = _supabase_rest('POST', 'rpc/recipe_content',
+                                  json_body={'p_recipe_id': int(recipe_id)},
+                                  timeout=8.0, auth_token=token)
+    if status == 404:
+        return None
+    if status != 200 or not isinstance(data, dict):
+        return [], []
+    return data.get('instructions') or [], data.get('ingredients') or []
+
+
+def _fetch_recipe_detail(recipe_id, token=None):
     """Fælles opslag for JSON-API'et (get_recipe) og HTML-siden
     (get_recipe_page): godkendte opskrifter kun (status filtreres eksplicit
     her, ikke via RLS - kaldet bruger service/anon-nøglen server-side, se
@@ -3284,7 +3310,7 @@ def _fetch_recipe_detail(recipe_id):
     rows, status = _supabase_rest(
         "GET", "recipes",
         params={
-            "select": "id,title,image_url,servings,total_time_minutes,instructions,"
+            "select": "id,title,image_url,servings,total_time_minutes,"
                       "source_name,source_url,nutrition_source",
             "id": f"eq.{int(recipe_id)}",
             "status": "eq.approved",
@@ -3295,16 +3321,24 @@ def _fetch_recipe_detail(recipe_id):
         return None, [], None
     recipe = rows[0]
 
-    ing_rows, ing_status = _supabase_rest(
-        "GET", "recipe_ingredients",
-        params={
-            "select": "id,position,raw_text,quantity,unit,ingredient_name,"
-                      "matched_product_id,match_confidence,candidate_product_ids",
-            "recipe_id": f"eq.{recipe_id}",
-            "order": "position.asc",
-        },
-    )
-    ingredients = ing_rows if ing_status == 200 and isinstance(ing_rows, list) else []
+    content = _recipe_content(recipe_id, token)
+    if content is None:
+        # Overgang: recipe_content() findes ikke endnu, så anon-nøglen kan
+        # stadig læse kolonnerne. Fjern grenen, når SQL'en er kørt.
+        old, _ = _supabase_rest("GET", "recipes", params={
+            "select": "instructions", "id": f"eq.{int(recipe_id)}", "limit": "1"})
+        ing_rows, ing_status = _supabase_rest(
+            "GET", "recipe_ingredients",
+            params={
+                "select": "id,position,raw_text,quantity,unit,ingredient_name,"
+                          "matched_product_id,match_confidence,candidate_product_ids",
+                "recipe_id": f"eq.{recipe_id}",
+                "order": "position.asc",
+            },
+        )
+        content = ((old[0].get("instructions") if isinstance(old, list) and old else None) or [],
+                   ing_rows if ing_status == 200 and isinstance(ing_rows, list) else [])
+    recipe["instructions"], ingredients = content
 
     snap_rows, snap_status = _supabase_rest(
         "GET", "recipe_price_snapshot",
@@ -3459,11 +3493,14 @@ def _recipe_access_ok(token: str) -> bool:
     return status == 200 and data is True
 
 
-def _recipe_access_request() -> bool:
+def _recipe_access_token() -> str:
     """Appen sender Bearer-tokenen; browseren har den i ms_session-cookien."""
     m = _ADMIN_BEARER_RE.match(request.headers.get('Authorization', ''))
-    token = m.group(1) if m else request.cookies.get(_SESSION_COOKIE, '')
-    return _recipe_access_ok(token)
+    return m.group(1) if m else request.cookies.get(_SESSION_COOKIE, '')
+
+
+def _recipe_access_request() -> bool:
+    return _recipe_access_ok(_recipe_access_token())
 
 
 @app.route('/api/recipes/<int:recipe_id>')
@@ -3476,7 +3513,8 @@ def get_recipe(recipe_id, _force: bool = False):
     if not _force and not _recipe_access_request():
         return jsonify(success=False, locked=True, recipe=None), 403, _RECIPE_LOCKED_HEADERS
     try:
-        recipe, ingredients, snapshot = _fetch_recipe_detail(recipe_id)
+        recipe, ingredients, snapshot = _fetch_recipe_detail(
+            recipe_id, token=_recipe_access_token())
         return jsonify(success=True, recipe=recipe, ingredients=ingredients, snapshot=snapshot)
     except Exception as e:
         logger.error("recipe-detail error: %s", e)
@@ -3514,10 +3552,13 @@ def get_recipe_page(recipe_id):
     if not _recipes_enabled() or not _supabase_available():
         return render_template('opskrift.html', recipe=None), 404
     try:
-        recipe, ingredients, snapshot = _fetch_recipe_detail(recipe_id)
+        token = _recipe_access_token()
+        has_access = _recipe_access_ok(token)
+        recipe, ingredients, snapshot = _fetch_recipe_detail(
+            recipe_id, token=token if has_access else None)
         if not recipe:
             return render_template('opskrift.html', recipe=None), 404
-        if not _recipe_access_request():
+        if not has_access:
             # Kun det der også står i den åbne liste; ingredienser og
             # fremgangsmåde forlader aldrig serveren uden betaling.
             teaser = {k: recipe.get(k) for k in (
