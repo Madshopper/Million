@@ -18,7 +18,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useCart } from '../cart/CartContext';
 import { CartIcon } from '../components/CartIcon';
-import { GLASS_TAB_BAR, GlassTabBarBackground, LIQUID_GLASS } from '../components/GlassTabBar';
+import {
+  GLASS_TAB_BAR,
+  GlassTabBarBackground,
+  LIQUID_GLASS,
+  glassPillTabBarStyle,
+} from '../components/GlassTabBar';
 import { HomeHeaderTitle, LocationPill } from '../components/HomeHeader';
 import { HomeScreen } from '../screens/HomeScreen';
 import { CategoryScreen, SaleScreen, StoreOffersListScreen } from '../screens/CategoryScreen';
@@ -234,26 +239,19 @@ function MainTabs() {
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,
         headerTitleStyle: fontStyle('700'),
-        tabBarStyle: {
-          // iOS: glas. Bjælken svæver over indholdet (position absolute), og
-          // baggrunden tegnes af GlassTabBarBackground. Fane-skærmenes lister
-          // giver plads i bunden med useTabBarOverlap().
-          ...(GLASS_TAB_BAR
-            ? {
-                position: 'absolute' as const,
-                backgroundColor: 'transparent',
-                borderTopWidth: 0,
-                elevation: 0,
-              }
-            : {
-                backgroundColor: colors.surface,
-                borderTopColor: colors.border,
-                borderTopWidth: 1,
-              }),
-          paddingTop: 6,
-          // Plads til pillen (30) og teksten (12) over hjemme-stregen.
-          height: 62 + insets.bottom,
-        },
+        tabBarStyle: GLASS_TAB_BAR
+          ? // iOS: svævende glaspille over indholdet. Baggrunden tegnes af
+            // GlassTabBarBackground, og fane-skærmenes lister giver plads i
+            // bunden med useTabBarOverlap().
+            glassPillTabBarStyle(insets)
+          : {
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
+              borderTopWidth: 1,
+              paddingTop: 6,
+              // Plads til pillen (30) og teksten (12) over hjemme-stregen.
+              height: 62 + insets.bottom,
+            },
         tabBarBackground: GLASS_TAB_BAR ? () => <GlassTabBarBackground /> : undefined,
         // Pillen bag ikonet er 30 høj; uden plads til den skubbes teksten ud.
         tabBarIconStyle: { width: 56, height: 30 },
