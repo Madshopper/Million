@@ -11,6 +11,7 @@ import { MealPlanView } from '../recipes/MealPlanView';
 import { defaultPrefs, loadPrefs, savePrefs, type MealPrefs } from '../recipes/mealPlan';
 import { useRecipeAccess } from '../recipes/access';
 import { useTheme } from '../theme/ThemeContext';
+import { useTabBarOverlap } from '../components/GlassTabBar';
 import type { RootStackParamList } from '../navigation/types';
 
 /** Opskrift-fanen: EGEN søgning, adskilt fra SearchScreen (produkter).
@@ -26,6 +27,7 @@ import type { RootStackParamList } from '../navigation/types';
 export function RecipesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
+  const tabOverlap = useTabBarOverlap();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -194,7 +196,8 @@ export function RecipesScreen() {
           keyExtractor={(r) => String(r.id)}
           numColumns={2}
           columnWrapperStyle={{ paddingHorizontal: 2 }}
-          contentContainerStyle={{ padding: 4 }}
+          contentContainerStyle={{ padding: 4, paddingBottom: 4 + tabOverlap }}
+          scrollIndicatorInsets={{ bottom: tabOverlap }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator
           renderItem={({ item }) => <RecipeCard recipe={item} onPress={openRecipe} />}

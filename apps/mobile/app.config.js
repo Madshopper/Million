@@ -214,7 +214,7 @@ const config = {
   // opdatering nogensinde ville lande.
   ...(IS_TEST_APP
     ? {
-        runtimeVersion: 'test-2',
+        runtimeVersion: 'test-3',
         updates: {
           url: 'https://u.expo.dev/61fb2d3e-805e-4d2f-9c78-5e9705d28fd8',
           requestHeaders: { 'expo-channel-name': 'test' },

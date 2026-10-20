@@ -19,6 +19,7 @@ import { ProductCard } from '../components/ProductCard';
 import { TabScreenBody } from '../components/ScreenBody';
 import { useStoreCatalog, storesParam } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
+import { useTabBarOverlap } from '../components/GlassTabBar';
 import { Pager } from '../components/Pager';
 import { spokenKr } from '../a11y/speech';
 import { setServerStatsEnabled, trackSearch } from '../stats/stats';
@@ -42,6 +43,7 @@ const DEFAULT_FILTERS: FiltersValue = { sort: 'relevance' };
 export function SearchScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
+  const tabOverlap = useTabBarOverlap();
   // queryLabels: debouncet butiksvalg (se StoreCatalogContext) - ellers ville
   // hvert butikstryk i filter-arket koste baade en autocomplete og en soegning.
   const { queryLabels, catalog, ready } = useStoreCatalog();
@@ -407,7 +409,8 @@ export function SearchScreen() {
           keyExtractor={(p) => p.id}
           numColumns={2}
           columnWrapperStyle={{ paddingHorizontal: 2 }}
-          contentContainerStyle={{ padding: 4 }}
+          contentContainerStyle={{ padding: 4, paddingBottom: 4 + tabOverlap }}
+          scrollIndicatorInsets={{ bottom: tabOverlap }}
           keyboardShouldPersistTaps="handled"
           // Tastaturet åbner selv (autoFocus) og dækker halvdelen af
           // forslagene. Et træk i listen lukker det, så varerne kan ses.

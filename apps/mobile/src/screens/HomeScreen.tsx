@@ -33,6 +33,7 @@ import {
 } from '../savings/personalSavings';
 import { useStoreCatalog, storesParam } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
+import { useTabBarOverlap } from '../components/GlassTabBar';
 import { recipesEnabled } from '../config/env';
 import { setServerPushEnabled } from '../push/push';
 import { setServerSwipeEnabled } from '../cart/swipeFlag';
@@ -61,7 +62,9 @@ export function HomeScreen() {
   const { height: windowHeight } = useWindowDimensions();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const listHeight = Math.max(240, windowHeight - headerHeight - tabBarHeight);
+  // iOS: glas-fanebjælken svæver over listen, så listen går helt ned.
+  const tabOverlap = useTabBarOverlap();
+  const listHeight = Math.max(240, windowHeight - headerHeight - tabBarHeight + tabOverlap);
 
   const [sections, setSections] = React.useState<HomeSection[]>([]);
   const [recipes, setRecipes] = React.useState<Recipe[]>([]);
@@ -205,7 +208,8 @@ export function HomeScreen() {
         style={{ height: listHeight }}
         data={rows}
         keyExtractor={(item) => item.key}
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 + tabOverlap }}
+        scrollIndicatorInsets={{ bottom: tabOverlap }}
         scrollEnabled
         bounces
         showsVerticalScrollIndicator

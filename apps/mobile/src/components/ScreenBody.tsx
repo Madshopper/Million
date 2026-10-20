@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useHeaderHeight } from '@react-navigation/elements';
+import { useTabBarOverlap } from './GlassTabBar';
 
 /**
  * Giver scroll-children en begrænset højde.
@@ -27,7 +28,9 @@ export function TabScreenBody({
   const { height: windowHeight } = useWindowDimensions();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
-  const bodyHeight = Math.max(200, windowHeight - headerHeight - tabBarHeight);
+  // På iOS svæver glas-fanebjælken over skærmen, så den tager ikke højde fra.
+  const overlap = useTabBarOverlap();
+  const bodyHeight = Math.max(200, windowHeight - headerHeight - tabBarHeight + overlap);
 
   return (
     <MeasuredBody fallbackHeight={bodyHeight} maxHeight={windowHeight} style={style}>
