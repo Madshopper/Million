@@ -30,6 +30,8 @@ from app_support import (
     products_to_api_list, product_to_api_dict,
     product_available_at_active_stores,
     product_for_active_stores,
+    _promote_match_to_product,
+    offer_group_key,
     STORE_CATALOG_VERSION,
     stores_auto_enable_since,
     STORES_ADDED_IN_VERSION,
@@ -200,12 +202,26 @@ _EDGE_ENV_VARS = (
     'SWIPE_ENABLED',
     # Kun på staging: "Køl & Mejeri" som kategorinavn (_FEATURES 'mejeri_navn').
     'MEJERI_NAVN_ENABLED',
-    # Kun på staging: "Støt MadShopper"-abonnementet i appen (_FEATURES 'subscription').
-    'SUBSCRIPTION_ENABLED',
+    # Kun på staging: gul pris ved tilbud uden førpris (_FEATURES 'tilbud_gul').
+    'TILBUD_GUL_ENABLED',
+    # Kun på staging: tilbudsavis pr. butik (_FEATURES 'butiksaviser').
+    'BUTIKSAVISER_ENABLED',
+    # Kun på staging: butikker nær mig (_FEATURES 'lokation').
+    'LOKATION_ENABLED',
+    # Kun på staging: app-designet C2 på hjemmesiden (_FEATURES 'design_c2').
+    'DESIGN_C2_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
     'STAGING_LINK_SECRET',
+    # Testnøgle til MadShopper Test-appen: skjulte opskrifter via
+    # /api/recipes-preview/<nøgle> (se get_recipes_preview). Worker-secret i
+    # produktion, aldrig i git.
+    'RECIPES_PREVIEW_KEY',
+    # Sendes som headeren X-MadShopper-Server på tælle-RPC'erne, så kun appen
+    # (bag sin rate limiter) kan tælle, ikke enhver med den offentlige nøgle
+    # (scripts/supabase-server-rpc-gate.sql). Worker-secret, aldrig i git.
+    'SERVER_RPC_KEY',
 )
 
 
@@ -246,6 +262,9 @@ _CACHEABLE_ENDPOINTS = {
     # Native listing-API'er (docs/native-app.md Fase 0) - samme cache-semantik
     # som HTML-listerne (24t CDN via cache_version).
     'api_home', 'api_category', 'api_sale', 'api_search',
+    # Tilbudsavis pr. butik (Feature 'butiksaviser'): skifter kun ved seedet,
+    # og afhænger ikke af butiksvalget (siden ER én butik).
+    'store_offers', 'api_store_offers', 'api_store_avis',
     # Prishistorik og ernæring: data ændrer sig højst én gang i døgnet og er
     # GET uden rate-limit - edge-cache (samme 24t CDN-Cache-Control via
     # cache_version som resten af _CACHEABLE_ENDPOINTS, se _EDGE_CACHE_SECONDS)
@@ -256,7 +275,9 @@ _CACHEABLE_ENDPOINTS = {
     # samme cache-begrundelse som ovenstående. get_recipe_page må caches selvom
     # den "bruges" (klik-tracking) - klikket registreres client-side (se
     # get_recipe_page), ikke ved cache-miss, så caching underminerer det ikke.
-    'get_recipes', 'get_recipe', 'get_recipe_page', 'recipes_page',
+    # Kun listen: opskriften selv og /opskrifter afhænger af om den indloggede
+    # har betalt (_recipe_access_ok) og må aldrig i den delte cache.
+    'get_recipes',
 }
 # Endpoints hvis svar afhænger af get_active_stores() - dvs. af ?stores= ELLER
 # af madshopper_stores-cookien. Query-parameteren indgår i cache-nøglen, men
@@ -285,7 +306,7 @@ _CACHEABLE_JSON_ENDPOINTS = {
     'get_stores', 'get_separate_products', 'get_product_info',
     'get_price_history', 'get_nutrition',
     'api_home', 'api_category', 'api_sale', 'api_search', 'autocomplete',
-    'get_recipes', 'get_recipe',
+    'get_recipes', 'api_store_offers', 'api_store_avis',
 }
 _JSON_BROWSER_CACHE_SECONDS = 300
 # INGEN browser-cache af HTML: browseren skal hente frisk HTML ved hvert
@@ -326,6 +347,9 @@ _IMG_HOSTS = (
     'https://www.lidl.dk '
     'https://image.prod.iposeninfra.com '
     'https://nxtumbraco.azurewebsites.net '
+    # Varebilleder klippet ud af butikkernes avis-PDF'er (webscrape_lovbjerg.py),
+    # gemt i Supabase Storage-bucket'en avis-billeder.
+    'https://oxzxingkbsnqzpmjtktr.supabase.co '
     # Opskrift-billeder (recipe_importer.py) - tilføj kilde-hosten når en ny
     # opskriftside importeres fra, samme princip som butiks-CDN'erne ovenfor.
     'https://images.arla.com'
@@ -510,6 +534,12 @@ def _inject_site_meta():
         'swipe_enabled': _feature_enabled('swipe'),
         # "Køl & Mejeri" i kategorimenuen (Feature-panelet 'mejeri_navn').
         'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
+        # Butikslogoer med tilbudsavis på forsiden (Feature-panelet 'butiksaviser').
+        'butiksaviser_enabled': _feature_enabled('butiksaviser'),
+        # Butikker nær mig og rækkefølgen i "Billigste butikker" (Feature-panelet 'lokation').
+        'lokation_enabled': _feature_enabled('lokation'),
+        # App-designet C2 på hjemmesiden (Feature-panelet 'design_c2').
+        'design_c2_enabled': _feature_enabled('design_c2'),
         'vapid_public_key': _VAPID_PUBLIC_KEY,
         # Sandt naar SIDENS render byggede paa ufuldstaendige data (samme
         # isolate-kollision i D1-broen som saetter X-Data-Degraded-headeren,
@@ -909,6 +939,8 @@ def load_sale_raw(limit: int | None = None) -> list:
     result = [
         p for p in products
         if p.get('/product/sale_price') or p.get('/product/is_any_sale')
+        # own_sale: tilbud uden førpris (updater.py), samme udvalg som D1's is_sale.
+        or p.get('/product/own_sale')
     ]
     return result[:limit] if limit else result
 
@@ -1592,9 +1624,12 @@ _FEATURES = (
         'key': 'recipes',
         'name': 'Opskrifter',
         'env': 'RECIPES_ENABLED',
-        'desc': 'Opskrifter med priser fra butikkerne. Mens den er under '
+        'desc': 'Opskrifter med priser fra butikkerne. Kræver betaling: '
+                'alle kan se listen, men selve opskriften og madplanen kræver '
+                'et månedligt abonnement, købt i appen. Mens den er under '
                 'udvikling, vises opskrifterne kun som "Kommer snart" på '
-                'forsiden.',
+                'forsiden. Udgiv først, når Apple har godkendt abonnementet '
+                '(docs/abonnement.md).',
         'app': 'Appen viser først opskrifterne, når der er lavet en ny '
                'version af den med opskrifter slået til.',
         'parts': (
@@ -1604,12 +1639,44 @@ _FEATURES = (
              'desc': 'Genvejen til opskrifterne i sidens menu.'},
             {'kind': 'web', 'name': 'Opskrifter på forsiden',
              'desc': '"Lækre opskrifter" kan trykkes på i stedet for "Kommer snart".'},
+            {'kind': 'web', 'name': 'Faste 10 opskrifter indtil udgivelse',
+             'desc': 'Så længe opskrifter er skjult, viser forsiden på web og '
+                     'i appen kun de 10 første opskrifter som "Kommer snart" '
+                     '(18-10-2026). Når den udgives, vises de nyeste igen.'},
+            {'kind': 'web', 'name': 'Madplan: spørgsmål første gang',
+             'desc': 'Første gang man åbner /opskrifter: hvor mange, budget '
+                     'om ugen, lyst, kostbehov, ting man vil undgå og køkken. '
+                     'Svarene gemmes kun i browseren.'},
+            {'kind': 'web', 'name': 'Madplan: din madplan',
+             'desc': 'En ret pr. hverdag med pris for jeres antal mod '
+                     'budgettet. Lås retter og lav resten om.'},
             {'kind': 'job', 'name': 'Opskrifternes priser',
              'desc': 'Regnes ud hver nat efter butikkernes nye priser.'},
             {'kind': 'job', 'name': 'Import af opskrifter',
              'desc': 'Kører hver morgen og tjekker nye opskrifter fra brugerne.'},
+            {'kind': 'job', 'name': 'Egne opskrifter',
+             'desc': '30 opskrifter på kendte retter, skrevet af os selv, så vi '
+                     'må vise hele fremgangsmåden. Lægges ind af importen.'},
             {'kind': 'app', 'name': 'Opskrifter i appen',
              'desc': 'Fanen og opskrifterne i iPhone- og Android-appen.'},
+            {'kind': 'app', 'name': 'Madplan i appen',
+             'desc': 'De samme spørgsmål og den samme madplan i Opskrift-'
+                     'fanen. Svarene gemmes kun på telefonen.'},
+            {'kind': 'web', 'name': 'Betaling for opskrifter',
+             'desc': 'Listen kan ses af alle. Opskriften selv og madplanen '
+                     'kræver et abonnement på kontoen; ellers vises en boks om '
+                     'at købe det i appen. Admins har altid adgang.'},
+            {'kind': 'app', 'name': 'Køb af opskrifter i appen',
+             'desc': 'Månedligt abonnement via Apple, kun på iPhone. Kræver '
+                     'login, så samme konto også låser op på hjemmesiden og '
+                     'Android. Med "Gendan køb".'},
+            {'kind': 'job', 'name': 'Fornyelse og opsigelse',
+             'desc': 'Apple giver selv besked, når abonnementet fornyes, '
+                     'stoppes eller refunderes (edge-funktionen recipe-access).'},
+            {'kind': 'idea', 'name': 'Madplan: gem svar på kontoen',
+             'desc': 'Så svarene følger med mellem telefon og computer.'},
+            {'kind': 'idea', 'name': 'Madplan: læg hele ugen i kurven',
+             'desc': 'Alle varer til ugens retter i kurven med ét tryk.'},
             {'kind': 'idea', 'name': 'Gem opskrifter',
              'desc': 'Gemte opskrifter under "Mine opskrifter" / "Favorit opskrifter".'},
             {'kind': 'idea', 'name': 'Mit køleskab',
@@ -1648,6 +1715,10 @@ _FEATURES = (
                 'dag for dag. Kurv og prissammenligning tælles allerede; '
                 'visninger og søgninger tælles først, når den er udgivet. '
                 'Der gemmes kun tal pr. dag, intet om den enkelte bruger.',
+        'app': 'Appen tæller fra version 1.0.4. Udgives automatisk her, når '
+               '1.0.4 er i App Store (feature-auto-publish.yml), så web og '
+               'app tæller fra samme dag (Kalle 15-10-2026).',
+        'with_app': '1.0.4',
         'parts': (
             {'kind': 'web', 'name': 'Fanen Varer i admin',
              'desc': 'Mest populære varer, udvikling over tid og de mest '
@@ -1682,6 +1753,24 @@ _FEATURES = (
         ),
     },
     {
+        'key': 'tilbud_gul',
+        'name': 'Gul pris ved tilbud uden førpris',
+        'env': 'TILBUD_GUL_ENABLED',
+        'desc': 'Når butikken på varekortet har tilbud, men ikke oplyser '
+                'normalprisen (fx multikøb), står prisen nu i gul ligesom '
+                'Tilbud-mærket. Før stod den hvid.',
+        'app': 'Appen får det fra version 1.0.4. Udgives automatisk her, når '
+               '1.0.4 er i App Store (feature-auto-publish.yml), så web og '
+               'app følges ad (Kalle 07-10-2026).',
+        'with_app': '1.0.4',
+        'parts': (
+            {'kind': 'web', 'name': 'Gul pris på hjemmesidens varekort',
+             'desc': 'templates/macros/product_card.html'},
+            {'kind': 'app', 'name': 'Gul pris på appens varekort',
+             'desc': 'ProductCard.tsx, med i næste appversion.'},
+        ),
+    },
+    {
         'key': 'mejeri_navn',
         'name': 'Køl hedder Køl & Mejeri',
         'env': 'MEJERI_NAVN_ENABLED',
@@ -1700,21 +1789,116 @@ _FEATURES = (
         ),
     },
     {
-        'key': 'subscription',
-        'name': 'Støt MadShopper (abonnement)',
-        'env': 'SUBSCRIPTION_ENABLED',
-        'desc': 'Frivilligt månedligt abonnement i appen, betalt via Apple. '
-                'Alt i appen er stadig gratis; støtterne får et Støtter-mærke '
-                'på deres profil. Udgiv først, når produktet er oprettet og '
-                'godkendt i App Store Connect (docs/abonnement.md).',
-        'app': 'Kræver en ny app-version med abonnementet. Kun iPhone indtil '
-               'videre. Hjemmesiden sælger det ikke.',
+        'key': 'butiksaviser',
+        'name': 'Tilbudsavis pr. butik',
+        'env': 'BUTIKSAVISER_ENABLED',
+        'desc': 'Kalles ønske (10-10-2026), efter at Tjek sagde nej til '
+                'aviserne: butikkernes logoer på forsiden, og et tryk viser '
+                'butikkens tilbud denne uge, bygget af de priser vi selv '
+                'henter direkte fra butikkerne. Samme avis-skabelon for alle '
+                'butikker med butikkens logo svagt i baggrunden. Kun ugens '
+                'avis tæller, og et tilbud med mange varer tæller som ét '
+                '(18-10-2026). Ingen avisbilleder, '
+                'kun et link til butikkens egen avis. Coop-butikkerne og 365 '
+                'Discount er ikke med, før Coop har svaret (de kommer stadig '
+                'fra Tjek).',
+        'app': 'App 1.0.4 i App Store har dem med, men skjult. De vises i '
+               'appen, så snart den udgives her. MadShopper Test har dem '
+               'allerede.',
         'parts': (
-            {'kind': 'app', 'name': '"Støt MadShopper" på Profil',
-             'desc': 'Skærm med pris, køb, gendan køb og links til vilkår. '
-                     'Vises kun når den er udgivet her.'},
-            {'kind': 'app', 'name': 'Støtter-mærke',
-             'desc': 'Står under navnet på Profil, mens abonnementet er aktivt.'},
+            {'kind': 'web', 'name': 'Butikslogoer på forsiden',
+             'desc': 'Kun de butikker man har valgt, med antal tilbud. Tryk '
+                     'åbner /tilbud/<butik>.'},
+            {'kind': 'web', 'name': 'Avisen pr. butik',
+             'desc': 'Bånd i butikkens farver med uge og antal tilbud, "Ugens '
+                     'bedste tilbud" og et afsnit pr. kategori med de største '
+                     'besparelser først. "Se alle" giver hele listen med filtre, '
+                     'og et link fører til butikkens egen avis.'},
+            {'kind': 'app', 'name': 'Tilbudsavis i appen',
+             'desc': 'Samme logoer og samme avis i appen '
+                     '(/api/store-avis/<butik>, /api/store-offers/<butik>).'},
+            {'kind': 'idea', 'name': 'Coop-butikkerne og 365 Discount',
+             'desc': 'Tilføjes, når Coop har svaret og tilbuddene ikke '
+                     'længere kommer fra Tjek.'},
+        ),
+    },
+    {
+        'key': 'lokation',
+        'name': 'Butikker nær mig',
+        'env': 'LOKATION_ENABLED',
+        'desc': 'Kalles ønske (12-10-2026): find de butikker der ligger tæt '
+                'på, slå dem til som standard, og vis rækkefølgen man skal '
+                'handle i, når kurven er delt på flere butikker. Adresserne '
+                'kommer fra OpenStreetMap (gratis). Placeringen bruges kun på '
+                'telefonen eller i browseren og bliver aldrig sendt til os. '
+                'Et postnummer, man selv skriver, gemmes på kontoen (Kalle '
+                '13-10-2026), så det følger med til en ny telefon. '
+                'Privatlivspolitikken får sit eget afsnit om det, når den '
+                'udgives.',
+        'app': 'Appen viser den fra version 1.0.4. Udgives automatisk her, '
+               'når 1.0.4 er i App Store (feature-auto-publish.yml), så web og '
+               'app følges ad (Kalle 15-10-2026). Telefonens placering kræver '
+               'et nyt build af MadShopper Test på Mac\'en (runtimeVersion '
+               'test-2); indtil da har testappen kun postnummer.',
+        'with_app': '1.0.4',
+        'parts': (
+            {'kind': 'web', 'name': 'Rækkefølge i "Billigste butikker"',
+             'desc': 'Nærmeste butik af hver kæde, den korteste tur og en knap '
+                     'der åbner turen i Google Maps.'},
+            {'kind': 'web', 'name': '"Vælg butikker nær mig"',
+             'desc': 'Under Indstillinger og under profilen: slår kæderne tæt '
+                     'på til og resten fra, ud fra placering eller postnummer.'},
+            {'kind': 'web', 'name': '"Hvor bor du?" når man opretter sig',
+             'desc': 'Formularen spørger om postnummer eller placering ved siden '
+                     'af navnet og slår butikkerne tæt på til af sig selv. '
+                     'Springer man feltet over (eller bruger Google/Apple), '
+                     'spørger vi én gang lige efter: "Hvor handler du?"'},
+            {'kind': 'job', 'name': 'Butikkernes adresser',
+             'desc': 'Hentes fra OpenStreetMap én gang om måneden '
+                     '(store-locations.yml).'},
+            {'kind': 'app', 'name': 'Rækkefølge og butikker nær mig i appen',
+             'desc': 'Samme rute og samme valg i appen.'},
+            {'kind': 'app', 'name': 'Telefonens placering i appen',
+             'desc': 'Telefonen spørger om lov, når man trykker "Brug min '
+                     'placering" (også når man opretter sig). Har man sagt ja, '
+                     'bruger appen der hvor man er lige nu, også i en anden by. '
+                     'Kun mens appen er åben.'},
+        ),
+    },
+    {
+        'key': 'design_c2',
+        'name': 'Nyt udseende på hjemmesiden (C2)',
+        'env': 'DESIGN_C2_ENABLED',
+        'desc': 'Hjemmesiden får samme udseende som appen (design C2): '
+                'appens skrift, lille gul "Spar"-pille og butikslogo i '
+                'varebilledet, aviser som runde logoer, seneste søgninger og '
+                '"Køb igen" under søgefeltet, vinderkort, "Handl i 2 butikker" '
+                'og "Glemt noget?" i kurven og en bundmenu på telefonen. '
+                'Altid slået til på dev.madshopper.dk, så MadShopper Test og '
+                'dev-siden ligner hinanden (Kalle 19-10-2026).',
+        'app': 'Appen har det på MadShopper Test. Butiksappen får det først '
+               'med en ny App Store-version.',
+        'parts': (
+            {'kind': 'web', 'name': 'Skrift og farver',
+             'desc': 'Schibsted Grotesk som i appen, lys grå baggrund og '
+                     'runde kort.'},
+            {'kind': 'web', 'name': 'Varekort',
+             'desc': 'Lille gul "Spar 49%"-pille og butikslogo i billedet, kun '
+                     'kg-pris under navnet, pris med små øre og grøn "+".'},
+            {'kind': 'web', 'name': 'Forside',
+             'desc': 'Kompakt besparelse, "Aviser denne uge" som runde logoer '
+                     'med startdag eller "Ny i dag" og "Ugens største fald" '
+                     'med antal tilbud.'},
+            {'kind': 'web', 'name': 'Søgning',
+             'desc': 'Seneste søgninger og "Køb igen" (de 5 varer man oftest '
+                     'lægger i kurven), kun gemt i browseren.'},
+            {'kind': 'web', 'name': 'Kurv',
+             'desc': 'Vinderkort med de to næste butikker, "Handl i 2 '
+                     'butikker" og "Glemt noget? Du plejer at købe".'},
+            {'kind': 'web', 'name': 'Bundmenu på telefonen',
+             'desc': 'Hjem, Søg, Kurv og Profil i bunden af skærmen.'},
+            {'kind': 'app', 'name': 'Design C2 i appen',
+             'desc': 'Findes allerede på MadShopper Test (PR #123).'},
         ),
     },
 )
@@ -1728,25 +1912,26 @@ _FEATURES = (
 _PROJECTS = (
     {
         'key': 'app_store',
-        'name': 'Appen i App Store og Google Play',
+        'name': 'Appen i Google Play',
         'status': 'waiting',
-        'desc': 'Appen er bygget og testet i simulatoren. Den mangler de '
-                'konti og trin, kun du kan klare, før den kan udgives.',
+        'desc': 'iPhone-appen er i App Store (version 1.0.4 siden '
+                '18-10-2026). Android-appen mangler de konti og trin, kun '
+                'du kan klare, før den kan udgives.',
         'parts': (
             {'done': True, 'name': 'Appen bygget',
              'desc': 'Alle skærme, login, kurv, lister og prisalarmer.'},
-            {'done': True, 'name': 'Klar til Apples godkendelse',
-             'desc': 'Slet konto i appen, skærmbilleder til iPhone og app-tekster.'},
-            {'done': False, 'name': 'Apple Developer-konto',
-             'desc': 'Koster ca. 99 USD om året. Giver også Apple-login på hjemmesiden.'},
+            {'done': True, 'name': 'iPhone-appen i App Store',
+             'desc': 'Apple Developer-konto, test på din iPhone og Apples '
+                     'godkendelse er klaret.'},
             {'done': False, 'name': 'Google Play-konto',
              'desc': 'Koster ca. 25 USD én gang.'},
-            {'done': False, 'name': 'Første rigtige test på en telefon',
-             'desc': 'Google- og Apple-login er kun prøvet i simulatoren.'},
+            {'done': False, 'name': 'Android klar til Google Play',
+             'desc': 'Ligger klar i PR #50. Beskeder kræver også en gratis '
+                     'Firebase-opsætning.'},
             {'done': False, 'name': 'Skærmbilleder til Android',
              'desc': 'Kræver en Android-telefon eller -simulator.'},
-            {'done': False, 'name': 'Send til godkendelse',
-             'desc': 'Udfyld oplysningerne i App Store Connect og Play Console og indsend.'},
+            {'done': False, 'name': 'Send til godkendelse i Google Play',
+             'desc': 'Udfyld oplysningerne i Play Console og indsend.'},
         ),
     },
     {
@@ -1764,8 +1949,8 @@ _PROJECTS = (
             {'done': True, 'name': 'Tabeller i databasen',
              'desc': 'scripts/supabase-app-stats.sql køres én gang i Supabase.'},
             {'done': True, 'name': 'Bed Apple om rapporter',
-             'desc': 'Gjort 05-10-2026 med en Admin-nøgle. Den kan slettes '
-                     'nu (og ASC_ADMIN_* i GitHub).'},
+             'desc': 'Gjort 05-10-2026 med en Admin-nøgle. Nøglen og '
+                     'ASC_ADMIN_* i GitHub er slettet igen.'},
             {'done': False, 'name': 'Første tal fra Apple',
              'desc': 'Downloads og stjerner kommer dagen efter. Visninger, '
                      'sletninger og nedbrud ca. to døgn senere.'},
@@ -1793,6 +1978,142 @@ _PROJECTS = (
         'desc': 'Når appen går ned hos en bruger, ser vi det i dag kun i '
                 'Apples egne rapporter. Kræver valg af en gratis tjeneste.',
         'parts': (),
+    },
+    {
+        'key': 'matching',
+        'name': 'Bedre sammenligning af varer',
+        'status': 'doing',
+        'desc': 'Varer med samme stregkode sammenlignes sikkert. Resten '
+                'gættes ud fra navn, vægt, pris og billede, og her er ca. '
+                '15 % forkerte, mens mange varer slet ikke bliver '
+                'sammenlignet (målt 07-10-2026).',
+        'parts': (
+            {'done': True, 'name': 'Strammere regler for gæt',
+             'desc': 'Kædernes egne mærker, pris uden vægt, mærke i navnet '
+                     'og multipak holdes adskilt (07-10-2026).'},
+            {'done': True, 'name': 'Is og chokolade holdes adskilt',
+             'desc': 'Fx Skildpadde-chokolade mod Skildpadde-is (10-10-2026).'},
+            {'done': True, 'name': 'Remas egne varer kun mod egne mærker',
+             'desc': 'Remas egne varer sammenlignes kun med andre kæders '
+                     'egne mærker, aldrig med fx Arla (10-10-2026).'},
+            {'done': True, 'name': 'Flere Rema-varer sammenlignes',
+             'desc': 'Kædernes egne mærker (Salling, First Price, Gestus, '
+                     'ØGO) bliver nu stående side om side på Rema-kortet i '
+                     'stedet for at blive smidt væk (10-10-2026).'},
+            {'done': True, 'name': 'Samme mærke og vægt vejer tungere end billedet',
+             'desc': 'To fotos af samme vare fra to kilder ligner ofte ikke '
+                     'hinanden. Har varerne samme mærke og vægt, afviser '
+                     'billedet dem ikke længere (19-10-2026). Målt: 20 % til '
+                     '30 % fundet.'},
+            {'done': False, 'name': 'Find flere ens varer uden stregkode',
+             'desc': 'Kun ca. hver femte vare, der findes i flere kæder uden '
+                     'fælles stregkode, bliver i dag sammenlignet (målt '
+                     '07-10-2026). Næste skridt er at give motoren bedre '
+                     'oplysninger, ikke løsere regler.'},
+        ),
+    },
+    {
+        'key': 'dagrofa_backup',
+        'name': 'Reservevej for Spar, Meny og Min Købmand',
+        'status': 'waiting',
+        'desc': 'Priserne hentes fra butikkernes egen vareliste. Svigter den, '
+                'går en reservevej direkte til hver kategoris adresse på '
+                'butikkens hjemmeside. Færdig og merget 10-10-2026 (PR #92), '
+                'så den kan markeres som færdig.',
+        'parts': (
+            {'done': True, 'name': 'Varelisten henter alle varer igen',
+             'desc': 'Rettet 07-10-2026: før manglede ca. 400 varer hos Spar '
+                     'og Min Købmand, og natten fejlede.'},
+            {'done': True, 'name': 'Reservevejen virker igen',
+             'desc': 'Rettet 10-10-2026 og prøvet på alle tre butikker: '
+                     'samme antal varer pr. kategori som varelisten.'},
+        ),
+    },
+    {
+        'key': 'tilbud_direkte',
+        'name': 'Ugens tilbud direkte fra butikkerne',
+        'status': 'waiting',
+        'desc': 'Ugens tilbud hentes fra butikkernes egne sider i stedet for '
+                'fra Tjek. Coops fire butikker venter på svar fra Coop.',
+        'parts': (
+            {'done': True, 'name': 'Netto, Føtex, Lidl og Løvbjerg',
+             'desc': 'Fra butikkernes egne sider (PR #83).'},
+            {'done': True, 'name': 'ABC Lavpris',
+             'desc': 'Læst ud af avisen på abc-lavpris.dk (PR #86).'},
+            {'done': True, 'name': 'Lidl: frugt og grønt og ugeavisen',
+             'desc': 'Hentes søndag og torsdag, når Lidls priser skifter '
+                     '(PR #89).'},
+            {'done': True, 'name': 'Tilbudsaviserne fjernet',
+             'desc': 'Aviserne på forsiden kom fra Tjek og er taget af web '
+                     'og app (PR #87).'},
+            {'done': False, 'name': '365discount, Brugsen, Kvickly og SuperBrugsen',
+             'desc': 'Hentes stadig via Tjek. Mail sendt til Coop '
+                     '10-10-2026; venter på svar.'},
+        ),
+    },
+    {
+        'key': 'nat_hurtigere',
+        'name': 'Hurtigere opdatering om natten',
+        'status': 'waiting',
+        'desc': 'Cloudflare starter hentningen af butikkerne kl. 00:01, og '
+                'siden opdateres lige efter, i stedet for at vente på '
+                'GitHubs ur, der kom 1-4 timer for sent.',
+        'parts': (
+            {'done': True, 'name': 'Siden opdateres lige efter butikkerne',
+             'desc': 'Cache-opdateringen starter, når nattens hentning er færdig.'},
+            {'done': True, 'name': 'Start kl. 00:01 fra Cloudflare',
+             'desc': 'Merget 10-10-2026 (PR #88), nøglen er sat.'},
+            {'done': True, 'name': 'Første nætter tjekket',
+             'desc': 'Butikkerne hentes kl. 00:01 dansk tid og siden '
+                     'opdateres kl. 00:01 UTC (tjekket 19-10-2026). Kan '
+                     'markeres som færdig.'},
+        ),
+    },
+    {
+        'key': 'app_design_c',
+        'name': 'Nyt udseende i appen (version C)',
+        'status': 'doing',
+        'desc': 'Ny skrift, runde kort med butikslogo og rundt gult '
+                'tilbudsmærke, "Køb igen" på forsiden og kurven med den '
+                'billigste butik øverst. Kun appen; hjemmesiden får det ikke '
+                'nu (18-10-2026).',
+        'parts': (
+            {'done': True, 'name': 'Bygget',
+             'desc': 'Forside, produktkort, kurv og bundmenu, lys og mørk.'},
+            {'done': True, 'name': 'På MadShopper Test',
+             'desc': 'Merget og sendt til testappen 18-10-2026 (PR #119).'},
+            {'done': False, 'name': 'Med i næste App Store-version',
+             'desc': 'App 1.0.4 i App Store har det ikke. Butiksappen får det '
+                     'først med et nyt build (1.0.5).'},
+        ),
+    },
+    {
+        'key': 'app_design_c2',
+        'name': 'Nyt app-design (C2)',
+        'status': 'doing',
+        'desc': 'Videre fra version C, så appen ser mindre generisk ud: lille '
+                'gul "Spar"-pille, aviser som runde logoer, "Køb igen" og '
+                'seneste søgninger i Søg, "Handl i 2 butikker" og "Glemt '
+                'noget?" i kurven. Kun appen (19-10-2026).',
+        'parts': (
+            {'done': True, 'name': 'Forside',
+             'desc': 'Søgefelt, kompakt besparelse, aviser denne uge og '
+                     '"Ugens største fald".'},
+            {'done': True, 'name': 'Søgning',
+             'desc': 'Seneste søgninger og "Køb igen", kun gemt på telefonen.'},
+            {'done': True, 'name': 'Produktkort',
+             'desc': 'Lille gul "Spar"-pille, butikslogo og kun kg-pris.'},
+            {'done': True, 'name': 'Kurv',
+             'desc': 'Vinderkort, "Handl i 2 butikker" og "Glemt noget?".'},
+            {'done': True, 'name': 'Bundmenu',
+             'desc': 'Lysegrøn pille bag den aktive fane, grønt tal på kurven.'},
+            {'done': True, 'name': 'Mørk tilstand',
+             'desc': 'Kun farver fra appens tema, ingen faste farver.'},
+            {'done': True, 'name': 'Web',
+             'desc': 'Bygget på hjemmesiden bag funktionen "Nyt udseende på '
+                     'hjemmesiden (C2)". Slået til på dev-siden, udgives '
+                     'herfra.'},
+        ),
     },
     {
         'key': 'tests',
@@ -1868,6 +2189,96 @@ def _feature_enabled(key: str) -> bool:
     return isinstance(entry, dict) and entry.get('on') is True
 
 
+# Makroer importeres uden kontekst (fx product_card), så flaget skal være en
+# global for at kunne ses derinde.
+app.jinja_env.globals['feature_enabled'] = _feature_enabled
+
+# Tilbudsavis pr. butik (Feature 'butiksaviser'): butikkerne hvis tilbud vi selv
+# henter direkte fra butikken, med et link til butikkens egen avis. Selve
+# avissiderne vises ikke - de er butikkens ophavsret, og Tjek sagde nej
+# 09-10-2026. Rækkefølgen her er rækkefølgen på forsiden. Brugsen, Kvickly,
+# SuperBrugsen og 365 Discount mangler med vilje: deres tilbud kommer stadig fra
+# Tjek, indtil Coop har svaret.
+_OFFER_STORE_AVIS_URLS = {
+    'netto':      'https://netto.dk/netto-avisen/',
+    'foetex':     'https://www.foetex.dk/foetex-avis/',
+    'bilka':      'https://www.bilka.dk/bilkaavisen/',
+    'rema':       'https://rema1000.dk/avis',
+    'lidl':       'https://www.lidl.dk/c/tilbudsavis/s10013730',
+    'meny':       'https://meny.dk/ugensavis',
+    'spar':       'https://spar.dk/ugensavis',
+    'mk':         'https://minkobmand.dk/ugensavis',
+    'loevbjerg':  'https://www.lovbjerg.dk/avis',
+    'abclavpris': 'https://www.abc-lavpris.dk/',
+}
+
+
+# Avisens bånd i butikkens farver: (baggrund, tekst). Kun farver, intet af
+# butikkens eget materiale.
+_OFFER_STORE_COLORS = {
+    'netto':      ('#FFD200', '#1A1A1A'),
+    'foetex':     ('#002D72', '#FFFFFF'),
+    'bilka':      ('#0072BC', '#FFFFFF'),
+    'rema':       ('#003F87', '#FFFFFF'),
+    'lidl':       ('#0050AA', '#FFFFFF'),
+    'meny':       ('#C8102E', '#FFFFFF'),
+    'spar':       ('#E3001B', '#FFFFFF'),
+    'mk':         ('#D2232A', '#FFFFFF'),
+    'loevbjerg':  ('#00703C', '#FFFFFF'),
+    'abclavpris': ('#E30613', '#FFFFFF'),
+}
+# Avisens afsnit i den rækkefølge en papiravis typisk har dem, med slug'en
+# fra _CATEGORY_SLUG_MAP (bruges i "Se alle"-linket ?kategori=<slug>).
+_OFFER_SECTIONS = (
+    (CAT_FRUGT_GROENT, 'Frugt_og_groent'),
+    (CAT_KOED_FISK, 'Koed_og_fisk'),
+    (CAT_MEJERI, 'Mejeri'),
+    (CAT_BROED_KAGER, 'Broed_og_kager'),
+    (CAT_KOLONIAL, 'Kolonial'),
+    (CAT_FROST, 'Frost'),
+    (CAT_DRIKKEVARER, 'Drikkevarer'),
+    (CAT_SLIK, 'Slik'),
+    ('Andre varer', 'Andre'),
+)
+_OFFER_SECTION_BY_SLUG = {slug: cat for cat, slug in _OFFER_SECTIONS}
+# Varer pr. afsnit i avisen og i "Ugens bedste tilbud". Resten ligger bag
+# "Se alle", så en kold render aldrig parser tusindvis af varer (Bilka har
+# over 2.000 tilbud).
+_AVIS_SECTION_ITEMS = 10
+_AVIS_BEST_ITEMS = 10
+
+
+# Ugedagen hver butiks avis starter (0 = søndag, som JavaScripts getDay()).
+# Samme tal som appens AVIS_START_DAY i OfferStoresSection.tsx (fra Tjeks
+# run_from). Bruges af "Aviser denne uge" i design C2; script.js skriver
+# "Ny i dag" på startdagen. Skifter en butik dag, rettes begge steder.
+_OFFER_STORE_START_DAY = {
+    'netto': 6, 'foetex': 5, 'bilka': 5, 'rema': 0, 'lidl': 0,
+    'meny': 5, 'spar': 5, 'mk': 5, 'loevbjerg': 5, 'abclavpris': 2,
+}
+_WEEKDAYS_DA = ('Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag',
+                'Fredag', 'Lørdag')
+
+
+def _offer_stores(counts: dict | None = None) -> list:
+    """Logoerne til forsidens tilbudsavis (web og /api/home), med antal
+    tilbud pr. butik når det kendes."""
+    out = []
+    for k, url in _OFFER_STORE_AVIS_URLS.items():
+        bg, fg = _OFFER_STORE_COLORS.get(k, ('#047857', '#FFFFFF'))
+        entry = {'key': k, 'label': _STORE_CONFIGS[k]['label'],
+                 'logo': _STORE_CONFIGS[k]['logo'], 'avis_url': url,
+                 'color': bg, 'text_color': fg}
+        if counts and isinstance(counts.get(k), int):
+            entry['count'] = counts[k]
+        day = _OFFER_STORE_START_DAY.get(k)
+        if day is not None:
+            entry['start_day'] = day
+            entry['start_label'] = _WEEKDAYS_DA[day]
+        out.append(entry)
+    return out
+
+
 def _category_display_name(category: str) -> str:
     """Visningsnavn for en intern kategori. CAT_MEJERI hedder 'Køl' i data,
     men "Køl & Mejeri" når Feature 'mejeri_navn' er udgivet (Kalle 06-10-2026),
@@ -1930,6 +2341,9 @@ def _supabase_rest(method: str, path: str, params: dict | None = None,
     if params:
         url += "?" + urllib.parse.urlencode(params)
     headers = {"apikey": key, "Authorization": f"Bearer {auth_token or key}"}
+    server_key = _edge_var('SERVER_RPC_KEY') if path.startswith('rpc/') else None
+    if server_key:
+        headers["X-MadShopper-Server"] = str(server_key)
     if json_body is not None:
         headers["Content-Type"] = "application/json"
     if prefer:
@@ -2624,21 +3038,50 @@ def get_nutrition(product_id):
         return jsonify(success=False, nutrition=None)
 
 
+def _recipes_preview_ok(key: str) -> bool:
+    """Testnøglen til MadShopper Test-appen (dk.madshopper.app.test), så
+    opskrifterne kan prøves på telefonen, før de er udgivet i Feature-panelet.
+    Appen henter fra madshopper.dk, og dev-siden er lukket for alt andet end
+    admins i en browser. Uden en nøgle på mindst 24 tegn er stien bare 404."""
+    expected = str(_edge_var('RECIPES_PREVIEW_KEY') or '')
+    return len(expected) >= 24 and hmac.compare_digest(
+        (key or '').encode(), expected.encode())
+
+
+# Stierne er IKKE i _CACHEABLE_ENDPOINTS: de må aldrig ligge i den delte
+# edge-cache (worker'ens cache-nøgle ville ellers kun indeholde stien, og den
+# indeholder nøglen, men et ikke-cachet svar er det sikre valg). Det koster en
+# render pr. kald, og det er kun Kalles testapp der kalder dem.
+@app.route('/api/recipes-preview/<key>')
+def get_recipes_preview(key):
+    if not _recipes_preview_ok(key):
+        abort(404)
+    return get_recipes(_force=True)
+
+
+@app.route('/api/recipes-preview/<key>/<int:recipe_id>')
+def get_recipe_preview(key, recipe_id):
+    if not _recipes_preview_ok(key):
+        abort(404)
+    return get_recipe(recipe_id, _force=True)
+
+
 @app.route('/api/recipes')
-def get_recipes():
+def get_recipes(_force: bool = False):
     """Godkendte opskrifter + deres forudberegnede prissnapshot (recipe_pricing.py,
     kørt nightly i cache-updater.yml) - opslag, ikke live-beregning, se
     docs/Features.md og scripts/supabase-recipes.sql.
 
     Featuren er stadig under test og må ikke være tilgængelig på madshopper.dk,
-    se _recipes_enabled()."""
-    if not _recipes_enabled() or not _supabase_available():
+    se _recipes_enabled(). _force: kun fra get_recipes_preview (testnøglen)."""
+    if not (_force or _recipes_enabled()) or not _supabase_available():
         return jsonify(success=True, recipes=[])
     try:
         rows, status = _supabase_rest(
             "GET", "recipes",
             params={
-                "select": "id,title,image_url,servings,total_time_minutes,source_name,source_url",
+                "select": "id,title,image_url,servings,total_time_minutes,source_name,"
+                          "source_url",
                 "status": "eq.approved",
                 "order": "created_at.desc",
                 "limit": "200",
@@ -2663,8 +3106,27 @@ def get_recipes():
         if snap_status == 200 and isinstance(snapshots, list):
             by_recipe = {s["recipe_id"]: s for s in snapshots}
 
+        # Ingrediensnavne til madplanens mærker (_recipe_plan_profile). Fejler
+        # opslaget, kommer listen stadig ud, men uden mærker - og svaret
+        # markeres degraderet, så "ingen opskrift passer" ikke caches i 24t.
+        ingr_rows, ingr_status = _supabase_rest(
+            "GET", "recipe_ingredients",
+            params={"select": "recipe_id,ingredient_name,position",
+                    "order": "recipe_id,position", "limit": "5000"},
+        )
+        names_by_recipe = {}
+        if ingr_status == 200 and isinstance(ingr_rows, list):
+            for row in ingr_rows:
+                names_by_recipe.setdefault(row.get("recipe_id"), []).append(
+                    (row.get("ingredient_name") or "").strip())
+        else:
+            _mark_data_degraded('recipe_ingredients')
+
         result = []
         for r in rows:
+            # Fremgangsmåden er betalt indhold, som anon-nøglen ikke kan læse
+            # (scripts/supabase-recipe-lock.sql), så mærkerne bygges uden den.
+            instructions = None
             snap = by_recipe.get(r["id"], {})
             total = snap.get("total_ingredient_count") or 0
             on_sale = snap.get("ingredients_on_sale_count") or 0
@@ -2675,12 +3137,129 @@ def get_recipes():
                 "total_ingredient_count": total,
                 "ingredients_on_sale_count": on_sale,
                 "sale_ratio": round(on_sale / total, 3) if total else 0.0,
+                "plan": _recipe_plan_profile(
+                    r.get("title", ""), names_by_recipe.get(r["id"], []),
+                    instructions, r.get("servings"), r.get("total_time_minutes")),
             })
         result.sort(key=lambda r: r["sale_ratio"], reverse=True)
         return jsonify(success=True, recipes=result)
     except Exception as e:
         logger.error("recipes-list error: %s", e)
         return jsonify(success=False, recipes=[]), 503  # se 503-begrundelsen ovenfor
+
+
+# --- Madplan: mærker pr. opskrift (Feature 'recipes', del "Madplan") --------
+# Første gang man åbner Opskrifter, spørger web (static/js/madplan.js) og app
+# (apps/mobile/src/recipes/mealPlan.ts) om antal, budget, lyst, kostbehov,
+# ingredienser der skal undgås og køkkenudstyr, og laver en madplan ud fra
+# listen fra /api/recipes. Mærkerne regnes HER, ét sted, så web og app er
+# enige; selve planen laves på telefonen/i browseren (ingen CPU på edge pr.
+# bruger, svarene forlader aldrig enheden). Reglerne er grove nøgleord over
+# ingrediensnavne og fremgangsmåde - en opskrift kan derfor fejlmærkes, og
+# listerne skal udvides, når der kommer flere opskrifter.
+_RP_MEAT = re.compile(
+    r'kød|kylling|skinke|bacon|pølse|grise|svine|kalve|okse|\blam\b|lammek|'
+    r'kalkun|andebryst|andelår|salami|chorizo|pancetta|leverpostej|frikadelle')
+_RP_FISH = re.compile(
+    r'fisk|laks|torsk|\btun\b|tunfisk|rejer|\breje|sild|makrel|ansjos|krabbe|'
+    r'muslinger|kuller|rødspætte|\bsej\b')
+_RP_EGG = re.compile(r'\bæg|æggeblomme|mayonnaise')
+_RP_DAIRY = re.compile(
+    r'(?<!kokos)(?<!havre)(?<!mandel)(?<!soja)(?<!ris)mælk|(?<!jordnødde)smør|'
+    r'(?<!t)(?<!r)ost\b|oste|hytteost|salatost|fløde|(?<!soja)yoghurt|'
+    r'creme fraiche|crème fraîche|skyr|kvark|mozzarella|parmesan|feta|cheddar|'
+    r'mascarpone|ricotta|maasdam')
+_RP_HONEY = re.compile(r'honning')
+_RP_GLUTEN = re.compile(
+    r'hvedemel|fuldkornshvede|\bmel\b|rugmel|speltmel|brød|pasta|spaghetti|'
+    r'(?<!ris)nudler|couscous|bulgur|\brasp|tortilla|wraps?\b|havregryn|'
+    r'\bsoja\b|sojasauce|sojasovs|\bøl\b|pizzadej|butterdej|kiks|tærtedej')
+_RP_VEG = re.compile(
+    r'løg|gulerød|gulerødder|kål|spinat|tomat|agurk|salat\b|hjertesalat|porre|'
+    r'rødbede|peberfrugt|broccoli|squash|avocado|bønne|ærter|majs|svampe|'
+    r'champignon|selleri|aubergine|blomkål|edamame|kikærter|linser|mango|'
+    r'ananas|grønkål|asparges|radise|pastinak')
+_RP_PROTEIN = re.compile(
+    r'kød|kylling|kalkun|fisk|laks|tun|rejer|\bæg|hytteost|skyr|kvark|'
+    r'bønne|linser|kikærter|tofu|edamame')
+_RP_RICH = re.compile(r'fløde|bacon|mascarpone|chokolade|sukker|pommes|'
+                      r'(?<!t)(?<!r)ost\b|cheddar|mozzarella')
+_RP_TAKEAWAY_TITLE = re.compile(
+    r'pizza|burger|wrap|nudler|taco|kebab|sushi|pommes|curry|wok|shawarma|'
+    r'durum|nachos|burrito|quesadilla')
+_RP_FAMILY_TITLE = re.compile(
+    r'frikadelle|pizza|lasagne|boller|tærte|burger|taco|spaghetti|'
+    r'kødsovs|deller\b|gryde|suppe')
+_RP_BAKING_TITLE = re.compile(r'boller|brød\b|bananbrød|kage|muffins|'
+                              r'cookies|scones|kiks|snitter')
+# Køkkenudstyr en opskrift kræver, læst af fremgangsmåden. Nøglerne er de
+# samme som valgene i spørgsmålet "Hvad har du i køkkenet?".
+_RP_NEEDS = (
+    ('ovn', re.compile(r'\bovn|°|grader|bag(es|e)? .{0,30}(min|ovn)|forvarm|'
+                       r'til pensling|tærte|pizza|boller|brød\b|bananbrød|'
+                       r'lasagne|gratin|muffins|kage|ovnbag')),
+    ('kogeplade', re.compile(r'\bpande|\bgryde|\bkog(?!t)|\bsteg(?!t)|\bsauter|'
+                             r'\bsimr|\bbrun(e|es)? |til stegning')),
+    ('blender', re.compile(r'blender|stavblender|foodprocessor|purér|purere|'
+                           r'blend')),
+    ('roeremaskine', re.compile(r'røremaskine|elpisker|elpiskeren|håndmixer')),
+    ('grill', re.compile(r'\bgrill(?!steg|kylling|pølse|krydder)|grillen|på grill')),
+    ('slowcooker', re.compile(r'slowcooker|slow cooker|trykkoger')),
+    ('airfryer', re.compile(r'airfryer')),
+    ('mikroovn', re.compile(r'mikroovn|mikrobølge')),
+)
+
+
+def _recipe_plan_profile(title: str, ingredient_names: list,
+                         instructions, servings, minutes) -> dict:
+    """Mærker til madplanen for én opskrift - se kommentaren ovenfor."""
+    ingr = ' | '.join(n.lower() for n in ingredient_names if n)
+    steps = ' '.join(str(s) for s in (instructions or [])).lower()
+    t = (title or '').lower()
+    meat = bool(_RP_MEAT.search(ingr))
+    fish = bool(_RP_FISH.search(ingr))
+    egg = bool(_RP_EGG.search(ingr))
+    dairy = bool(_RP_DAIRY.search(ingr))
+    diet = []
+    if not meat and not fish and not egg and not dairy and not _RP_HONEY.search(ingr):
+        diet.append('vegansk')
+    if not meat and not fish:
+        diet.append('vegetar')
+    if not meat:
+        diet.append('pescetar')
+    if not _RP_GLUTEN.search(ingr):
+        diet.append('glutenfri')
+    if not dairy:
+        diet.append('maelkefri')
+
+    veg = len({m.group(0) for m in _RP_VEG.finditer(ingr)})
+    protein = len({m.group(0) for m in _RP_PROTEIN.finditer(ingr)})
+    moods = []
+    if minutes and minutes <= 30:
+        moods.append('hurtig')
+    if veg >= 2 and not _RP_RICH.search(ingr):
+        moods.append('let')
+    if (servings and 4 <= servings <= 12) or _RP_FAMILY_TITLE.search(t):
+        moods.append('familie')
+    if veg >= 3 or 'fuldkorn' in ingr or 'kikærter' in ingr or 'linser' in ingr:
+        moods.append('sund')
+    if _RP_TAKEAWAY_TITLE.search(t):
+        moods.append('takeaway')
+    if protein >= 2 or meat or fish:
+        moods.append('protein')
+
+    return {
+        'diet': diet,
+        'moods': moods,
+        # Mange importerede opskrifter har ingen fremgangsmåde, så titel og
+        # ingredienser ("smør til stegning", "æg til pensling") tæller med.
+        'needs': [key for key, rx in _RP_NEEDS
+                  if rx.search(' | '.join((steps, t, ingr)))],
+        # Bagværk (boller, brød, kage) kommer ikke med i aftensmadsplanen.
+        'meal': not _RP_BAKING_TITLE.search(t),
+        # Korte navne til "ingredienser du vil undgå"-søgningen.
+        'ingredient_names': [n for n in ingredient_names if n][:40],
+    }
 
 
 def _parse_nutrition_number(value, prefer_kcal: bool = False) -> float | None:
@@ -2759,7 +3338,25 @@ def _recipe_nutrition_estimate(ingredients: list) -> dict | None:
     }
 
 
-def _fetch_recipe_detail(recipe_id):
+def _recipe_content(recipe_id, token):
+    """Fremgangsmåde + ingredienslinjer via recipe_content() med brugerens egen
+    token: databasen tjekker selv betalingen (scripts/supabase-recipe-lock.sql),
+    så anon-nøglen aldrig kan læse dem. Returnerer (instructions, ingredients)
+    eller None, hvis funktionen ikke findes endnu (SQL'en ikke kørt), så det
+    gamle opslag bruges indtil da."""
+    if not token or len(token) > 4096 or not _JWT_RE.match(token):
+        return [], []
+    data, status = _supabase_rest('POST', 'rpc/recipe_content',
+                                  json_body={'p_recipe_id': int(recipe_id)},
+                                  timeout=8.0, auth_token=token)
+    if status == 404:
+        return None
+    if status != 200 or not isinstance(data, dict):
+        return [], []
+    return data.get('instructions') or [], data.get('ingredients') or []
+
+
+def _fetch_recipe_detail(recipe_id, token=None):
     """Fælles opslag for JSON-API'et (get_recipe) og HTML-siden
     (get_recipe_page): godkendte opskrifter kun (status filtreres eksplicit
     her, ikke via RLS - kaldet bruger service/anon-nøglen server-side, se
@@ -2771,7 +3368,7 @@ def _fetch_recipe_detail(recipe_id):
     rows, status = _supabase_rest(
         "GET", "recipes",
         params={
-            "select": "id,title,image_url,servings,total_time_minutes,instructions,"
+            "select": "id,title,image_url,servings,total_time_minutes,"
                       "source_name,source_url,nutrition_source",
             "id": f"eq.{int(recipe_id)}",
             "status": "eq.approved",
@@ -2782,16 +3379,24 @@ def _fetch_recipe_detail(recipe_id):
         return None, [], None
     recipe = rows[0]
 
-    ing_rows, ing_status = _supabase_rest(
-        "GET", "recipe_ingredients",
-        params={
-            "select": "id,position,raw_text,quantity,unit,ingredient_name,"
-                      "matched_product_id,match_confidence,candidate_product_ids",
-            "recipe_id": f"eq.{recipe_id}",
-            "order": "position.asc",
-        },
-    )
-    ingredients = ing_rows if ing_status == 200 and isinstance(ing_rows, list) else []
+    content = _recipe_content(recipe_id, token)
+    if content is None:
+        # Overgang: recipe_content() findes ikke endnu, så anon-nøglen kan
+        # stadig læse kolonnerne. Fjern grenen, når SQL'en er kørt.
+        old, _ = _supabase_rest("GET", "recipes", params={
+            "select": "instructions", "id": f"eq.{int(recipe_id)}", "limit": "1"})
+        ing_rows, ing_status = _supabase_rest(
+            "GET", "recipe_ingredients",
+            params={
+                "select": "id,position,raw_text,quantity,unit,ingredient_name,"
+                          "matched_product_id,match_confidence,candidate_product_ids",
+                "recipe_id": f"eq.{recipe_id}",
+                "order": "position.asc",
+            },
+        )
+        content = ((old[0].get("instructions") if isinstance(old, list) and old else None) or [],
+                   ing_rows if ing_status == 200 and isinstance(ing_rows, list) else [])
+    recipe["instructions"], ingredients = content
 
     snap_rows, snap_status = _supabase_rest(
         "GET", "recipe_price_snapshot",
@@ -2926,14 +3531,48 @@ def _fetch_recipe_detail(recipe_id):
     return recipe, ingredients, snapshot
 
 
+# --- Betaling for opskrifterne (docs/abonnement.md) -------------------------
+# Listen (/api/recipes: navn, billede, pris) er åben som udstillingsvindue.
+# Selve opskriften (ingredienser, fremgangsmåde, læg i kurv) og madplanen
+# kræver et betalt abonnement på kontoen. Købet sker i appen via Apple, og
+# edge-funktionen recipe-access skriver det i recipe_access; her spørges kun.
+_RECIPE_LOCKED_HEADERS = {'Cache-Control': 'private, no-store'}
+
+
+def _recipe_access_ok(token: str) -> bool:
+    """Har kontoen bag access-tokenen betalt for opskrifterne (eller er admin)?
+    PostgREST tjekker tokenens signatur, og has_recipe_access() slår op i
+    recipe_access (scripts/supabase-recipe-access.sql). Fejler opslaget, er
+    svaret nej: hellere en betalingsboks for meget end gratis opskrifter."""
+    if not token or len(token) > 4096 or not _JWT_RE.match(token):
+        return False
+    data, status = _supabase_rest('POST', 'rpc/has_recipe_access', json_body={},
+                                  timeout=8.0, auth_token=token)
+    return status == 200 and data is True
+
+
+def _recipe_access_token() -> str:
+    """Appen sender Bearer-tokenen; browseren har den i ms_session-cookien."""
+    m = _ADMIN_BEARER_RE.match(request.headers.get('Authorization', ''))
+    return m.group(1) if m else request.cookies.get(_SESSION_COOKIE, '')
+
+
+def _recipe_access_request() -> bool:
+    return _recipe_access_ok(_recipe_access_token())
+
+
 @app.route('/api/recipes/<int:recipe_id>')
-def get_recipe(recipe_id):
+def get_recipe(recipe_id, _force: bool = False):
     """Featuren er stadig under test og må ikke være tilgængelig på
-    madshopper.dk, se _recipes_enabled()."""
-    if not _recipes_enabled() or not _supabase_available():
+    madshopper.dk, se _recipes_enabled(). _force: kun fra get_recipe_preview.
+    Kræver betaling (_recipe_access_request); ellers 403 med locked=true."""
+    if not (_force or _recipes_enabled()) or not _supabase_available():
         return jsonify(success=True, recipe=None)
+    if not _force and not _recipe_access_request():
+        return jsonify(success=False, locked=True, recipe=None), 403, _RECIPE_LOCKED_HEADERS
     try:
-        recipe, ingredients, snapshot = _fetch_recipe_detail(recipe_id)
+        recipe, ingredients, snapshot = _fetch_recipe_detail(
+            recipe_id, token=_recipe_access_token())
         return jsonify(success=True, recipe=recipe, ingredients=ingredients, snapshot=snapshot)
     except Exception as e:
         logger.error("recipe-detail error: %s", e)
@@ -2951,7 +3590,10 @@ def recipes_page():
     se _recipes_enabled()."""
     if not _recipes_enabled():
         return "Page not found", 404
-    return render_template('opskrifter.html')
+    resp = app.make_response(render_template(
+        'opskrifter.html', recipe_access=_recipe_access_request()))
+    resp.headers.update(_RECIPE_LOCKED_HEADERS)
+    return resp
 
 
 @app.route('/opskrift/<int:recipe_id>')
@@ -2968,12 +3610,27 @@ def get_recipe_page(recipe_id):
     if not _recipes_enabled() or not _supabase_available():
         return render_template('opskrift.html', recipe=None), 404
     try:
-        recipe, ingredients, snapshot = _fetch_recipe_detail(recipe_id)
+        token = _recipe_access_token()
+        has_access = _recipe_access_ok(token)
+        recipe, ingredients, snapshot = _fetch_recipe_detail(
+            recipe_id, token=token if has_access else None)
         if not recipe:
             return render_template('opskrift.html', recipe=None), 404
-        return render_template(
-            'opskrift.html', recipe=recipe, ingredients=ingredients, snapshot=snapshot,
-        )
+        if not has_access:
+            # Kun det der også står i den åbne liste; ingredienser og
+            # fremgangsmåde forlader aldrig serveren uden betaling.
+            teaser = {k: recipe.get(k) for k in (
+                'id', 'title', 'image_url', 'servings', 'total_time_minutes',
+                'source_name', 'source_url')}
+            resp = app.make_response(render_template(
+                'opskrift.html', recipe=teaser, ingredients=[], snapshot=snapshot,
+                locked=True))
+        else:
+            resp = app.make_response(render_template(
+                'opskrift.html', recipe=recipe, ingredients=ingredients, snapshot=snapshot,
+            ))
+        resp.headers.update(_RECIPE_LOCKED_HEADERS)
+        return resp
     except Exception as e:
         logger.error("recipe-page error: %s", e)
         return render_template('opskrift.html', recipe=None), 500
@@ -3036,7 +3693,16 @@ def home_index_html_redirect():
     return redirect('/', code=301)
 
 
-def _recipe_pool_live(limit: int = 10) -> list:
+# De 10 opskrifter forsiden viste fra starten (de eneste godkendte før de egne
+# opskrifter kom 07-10-2026). Så længe opskrifter ikke er udgivet fra
+# Feature-panelet, viser forsiden (web og app) KUN dem, i den her rækkefølge,
+# uanset nye opskrifter og klik (Kalle 18-10-2026). Staging har alt slået til
+# og viser den almindelige top 10. Samme liste som
+# scripts/seed-d1.py::_HOME_RECIPES_LOCKED_IDS.
+_HOME_RECIPES_LOCKED_IDS = (15, 14, 13, 12, 11, 9, 8, 7, 6, 5)
+
+
+def _recipe_pool_live(limit: int = 10, only_ids: tuple | None = None) -> list:
     """"Lækre opskrifter"-puljen hentet direkte fra Supabase.
 
     Bruges KUN uden for edge (lokal Flask), hvor _home_precomputed()'s
@@ -3099,8 +3765,12 @@ def _recipe_pool_live(limit: int = 10) -> list:
                 "total_ingredient_count": total,
                 "sale_ratio": round(on_sale / total, 3) if total else 0.0,
             })
-        # Samme (total_points, created_at)-sortering som seed-d1.py.
-        ranked.sort(key=lambda r: (r["total_points"], r["created_at"]), reverse=True)
+        if only_ids is not None:
+            order = {rid: i for i, rid in enumerate(only_ids)}
+            ranked = sorted((r for r in ranked if r["id"] in order), key=lambda r: order[r["id"]])
+        else:
+            # Samme (total_points, created_at)-sortering som seed-d1.py.
+            ranked.sort(key=lambda r: (r["total_points"], r["created_at"]), reverse=True)
         top = ranked[:limit]
         for r in top:
             del r["created_at"]
@@ -3109,6 +3779,18 @@ def _recipe_pool_live(limit: int = 10) -> list:
         # Fejler blødt: en manglende opskrift-pulje må aldrig vælte forsiden.
         logger.warning("recipe-pool live-fallback fejlede: %s", e)
         return []
+
+
+def _locked_recipe_pool(precomputed: dict) -> list:
+    """Forsidens faste 10 fra nattens seed (home_data_v1.recipe_pool_locked).
+    Mangler nøglen (KV skrevet af en ældre seed), filtreres den almindelige
+    pulje til de faste id'er, så forsiden aldrig viser andre opskrifter."""
+    locked = precomputed.get('recipe_pool_locked')
+    if isinstance(locked, list):
+        return locked
+    order = {rid: i for i, rid in enumerate(_HOME_RECIPES_LOCKED_IDS)}
+    pool = [r for r in (precomputed.get('recipe_pool') or []) if r.get('id') in order]
+    return sorted(pool, key=lambda r: order[r['id']])
 
 
 def _build_home_categories(active_stores, args):
@@ -3136,16 +3818,25 @@ def _build_home_categories(active_stores, args):
         # de samme ~400 forudberegnede varer ved HVER sidevisning.
         sale_raw = _adjust_for_stores(precomputed.get('sale_raw') or [])
         mejeri_raw = _adjust_for_stores(precomputed.get('mejeri_raw') or [])
-        recipe_pool = precomputed.get('recipe_pool') or []
+        if _recipes_enabled():
+            recipe_pool = precomputed.get('recipe_pool') or []
+        else:
+            recipe_pool = _locked_recipe_pool(precomputed)
     else:
+        # own_sale-varer (tilbud uden førpris) er med i is_sale, men ikke i
+        # Ugens Tilbud - samme udvalg som seed-d1.py's forudberegnede pulje.
         sale_raw = _adjust_for_stores(
-            filter_products_by_stores(load_sale_raw(limit=200), active_stores))
+            filter_products_by_stores(
+                [p for p in load_sale_raw(limit=200)
+                 if p.get('/product/sale_price') or p.get('/product/is_any_sale')],
+                active_stores))
         mejeri_raw = _adjust_for_stores(
             filter_products_by_stores(load_category_raw(CAT_MEJERI, limit=200), active_stores))
         # "Lækre opskrifter" har ingen forudberegnet pulje her: _home_precomputed()
         # returnerer None uden for edge, så KV-nøglen home_data_v1 findes ikke.
         # Hentes derfor live fra Supabase - kun i denne gren, dvs. aldrig på edge.
-        recipe_pool = _recipe_pool_live()
+        recipe_pool = (_recipe_pool_live() if _recipes_enabled()
+                       else _recipe_pool_live(only_ids=_HOME_RECIPES_LOCKED_IDS))
 
     # Puljen tømmes IKKE her: webforsiden viser "Lækre opskrifter" som en
     # ikke-klikbar teaser med "Kommer snart" i alle miljøer (se home() -
@@ -3386,6 +4077,402 @@ def _build_sale_listing(active_stores, args, page: int):
                 )
     sale_products = apply_product_filters(sale_products, args)
     page_items, page, total_pages, total = _paginate(sale_products, page, per_page)
+    return page_items, page, total_pages, total
+
+
+# Butikker hvor vi ved præcis hvilke varer der er i ugens avis (Sallings
+# isInCurrentLeaflet, gemt som tilbud='Avis' af *_katalog.py; Meny/Spar/Min
+# Købmand fra deres egen iPaper-avis i dagrofa_scraper.py). For dem tæller
+# kun avisvarerne: deres øvrige tilbud (Skarp pris, webkampagner, multikøb,
+# butikkens egne rabatter) gav Føtex over 2.000 og Meny 830 "avisvarer"
+# (Kalle 10-10 og 14-10-2026). De andre butikkers tilbud er i forvejen
+# ugens tilbud.
+_AVIS_LEAFLET_STORES = frozenset({'bilka', 'foetex', 'netto', 'meny', 'spar', 'mk'})
+
+
+def _as_store_offer(product: dict, store_key: str, label: str,
+                    leaflet: bool = False) -> dict | None:
+    """Varen som den ser ud hos store_key, hvis den er på tilbud dér - ellers
+    None. Visningsbutikkens egen pris ligger på kortet selv (Rema har ingen
+    store_matches-post); de andre butikkers ligger i store_matches. own_sale er
+    butikkens tilbud uden førpris (updater.py), fx det meste af ABC Lavpris.
+    leaflet=True: kun varer i ugens avis (own_avis / in_avis)."""
+    if product.get('/product/store') == label and (
+            product.get('/product/own_avis') if leaflet else (
+                product.get('/product/sale_price') is not None
+                or product.get('/product/own_sale'))):
+        return product
+    match = (product.get('/product/store_matches') or {}).get(store_key)
+    if isinstance(match, dict) and match.get('in_avis' if leaflet else 'is_sale') and match.get('name'):
+        try:
+            if float(match.get('price') or 0) <= 0:
+                return None
+        except (TypeError, ValueError):
+            return None
+        return _promote_match_to_product(product, store_key, match)
+    return None
+
+
+def _store_offer_sql(store_key: str, leaflet: bool = False) -> tuple[str, str]:
+    """(betingelse, besparelse) som SQL for én butiks tilbud. Begge bruger
+    én bundet parameter: butikkens label. Nøglen indsættes direkte i
+    JSON-stien, men kommer kun fra _STORE_CONFIGS (små bogstaver og tal)."""
+    if not store_key.isalnum():
+        raise ValueError(store_key)
+    sale = """json_extract(data, '$."/product/sale_price"')"""
+    price = """json_extract(data, '$."/product/price"')"""
+    if leaflet:
+        own = """(store = ? AND json_extract(data, '$."/product/own_avis"') = 1)"""
+    else:
+        own = (f"""(store = ? AND ({sale} IS NOT NULL"""
+               """ OR json_extract(data, '$."/product/own_sale"') = 1))""")
+    m = f"""json_extract(data, '$."/product/store_matches".{store_key}"""
+    m_sale = f"{m}.in_avis')" if leaflet else f"{m}.is_sale')"
+    m_price, m_normal = f"{m}.price')", f"{m}.normal_price')"
+    cond = f"({own} OR {m_sale} = 1)"
+    savings = (
+        f"CASE WHEN {own} THEN (CASE WHEN {sale} IS NOT NULL AND {price} > {sale}"
+        f" THEN 1.0 - {sale} * 1.0 / {price} ELSE 0 END)"
+        f" WHEN {m_sale} = 1 THEN (CASE WHEN {m_normal} > {m_price}"
+        f" THEN 1.0 - {m_price} * 1.0 / {m_normal} ELSE 0 END) END"
+    )
+    return cond, savings
+
+
+def _store_offer_key_sql(store_key: str) -> str:
+    """Tilbuddets nøgle som SQL: én nøgle pr. tilbud i avisen (fx "Tapas",
+    112 varer), ellers varens id. Nøglerne skrives af scripts/seed-d1.py
+    (/product/offer_keys) efter app_support.offer_group_key - samme regel som
+    tallet på logoet, så siden viser lige så mange kort (Kalle 18-10-2026)."""
+    if not store_key.isalnum():
+        raise ValueError(store_key)
+    return f"""COALESCE(json_extract(data, '$."/product/offer_keys".{store_key}'), id)"""
+
+
+def _one_per_offer(items: list, store_key: str, label: str, savings_of) -> list:
+    """Uden D1: behold den vare pr. tilbud, der sparer mest (som SQL'en i
+    _build_store_avis/_build_store_offer_listing). Rækkefølgen bevares."""
+    best = {}
+    for i, raw in enumerate(items):
+        key = offer_group_key(raw, store_key, label) or ('id', i)
+        sv = savings_of(raw)
+        if key not in best or sv > best[key][0]:
+            best[key] = (sv, i)
+    keep = {i for _sv, i in best.values()}
+    return [raw for i, raw in enumerate(items) if i in keep]
+
+
+def _offer_display(product: dict, store_key: str, label: str,
+                   leaflet: bool = False) -> dict | None:
+    adjusted = _as_store_offer(product, store_key, label, leaflet)
+    if not adjusted:
+        return None
+    try:
+        return product_to_display_dict(
+            adjusted,
+            default_category='Andre varer',
+            sale_end_date=parse_sale_end_date(adjusted),
+            force_sale=True,
+        )
+    except (ValueError, TypeError, KeyError) as e:
+        logger.warning("Error converting store offer %s: %s",
+                       product.get('/product/id'), e)
+        return None
+
+
+def _offer_savings(product: dict, store_key: str, label: str) -> float:
+    """Samme besparelse som _store_offer_sql, i Python (lokalt uden D1)."""
+    try:
+        if product.get('/product/store') == label and (
+                product.get('/product/sale_price') is not None
+                or product.get('/product/own_sale')):
+            p, s = product.get('/product/price'), product.get('/product/sale_price')
+            return 1.0 - float(s) / float(p) if s is not None and float(p) > float(s) else 0.0
+        m = (product.get('/product/store_matches') or {}).get(store_key) or {}
+        n, p = m.get('normal_price'), m.get('price')
+        return 1.0 - float(p) / float(n) if n and float(n) > float(p) else 0.0
+    except (TypeError, ValueError, ZeroDivisionError):
+        return 0.0
+
+
+def _build_store_avis(store_key: str) -> dict:
+    """Én butiks tilbudsavis (Feature 'butiksaviser'): "Ugens bedste tilbud"
+    og et afsnit pr. kategori med de største besparelser først, samt antal
+    tilbud pr. afsnit. Bruges af /tilbud/<butik> og /api/store-avis/<butik>.
+
+    På edge vælges de højst _AVIS_SECTION_ITEMS varer pr. afsnit i D1
+    (vinduesfunktion), så kun ~100 varer krydser broen og parses, uanset om
+    butikken har 30 eller 2.000 tilbud. Én scanning af tilbudsindekset."""
+    label = _STORE_CONFIGS[store_key]['label']
+    leaflet = _avis_leaflet(store_key)
+    picked = []   # (kategori, besparelse, rå vare)
+    counts = {}
+    if _use_d1():
+        cond, savings = _store_offer_sql(store_key, leaflet)
+        # Ét kort pr. tilbud (o): den variant der sparer mest. Afsnittet og
+        # antallet følger den variant, så hvert tilbud tælles én gang.
+        rows = _d1_rows(
+            "WITH v AS (SELECT id, data, category, " + savings + " AS sv, "
+            + _store_offer_key_sql(store_key) + " AS ok"
+            " FROM products WHERE is_sale = 1),"
+            " o AS (SELECT data, category, sv,"
+            " ROW_NUMBER() OVER (PARTITION BY ok ORDER BY sv DESC, id) AS orn"
+            " FROM v WHERE sv IS NOT NULL),"
+            " r AS (SELECT data, category, sv,"
+            " ROW_NUMBER() OVER (PARTITION BY category ORDER BY sv DESC) AS rn,"
+            " COUNT(*) OVER (PARTITION BY category) AS n"
+            " FROM o WHERE orn = 1)"
+            f" SELECT data, category, sv, n FROM r WHERE rn <= {int(_AVIS_SECTION_ITEMS)}",
+            (label,),
+        )
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            counts[row.get('category')] = int(row.get('n') or 0)
+            try:
+                raw = json.loads(row.get('data') or '')
+            except (TypeError, ValueError):
+                continue
+            picked.append((row.get('category'), float(row.get('sv') or 0), raw))
+    else:
+        by_cat = {}
+        offers = [raw for raw in load_sale_raw()
+                  if _as_store_offer(raw, store_key, label, leaflet)]
+        for raw in _one_per_offer(offers, store_key, label,
+                                  lambda r: _offer_savings(r, store_key, label)):
+            cat = str(raw.get('/product/product_type') or 'Andre varer')
+            by_cat.setdefault(cat, []).append(
+                (cat, _offer_savings(raw, store_key, label), raw))
+        for cat, items in by_cat.items():
+            counts[cat] = len(items)
+            items.sort(key=lambda t: t[1], reverse=True)
+            picked.extend(items[:_AVIS_SECTION_ITEMS])
+
+    allowed = {id(p) for p in filter_products_by_stores([t[2] for t in picked], None)}
+    sections_raw = {}
+    best = []
+    for cat, sv, raw in picked:
+        if id(raw) not in allowed:
+            continue
+        disp = _offer_display(raw, store_key, label, leaflet)
+        if not disp:
+            continue
+        sections_raw.setdefault(cat, []).append(disp)
+        if sv > 0:
+            best.append((sv, disp))
+    best.sort(key=lambda t: t[0], reverse=True)
+    # Højst to varer pr. mærke forrest, så fem slags Philadelphia ikke fylder
+    # hele "Ugens bedste tilbud".
+    per_brand, varied = {}, []
+    for sv, d in best:
+        brand = str(d.get('brand') or d.get('name') or '').strip().lower()
+        if per_brand.get(brand, 0) >= 2:
+            continue
+        per_brand[brand] = per_brand.get(brand, 0) + 1
+        varied.append((sv, d))
+    best = varied
+
+    known = {cat for cat, _slug in _OFFER_SECTIONS}
+    sections = []
+    for cat, slug in _OFFER_SECTIONS:
+        items = list(sections_raw.get(cat, []))
+        n = counts.get(cat, 0)
+        if cat == 'Andre varer':
+            # Ukendte kategorier samles her, så intet tilbud forsvinder.
+            for other, other_items in sections_raw.items():
+                if other not in known:
+                    items.extend(other_items)
+                    n += counts.get(other, 0)
+        if not items:
+            continue
+        sections.append({
+            'slug': slug,
+            'title': _category_display_name(cat),
+            'count': n,
+            'products': items[:_AVIS_SECTION_ITEMS],
+        })
+    bg, fg = _OFFER_STORE_COLORS.get(store_key, ('#047857', '#FFFFFF'))
+    return {
+        'store': store_key,
+        'label': label,
+        'logo': _STORE_CONFIGS[store_key]['logo'],
+        # Avisens baggrund: logoet uden baggrund (static/images/avis/).
+        'watermark': f'/static/images/avis/{store_key}.png',
+        'avis_url': _OFFER_STORE_AVIS_URLS[store_key],
+        'color': bg,
+        'text_color': fg,
+        'week': datetime.now(timezone.utc).isocalendar()[1],
+        'total': sum(counts.values()),
+        'best': [d for _sv, d in best[:_AVIS_BEST_ITEMS]],
+        'sections': sections,
+    }
+
+
+# Varer pr. avisside (2 x 2) og på forsiden (2 under overskriften), så en
+# side kan ses på én telefonskærm (Kalle 12-10-2026). Appen deler avisen op
+# efter samme regel (apps/mobile/src/screens/StoreAvisScreen.tsx::avisPages).
+_AVIS_PAGE_ITEMS = 4
+_AVIS_FRONT_ITEMS = 2
+
+
+def _avis_pages(avis):
+    """Deler avisen op i sider, som en rigtig avis (Kalle 10-10-2026):
+    forsiden med de to bedste tilbud, resten af "Ugens bedste tilbud" og
+    så hvert afsnit, fire varer pr. side. Sidste side i et afsnit får
+    "Se alle"-linket."""
+    pages = []
+    best = avis.get('best') or []
+    if best:
+        pages.append({'front': True, 'title': 'Ugens bedste tilbud', 'slug': '',
+                      'products': best[:_AVIS_FRONT_ITEMS], 'more': None})
+        rest = best[_AVIS_FRONT_ITEMS:]
+        for i in range(0, len(rest), _AVIS_PAGE_ITEMS):
+            pages.append({'front': False, 'title': 'Ugens bedste tilbud', 'slug': '',
+                          'products': rest[i:i + _AVIS_PAGE_ITEMS], 'more': None})
+    for sec in avis.get('sections') or []:
+        items = sec['products']
+        for i in range(0, len(items), _AVIS_PAGE_ITEMS):
+            last = i + _AVIS_PAGE_ITEMS >= len(items)
+            pages.append({'front': False, 'title': sec['title'],
+                          'slug': sec['slug'] if i == 0 else '',
+                          'products': items[i:i + _AVIS_PAGE_ITEMS],
+                          'more': sec if last else None})
+    return pages
+
+_OFFER_COUNTS_NONE = object()
+
+
+def _offer_counts_raw() -> dict | None:
+    """{'offer': {butik: n}, 'avis': {butik: n}}: alle tilbud og kun
+    avisvarer pr. butik. Fra d1_stats_v1 (seed-d1.py skriver 'offer_counts'
+    og 'avis_counts'), ellers én scanning af tilbudsindekset med en SUM pr.
+    butik og regel. None = ukendt."""
+    try:
+        cached = g.get('_offer_counts', _OFFER_COUNTS_NONE)
+    except RuntimeError:
+        cached = _OFFER_COUNTS_NONE
+    if cached is not _OFFER_COUNTS_NONE:
+        return cached
+    out = None
+    try:
+        if _use_d1():
+            stats = _d1_stats()
+            if (stats and isinstance(stats.get('offer_counts'), dict)
+                    and isinstance(stats.get('avis_counts'), dict)):
+                out = {'offer': stats['offer_counts'], 'avis': stats['avis_counts']}
+            else:
+                parts, params = [], []
+                for k in _OFFER_STORE_AVIS_URLS:
+                    for rule, leaflet in (('o', False), ('a', True)):
+                        if leaflet and k not in _AVIS_LEAFLET_STORES:
+                            continue
+                        cond, _sv = _store_offer_sql(k, leaflet)
+                        parts.append(f"SUM(CASE WHEN {cond} THEN 1 ELSE 0 END) AS {rule}_{k}")
+                        params.append(_STORE_CONFIGS[k]['label'])
+                row = _d1_scalar(
+                    "SELECT " + ", ".join(parts) + " FROM products WHERE is_sale = 1",
+                    tuple(params),
+                )
+                if isinstance(row, dict):
+                    out = {
+                        'offer': {k: int(row.get(f'o_{k}') or 0) for k in _OFFER_STORE_AVIS_URLS},
+                        'avis': {k: int(row.get(f'a_{k}') or 0) for k in _AVIS_LEAFLET_STORES},
+                    }
+        else:
+            raws = load_sale_raw()
+            out = {
+                rule: {
+                    k: sum(1 for r in raws
+                           if _as_store_offer(r, k, _STORE_CONFIGS[k]['label'], leaflet))
+                    for k in _OFFER_STORE_AVIS_URLS
+                }
+                for rule, leaflet in (('offer', False), ('avis', True))
+            }
+    except Exception as e:
+        logger.warning("offer counts: %s", e)
+        out = None
+    try:
+        g._offer_counts = out
+    except RuntimeError:
+        pass
+    return out
+
+
+def _avis_leaflet(store_key: str) -> bool:
+    """Tæller kun ugens avisvarer for butikken? Ja for Salling-butikkerne,
+    så snart deres data kender avisen; indtil katalog-scraperne har kørt med
+    'Avis'-markeringen, falder de tilbage til alle tilbud frem for en tom
+    avis."""
+    if store_key not in _AVIS_LEAFLET_STORES:
+        return False
+    raw = _offer_counts_raw()
+    return bool(raw and int((raw.get('avis') or {}).get(store_key) or 0) > 0)
+
+
+def _offer_store_counts() -> dict | None:
+    """Antal tilbud pr. butik til logoerne på forsiden (avisvarer for
+    Salling-butikkerne, se _avis_leaflet). None = ukendt, logoerne vises så
+    uden tal."""
+    raw = _offer_counts_raw()
+    if not raw:
+        return None
+    return {
+        k: int((raw['avis'] if _avis_leaflet(k) else raw['offer']).get(k) or 0)
+        for k in _OFFER_STORE_AVIS_URLS
+    }
+
+
+# Forsidens logoer (templates/index.html), kun kaldt når featuren er til.
+app.jinja_env.globals['offer_stores'] = lambda: _offer_stores(_offer_store_counts())
+# "Ugens største fald - 4863 tilbud" i design C2 (samme tal som appens
+# sale_count i /api/home, fra KV d1_stats_v1, intet D1-kald).
+app.jinja_env.globals['home_sale_count'] = lambda: _home_sale_count()
+
+
+def _build_store_offer_listing(store_key: str, args, page: int):
+    """Én butiks tilbud (Feature 'butiksaviser'), til "Se alle" fra avisen
+    (/tilbud/<butik>?kategori=<slug>) og /api/store-offers/<butik>.
+    Uafhængig af brugerens butiksvalg: siden ER butikken. ?kategori=
+    begrænser til ét afsnit. Returnerer display-dicts + meta som
+    _build_sale_listing."""
+    label = _STORE_CONFIGS[store_key]['label']
+    category = _OFFER_SECTION_BY_SLUG.get(args.get('kategori', '') or '')
+    leaflet = _avis_leaflet(store_key)
+    per_page = _LISTING_PER_PAGE
+    if _use_d1():
+        # `is_sale = 1` skal stå bogstaveligt, så det partielle indeks bruges
+        # (seed-d1.py); json_extract afgøres i D1, hvis CPU ikke tæller mod
+        # workerens. Stien bygges kun af nøgler fra _STORE_CONFIGS.
+        cond, savings = _store_offer_sql(store_key, leaflet)
+        # Ét kort pr. tilbud, samme valg som avisen (_build_store_avis).
+        one_per_offer = (
+            "id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER"
+            " (PARTITION BY ok ORDER BY sv DESC, id) AS orn FROM"
+            " (SELECT id, " + savings + " AS sv, " + _store_offer_key_sql(store_key)
+            + " AS ok FROM products WHERE is_sale = 1 AND " + cond + "))"
+            " WHERE orn = 1)"
+        )
+        where, params = ["is_sale = 1", cond, one_per_offer], [label, label, label]
+        if category:
+            where.append("category = ?")
+            params.append(category)
+        raw_page, total_pages, page = _d1_listing(
+            where, params, args, page, per_page, None,
+        )
+        source = filter_products_by_stores(raw_page, None)
+    else:
+        source = filter_products_by_stores(load_sale_raw(), None)
+        source = _one_per_offer(
+            [p for p in source if _as_store_offer(p, store_key, label, leaflet)],
+            store_key, label, lambda r: _offer_savings(r, store_key, label))
+        if category:
+            source = [p for p in source
+                      if str(p.get('/product/product_type') or 'Andre varer') == category]
+    offers = [d for d in (_offer_display(p, store_key, label, leaflet) for p in source) if d]
+    offers = apply_product_filters(offers, args)
+    if _use_d1():
+        return offers, page, total_pages, None
+    page_items, page, total_pages, total = _paginate(offers, page, per_page)
     return page_items, page, total_pages, total
 
 
@@ -4639,8 +5726,15 @@ def api_home():
             'swipe_enabled': _feature_enabled('swipe'),
             # "Køl & Mejeri": appen skifter kategorinavn samtidig med webben.
             'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
-            # "Støt MadShopper": appen viser abonnementet, når det er udgivet.
-            'subscription_enabled': _feature_enabled('subscription'),
+            # Tilbudsavis pr. butik: appen viser logoerne, når den er udgivet.
+            'butiksaviser_enabled': _feature_enabled('butiksaviser'),
+            # Butikker nær mig: appen viser rute og "nær mig", når den er udgivet.
+            'lokation_enabled': _feature_enabled('lokation'),
+            # Antal tilbud i alt (KV d1_stats_v1, samme tal som Ugens Tilbuds
+            # total uden filtre), til appens "214 tilbud"-link. Intet D1-kald.
+            'sale_count': _home_sale_count(),
+            'offer_stores': (_offer_stores(_offer_store_counts())
+                             if _feature_enabled('butiksaviser') else []),
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
                 'available': False,
@@ -4650,6 +5744,12 @@ def api_home():
     except Exception as e:
         logger.exception("api/home error: %s", e)
         return jsonify(success=False, error='Kunne ikke hente forsiden.'), 500
+
+
+def _home_sale_count():
+    stats = _d1_stats()
+    n = stats.get('sale') if stats else None
+    return n if isinstance(n, int) and n > 0 else None
 
 
 @app.route('/api/sale')
@@ -4674,6 +5774,101 @@ def api_sale():
         return jsonify(payload)
     except Exception as e:
         logger.exception("api/sale error: %s", e)
+        return jsonify(success=False, error='Kunne ikke hente tilbud.'), 500
+
+
+@app.route('/tilbud/<store_key>')
+def store_offers(store_key):
+    """Tilbudsavis for én butik (Feature 'butiksaviser'): butikkens tilbud
+    denne uge og et link til butikkens egen avis. 404 indtil udgivet."""
+    if not _feature_enabled('butiksaviser') or store_key not in _OFFER_STORE_AVIS_URLS:
+        return render_template('not_found.html'), 404
+    try:
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        # Uden ?kategori= og filtre vises avisen; "Se alle" og filtrene giver
+        # den almindelige liste (category.html) for ét afsnit eller alt.
+        if not is_ajax and not any(k in request.args for k in (
+                'kategori', 'page', 'sort', 'min_price', 'max_price', 'organic',
+                'lactose', 'min_weight', 'max_weight', 'sale')):
+            avis = _build_store_avis(store_key)
+            return render_template('butiksavis.html', avis=avis,
+                                   pages=_avis_pages(avis))
+        page = request.args.get('page', 1, type=int)
+        products, page, total_pages, _total = _build_store_offer_listing(
+            store_key, request.args, page,
+        )
+        if is_ajax:
+            return render_template('partials/product_grid.html',
+                                   products=products,
+                                   current_page=page,
+                                   total_pages=total_pages)
+        label = _STORE_CONFIGS[store_key]['label']
+        section = _OFFER_SECTION_BY_SLUG.get(request.args.get('kategori', '') or '')
+        title = f'Tilbud hos {label}'
+        if section:
+            title += f': {_category_display_name(section)}'
+        return render_template('category.html',
+                               category_name=title,
+                               products=products,
+                               current_page=page,
+                               total_pages=total_pages,
+                               available_subcategories=[],
+                               current_subcategory=None,
+                               store_avis={
+                                   'key': store_key,
+                                   'label': label,
+                                   'logo': _STORE_CONFIGS[store_key]['logo'],
+                                   'url': _OFFER_STORE_AVIS_URLS[store_key],
+                               })
+    except Exception as e:
+        logger.error("Error loading store offers %s: %s", store_key, e)
+        _mark_data_degraded('store_offers_exception')
+        return "Der opstod en fejl. Prøv igen om lidt.", 500
+
+
+@app.route('/api/store-avis/<store_key>')
+@rate_limit(api_limiter)
+def api_store_avis(store_key):
+    """JSON til appens tilbudsavis (samme indhold som /tilbud/<butik>)."""
+    if not _feature_enabled('butiksaviser') or store_key not in _OFFER_STORE_AVIS_URLS:
+        return jsonify(success=False, error='Ukendt butik.'), 404
+    try:
+        avis = _build_store_avis(store_key)
+        avis['best'] = products_to_api_list(avis['best'])
+        for sec in avis['sections']:
+            sec['products'] = products_to_api_list(sec['products'])
+        return jsonify(success=True, **avis)
+    except Exception as e:
+        logger.exception("api/store-avis error: %s", e)
+        return jsonify(success=False, error='Kunne ikke hente avisen.'), 500
+
+
+@app.route('/api/store-offers/<store_key>')
+@rate_limit(api_limiter)
+def api_store_offers(store_key):
+    """JSON til appens tilbudsavis pr. butik (samme som /tilbud/<butik>)."""
+    if not _feature_enabled('butiksaviser') or store_key not in _OFFER_STORE_AVIS_URLS:
+        return jsonify(success=False, error='Ukendt butik.'), 404
+    try:
+        page = request.args.get('page', 1, type=int)
+        products, page, total_pages, total = _build_store_offer_listing(
+            store_key, request.args, page,
+        )
+        payload = {
+            'success': True,
+            'store': store_key,
+            'label': _STORE_CONFIGS[store_key]['label'],
+            'avis_url': _OFFER_STORE_AVIS_URLS[store_key],
+            'products': products_to_api_list(products),
+            'page': page,
+            'per_page': _LISTING_PER_PAGE,
+            'total_pages': total_pages,
+        }
+        if total is not None:
+            payload['total'] = total
+        return jsonify(payload)
+    except Exception as e:
+        logger.exception("api/store-offers error: %s", e)
         return jsonify(success=False, error='Kunne ikke hente tilbud.'), 500
 
 
@@ -4747,7 +5942,8 @@ def api_search():
 
 @app.route('/api/stores')
 def get_stores():
-    stores = [{'key': k, 'label': v['label'], 'logo': v['logo']} for k, v in _STORE_CONFIGS.items()]
+    stores = [{'key': k, 'label': v['label'], 'logo': v['logo']}
+              for k, v in _STORE_CONFIGS.items()]
     return jsonify({
         'stores': stores,
         'version': STORE_CATALOG_VERSION,

@@ -36,6 +36,21 @@ TIMEOUT_S="${PLAYWRIGHT_INSTALL_TIMEOUT:-420}"
 
 npm install "playwright@${VERSION}" || exit 1
 
+# Genvej (09-10-2026, sparer 0,5-3 Actions-minutter pr. koersel): GitHubs
+# ubuntu-runnere har Google Chrome forudinstalleret. Med PW_CHANNEL=chrome
+# bruger scriptene den (chromium.launch({channel: 'chrome'})), saa hverken
+# browser-download eller apt-trinnet ovenfor er noedvendigt. Findes Chrome
+# ikke, falder vi tilbage til den fulde installation nedenfor og slaar
+# kanalen fra for resten af jobbet.
+if [ "${PW_CHANNEL:-}" = "chrome" ]; then
+  if command -v google-chrome >/dev/null 2>&1; then
+    echo "Bruger runnerens Chrome: $(google-chrome --version)"
+    exit 0
+  fi
+  echo "::warning::PW_CHANNEL=chrome, men google-chrome findes ikke - installerer Playwrights Chromium"
+  [ -n "${GITHUB_ENV:-}" ] && echo "PW_CHANNEL=" >> "$GITHUB_ENV"
+fi
+
 # Venter (maks. 60s) paa at apt-laasen er fri igen efter en afbrudt koersel.
 vent_paa_apt_laas() {
   for _ in $(seq 1 30); do

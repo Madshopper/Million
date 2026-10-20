@@ -53,8 +53,8 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: dev.madshopper.dk 
 |---|---|
 | Rema 1000 | Rema XML feed (`updater.py`) |
 | Bilka | `scraper/bilka_katalog.py` (Algolia-katalog, komplet med pris) |
-| Netto | `scraper/netto_katalog.py` (Algolia-katalog, primær pris) + `scraper/webscrape_netto.py` (Tjek tilbudsavis) |
-| Føtex | `scraper/foetex_katalog.py` (Algolia-katalog, primær pris) + `scraper/webscrape_foetex.py` (Tjek tilbudsavis) |
+| Netto | `scraper/netto_katalog.py` (Algolia-katalog inkl. ugens avisvarer via `isInCurrentLeaflet`) |
+| Føtex | `scraper/foetex_katalog.py` (Algolia-katalog inkl. ugens avisvarer via `isInCurrentLeaflet`) |
 | Meny | `scraper/webscrape_Meny.py` (wrapper om `scraper/dagrofa_scraper.py`) |
 | Spar | `scraper/webscrape_spar.py` (wrapper om `scraper/dagrofa_scraper.py`) |
 | SuperBrugsen | `scraper/webscrape_superbrugsen.py` |
@@ -62,11 +62,11 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: dev.madshopper.dk 
 | Kvickly | `scraper/webscrape_kvickly.py` |
 | Min Købmand | `scraper/webscrape_minkobmand.py` (wrapper om `scraper/dagrofa_scraper.py`) |
 | 365 Discount | `scraper/webscrape_365discount.py` (Tjek tilbudsavis) |
-| Lidl | `scraper/lidl_katalog.py` (hyldepriser, primær) + `scraper/webscrape_lidl.py` (Tjek tilbudsavis) |
-| Løvbjerg | `scraper/webscrape_lovbjerg.py` (Tjek tilbudsavis, via `scraper/tjek_tilbud_scraper.py`) |
-| ABC Lavpris | `scraper/webscrape_abc_lavpris.py` (Tjek tilbudsavis, via `scraper/tjek_tilbud_scraper.py`) |
+| Lidl | `scraper/lidl_katalog.py` (hyldepriser, primær) + `scraper/webscrape_lidl.py` (ugens tilbud fra lidl.dk's kampagnesider + ugeavisen, søndag og torsdag) |
+| Løvbjerg | `scraper/webscrape_lovbjerg.py` (ugens avis-PDF fra lovbjerg.dk, læst med pdfplumber; varebilleder klippet ud af PDF'en via `scraper/avis_billeder.py`) |
+| ABC Lavpris | `scraper/webscrape_abc_lavpris.py` (avisen på abc-lavpris.dk læst med OCR/tesseract, varebilleder via `scraper/avis_billeder.py`) |
 
-Meny, Spar og Min Købmand kører på samme Dagrofa-webshopplatform, så al scraping-logik ligger samlet i `scraper/dagrofa_scraper.py` - hver butik gemmes dog stadig helt separat i Supabase. Netto, Føtex og 365 Discount henter tilbudsavis via Tjek/ShopGun-API'et (samme mønster som `scraper/tjek_tilbud_scraper.py`, men med egen inline-kopi).
+Meny, Spar og Min Købmand kører på samme Dagrofa-webshopplatform, så al scraping-logik ligger samlet i `scraper/dagrofa_scraper.py` - hver butik gemmes dog stadig helt separat i Supabase. 365 Discount henter tilbudsavis via Tjek/ShopGun-API'et (samme mønster som `scraper/tjek_tilbud_scraper.py`, men med egen inline-kopi). Netto, Føtex og Lidl henter ugens tilbud fra butikkernes egne sider (Tjek bad os 09-10-2026 stoppe brugen af deres API).
 
 ## Getting Started
 
@@ -115,7 +115,7 @@ The app will be available at `http://localhost:5001`. Local runs always use the 
 
 ### Dev / staging environment
 
-A second Cloudflare Worker (`madshopper-dev`, own KV namespace + D1 database, `env.staging` in `wrangler.toml`) exists to test features on a real edge deployment without touching production:
+A second Cloudflare Worker (`madshopper-dev`, own KV namespace, reading the production D1 database, `env.staging` in `wrangler.toml`) exists to test features on a real edge deployment without touching production:
 
 - Live at `https://dev.madshopper.dk`, hidden exactly like `/admin`: every path answers 404 except for admins, who open it with the "Se dev-siden" button in `/admin` (CI uses a secret key)
 - Everything is switched on there, including features still hidden on production
@@ -265,6 +265,11 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
   (-smag/-fyld/-overtræk/-stang) are stripped first so "saltkaramelsmag" still
   yields caramel, and longer keywords consume their text so "hvidløg" (garlic)
   never also yields "løg" (onion).
+- **Ice** - ice cream vs non-ice is rejected when the side that doesn't say
+  "is"/"flødeis"/"ispinde"/... isn't in Frost either (skildpadde-chokolade ≠
+  skildpadde-is, also without weight). One-sided on purpose: Dagrofa names ice
+  by brand ("Magnum Euphoria") while Salling writes "Mælkeis m. ...", both in
+  Frost. Bare "is" needs a word boundary on both sides (ris/melis/iste)
 - **Weight-less candidates** - a candidate with neither weight, EAN nor a
   comparable unit count (typical for Dagrofa/Løvbjerg feeds) can't be validated
   by any physical gate, so the name score alone must reach 0.75 instead of the
@@ -324,6 +329,14 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
      "Grillpølser 62% kød" on the same Rema card). At most one can be the Rema product;
      without an arbiter all conflicting members are dropped. Pairs sharing an EAN are
      exempt (authoritatively the same product despite label drift, e.g. 1,5% vs 1,6%).
+   - **EAN-cluster arbitration** (`_arbitrate_ean_clusters`): when the matches carry
+     several different EANs, the best-fitting EAN group is kept and the rest dropped
+     (a tie drops all). Exception: when every group is a chain's own brand (Salling,
+     ØGO, First Price, Gestus ...), all groups are kept, since own brand vs own brand
+     across chains is a wanted comparison. Own-brand members that don't say "øko" are
+     dropped when the Rema product is organic (`_drop_silent_own_brand_organic`), and
+     an EAN can only sit on one Rema card (otherwise the EAN-invariant merge would
+     swallow a Rema product).
    - **EAN cross-fill** into stores that missed is weight-, quantity- and percentage-gated the same way.
 2. **Phase 1** - stage-1 EAN grouping across unmatched comparison-store products.
 3. **Phase 2** - stage 3 initiates fuzzy vs remaining unmatched products (including stage-2

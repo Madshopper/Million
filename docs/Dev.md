@@ -1,7 +1,7 @@
 Dev-miljø (test af nye features uden at røre produktion)
 
 Live test-URL: https://dev.madshopper.dk (skjult ligesom /admin: alle uden adgang får 404, også på `/staging-login`, `/robots.txt` og `/static/`). Eneste vej ind for et menneske er knappen "Se dev-siden" i madshopper.dk/admin, som kun admins ser: den giver et engangslink (?t=, 2 min., signeret med samme secret, som produktionen har som STAGING_LINK_SECRET) og en cookie der holder 24t. CI bruger ?k=<STAGING_ACCESS_SECRET> til sin egen warmup/røgtest. Mail+adgangskode-login blev fjernet 05-10-2026.
-Egen Worker (madshopper-dev), egen KV-namespace og egen D1-database - helt adskilt fra madshopper.dk. Bruger samme Supabase-projekt som produktion: produktdata og prishistorik LÆSES fra de delte tabeller (altid friske data), mens SKRIVNINGER (kurv-klik i cart_popularity, prisalarmer i price_alerts) går til separate *_dev-tabeller via TABLE_SUFFIX-env-varen - så test aldrig forurener produktionens statistik. Engangsopsætning: kør scripts/supabase-dev-tables.sql i Supabase SQL Editor. Lokal kørsel (python app.py) bruger også automatisk *_dev-tabellerne.
+Egen Worker (madshopper-dev) og eget KV-namespace, men samme D1-database som madshopper.dk (kun læsning; dev's egen kopi stod uger bagud, ændret 12-10-2026). Bruger samme Supabase-projekt som produktion: produktdata og prishistorik LÆSES fra de delte tabeller (altid friske data), mens SKRIVNINGER (kurv-klik i cart_popularity, prisalarmer i price_alerts) går til separate *_dev-tabeller via TABLE_SUFFIX-env-varen - så test aldrig forurener produktionens statistik. Engangsopsætning: kør scripts/supabase-dev-tables.sql i Supabase SQL Editor. Lokal kørsel (python app.py) bruger også automatisk *_dev-tabellerne.
 
 
 NÅR DU ÅBNER EN ANDEN COMPUTER (første gang)
@@ -35,11 +35,10 @@ Der er ingen dev-branch længere (fjernet 02-10-2026). Alt arbejde går via en f
    git commit -m "..."
    git push -u origin min-feature
 7. Åbn en pull request mod main på GitHub. Tests (mobile-tests, parity-tests m.fl.) kører på PR'en.
-8. Vil du se den på en rigtig edge-deployment før merge? Gå til Actions > "Deploy Edge Worker (staging)" > Run workflow, vælg din branch -> deployer til:
-   https://dev.madshopper.dk
-   Næste push til main skriver staging tilbage til main-koden.
+8. Deploy IKKE en PR-branch til dev.madshopper.dk. Dev skal altid køre præcis det samme som main (Kalle, 10-10-2026), fordi Kalle tester main live på sin telefon i MadShopper Test.
 9. Tilfreds? Merge PR'en ind i main -> deployer automatisk til både produktion (madshopper.dk) og staging (dev.madshopper.dk).
-   Rører PR'en updater.py, app_support.py, scraper/** eller cache-updater.yml, så skriv [skip ci] i merge-committen (ellers en ekstra fuld D1-reseed, se CLAUDE.md § D1-skrivebudget). [skip ci] springer også deploy over, så kør derefter "Deploy Edge Worker" og "Deploy Edge Worker (staging)" manuelt på main hvis edge-koden også er ændret.
+   Rører PR'en updater.py, app_support.py, scraper/** eller cache-updater.yml, så skriv [skip ci] i merge-committen (ellers en ekstra fuld D1-reseed, se CLAUDE.md § D1-skrivebudget). [skip ci] springer også deploy over, så kør derefter "Deploy Edge Worker" og "Deploy Edge Worker (staging)" manuelt på main hvis edge-koden også er ændret. Rører den apps/mobile/**, så kør også "MadShopper Test (opdatering over nettet)".
+   MadShopper Test (kun Kalles telefon) følger main af sig selv: ved hvert merge, der rører apps/mobile/**, sender test-app-update.yml den nye appkode til den over nettet (EAS Update), og appen henter den, når den åbnes. Kun nye native-pakker, ikoner og tilladelser kræver et nyt build på Mac'en (APP_VARIANT=test, fra en frisk main med npm ci), og så hæves runtimeVersion (test-1 -> test-2) i apps/mobile/app.config.js i samme PR.
 
 
 VALGFRIT - MANUELLE KOMMANDOER (kun hvis du vil springe GitHub Actions over)
@@ -48,8 +47,7 @@ Byg + deploy dev-workeren direkte fra din maskine (kræver wrangler-login):
 DEPLOY_ENV=staging bash scripts/build-pages.sh
 cd dist && npx wrangler deploy
 
-Genseed dev-D1 med friske produktdata fra Supabase:
-DEPLOY_ENV=staging python3 scripts/seed-d1.py
+Dev har ingen egen D1 længere (12-10-2026): den læser produktionens, og nattens seed skriver også dev's KV-nøgler. Der er intet at genseede.
 
 
 HUSK

@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="da">
+{# App-designet C2 (Feature 'design_c2'): klassen slår C2-reglerne i
+   styles.css til. Altid til på dev.madshopper.dk. #}
+<html lang="da"{% if design_c2_enabled %} class="c2"{% endif %}>
 
 <head>
   <meta charset="UTF-8">
@@ -50,6 +52,9 @@
        cookiesamtykke var spurgt - se static/css/fonts.css. -->
   <link rel="preload" href="{{ url_for('static', filename='fonts/inter-latin-variable.woff2') }}" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="{{ url_for('static', filename='fonts/plus-jakarta-sans-latin-variable.woff2') }}" as="font" type="font/woff2" crossorigin>
+  {% if design_c2_enabled %}
+  <link rel="preload" href="{{ url_for('static', filename='fonts/schibsted-grotesk-latin-variable.woff2') }}" as="font" type="font/woff2" crossorigin>
+  {% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
   <link rel="preload" href="{{ url_for('static', filename='css/styles.css') }}" as="style">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
@@ -73,6 +78,8 @@
     window.__STATS_ON = {{ 'true' if stats_enabled else 'false' }};
     // Swipe i kurven (Feature-panelet 'swipe').
     window.__SWIPE_ON = {{ 'true' if swipe_enabled else 'false' }};
+    // App-designet C2 (Feature-panelet 'design_c2').
+    window.__C2_ON = {{ 'true' if design_c2_enabled else 'false' }};
     // Offentligt Google OAuth client-id (samme som i Supabase). Bruges af
     // Google Identity Services (ID-token-flow), så samtykkeskærmen viser
     // madshopper.dk i stedet for supabase.co-callback'en.
@@ -96,6 +103,10 @@
   <script src="{{ url_for('static', filename='js/supabase.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
+  {% if lokation_enabled %}
+  {# Butikker nær mig og rækkefølgen i "Billigste butikker" (Feature-panelet 'lokation'). #}
+  <script src="{{ url_for('static', filename='js/lokation.js') }}" defer></script>
+  {% endif %}
 </head>
 
 <body>
@@ -140,10 +151,15 @@
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </span>
-        <input type="text" id="searchInput" placeholder="Søg efter produkter..." autocomplete="off"
+        <input type="text" id="searchInput" placeholder="{{ 'Søg i 14 butikker' if design_c2_enabled else 'Søg efter produkter...' }}" autocomplete="off"
                aria-label="Søg efter produkter" role="combobox" aria-expanded="false"
                aria-controls="autocomplete-dropdown" aria-autocomplete="list">
         <div id="autocomplete-dropdown" class="autocomplete-dropdown" role="listbox" aria-label="Søgeforslag"></div>
+        {% if design_c2_enabled %}
+        {# Seneste søgninger og "Køb igen" (C2), fyldes af script.js::renderC2SearchPanel
+           når feltet er tomt og har fokus. Kun gemt i browseren. #}
+        <div id="c2-search-panel" class="c2-search-panel" hidden></div>
+        {% endif %}
       </div>
 
       <div class="header-actions">
@@ -269,7 +285,10 @@
           <line x1="3" y1="6" x2="21" y2="6" />
           <path d="M16 10a4 4 0 01-8 0" />
         </svg>
-        <h2 id="cart-panel-title">Din kurv</h2>
+        <div>
+          <h2 id="cart-panel-title">{{ 'Kurv' if design_c2_enabled else 'Din kurv' }}</h2>
+          {% if design_c2_enabled %}<p id="c2-cart-sub" class="c2-cart-sub"></p>{% endif %}
+        </div>
       </div>
       <div style="display: flex; align-items: center; gap: 12px;">
         <button id="clear-cart-btn" onclick="clearCart()" class="clear-cart-btn" style="display:none;" aria-label="Tøm kurv">
@@ -415,6 +434,10 @@
           <label class="store-checkbox"><input type="checkbox" value="Løvbjerg" checked onchange="saveStoreDefaults()"> <span>Løvbjerg</span></label>
           <label class="store-checkbox"><input type="checkbox" value="ABC Lavpris" checked onchange="saveStoreDefaults()"> <span>ABC Lavpris</span></label>
         </div>
+        {% if lokation_enabled %}
+        {# Feature-panelet 'lokation': slår kæderne tæt på til (static/js/lokation.js). #}
+        <button type="button" class="lok-btn lok-settings-btn" onclick="window.Lokation && window.Lokation.openNearby()">Vælg butikker nær mig</button>
+        {% endif %}
       </div>
 
       <!-- BEVIDST INGEN "Notifikationer"-sektion.
@@ -480,7 +503,7 @@
             <div id="alert-form" class="alert-form" style="display: none;">
               <p>Giv mig besked {% if not push_enabled %}på mail {% endif %}når prisen falder til:</p>
               <div class="alert-input-group">
-                <input type="number" id="target-price-input" placeholder="Eks. 40" step="0.5">
+                <input type="number" id="target-price-input" placeholder="Eks. 40" step="0.01" min="0.01">
                 <button type="button" id="price-alert-submit-btn" onclick="savePriceAlert()">Sæt alarm</button>
               </div>
             </div>
@@ -840,8 +863,34 @@
     </div>
   </div>
 
+  {% if design_c2_enabled %}
+  {# Bundmenu på telefonen som i appen (C2). Skjult på større skærme. #}
+  <nav class="c2-tabbar" aria-label="Genveje">
+    <a href="{{ url_for('home') }}" class="c2-tab{% if request.endpoint == 'home' %} active{% endif %}"{% if request.endpoint == 'home' %} aria-current="page"{% endif %}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>
+      <span>Hjem</span>
+    </a>
+    <button type="button" class="c2-tab" onclick="c2FocusSearch()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Søg</span>
+    </button>
+    <button type="button" class="c2-tab" onclick="toggleCart()" aria-label="Kurv">
+      <span class="c2-tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        <span class="c2-tab-count" id="c2-tab-count" hidden>0</span>
+      </span>
+      <span>Kurv</span>
+    </button>
+    <button type="button" class="c2-tab" onclick="openAuthModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+      <span>Profil</span>
+    </button>
+  </nav>
+  {% endif %}
+
   {% include 'partials/auth_modal.html' %}
 
+  {% block scripts %}{% endblock %}
 </body>
 
 </html>

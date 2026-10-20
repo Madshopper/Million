@@ -178,8 +178,12 @@ def _find_search(pool: list) -> dict | None:
     return None
 
 
+# Lidl lægger frugt og grønt i sin egen kategori 'F+V' (fruit & vegetables).
+_FOOD_CATEGORIES = ('Food', 'F+V')
+
+
 def _is_food_product(data: dict, title: str) -> bool:
-    if data.get('category') != 'Food':
+    if data.get('category') not in _FOOD_CATEGORIES:
         return False
     if data.get('isLidlGiftCard'):
         return False
@@ -241,7 +245,7 @@ def _extract_products(pool: list) -> tuple[int, list[dict], int]:
         title = _ref_str(pool, data.get('fullTitle')).strip()
         category = _ref_str(pool, data.get('category'))
         is_gift = _ref(pool, data.get('isLidlGiftCard'))
-        if not title or category != 'Food' or is_gift is True:
+        if not title or category not in _FOOD_CATEGORIES or is_gift is True:
             continue
         if not _is_food_product({'category': category, 'isLidlGiftCard': is_gift}, title):
             continue

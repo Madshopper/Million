@@ -37,14 +37,31 @@ export const lightColors = {
   // tilbud, IKKE en positiv besparelse.
   warning: '#D97706',
   warningMuted: '#FEF3C7',
+  // Version C (18-10-2026): ét neutralt grå bag antalsvælgeren i kurven.
+  stepperBg: '#F2F4EF',
+  // Fast hvid på de faste grønne flader (vinderkort, besparelses-banner) og
+  // den lidt lysere boks inde i vinderkortet.
+  onPrimary: '#FFFFFF',
+  onPrimarySoft: 'rgba(255,255,255,0.14)',
+  // Besparelses-banneret: samme mørkegrønne flade i lys og mørk tilstand
+  // (#047857, sekundær grøn), med lysegrøn tekst (#D6F5E3, tertiær grøn).
+  bannerBg: '#047857',
+  bannerSoft: '#D6F5E3',
+  // Meget let skygge under kort.
+  shadow: '#1A1C19',
+  // Butikslogoerne har hvid baggrund i selve billedet, så deres pille er hvid
+  // i begge tilstande.
+  logoBg: '#FFFFFF',
 };
 
+// Mørk tilstand bruger neutrale grå uden grønt skær, samme som
+// hjemmesiden (static/css/styles.css, html.c2 mørk). Kalle 20-10-2026.
 export const darkColors = {
-  bg: '#121412',
-  surface: '#1C1F1B',
-  text: '#F0F2ED',
-  textMuted: '#A3AAA0',
-  border: '#2C312B',
+  bg: '#111111',
+  surface: '#1C1C1E',
+  text: '#F2F2F7',
+  textMuted: '#A1A1A6',
+  border: '#2C2C2E',
   primary: '#059669',
   primarySolid: '#059669',
   // I mørk tilstand bytter sekundær og tertiær plads: lys grøn tekst på mørk
@@ -57,9 +74,16 @@ export const darkColors = {
   dealText: '#1A1C19',
   dealInk: '#DFA300',
   badge: '#059669',
-  tabInactive: '#6B7268',
+  tabInactive: '#7C7C80',
   warning: '#F5B94D',
   warningMuted: '#3A2E12',
+  stepperBg: '#2C2C2E',
+  onPrimary: '#FFFFFF',
+  onPrimarySoft: 'rgba(255,255,255,0.14)',
+  bannerBg: '#047857',
+  bannerSoft: '#D6F5E3',
+  shadow: '#000000',
+  logoBg: '#FFFFFF',
 };
 
 export type ThemeColors = typeof lightColors;

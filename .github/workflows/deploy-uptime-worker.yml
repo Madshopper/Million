@@ -11,6 +11,10 @@ name: Deploy uptime-worker
 #   UPTIME_ALERT_EMAIL                            valgfri; modtager(e),
 #     kommasepareret. Uden den beholder workeren den ALERT_EMAIL, der allerede
 #     er sat direkte i Cloudflare (wrangler secret put ALERT_EMAIL)
+#   NIGHTLY_DISPATCH_TOKEN                        valgfri; GitHub-nøgle (kun
+#     Actions: write på Million), som workeren bruger til at starte nattens
+#     hentning af butikkerne kl. 00:01 dansk tid. Uden den bruges GitHubs
+#     egen cron, der kommer 1-4 timer for sent.
 # Workflowet fejler hvis RESEND_API_KEY mangler: en uptime-worker der ikke kan
 # sende mail, alarmerer ingen.
 
@@ -65,8 +69,12 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           UPTIME_ALERT_EMAIL: ${{ secrets.UPTIME_ALERT_EMAIL }}
+          NIGHTLY_DISPATCH_TOKEN: ${{ secrets.NIGHTLY_DISPATCH_TOKEN }}
         run: |
           printf '%s' "$RESEND_API_KEY" | npx --yes wrangler@4.114.0 secret put RESEND_API_KEY
           if [ -n "$UPTIME_ALERT_EMAIL" ]; then
             printf '%s' "$UPTIME_ALERT_EMAIL" | npx --yes wrangler@4.114.0 secret put ALERT_EMAIL
+          fi
+          if [ -n "$NIGHTLY_DISPATCH_TOKEN" ]; then
+            printf '%s' "$NIGHTLY_DISPATCH_TOKEN" | npx --yes wrangler@4.114.0 secret put GH_DISPATCH_TOKEN
           fi

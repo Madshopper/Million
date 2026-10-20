@@ -4,6 +4,7 @@ import type {
   ListingParams,
   ListingResponse,
   Product,
+  StoreAvisResponse,
   StoreInfo,
 } from './types.ts';
 
@@ -21,6 +22,19 @@ export async function fetchHome(params?: ListingParams): Promise<HomeResponse> {
 
 export async function fetchSale(params?: ListingParams): Promise<ListingResponse> {
   return apiGet('/api/sale', params);
+}
+
+/** Én butiks tilbudsavis (Feature-panelet 'butiksaviser'): bedste tilbud og afsnit. */
+export async function fetchStoreAvis(storeKey: string): Promise<StoreAvisResponse> {
+  return apiGet(`/api/store-avis/${encodeURIComponent(storeKey)}`);
+}
+
+/** Én butiks tilbud (Feature-panelet 'butiksaviser'), uafhængigt af butiksvalget. */
+export async function fetchStoreOffers(
+  storeKey: string,
+  params?: ListingParams,
+): Promise<ListingResponse> {
+  return apiGet(`/api/store-offers/${encodeURIComponent(storeKey)}`, params);
 }
 
 export async function fetchCategory(

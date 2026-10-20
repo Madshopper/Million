@@ -58,6 +58,9 @@ const RETRY_MS = 2_500;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const browser = await chromium.launch({
+  // PW_CHANNEL=chrome: brug GitHub-runnerens forudinstallerede Chrome (se
+  // scripts/install-playwright-ci.sh). Uden variablen: Playwrights Chromium.
+  ...(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {}),
   args: ["--disable-blink-features=AutomationControlled"],
 });
 

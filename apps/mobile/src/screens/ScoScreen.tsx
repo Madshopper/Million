@@ -5,26 +5,24 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '../theme/Typography';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
-import { apiPost } from '../api/client';
 import { postCartEvent } from '../api/listing';
 import { useAuth } from '../auth/AuthContext';
 import { useCart } from '../cart/CartContext';
 import {
   SCO_TOP_N,
   calculateStoreComparisons,
-  compareSavingsRange,
   sortScoStores,
   type ScoResult,
   type ScoStoreResult,
 } from '../cart/sco';
-import type { CartItem } from '../cart/types';
-import { recordCompareSavings } from '../savings/personalSavings';
+import { alternativeAsCartItem, fetchAlternatives, type AlternativeItem } from '../cart/alternatives';
+import { recordSavingsOnce } from '../cart/recordSavings';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { StoreDot } from '../components/StoreChip';
@@ -32,26 +30,6 @@ import { joinLabel, spokenKr } from '../a11y/speech';
 
 /** Dedup pr. app-session — spejler web's `_comparedProductIds`. */
 const comparedProductIds = new Set<string>();
-
-type AlternativeItem = {
-  cart_id: string;
-  store: string;
-  alt_id: string;
-  alt_name: string;
-  alt_price: number;
-  alt_image: string;
-  alt_storePrices: Record<string, number>;
-  alt_category: string;
-  alt_unitMeasure: string;
-  alt_kgPrice: string;
-  alt_store: string;
-};
-
-type AlternativesResponse = {
-  success: boolean;
-  alternatives: AlternativeItem[];
-  error?: string;
-};
 
 export function ScoScreen() {
   const { colors } = useTheme();
@@ -68,8 +46,6 @@ export function ScoScreen() {
   const [altLoading, setAltLoading] = useState(false);
   const altFetchKey = useRef<string>('');
 
-  // Sidste kurv-sammensætning vi har optjent besparelse for (se runSco).
-  const recordedSigRef = useRef<string | null>(null);
 
   const runSco = useCallback(async () => {
     if (!items.length) {
@@ -102,32 +78,14 @@ export function ScoScreen() {
       // Personlig besparelse: anbefalet butik mod dyreste anden butik på de
       // varer begge har (compareSavingsRange), kræver login.
       //
-      // KUN én gang pr. kurv-sammensætning. runSco() køres af en effekt på
+      // KUN én gang pr. kurv-sammensætning (spærren ligger i
+      // cart/recordSavings.ts og deles med kurvens vinderkort). runSco() køres af en effekt på
       // [ready, items, catalog, selectedLabels], så uden denne spærre optjente
       // appen besparelse ved hver mount OG hver gang man accepterede et
       // alternativ eller en delt-kurv-poll ændrede items - webben kræver et
       // klik. Serverloftet (50 events/dag) begrænsede skaden, men tallet blev
       // pustet op langt hurtigere end på web.
-      if (user) {
-        const range = compareSavingsRange(sortedAll, r.matchedItemsPerStore);
-        // Web-paritet (script.js): signaturen inkluderer det beregnede
-        // prisinterval, ikke kun kurvens sammensætning — uden det ville en
-        // reelt ændret pris (samme varer, samme butiksvalg) ikke tælle som en
-        // ny sammenligning, og appen ville under-registrere besparelse i
-        // forhold til web ved gentagne besøg på samme kurv.
-        const sig =
-          items
-            .map((i) => `${i.id}:${i.quantity}`)
-            .sort()
-            .join('|') +
-          '#' +
-          [...selectedLabels].sort().join(',') +
-          (range ? `#${range.cheap.toFixed(2)}/${range.expensive.toFixed(2)}` : '');
-        if (range && recordedSigRef.current !== sig) {
-          recordedSigRef.current = sig;
-          void recordCompareSavings(range.cheap, range.expensive).catch(() => {});
-        }
-      }
+      if (user) recordSavingsOnce(items, selectedLabels, sortedAll, r.matchedItemsPerStore);
     } catch (err) {
       // Uden denne fanges en fejl her (fx et korrupt kurv-element) af app.tsx'
       // top-level ErrorBoundary, som nulstiller HELE appen til forsiden - det
@@ -162,22 +120,8 @@ export function ScoScreen() {
     if (altFetchKey.current === key) return;
     altFetchKey.current = key;
     setAltLoading(true);
-    const missing_items = active.missingDetails.map((m) => ({
-      cart_id: m.cart_id,
-      product_id: m.product_id,
-      store: active.name,
-      category: m.category,
-      name: m.name,
-      weight_str: m.weight_str,
-      price: m.price,
-      image: m.image,
-    }));
-    apiPost<AlternativesResponse>('/api/alternatives', { missing_items })
-      .then((res) => {
-        const map: Record<string, AlternativeItem> = {};
-        for (const alt of res.alternatives || []) map[alt.cart_id] = alt;
-        setAlternatives(map);
-      })
+    fetchAlternatives(active)
+      .then(setAlternatives)
       .catch(() => setAlternatives({}))
       .finally(() => setAltLoading(false));
   }, [active]);
@@ -185,20 +129,7 @@ export function ScoScreen() {
   const acceptAlternative = useCallback(
     (alt: AlternativeItem) => {
       const original = items.find((i) => i.id === alt.cart_id);
-      const nextId = alt.alt_id.startsWith('product') ? alt.alt_id : `product${alt.alt_id}`;
-      const nextItem: CartItem = {
-        id: nextId,
-        name: alt.alt_name,
-        store: alt.alt_store,
-        price: alt.alt_price,
-        storePrices: alt.alt_storePrices || {},
-        storeMultiDeals: {},
-        image: alt.alt_image,
-        category: alt.alt_category,
-        unitMeasure: alt.alt_unitMeasure,
-        kgPrice: alt.alt_kgPrice ? `${alt.alt_kgPrice} kr/kg` : '',
-        quantity: original?.quantity ?? 1,
-      };
+      const nextItem = alternativeAsCartItem(alt, original);
       replaceItem(alt.cart_id, nextItem);
     },
     [items, replaceItem],

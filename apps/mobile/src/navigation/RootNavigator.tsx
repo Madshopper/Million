@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text, fontStyle } from '../theme/Typography';
 import {
   NavigationContainer,
   createNavigationContainerRef,
@@ -13,11 +14,14 @@ import { askOnFirstLaunch, usePushFeature } from '../push/push';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useCart } from '../cart/CartContext';
 import { CartIcon } from '../components/CartIcon';
+import { HomeHeaderTitle, LocationPill } from '../components/HomeHeader';
 import { HomeScreen } from '../screens/HomeScreen';
-import { CategoryScreen, SaleScreen } from '../screens/CategoryScreen';
+import { CategoryScreen, SaleScreen, StoreOffersListScreen } from '../screens/CategoryScreen';
+import { StoreAvisScreen } from '../screens/StoreAvisScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { RecipesScreen } from '../screens/RecipesScreen';
 import { CartScreen } from '../screens/CartScreen';
@@ -27,10 +31,11 @@ import { ProductDetailScreen } from '../screens/ProductDetailScreen';
 import { RecipeDetailScreen } from '../screens/RecipeDetailScreen';
 import { ScoScreen } from '../screens/ScoScreen';
 import { RouteScreen } from '../screens/RouteScreen';
+import { NearbyStoresScreen } from '../screens/NearbyStoresScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { LegalScreen } from '../screens/LegalScreen';
-import { SupportScreen } from '../screens/SupportScreen';
+import { RecipeAccessScreen } from '../screens/RecipeAccessScreen';
 import { isRecoveryUrl, parseSignupLink } from '../auth/recoveryLink';
 import { recipesEnabled } from '../config/env';
 import type { RootStackParamList, TabParamList } from './types';
@@ -109,12 +114,13 @@ function CartHeaderButton({ onPress }: { onPress: () => void }) {
             height: 18,
             borderRadius: 9,
             paddingHorizontal: 4,
+            // C2: grønt tal-mærke (gul er forbeholdt tilbud).
             backgroundColor: colors.primary,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: colors.surface, fontSize: 11, fontWeight: '700' }}>
+          <Text style={{ color: colors.onPrimary, fontSize: 11, fontWeight: '700' }}>
             {count > 99 ? '99+' : count}
           </Text>
         </View>
@@ -165,22 +171,70 @@ function tabIcon(focused: boolean, active: TabIconName, inactive: TabIconName): 
   return focused ? active : inactive;
 }
 
+/** Version C/C2: den aktive fane får en lysegrøn pille (56x30) bag ikonet. */
+function TabIcon({
+  focused,
+  color,
+  active,
+  inactive,
+}: {
+  focused: boolean;
+  color: string;
+  active: TabIconName;
+  inactive: TabIconName;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        width: 56,
+        height: 30,
+        borderRadius: 999,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: focused ? colors.primaryMuted : 'transparent',
+      }}
+    >
+      <Ionicons name={tabIcon(focused, active, inactive)} size={22} color={color} />
+    </View>
+  );
+}
+
+/** Fanetekst 12 pt: 700 på den aktive fane, 500 på de andre (C2). */
+function tabLabel(text: string) {
+  return function TabLabel({ focused, color }: { focused: boolean; color: string }) {
+    return (
+      <Text style={{ color, fontSize: 12, marginTop: 2, fontWeight: focused ? '700' : '500' }}>
+        {text}
+      </Text>
+    );
+  };
+}
+
 function MainTabs() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,
+        headerTitleStyle: fontStyle('700'),
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          paddingTop: 4,
+          borderTopWidth: 1,
+          paddingTop: 6,
+          // Plads til pillen (30) og teksten (12) over hjemme-stregen.
+          height: 62 + insets.bottom,
         },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.tabInactive,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
+        // Pillen bag ikonet er 30 høj; uden plads til den skubbes teksten ud.
+        tabBarIconStyle: { width: 56, height: 30 },
+        tabBarActiveTintColor: colors.primaryDark,
+        // C2: inaktive faner i den dæmpede tekstfarve (500), den aktive i
+        // primaryDark (700).
+        tabBarInactiveTintColor: colors.textMuted,
         sceneStyle: { flex: 1, minHeight: 0 },
       }}
     >
@@ -189,16 +243,20 @@ function MainTabs() {
         component={HomeScreen}
         options={({ navigation }) => ({
           title: 'MadShopper',
-          tabBarLabel: 'Hjem',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={tabIcon(focused, 'home', 'home-outline')}
-              size={size}
-              color={color}
-            />
+          tabBarLabel: tabLabel('Hjem'),
+          // Version C: eget top-felt med logo, lokation og kurv.
+          headerTitle: () => <HomeHeaderTitle />,
+          headerTitleAlign: 'left',
+          headerStyle: { backgroundColor: colors.bg },
+          headerShadowVisible: false,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} active="home" inactive="home-outline" />
           ),
           headerRight: () => (
-            <CartHeaderButton onPress={() => navigation.getParent()?.navigate('Cart')} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <LocationPill />
+              <CartHeaderButton onPress={() => navigation.getParent()?.navigate('Cart')} />
+            </View>
           ),
         })}
       />
@@ -207,13 +265,9 @@ function MainTabs() {
         component={SearchScreen}
         options={({ navigation }) => ({
           title: 'Søg',
-          tabBarLabel: 'Søg',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={tabIcon(focused, 'search', 'search-outline')}
-              size={size}
-              color={color}
-            />
+          tabBarLabel: tabLabel('Søg'),
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} active="search" inactive="search-outline" />
           ),
           headerRight: () => (
             <CartHeaderButton onPress={() => navigation.getParent()?.navigate('Cart')} />
@@ -226,14 +280,10 @@ function MainTabs() {
           component={RecipesScreen}
           options={({ navigation }) => ({
             title: 'Opskrifter',
-            tabBarLabel: 'Opskrifter',
-            tabBarIcon: ({ color, size, focused }) => (
-              <Ionicons
-                name={tabIcon(focused, 'restaurant', 'restaurant-outline')}
-                size={size}
-                color={color}
-              />
-            ),
+            tabBarLabel: tabLabel('Opskrifter'),
+            tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} active="restaurant" inactive="restaurant-outline" />
+          ),
             headerRight: () => (
               <CartHeaderButton onPress={() => navigation.getParent()?.navigate('Cart')} />
             ),
@@ -245,13 +295,9 @@ function MainTabs() {
         component={ProfileScreen}
         options={({ navigation }) => ({
           title: 'Profil',
-          tabBarLabel: 'Profil',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={tabIcon(focused, 'person-circle', 'person-circle-outline')}
-              size={size}
-              color={color}
-            />
+          tabBarLabel: tabLabel('Profil'),
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon focused={focused} color={color} active="person-circle" inactive="person-circle-outline" />
           ),
           headerRight: () => (
             <CartHeaderButton onPress={() => navigation.getParent()?.navigate('Cart')} />
@@ -299,6 +345,7 @@ export function RootNavigator() {
         screenOptions={({ navigation }) => ({
           headerStyle: { backgroundColor: colors.surface },
           headerTintColor: colors.text,
+          headerTitleStyle: fontStyle('700'),
           contentStyle: { flex: 1, backgroundColor: colors.bg },
           headerBackVisible: false,
           headerLeft: ({ canGoBack }) =>
@@ -312,7 +359,27 @@ export function RootNavigator() {
           options={({ route }) => ({ title: route.params.title })}
         />
         <Stack.Screen name="Sale" component={SaleScreen} options={{ title: 'Ugens Tilbud' }} />
-        <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Indkøbsliste' }} />
+        <Stack.Screen
+          name="StoreOffers"
+          component={StoreAvisScreen}
+          options={({ route }) => ({ title: `Tilbudsavis fra ${route.params.label}` })}
+        />
+        <Stack.Screen
+          name="StoreOffersList"
+          component={StoreOffersListScreen}
+          options={({ route }) => ({ title: route.params.title })}
+        />
+        {/* Version C: overskriften "Kurv" står i selve skærmen. */}
+        <Stack.Screen
+          name="Cart"
+          component={CartScreen}
+          options={{
+            title: 'Kurv',
+            headerTitle: '',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.bg },
+          }}
+        />
         <Stack.Screen
           name="ProductDetail"
           component={ProductDetailScreen}
@@ -343,9 +410,10 @@ export function RootNavigator() {
         />
         {/* Indstillinger var en fane indtil 02-10-2026; nu åbnes de fra Profil. */}
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Indstillinger' }} />
+        <Stack.Screen name="Nearby" component={NearbyStoresScreen} options={{ title: 'Butikker nær mig' }} />
         <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: 'Feedback' }} />
-        {/* Kun nået fra Profil, når 'subscription' er udgivet (SupportScreen). */}
-        <Stack.Screen name="Support" component={SupportScreen} options={{ title: 'Støt MadShopper' }} />
+        {/* Abonnement på opskrifterne, nås fra Opskrift-fanen (src/recipes/access.ts). */}
+        <Stack.Screen name="RecipeAccess" component={RecipeAccessScreen} options={{ title: 'Opskrifter' }} />
         <Stack.Screen
           name="Legal"
           component={LegalScreen}

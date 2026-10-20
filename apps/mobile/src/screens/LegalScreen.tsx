@@ -1,5 +1,7 @@
 import React from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLokationEnabled } from '../location/nearby';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { env } from '../config/env';
 import { useTheme } from '../theme/ThemeContext';
@@ -23,7 +25,7 @@ function TermsBody({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }
   return (
     <>
       <Paragraph colors={colors}>
-        MadShopper er en gratis tjeneste til prissammenligning af dagligvarer på tværs af danske
+        MadShopper er en tjeneste til prissammenligning af dagligvarer på tværs af danske
         butikker. Priser og tilbud opdateres løbende, men vi kan ikke garantere at alle priser
         altid er 100% opdaterede — tjek altid prisen i butikken eller butikkens egen app før køb.
       </Paragraph>
@@ -32,7 +34,18 @@ function TermsBody({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }
         overbelaste vores servere, eller på anden vis misbruge appen.
       </Paragraph>
       <Paragraph colors={colors}>
-        Vi forbeholder os retten til at ændre eller lukke funktioner i appen uden varsel.
+        <Text style={{ fontWeight: '700' }}>Abonnement på opskrifter: </Text>
+        Prissammenligning, kurv og prisalarmer er gratis. Opskrifterne med ingredienser,
+        fremgangsmåde og madplan kræver abonnementet MadShopper Opskrifter. Det købes i appen
+        gennem Apple, varer én måned ad gangen og fornyes automatisk til samme pris, indtil du
+        stopper det i Indstillinger på din iPhone (dit navn, Abonnementer) senest 24 timer før
+        næste måned. Betalingen trækkes fra dit Apple-ID. Abonnementet hører til din
+        MadShopper-konto og virker også på madshopper.dk. Sletter du kontoen, stopper Apple ikke
+        abonnementet af sig selv, så stop det hos Apple først. Refusion håndteres af Apple.
+      </Paragraph>
+      <Paragraph colors={colors}>
+        Vi forbeholder os retten til at ændre eller lukke gratis funktioner i appen uden varsel.
+        Et betalt abonnement leverer vi i hele den periode, du har betalt for.
         Fortsat brug af appen efter ændringer betragtes som accept af de opdaterede vilkår.
       </Paragraph>
     </>
@@ -40,6 +53,7 @@ function TermsBody({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }
 }
 
 function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }) {
+  const lokation = useLokationEnabled();
   return (
     <>
       <Paragraph colors={colors}>
@@ -47,34 +61,66 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
         kurv (lokalt på enheden, og hos en ekstern database- og loginudbyder hvis du er
         logget ind - beskyttet af adgangskontrol og krypteret forbindelse/lager, men ikke
         krypteret feltvis så kun du kan læse den), dine butiksvalg, samt anonym statistik
-        over hvilke varer der lægges i kurven (uden personhenførbare data).
+        over hvilke varer der lægges i kurven eller bliver set, og hvilke ord der søges
+        på. Statistikken gemmer kun varen eller søgeordet, et antal og et tidspunkt, aldrig
+        hvem du er.
       </Paragraph>
       <Paragraph colors={colors}>
         Opretter du en konto, gemmer vi din email og et krypteret kodeord hos vores
         database- og loginudbyder. Ved login med Google eller Apple modtager vi kun din
-        email og dit navn — aldrig dit kodeord hos dem.
+        email og dit navn, aldrig dit kodeord hos dem.
       </Paragraph>
       <Paragraph colors={colors}>
         <Text style={{ fontWeight: '700' }}>Delt kurv og prisalarm (valgfrit): </Text>
         Opretter eller tilslutter du dig en delt kurv med op til 5 andre, ser I hinandens
-        visningsnavn, varer og gemte lister. Opretter du en prisalarm, gemmes din
-        e-mailadresse sammen med den, så en udbyder af e-mailudsendelse på vores vegne kan
-        sende dig én mail, når prisen er nået.
+        visningsnavn, varer og gemte lister. Opretter du en prisalarm, gemmes varen, den
+        pris du venter på, og din kontos e-mailadresse sammen med den. Når prisen er nået,
+        får du en besked på telefonen, hvis du har slået beskeder til. Der sendes ikke
+        mails om prisalarmer.
+      </Paragraph>
+      {lokation ? (
+        // Feature-panelet 'lokation'.
+        <Paragraph colors={colors}>
+          <Text style={{ fontWeight: '700' }}>Butikker nær dig (valgfrit): </Text>
+          Trykker du "Brug min placering", spørger telefonen først om lov. Har du sagt ja,
+          bruger appen din placering, mens den er åben, til at finde de nærmeste butikker og
+          den korteste tur, aldrig i baggrunden. Placeringen bliver kun brugt på telefonen og
+          bliver hverken gemt eller sendt til os. Du kan altid tage lov tilbage under
+          telefonens Indstillinger. Skriver du i stedet dit postnummer, gemmes det på
+          telefonen og, når du er logget ind, på din konto, så du ikke skal skrive det igen.
+          Det slettes sammen med kontoen.
+          Trykker du "Åbn turen i Google Maps", sendes turens punkter til Google. Butikkernes
+          adresser kommer fra OpenStreetMap (© OpenStreetMap-bidragydere).
+        </Paragraph>
+      ) : null}
+      <Paragraph colors={colors}>
+        <Text style={{ fontWeight: '700' }}>Abonnement på opskrifter (valgfrit): </Text>
+        Køber du abonnementet, gemmer vi Apples nummer for købet, produktet og udløbsdatoen
+        sammen med din konto, kun for at give dig adgang. Betaling og kortoplysninger
+        håndteres af Apple; vi ser dem aldrig. Oplysningerne slettes sammen med kontoen.
       </Paragraph>
       <Paragraph colors={colors}>
         <Text style={{ fontWeight: '700' }}>Feedback: </Text>
-        Skriver du til os via Feedback, sendes din besked (og et evt. navn/e-mail du selv
-        angiver) videre til et administrativt regneark hos en databehandler, som vi selv
-        rydder op i. Feedback er ikke koblet til en evt. konto og fjernes derfor ikke
+        Skriver du til os via Feedback, gemmes din besked (og et evt. navn/e-mail du selv
+        angiver, samt hvilken side du skrev fra) i vores egen database, hvor kun vi kan læse den, og vi rydder selv op i
+        den. Feedback er ikke koblet til en evt. konto og fjernes derfor ikke
         automatisk, hvis du senere sletter kontoen.
+      </Paragraph>
+      <Paragraph colors={colors}>
+        <Text style={{ fontWeight: '700' }}>Login og sikkerhed: </Text>
+        Når du logger ind, gemmer login-udbyderen af sikkerhedshensyn, hvornår du loggede
+        ind, fra hvilken IP-adresse, og om det var appen eller en browser. Vi bruger kun
+        det sidste til at tælle, hvor mange der bruger appen, aldrig til at følge den
+        enkelte. For at stoppe misbrug tælles også kortvarigt, hvor mange forespørgsler
+        der kommer fra samme IP-adresse; det tal gemmes ikke hos os.
       </Paragraph>
       <Paragraph colors={colors}>
         <Text style={{ fontWeight: '700' }}>App-tilladelser: </Text>
         I stedet for cookies (som på vores hjemmeside) bruger app-versionen kun de
         systemtilladelser, du selv godkender ved installation eller første brug. Vi beder
-        ikke om adgang til kamera, kontakter eller placering. Notifikationer beder vi kun
+        ikke om adgang til kamera eller kontakter.{lokation ? ' Placering beder vi kun om, når du selv trykker "Brug min placering" (se Butikker nær dig).' : ' Vi beder heller ikke om placering.'} Notifikationer beder vi kun
         om, hvis du selv trykker "Slå til" under Mine prisalarmer: så får du prisalarmer
-        som besked på telefonen i stedet for e-mail, og vi gemmer en teknisk adresse til
+        som besked på telefonen, og vi gemmer en teknisk adresse til
         din telefon, indtil du slår det fra, logger ud eller sletter kontoen. Din telefons
         indstillinger viser altid, hvilke tilladelser appen reelt har.
       </Paragraph>
@@ -85,6 +131,18 @@ function PrivacyBody({ colors }: { colors: ReturnType<typeof useTheme>['colors']
         andre medlemmer tilbage, overdrages ejerskabet automatisk i stedet for at slette
         kurven under dem). Feedback du har sendt, er som nævnt en separat henvendelse og
         fjernes ikke automatisk.
+      </Paragraph>
+      <Paragraph colors={colors}>
+        <Text style={{ fontWeight: '700' }}>Hvor længe: </Text>
+        Konto, kurv, prisalarmer og abonnement gemmes, så længe du har kontoen. Anonym
+        kurv-aktivitet pr. time gemmes i 30 dage. Anonyme dagstal for varer og søgeord
+        gemmes uden tidsgrænse, fordi de ikke kan føres tilbage til nogen.
+      </Paragraph>
+      <Paragraph colors={colors}>
+        <Text style={{ fontWeight: '700' }}>Hvis der sker et brud på sikkerheden: </Text>
+        Kommer personoplysninger i forkerte hænder, anmelder vi det til Datatilsynet senest
+        72 timer efter, vi har opdaget det. Er der høj risiko for dig, får du også selv
+        besked hurtigst muligt.
       </Paragraph>
       <Paragraph colors={colors}>
         Fuld liste over hvem der behandler data på vores vegne, dine rettigheder efter

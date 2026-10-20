@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import { calculateButiksrute, type RouteResult } from '../cart/butiksrute';
 import { useCart } from '../cart/CartContext';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { StoreChip } from '../components/StoreChip';
 import { joinLabel, spokenKr } from '../a11y/speech';
+import { RouteOrder } from '../components/RouteOrder';
+import { useLokationEnabled } from '../location/nearby';
 
 export function RouteScreen() {
   const { colors } = useTheme();
@@ -13,6 +16,9 @@ export function RouteScreen() {
   const { catalog, selectedLabels, ready } = useStoreCatalog();
   const [loading, setLoading] = useState(true);
   const [route, setRoute] = useState<RouteResult | null>(null);
+  // Turens rækkefølge (Feature-panelet 'lokation'); ellers dyreste butik først.
+  const lokation = useLokationEnabled();
+  const [order, setOrder] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (!ready) return;
@@ -43,7 +49,14 @@ export function RouteScreen() {
     );
   }
 
-  const groups = [...route.groups].sort((a, b) => b.subtotal - a.subtotal);
+  const bySubtotal = [...route.groups].sort((a, b) => b.subtotal - a.subtotal);
+  const groups = order
+    ? [...bySubtotal].sort((a, b) => {
+        const ia = order.indexOf(a.store);
+        const ib = order.indexOf(b.store);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      })
+    : bySubtotal;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
@@ -71,6 +84,10 @@ export function RouteScreen() {
           </Text>
         ) : null}
       </View>
+
+      {lokation && bySubtotal.length > 0 ? (
+        <RouteOrder labels={bySubtotal.map((g) => g.store)} catalog={catalog} onOrder={setOrder} />
+      ) : null}
 
       {groups.map((g) => (
         <View

@@ -622,6 +622,10 @@ function syncFilterButtons() {
             btn.classList.add('inactive');
         }
     });
+    // Forsidens tilbudsaviser (Feature 'butiksaviser') viser kun valgte butikker.
+    document.querySelectorAll('.offer-store').forEach(a => {
+        a.hidden = !isStoreSelected(a.dataset.storeLabel);
+    });
 }
 
 function initStoreFilters() {
@@ -820,9 +824,10 @@ function updateStoreBadges() {
                     p.dataset.originalPriceHtml = priceContainer.innerHTML;
                     const remaPrice  = parseFloat(p.dataset.remaPrice).toFixed(2);
                     const remaIsSale = p.dataset.remaIsSale === 'true';
+                    const shown = c2PriceHtml(remaPrice);
                     priceContainer.innerHTML = remaIsSale
-                        ? `<div class="price-sale price sale">${remaPrice} kr</div>`
-                        : `<div class="price-main price">${remaPrice} kr</div>`;
+                        ? `<div class="price-sale price sale">${shown}</div>`
+                        : `<div class="price-main price">${shown}</div>`;
                 }
 
                 // Hide the sale badge if Rema doesn't have a sale on this product
@@ -1168,6 +1173,7 @@ function addToCart(event, productElementOrId) {
 
     // Save cart
     saveCart();
+    c2RecordItem(cart.find(item => item.id === productId));
 
     // Record popularity (fire-and-forget, debounced). qty er altid 1 - hvert
     // klik lægger præcis én vare i kurven, uanset hvor mange der allerede
@@ -1448,6 +1454,11 @@ function updateCartCount() {
     } else {
         cartBadge.style.display = 'none';
     }
+    const tabCount = document.getElementById('c2-tab-count');
+    if (tabCount) {
+        tabCount.textContent = totalItems;
+        tabCount.hidden = totalItems === 0;
+    }
 }
 
 function updateCartDisplay() {
@@ -1550,6 +1561,7 @@ function updateCartDisplay() {
         if (cart.length === 0) {
             footerSection.style.display = 'none';
             if (clearBtn) clearBtn.style.display = 'none';
+            renderC2Cart([], {});
             // Show empty state
             if (!cartItems.querySelector('.cart-empty')) {
                 const emptyDiv = document.createElement('div');
@@ -1591,6 +1603,7 @@ function updateCartDisplay() {
             const sorted = Object.entries(storeTotals)
                 .filter(([name]) => isStoreSelected(name))
                 .sort((a, b) => a[1] - b[1]);
+            renderC2Cart(sorted, storeCovered);
 
             if (storeGrid) {
                 storeGrid.innerHTML = sorted.map(([name, price], i) =>
@@ -2242,7 +2255,7 @@ async function showButiksrute() {
                     <span class="br-item-price">${(price * (item.quantity || 1)).toFixed(2)} kr</span>
                 </div>`).join('');
             return `
-                <div class="br-store-group">
+                <div class="br-store-group" data-store="${escapeHtml(storeName)}">
                     <div class="br-store-header">
                         ${logoHtml}
                         <span class="br-store-name">${escapeHtml(storeName)}</span>
@@ -2265,6 +2278,14 @@ async function showButiksrute() {
                     </div>
                     <div class="br-store-items">${unavailableHtml}</div>
                 </div>`;
+        }
+
+        // Rækkefølge og vej mellem butikkerne (Feature-panelet 'lokation',
+        // static/js/lokation.js indlæses kun når den er slået til).
+        if (window.Lokation && storeCount > 0) {
+            const routeEl = document.createElement('div');
+            storesEl.insertBefore(routeEl, storesEl.firstChild);
+            window.Lokation.renderRoute(routeEl, storesSorted.map(([name]) => name), storesEl);
         }
 
     } catch (err) {
@@ -2793,6 +2814,7 @@ function performSearch() {
     // mens den stadig hentes, sendes ikke igen.
     if (query === _searchInFlight) return;
     _searchInFlight = query;
+    c2RecordSearch(query);
     fetchSearchResults(query, 1);
 }
 
@@ -5975,3 +5997,277 @@ function acceptAlternative(oldId, altData) {
         if (el) obs.observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
     });
 })();
+
+// ===== DESIGN C2 (Feature-panelet 'design_c2') =====
+// Samme udseende og dele som appens design C2 (apps/mobile, PR #123), så
+// MadShopper Test og dev-hjemmesiden følges ad (Kalle 19-10-2026). Seneste
+// søgninger og "Køb igen" gemmes kun i browseren, ligesom kurven, og sendes
+// aldrig nogen steder hen. Samme lofter som appen: 8 søgninger
+// (search/recentSearches.ts) og 40 varer (cart/recentItems.ts).
+const C2_RECENT_SEARCHES_KEY = 'madshopper_recent_searches';
+const C2_RECENT_ITEMS_KEY = 'madshopper_recent_items';
+const C2_RECENT_SEARCHES_MAX = 8;
+const C2_RECENT_ITEMS_MAX = 40;
+const C2_BUY_AGAIN_MAX = 5;
+
+function c2On() {
+    return window.__C2_ON === true;
+}
+
+function c2Kr(n) {
+    return `${Number(n).toFixed(2).replace('.', ',')} kr`;
+}
+
+/** Pris som på varekortet: store kroner og små øre, men læses stadig som "9.95 kr". */
+function c2PriceHtml(value) {
+    const s = Number(value).toFixed(2);
+    if (!c2On()) return `${s} kr`;
+    const [kr, ore] = s.split('.');
+    return `<span class="c2-kr">${kr}</span><span class="c2-hide">.</span><sup class="c2-ore">${ore}</sup><span class="c2-hide"> kr</span>`;
+}
+
+function c2Read(key) {
+    const v = safeJSONParse(key, []);
+    return Array.isArray(v) ? v : [];
+}
+
+function c2Write(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) { /* fuld eller spærret lagring: så huskes det bare ikke */ }
+}
+
+function c2RecordSearch(query) {
+    if (!c2On()) return;
+    const q = String(query || '').trim();
+    if (!q) return;
+    const rest = c2Read(C2_RECENT_SEARCHES_KEY)
+        .filter(s => typeof s === 'string' && s.toLowerCase() !== q.toLowerCase());
+    c2Write(C2_RECENT_SEARCHES_KEY, [q, ...rest].slice(0, C2_RECENT_SEARCHES_MAX));
+}
+
+/** Tæller hvor mange gange en vare er lagt i kurven (til "Køb igen"). */
+function c2RecordItem(item) {
+    if (!c2On() || !item || !item.id) return;
+    const list = c2Read(C2_RECENT_ITEMS_KEY);
+    const old = list.find(i => i && i.id === item.id);
+    const { quantity, ...copy } = item;
+    copy.timesAdded = (old && old.timesAdded > 0 ? old.timesAdded : 0) + 1;
+    const rest = list.filter(i => i && i.id !== item.id);
+    c2Write(C2_RECENT_ITEMS_KEY, [copy, ...rest].slice(0, C2_RECENT_ITEMS_MAX));
+}
+
+/** De varer man oftest har lagt i kurven; ved lige mange vinder den nyeste. */
+function c2BuyAgain(limit, skipIds) {
+    const skip = skipIds || new Set();
+    return c2Read(C2_RECENT_ITEMS_KEY)
+        .map((item, i) => ({ item, i }))
+        .filter(({ item }) => item && item.id && item.name && !skip.has(item.id))
+        .sort((a, b) => ((b.item.timesAdded || 1) - (a.item.timesAdded || 1)) || (a.i - b.i))
+        .slice(0, limit)
+        .map(({ item }) => item);
+}
+
+function c2AddRecent(id) {
+    const item = c2Read(C2_RECENT_ITEMS_KEY).find(i => i && i.id === id);
+    if (!item) return;
+    const existing = cart.find(i => i.id === id);
+    if (existing) {
+        existing.quantity += 1;
+    } else {
+        const { timesAdded, ...copy } = item;
+        cart.push({ ...copy, quantity: 1 });
+    }
+    saveCart();
+    c2RecordItem(cart.find(i => i.id === id));
+    queueCartEvent('add', String(id).replace(/^product/, ''), 1);
+    renderC2SearchPanel();
+}
+
+function c2StoreLogo(label) {
+    const entry = ALL_STORES.find(s => s.label === label);
+    if (entry && entry.logo) {
+        return `<span class="c2-logo"><img src="${escapeHtml(entry.logo)}" alt="" onerror="this.parentNode.textContent='${escapeHtml(String(label || '?').charAt(0))}'"></span>`;
+    }
+    return `<span class="c2-logo">${escapeHtml(String(label || '?').charAt(0))}</span>`;
+}
+
+function c2ItemRow(item, subtitle) {
+    const id = escapeHtml(JSON.stringify(item.id));
+    return `<div class="c2-row">
+        <img class="c2-row-img" src="${escapeHtml(item.image || '')}" alt="" loading="lazy">
+        <div class="c2-row-main">
+            <div class="c2-row-name">${escapeHtml(cartItemTitle(item))}</div>
+            <div class="c2-row-sub">${item.store ? c2StoreLogo(item.store) : ''}<span>${escapeHtml(subtitle)}</span></div>
+        </div>
+        <div class="c2-row-price">${isNaN(Number(item.price)) ? '' : c2Kr(item.price)}</div>
+        <button type="button" class="c2-plus" onclick='c2AddRecent(${id})' aria-label="Læg ${escapeHtml(cartItemTitle(item))} i kurven">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+    </div>`;
+}
+
+function c2TimesLabel(item) {
+    const n = item.timesAdded > 0 ? item.timesAdded : 1;
+    return n === 1 ? 'Købt 1 gang' : `Købt ${n} gange`;
+}
+
+// Søgefeltet: seneste søgninger og "Køb igen", når feltet er tomt.
+function renderC2SearchPanel() {
+    const panel = document.getElementById('c2-search-panel');
+    const input = document.getElementById('searchInput');
+    if (!panel || !input) return;
+    const open = document.activeElement === input && !input.value.trim();
+    const searches = c2Read(C2_RECENT_SEARCHES_KEY).filter(s => typeof s === 'string');
+    const items = c2BuyAgain(C2_BUY_AGAIN_MAX);
+    if (!open || (!searches.length && !items.length)) {
+        panel.hidden = true;
+        return;
+    }
+    let html = '';
+    if (searches.length) {
+        html += `<div class="c2-sp-title">Seneste søgninger</div><div class="c2-chips">`
+            + searches.map(s => `<button type="button" class="c2-chip" data-q="${escapeHtml(s)}">`
+                + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`
+                + `${escapeHtml(s)}</button>`).join('')
+            + `</div>`;
+    }
+    if (items.length) {
+        html += `<div class="c2-sp-head"><span class="c2-sp-big">Køb igen</span><span>Det du plejer at købe</span></div>`
+            + `<div class="c2-list">${items.map(i => c2ItemRow(i, c2TimesLabel(i))).join('')}</div>`;
+    }
+    panel.innerHTML = html;
+    panel.hidden = false;
+}
+
+function c2FocusSearch() {
+    const input = document.getElementById('searchInput');
+    if (!input) return;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    input.focus();
+    renderC2SearchPanel();
+}
+
+/**
+ * Den bedste kurv fordelt på to butikker: vinderen plus én butik, hvor kun
+ * vinderens egne varer flyttes, når den anden butik er billigere. Samme regel
+ * som appens bestTwoStoreSplit (cart/sco.ts), mindst 1 kr i besparelse.
+ */
+function c2BestTwoStoreSplit(winner, candidates, minSaving = 1) {
+    const line = (item, label) => {
+        const p = item.storePrices ? item.storePrices[label] : null;
+        if (p == null || isNaN(p)) return null;
+        const deal = item.storeMultiDeals ? item.storeMultiDeals[label] : '';
+        return applyDealPrice(Number(p), item.quantity, deal);
+    };
+    const winnerLines = cart.map(item => ({ item, total: line(item, winner) })).filter(l => l.total != null);
+    if (!winnerLines.length) return null;
+    const winnerTotal = winnerLines.reduce((s, l) => s + l.total, 0);
+    let best = null;
+    for (const other of candidates) {
+        if (other === winner) continue;
+        let total = 0;
+        let moved = 0;
+        for (const l of winnerLines) {
+            const o = line(l.item, other);
+            if (o != null && o < l.total - 0.005) { total += o; moved++; } else { total += l.total; }
+        }
+        const saving = winnerTotal - total;
+        if (!moved || saving < minSaving) continue;
+        if (!best || saving > best.saving) best = { other, total, saving, moved };
+    }
+    return best;
+}
+
+// Kurven: vinderkort, "Handl i 2 butikker" og "Glemt noget?".
+function renderC2Cart(sorted, covered) {
+    if (!c2On()) return;
+    // Vinderkortet øverst og "Glemt noget?" nederst inde i den rulbare liste,
+    // som updateCartDisplay() netop har fyldt.
+    const list = document.querySelector('.cart-items');
+    const sub = document.getElementById('c2-cart-sub');
+    const count = cart.reduce((s, i) => s + (parseInt(i.quantity) || 0), 0);
+    if (sub) {
+        sub.textContent = count
+            ? `${count} ${count === 1 ? 'vare' : 'varer'}${sorted.length ? ` · sammenlignet i ${sorted.length} butikker` : ''}`
+            : '';
+    }
+    if (!list || !cart.length) return;
+    list.querySelectorAll('.c2-cart-top, .c2-cart-forgot').forEach(el => el.remove());
+    const top = document.createElement('div');
+    top.className = 'c2-cart-top';
+    const forgot = document.createElement('div');
+    forgot.className = 'c2-cart-forgot';
+
+    // Butikker med hele kurven først, så den billigste af dem vinder.
+    const missing = name => cart.length - (covered[name] || 0);
+    const ranked = [...sorted].sort((a, b) => (missing(a[0]) - missing(b[0])) || (a[1] - b[1]));
+    if (ranked.length) {
+        const [winner, winnerTotal] = ranked[0];
+        const full = ranked.filter(([n]) => missing(n) === 0);
+        const saving = full.length >= 2 ? full[full.length - 1][1] - winnerTotal : 0;
+        const rows = ranked.slice(1, 3).map(([name, total]) => {
+            const m = missing(name);
+            const extra = m > 0 ? `mangler ${m}` : `+${(total - winnerTotal).toFixed(2).replace('.', ',')}`;
+            return `<div class="c2-winner-row">${c2StoreLogo(name)}<span class="c2-wr-name">${escapeHtml(name)}</span>`
+                + `<span class="c2-wr-total">${c2Kr(total)}</span><span class="c2-wr-extra">${extra}</span></div>`;
+        }).join('');
+        let html = `<button type="button" class="c2-winner" onclick="showReference()" aria-label="Sammenlign butikkerne">
+            <div class="c2-winner-head">${c2StoreLogo(winner)}
+                <div class="c2-winner-text"><div class="c2-winner-label">Billigst i ${escapeHtml(winner)}</div>
+                <div class="c2-winner-total">${c2Kr(winnerTotal)}</div></div>
+                ${saving > 0.005 ? `<span class="c2-spar">Spar ${saving.toFixed(2).replace('.', ',')}</span>` : ''}
+            </div>
+            ${rows ? `<div class="c2-winner-rest">${rows}</div>` : ''}
+        </button>`;
+        if (missing(winner) === 0) {
+            const split = c2BestTwoStoreSplit(winner, ranked.map(([n]) => n));
+            if (split) {
+                html += `<div class="c2-split">
+                    <span class="c2-split-logos">${c2StoreLogo(winner)}${c2StoreLogo(split.other)}</span>
+                    <div class="c2-split-text"><strong>Handl i 2 butikker: ${c2Kr(split.total)}</strong>
+                    <span>Spar ${c2Kr(split.saving)} mere end kun ${escapeHtml(winner)}</span></div>
+                    <button type="button" class="c2-split-btn" onclick="showReference()">Vis</button>
+                </div>`;
+            }
+        }
+        top.innerHTML = html;
+        list.prepend(top);
+    }
+    const items = c2BuyAgain(3, new Set(cart.map(i => i.id)));
+    if (items.length) {
+        forgot.innerHTML = `<div class="c2-sp-head"><span class="c2-sp-big">Glemt noget? Du plejer at købe</span></div>`
+            + `<div class="c2-list">${items.map(i => c2ItemRow(i, c2TimesLabel(i))).join('')}</div>`;
+        list.appendChild(forgot);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (!c2On()) return;
+    // "Ny i dag" på den dag avisen starter (som appens OfferStoresSection).
+    const today = new Date().getDay();
+    document.querySelectorAll('.c2-avis .offer-store[data-start-day]').forEach(a => {
+        if (Number(a.dataset.startDay) !== today) return;
+        a.classList.add('is-new');
+        const day = a.querySelector('.c2-avis-day');
+        if (day) day.textContent = 'Ny i dag';
+    });
+
+    const input = document.getElementById('searchInput');
+    const panel = document.getElementById('c2-search-panel');
+    if (!input || !panel) return;
+    input.addEventListener('focus', renderC2SearchPanel);
+    input.addEventListener('input', renderC2SearchPanel);
+    input.addEventListener('blur', () => setTimeout(renderC2SearchPanel, 150));
+    // Tryk i panelet må ikke tage fokus fra feltet, ellers lukker det, før
+    // klikket når frem.
+    panel.addEventListener('pointerdown', e => e.preventDefault());
+    panel.addEventListener('click', e => {
+        const chip = e.target.closest('.c2-chip');
+        if (!chip) return;
+        input.value = chip.dataset.q || '';
+        panel.hidden = true;
+        performSearch();
+        input.blur();
+    });
+});

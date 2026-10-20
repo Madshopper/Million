@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: 'Opskrift-URL til admin-import (tom = kør moderation af ventende bruger-opskrifter)'
+        description: 'Opskrift-URL til admin-import (tom = moderation af bruger-opskrifter + egne opskrifter)'
         type: string
         default: ''
       kun_priser:
@@ -68,6 +68,9 @@ jobs:
             python recipe_importer.py "$RECIPE_URL"
           else
             python recipe_importer.py moderate
+            # MadShoppers egne opskrifter (data/egne_opskrifter.json): nye
+            # oprettes, uændrede springes over.
+            python recipe_importer.py egne
           fi
 
       # Opskrifternes priser efter nattens nye butikspriser (se

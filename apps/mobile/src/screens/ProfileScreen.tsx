@@ -1,15 +1,17 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../theme/Typography';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../auth/AuthContext';
+import { useLokationEnabled } from '../location/nearby';
+import { shouldAskAfterSignup } from '../location/storage';
 import { memberInitial, useSharedCart } from '../cart/SharedCartContext';
 import { useTheme } from '../theme/ThemeContext';
 import { env } from '../config/env';
 import { PriceAlertsSection } from '../components/PriceAlertsSection';
 import type { RootStackParamList } from '../navigation/types';
-import { useSupport } from '../subscription/subscription';
 
 /**
  * Profil-fanen (erstattede fanen "Indstillinger" 02-10-2026).
@@ -25,7 +27,6 @@ export function ProfileScreen() {
   const { user, displayName, logout, saveDisplayName } = useAuth();
   const { active, title, members, maxMembers, inviteUrl, createShared, leaveShared } = useSharedCart();
   const [sharing, setSharing] = React.useState(false);
-  const support = useSupport();
 
   // Samme standardnavn som kurvens "Del kurv" (CartScreen), så man kan starte
   // en fælles kurv direkte herfra uden at lede efter "···"-menuen.
@@ -51,6 +52,15 @@ export function ProfileScreen() {
   const [nameSaving, setNameSaving] = React.useState(false);
   const [nameMsg, setNameMsg] = React.useState<{ text: string; error: boolean } | null>(null);
   React.useEffect(() => setNameInput(displayName), [displayName]);
+
+  // Ny profil: spørg én gang hvor man handler (Feature-panelet 'lokation').
+  const lokation = useLokationEnabled();
+  React.useEffect(() => {
+    if (!lokation || !user) return;
+    void shouldAskAfterSignup(user.id, user.created_at).then((ask) => {
+      if (ask) navigation.navigate('Nearby', { welcome: true });
+    });
+  }, [lokation, user, navigation]);
 
   const onSaveName = React.useCallback(async () => {
     const trimmed = nameInput.trim();
@@ -89,9 +99,6 @@ export function ProfileScreen() {
             }
           >
             <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>{shownName}</Text>
-            {support.enabled && support.active ? (
-              <Text style={{ color: colors.primaryDark, fontSize: 12, fontWeight: '700' }}>Støtter</Text>
-            ) : null}
             <Text style={{ color: colors.textMuted, fontSize: 12 }}>{user.email}</Text>
           </View>
           <Pressable onPress={() => void logout()} hitSlop={8} accessibilityRole="button">
@@ -243,32 +250,16 @@ export function ProfileScreen() {
 
       <PriceAlertsSection />
 
-      {/* "Støt MadShopper" (Feature-panelet 'subscription'): kun når den er
-          udgivet, og kun på iPhone, hvor den kan købes. */}
-      {support.enabled && support.available ? (
-        <Pressable
-          onPress={() => navigation.navigate('Support')}
-          style={[styles.row, card, { marginTop: 20 }]}
-          accessibilityRole="button"
-          accessibilityLabel="Støt MadShopper"
-          accessibilityHint={support.active ? 'Du støtter allerede. Tak' : 'Månedligt bidrag via App Store'}
-        >
-          <Ionicons name="heart-outline" size={20} color={colors.primary} style={{ marginRight: 12 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.text, fontWeight: '600' }}>Støt MadShopper</Text>
-            <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-              {support.active ? 'Du støtter allerede. Tak' : 'Hjælp med at holde appen gratis'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-        </Pressable>
-      ) : null}
-
       <Text style={[styles.h, { color: colors.text }]} accessibilityRole="header">
         Indstillinger og hjælp
       </Text>
       {(
         [
+          // Feature-panelet 'lokation': placering eller postnummer, også for
+          // dem der ikke gav telefonen lov.
+          ...(lokation
+            ? ([['Butikker nær mig', 'Din placering eller dit postnummer', 'location-outline', () => navigation.navigate('Nearby', {})]] as const)
+            : []),
           ['Indstillinger', 'Udseende, butikker og slet konto', 'settings-outline', () => navigation.navigate('Settings')],
           ['Feedback', 'Ris, ros eller en fejl? Skriv til os', 'chatbubble-ellipses-outline', () => navigation.navigate('Feedback')],
         ] as const

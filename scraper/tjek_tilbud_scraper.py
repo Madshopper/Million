@@ -272,7 +272,7 @@ def assert_catalogs_healthy(butik: str, n_catalogs: int, tomme: list[str]) -> No
     """Sundhedskontrol for en tilbudsavis-scraping. Raiser ved ægte fejl.
 
     Ligger her, men kaldes også af de scrapere der har deres EGEN kopi af
-    catalog-løkken (webscrape_netto/lidl/365discount/foetex), så reglen kun
+    catalog-løkken (webscrape_365discount), så reglen kun
     findes ét sted. Se fetch_tjek_tilbud for hvorfor totalantallet ikke duer
     som sundhedsmål.
     """

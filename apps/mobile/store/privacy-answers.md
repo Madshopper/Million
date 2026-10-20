@@ -29,8 +29,9 @@ bruges kun til at vise din egen besparelse.
 
 **Databehandlere bag kulissen (compliance-audit 19-08-2026, opdateret
 02-10-2026):** feedback-tekst (inkl. evt. navn/e-mail) gemmes i Supabase
-(`public.feedback`, kun læsbar i admin-panelet), og prisalarm-mails sendes
-via Resend (`updater.py::_send_price_alert_email`). Begge er databehandlere,
+(`public.feedback`, kun læsbar i admin-panelet), og login-mails (bekræft
+konto, nulstil adgangskode) sendes via Resend. Prisalarmer kommer siden
+04-10-2026 kun som besked på telefonen, aldrig som mail. Begge er databehandlere,
 der udelukkende behandler data for at levere selve app-funktionen
 (feedback-håndtering, mail-afsendelse) - ingen af dem bruger
 data til egne formål. Det er relevant for korrekt udfyldelse nedenfor.

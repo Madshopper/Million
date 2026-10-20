@@ -52,6 +52,8 @@ Mobilbrugere skal kunne få notifikationer på deres telefon og ikke mails.
 
 
 Kontekst: Opskrift-import og -matching system (inspireret af goma.gg)
+
+**Egne opskrifter (07-10-2026):** flere opskrifter kommer fra `data/egne_opskrifter.json` - 30 kendte retter skrevet fra bunden af MadShopper, så vi må vise hele fremgangsmåden. Ingen tekst eller billeder fra andre sider (kortene viser bestik-ikonet `static/images/opskrift-standard.svg`). Importen fra andre sider (JSON-LD) holdes lille og tager kun fakta (ingredienser, tid, portioner) - masse-import fra én kilde kan ramme deres databaseret. Nye egne opskrifter: tilføj i filen, skriv ingredienserne så de rammer varerne (prøv `python recipe_importer.py egne --dry-run`), og kør `recipe-import.yml` manuelt.
 Jeg vil bygge en funktion der kan importere opskrifter fra danske madblogs og hjemmesider, og matche ingredienserne mod min egen produktdatabase (ligesom CartSpotter/Madshopper allerede matcher dagligvarer på tværs af butikker).
 Systemet består af tre dele:
 1. Scraping/import-pipeline

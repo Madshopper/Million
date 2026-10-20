@@ -3,12 +3,13 @@ import {
   AccessibilityInfo,
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Text, TextInput } from '../theme/Typography';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { fetchAutocomplete, fetchHome, fetchSearch } from '../api/listing';
@@ -22,6 +23,9 @@ import { Pager } from '../components/Pager';
 import { spokenKr } from '../a11y/speech';
 import { setServerStatsEnabled, trackSearch } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
+import { BuyAgainCard } from '../components/BuyAgain';
+import { useBuyAgain } from '../cart/recentItems';
+import { rememberSearch, useRecentSearches } from '../search/recentSearches';
 
 /**
  * Stabil reference til "ingen filtre valgt".
@@ -79,6 +83,11 @@ export function SearchScreen() {
   // Sidst talte søgeord til varestatistikken: et sideskift eller filterskift
   // på samme søgning må ikke tælle som en ny søgning (samme regel som webben).
   const countedQueryRef = useRef('');
+  const [focused, setFocused] = useState(false);
+  // C2: "Seneste søgninger" og "Køb igen" (de 5 varer man oftest har lagt i
+  // kurven), begge kun gemt på telefonen.
+  const recentSearches = useRecentSearches();
+  const buyAgain = useBuyAgain(5);
 
   function cancelAutocomplete() {
     if (acTimeoutRef.current) {
@@ -180,6 +189,68 @@ export function SearchScreen() {
   }, [ready, queryLabels, catalog]);
 
   const showStarter = q.trim().length === 0 && !!starter?.products.length;
+  const isEmptyQuery = q.trim().length === 0;
+  const hasPersonal = recentSearches.length > 0 || buyAgain.length > 0;
+
+  const searchFor = (term: string) => {
+    rememberSearch(term);
+    setQ(term);
+  };
+
+  const cancel = () => {
+    setQ('');
+    Keyboard.dismiss();
+    navigation.navigate('Tabs', { screen: 'Home' });
+  };
+
+  const emptyHeader = isEmptyQuery ? (
+    <View>
+      {recentSearches.length ? (
+        <>
+          <Text style={[styles.recentTitle, { color: colors.textMuted }]} accessibilityRole="header">
+            Seneste søgninger
+          </Text>
+          <View style={styles.recentWrap}>
+            {recentSearches.map((term) => (
+              <Pressable
+                key={term}
+                onPress={() => searchFor(term)}
+                accessibilityRole="button"
+                accessibilityLabel={`Søg efter ${term} igen`}
+                style={({ pressed }) => [
+                  styles.recentPill,
+                  { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Ionicons name="time-outline" size={14} color={colors.textMuted} />
+                <Text style={[styles.recentText, { color: colors.text }]} numberOfLines={1}>
+                  {term}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </>
+      ) : null}
+      {buyAgain.length ? (
+        <>
+          <View style={styles.buyAgainHead}>
+            <Text style={[styles.buyAgainTitle, { color: colors.text }]} accessibilityRole="header">
+              Køb igen
+            </Text>
+            <Text style={[styles.buyAgainSub, { color: colors.textMuted }]}>Det du plejer at købe</Text>
+          </View>
+          <View style={styles.buyAgainCard}>
+            <BuyAgainCard items={buyAgain} />
+          </View>
+        </>
+      ) : null}
+      {showStarter ? (
+        <Text style={[styles.starterTitle, { color: colors.text }]} accessibilityRole="header">
+          {starter!.title}
+        </Text>
+      ) : null}
+    </View>
+  ) : null;
 
   const load = useCallback(async () => {
     if (!committedQuery) return;
@@ -232,23 +303,47 @@ export function SearchScreen() {
 
   return (
     <TabScreenBody style={{ backgroundColor: colors.bg }}>
-      <TextInput
-        value={q}
-        onChangeText={setQ}
-        placeholder="Søg produkter…"
-        placeholderTextColor={colors.textMuted}
-        autoFocus
-        accessibilityLabel="Søg efter varer"
-        returnKeyType="search"
-        style={[
-          styles.input,
-          { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border },
-        ]}
-      />
+      <View style={styles.inputRow}>
+        <View
+          style={[
+            styles.inputWrap,
+            {
+              backgroundColor: colors.surface,
+              borderColor: focused ? colors.primary : colors.border,
+            },
+          ]}
+        >
+          <Ionicons name="search" size={18} color={colors.textMuted} />
+          <TextInput
+            value={q}
+            onChangeText={setQ}
+            placeholder={`Søg i ${catalog.length || 14} butikker`}
+            placeholderTextColor={colors.textMuted}
+            autoFocus
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onSubmitEditing={() => {
+              if (q.trim()) rememberSearch(q);
+            }}
+            accessibilityLabel="Søg efter varer"
+            returnKeyType="search"
+            style={[styles.input, { color: colors.text }]}
+          />
+        </View>
+        <Pressable
+          onPress={cancel}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Annullér søgning"
+          style={styles.cancel}
+        >
+          <Text style={[styles.cancelText, { color: colors.primaryDark }]}>Annullér</Text>
+        </Pressable>
+      </View>
       {q.trim().length >= 2 && suggestions.length > 0 && !products.length ? (
         <View style={{ paddingHorizontal: 12 }} accessibilityLabel="Forslag">
           <Pressable
-            onPress={() => setQ(querySuggestion || q.trim())}
+            onPress={() => searchFor(querySuggestion || q.trim())}
             accessibilityRole="button"
           >
             <Text style={{ color: colors.primary, paddingVertical: 8 }}>
@@ -258,7 +353,7 @@ export function SearchScreen() {
           {suggestions.map((s) => (
             <Pressable
               key={s.name}
-              onPress={() => setQ(s.name)}
+              onPress={() => searchFor(s.name)}
               style={styles.sug}
               accessibilityRole="button"
               accessibilityLabel={`${s.name}, ${spokenKr(s.price)}`}
@@ -318,17 +413,15 @@ export function SearchScreen() {
           // forslagene. Et træk i listen lukker det, så varerne kan ses.
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator
-          ListHeaderComponent={
-            showStarter ? (
-              <Text style={[styles.starterTitle, { color: colors.text }]} accessibilityRole="header">
-                {starter!.title}
-              </Text>
-            ) : null
-          }
+          ListHeaderComponent={emptyHeader}
           renderItem={({ item }) => (
             <ProductCard
               product={item}
-              onPress={(p) => navigation.navigate('ProductDetail', { product: p })}
+              onPress={(p) => {
+                // At åbne en vare fra resultaterne tæller som en rigtig søgning.
+                if (committedQuery) rememberSearch(committedQuery);
+                navigation.navigate('ProductDetail', { product: p });
+              }}
             />
           )}
           ListEmptyComponent={
@@ -340,7 +433,7 @@ export function SearchScreen() {
             // "Indtast søgeord", aldrig "Ingen resultater fundet".
             !loading ? (
               q.trim().length === 0 ? (
-                <View style={{ padding: 32, alignItems: 'center', gap: 6 }}>
+                hasPersonal ? null : <View style={{ padding: 32, alignItems: 'center', gap: 6 }}>
                   <Text style={{ color: colors.text, fontWeight: '600', textAlign: 'center' }}>
                     Søg efter produkter
                   </Text>
@@ -372,14 +465,51 @@ export function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  input: {
-    margin: 12,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
+  inputWrap: {
+    flex: 1,
+    height: 48,
+    borderRadius: 999,
+    borderWidth: 2,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  input: { flex: 1, fontSize: 16, paddingVertical: 0, height: '100%' },
+  cancel: { minHeight: 44, justifyContent: 'center' },
+  cancelText: { fontSize: 15, fontWeight: '600' },
+  recentTitle: { fontSize: 13, fontWeight: '700', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 },
+  recentWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12 },
+  recentPill: {
+    height: 36,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    maxWidth: '100%',
+  },
+  recentText: { fontSize: 14, fontWeight: '500', flexShrink: 1 },
+  buyAgainHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingTop: 22,
+    paddingBottom: 10,
+  },
+  buyAgainTitle: { fontSize: 17, fontWeight: '800' },
+  buyAgainSub: { fontSize: 13 },
+  buyAgainCard: { paddingHorizontal: 12 },
   sug: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -388,7 +518,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ccc',
   },
   meta: { paddingHorizontal: 16, marginBottom: 4 },
-  starterTitle: { fontSize: 17, fontWeight: '700', paddingHorizontal: 8, paddingTop: 4, paddingBottom: 8 },
+  starterTitle: { fontSize: 17, fontWeight: '800', paddingHorizontal: 12, paddingTop: 22, paddingBottom: 4 },
   pager: {
     flexDirection: 'row',
     justifyContent: 'space-between',

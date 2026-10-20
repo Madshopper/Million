@@ -338,6 +338,70 @@ export function compareSavingsRange(
   return best;
 }
 
+/**
+ * Hvor meget dyrere `other` er end vinderen, regnet KUN på de varer begge har
+ * (kurvens vinderkort, version C: "Spar 8,55" og "+8,55"). `shared` er antal
+ * fælles varer; 0 betyder at tallet ikke siger noget.
+ */
+export function extraCostVs(
+  winner: string,
+  other: string,
+  matchedItemsPerStore: Record<string, ScoMatchedItem[]>,
+): { diff: number; shared: number } {
+  const winnerLines = new Map<string, number>();
+  for (const m of matchedItemsPerStore[winner] || []) winnerLines.set(m.cart_id, m.lineTotal);
+  let diff = 0;
+  let shared = 0;
+  for (const m of matchedItemsPerStore[other] || []) {
+    const w = winnerLines.get(m.cart_id);
+    if (w == null) continue;
+    diff += m.lineTotal - w;
+    shared++;
+  }
+  return { diff: round2(diff), shared };
+}
+
+/**
+ * "Handl i 2 butikker" i kurven (C2, 19-10-2026): vinderbutikken plus den
+ * butik, der gør vinderens varer billigst, når hver vare købes der, hvor den er
+ * billigst af de to. Regnes kun på de varer vinderen har, så totalen kan
+ * sammenlignes direkte med vinderkortet. null når det ikke sparer mindst
+ * `minSaving` kr, eller den anden butik ikke får nogen varer.
+ */
+export function bestTwoStoreSplit(
+  winner: string,
+  candidates: string[],
+  matchedItemsPerStore: Record<string, ScoMatchedItem[]>,
+  minSaving = 1,
+): { other: string; total: number; saving: number; otherItems: number } | null {
+  const winnerLines = matchedItemsPerStore[winner] || [];
+  if (!winnerLines.length) return null;
+  const winnerTotal = winnerLines.reduce((sum, m) => sum + m.lineTotal, 0);
+  let best: { other: string; total: number; saving: number; otherItems: number } | null = null;
+  for (const other of candidates) {
+    if (other === winner) continue;
+    const otherLines = new Map<string, number>();
+    for (const m of matchedItemsPerStore[other] || []) otherLines.set(m.cart_id, m.lineTotal);
+    let total = 0;
+    let otherItems = 0;
+    for (const m of winnerLines) {
+      const o = otherLines.get(m.cart_id);
+      if (o != null && o < m.lineTotal - 0.005) {
+        total += o;
+        otherItems++;
+      } else {
+        total += m.lineTotal;
+      }
+    }
+    const saving = winnerTotal - total;
+    if (!otherItems || saving < minSaving) continue;
+    if (!best || saving > best.saving) {
+      best = { other, total: round2(total), saving: round2(saving), otherItems };
+    }
+  }
+  return best;
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }

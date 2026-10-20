@@ -1,6 +1,11 @@
 import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../theme/Typography';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
+import { useLokationEnabled } from '../location/nearby';
+import type { RootStackParamList } from '../navigation/types';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -15,6 +20,8 @@ export function SettingsScreen() {
   const { catalog, selectedLabels, toggleStore, selectAll } = useStoreCatalog();
   const { user, deleteAccount } = useAuth();
   const [deleting, setDeleting] = React.useState(false);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const lokation = useLokationEnabled();
 
   // Apple Guideline 5.1.1(v): sletning skal kunne startes inde i appen.
   const confirmDelete = React.useCallback(() => {
@@ -91,6 +98,17 @@ export function SettingsScreen() {
       >
         <Text style={{ color: colors.primary }}>Vælg alle</Text>
       </Pressable>
+      {lokation ? (
+        // Feature-panelet 'lokation': slår kæderne tæt på til.
+        <Pressable
+          onPress={() => navigation.navigate('Nearby')}
+          style={{ marginBottom: 8, alignSelf: 'flex-start' }}
+          hitSlop={8}
+          accessibilityRole="button"
+        >
+          <Text style={{ color: colors.primary }}>Vælg butikker nær mig</Text>
+        </Pressable>
+      ) : null}
       {catalog.map((s) => (
         <View
           key={s.key}

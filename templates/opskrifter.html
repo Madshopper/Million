@@ -7,6 +7,24 @@
   <div class="container-category">
     <h1 class="category-title">Opskrifter</h1>
 
+    {% if recipe_access %}
+    {# Madplan: spørgsmål første gang + planen (static/js/madplan.js) #}
+    <div id="madplanRoot" class="mp-root"></div>
+    {% else %}
+    {# Betaling for opskrifter (app.py::_recipe_access_ok). Listen er åben,
+       opskriften selv og madplanen kræver abonnement. #}
+    <section class="recipe-section recipe-paywall" data-session-retry>
+      <h2>Opskrifterne kræver et abonnement</h2>
+      <p>Se alle opskrifterne herunder. For at åbne dem og få din egen madplan skal du have et abonnement på opskrifterne. Det købes i MadShopper-appen på iPhone. Har du det allerede, så log ind med samme konto.</p>
+      <div class="recipe-paywall-actions">
+        <button type="button" class="recipe-add-all-btn" onclick="openAuthModal()">Log ind</button>
+        <a class="recipe-paywall-link" href="https://apps.apple.com/app/id6812713857" target="_blank" rel="noopener">Hent appen</a>
+      </div>
+    </section>
+    {% endif %}
+
+    <div id="recipesListSection">
+    <h2 class="mp-list-title">Alle opskrifter</h2>
     <div class="recipe-search-bar">
       <span class="recipe-search-icon">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
@@ -20,9 +38,11 @@
 
     <div class="products" id="recipesGrid"></div>
     <p id="recipesEmptyState" class="recipes-empty-state" style="display:none;">Ingen opskrifter matcher din søgning.</p>
+    </div>
   </div>
 </div>
 
+{% if recipe_access %}<script src="{{ url_for('static', filename='js/madplan.js') }}"></script>{% endif %}
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const grid = document.getElementById('recipesGrid');
@@ -44,6 +64,9 @@
         .replace(/'/g, '&#39;');
     }
 
+    // Egne opskrifter (data/egne_opskrifter.json) har intet foto.
+    const RECIPE_PLACEHOLDER_IMG = {{ url_for('static', filename='images/opskrift-standard.svg') | tojson }};
+
     function renderRecipeCard(r) {
       const saleBadge = r.sale_ratio > 0
         ? '<span class="sale-badge">' + Math.floor(r.sale_ratio * 100) + '% på tilbud</span>'
@@ -56,7 +79,7 @@
         : '';
       return '<a href="/opskrift/' + r.id + '" class="recipe-card" id="recipe' + r.id + '">' +
         '<div class="product-image-container">' + saleBadge +
-        '<img src="' + escapeHtml(r.image_url || '') + '" alt="' + escapeHtml(r.title) + '" class="product-image" loading="lazy"></div>' +
+        '<img src="' + escapeHtml(r.image_url || RECIPE_PLACEHOLDER_IMG) + '" alt="' + escapeHtml(r.title) + '" class="product-image" loading="lazy"></div>' +
         '<div class="product-content"><h3>' + escapeHtml(r.title) + '</h3>' + matchHtml + '</div>' +
         '<div class="product-footer"><div class="product-price">' + priceHtml + '</div></div></a>';
     }
@@ -91,6 +114,7 @@
         .then(function (data) {
           allRecipes = (data && data.recipes) || [];
           render(allRecipes);
+          startMadplan();
         })
         .catch(function () {
           if (attemptsLeft > 0) {
@@ -102,6 +126,17 @@
           emptyState.textContent = 'Kunne ikke hente opskrifter lige nu. Prøv at genindlæse siden.';
           emptyState.style.display = 'block';
         });
+    }
+
+    // Første gang: spørgsmålene fylder siden, og listen kommer frem, når
+    // planen er lavet. Bagefter står planen øverst over listen.
+    const listSection = document.getElementById('recipesListSection');
+    function startMadplan() {
+      if (!window.MadPlan || !allRecipes.length || !document.getElementById('madplanRoot')) return;
+      const hasPlan = window.MadPlan.init(document.getElementById('madplanRoot'), allRecipes, {
+        onPlan: function () { listSection.style.display = ''; }
+      });
+      if (!hasPlan) listSection.style.display = 'none';
     }
 
     loadRecipes(1);

@@ -3,7 +3,13 @@
  * Kør: node --experimental-strip-types src/cart/sco.test.ts
  */
 import { applyDealPrice } from './multiDeal.ts';
-import { calculateStoreComparisons, compareSavingsRange, sortScoStores } from './sco.ts';
+import {
+  bestTwoStoreSplit,
+  calculateStoreComparisons,
+  compareSavingsRange,
+  extraCostVs,
+  sortScoStores,
+} from './sco.ts';
 import type { CartItem } from './types.ts';
 import type { StoreInfo } from '../api/types.ts';
 
@@ -142,5 +148,27 @@ assert(
   `delvis kurv skal give 20/22, fik ${JSON.stringify(partialRange)}`,
 );
 assert(compareSavingsRange(partialSorted.slice(0, 1), partial.matchedItemsPerStore) === null, 'én butik: ingen besparelse');
+
+// Vinderkortet: merpris kun på fælles varer (Rema har ingen Bilka-Ost osv.).
+const vsRema = extraCostVs('Bilka', 'Rema 1000', result.matchedItemsPerStore);
+assert(vsRema.diff === 7 && vsRema.shared === 2, `Rema 7 kr dyrere end Bilka, fik ${JSON.stringify(vsRema)}`);
+const vsSelf = extraCostVs('Rema 1000', 'Netto', partial.matchedItemsPerStore);
+assert(vsSelf.diff === 2 && vsSelf.shared === 1, `Netto 2 kr dyrere på mælken, fik ${JSON.stringify(vsSelf)}`);
+assert(extraCostVs('Bilka', 'Ukendt', result.matchedItemsPerStore).shared === 0, 'ukendt butik: ingen fælles varer');
+
+// "Handl i 2 butikker": kun vinderens varer, hver købt hvor den er billigst af de to.
+const line = (cart_id: string, lineTotal: number) => ({ cart_id, name: cart_id, image: '', price: lineTotal, quantity: 1, lineTotal });
+const perStore = {
+  Netto: [line('a', 10), line('b', 20), line('c', 30)],
+  'Rema 1000': [line('a', 12), line('b', 12)],
+  Bilka: [line('c', 29.5), line('d', 5)],
+};
+const split = bestTwoStoreSplit('Netto', ['Netto', 'Rema 1000', 'Bilka'], perStore);
+assert(
+  split !== null && split.other === 'Rema 1000' && split.total === 52 && split.saving === 8 && split.otherItems === 1,
+  `Netto + Rema: 52 kr, spar 8, fik ${JSON.stringify(split)}`,
+);
+assert(bestTwoStoreSplit('Netto', ['Bilka'], perStore) === null, 'spar under 1 kr: intet kort');
+assert(bestTwoStoreSplit('Netto', ['Netto'], perStore) === null, 'ingen anden butik: intet kort');
 
 console.log('sco tests OK');

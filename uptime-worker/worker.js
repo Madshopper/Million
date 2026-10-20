@@ -17,11 +17,25 @@
 // svar tæller ikke mod CPU-grænsen på 10 ms.
 //
 // Alarm: én mail via Resend (samme konto og afsender som prisalarmerne) når et
-// tjek går fra OK til fejl, og én når det er OK igen. Tilstanden ligger i KV
-// og skrives KUN ved et skift, så normal drift koster 0 KV-skrivninger
+// tjek har fejlet 3 gange i træk, og én når det har været OK 2 gange i træk
+// (se FAIL_RUNS). Tilstanden ligger i KV og skrives kun når en tæller
+// flytter sig, så normal drift koster 0 KV-skrivninger
 // (kontoens gratis loft er 1.000 i døgnet, delt med nattens seed).
 
 const STATE_KEY = "uptime_state_v1";
+// Et tjek skal fejle i FAIL_RUNS kørsler i træk (15 min), før der går en
+// NEDE-mail, og være OK i OK_RUNS kørsler i træk (10 min), før der går en
+// OK-mail. Ét enkelt hik giver ingen mail, og et reelt nedbrud giver præcis
+// to: én når det starter og én når det er ovre.
+const FAIL_RUNS = 3;
+const OK_RUNS = 2;
+// DUPLICATE: siden deployet 10-10-2026 11:27 UTC kører Cloudflare cron'en
+// */5 to gange pr. tick, 10-15 sekunder fra hinanden og ofte fra to
+// forskellige datacentre. Natten til 11-10-2026 var den ene kørsel i et
+// datacenter hvor siden svarede 500 (DTW) og den anden i et hvor alt var OK,
+// så tilstanden vippede ved hver kørsel og gav 32 mails på tre timer. Hver
+// kørsel gemmer derfor sit tick, og en anden kørsel i samme tick gør intet.
+const TICK_MS = 5 * 60 * 1000;
 const TIMEOUT_MS = 15000;
 // Et fejlende tjek prøves igen efter en pause, før det tæller som nede. Én
 // enkelt "travlt" (503 + X-MadShopper-Busy) eller et netværkshik må ikke give
@@ -85,8 +99,8 @@ const CHECKS = [
 // Frisk søgning: den eneste der går gennem render-vejen og D1 (de andre er
 // cache-hits), og dermed den der fangede søgefejlen i september. Den unikke
 // max_price gør url'en ny hver gang, så den aldrig rammer edge-cachen. Den
-// koster en D1-tabelscanning (~19k rows_read), så den kører hver 2. time:
-// 12 x 19k = ~230k af gratisplanens 5M rows_read i døgnet. Budgettet er
+// koster en D1-tabelscanning (~19k rows_read), så den kører hver 2. time
+// om dagen: 8 x 19k = ~150k af gratisplanens 5M rows_read i døgnet. Budgettet er
 // allerede stramt (målt 30-09-2026: 6,1M; 02-10-2026: 4,7M kl. 19 UTC), så
 // sæt ikke frekvensen op uden at måle først. Aldrig hvert 5. minut
 // (288 x 19k = 5,5M alene).
@@ -94,9 +108,20 @@ const SEARCH_CHECK = {
   name: "Frisk søgning (mælk)",
   url: "https://madshopper.dk/search/results?q=m%C3%A6lk",
   fresh: true,
+  // Kører kun hver 2. time, så to fejl i træk (to timer) er nok.
+  failRuns: 2,
+  okRuns: 1,
   expect: (body) => body.includes("MadShopper") && productCards(body, false),
 };
 const SEARCH_MINUTE = 40;
+// Kun om dagen (06:40-20:40 UTC, 8 gange i døgnet). Om natten er kun tjekkene
+// selv på siden i Nordamerika, og en frisk søgning (~100-800 ms CPU) oven i
+// timevis af cache-hits i samme isolate fik Cloudflare til at stoppe den med
+// 1102, hvorefter isolaten svarede 1101 på alt i timer: 08-10 og 09-10-2026
+// kl. 00:40 i ORD, og efter at 00:40 blev sprunget over, 11-10-2026 kl. 02:40
+// i DTW (Detroit) til 05:55. Ingen besøgende blev ramt, kun tjekkene. Om
+// dagen er der rigtig trafik, og søgningen er gået fint hver gang.
+const SEARCH_UTC_HOURS = { from: 6, to: 20 };
 
 async function runCheck(check) {
   const started = Date.now();
@@ -136,17 +161,24 @@ async function runCheck(check) {
   }
 }
 
+// Tjekkene køres ét ad gangen, aldrig samtidig. Ved et cache-skift (ny UTC-
+// dato i cache-nøglen ved midnat, eller et cache_version-bump) er alle fire
+// prod-sider kolde på én gang, og fire samtidige renders i samme isolate gav
+// 1102 (CPU) efterfulgt af en isolate der svarede 1101 på hvert eneste tjek:
+// målt 06-10-2026 02:20-08:10 UTC og 07-10-2026 00:05-00:50 UTC, begge gange
+// startet af præcis et uptime-tick i Chicago (ORD). Ventetid tæller ikke mod
+// workerens CPU, og cache-hits tager få ms, så det koster intet i drift.
 async function runAll(checks) {
   const results = new Map();
-  await Promise.all(checks.map(async (c) => results.set(c.name, await runCheck(c))));
+  for (const c of checks) results.set(c.name, await runCheck(c));
   const failing = checks.filter((c) => !results.get(c.name).ok);
   if (failing.length) {
     await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-    await Promise.all(failing.map(async (c) => {
+    for (const c of failing) {
       const first = results.get(c.name);
       const again = await runCheck(c);
       results.set(c.name, again.ok ? again : { ok: false, detail: `${first.detail}; igen: ${again.detail}` });
-    }));
+    }
   }
   return results;
 }
@@ -199,10 +231,21 @@ export async function check(env, scheduledTime = Date.now()) {
   } catch (err) {
     console.error("uptime: KV-læsning fejlede:", String(err));
   }
+  const tick = Math.floor(scheduledTime / TICK_MS);
+  // Cloudflare kører cron'en to gange pr. tick (se DUPLICATE). Har en kørsel
+  // allerede gemt tilstand for dette tick, gør denne intet.
+  if (state && state.tick === tick) return { skipped: "dublet", down: state.down || {} };
+
   const prevDown = (state && state.down) || {};
+  const prevFails = (state && state.fails) || {};
+  const prevOks = (state && state.oks) || {};
 
   const when = new Date(scheduledTime);
-  const runSearch = when.getUTCMinutes() === SEARCH_MINUTE && when.getUTCHours() % 2 === 0;
+  const runSearch =
+    when.getUTCMinutes() === SEARCH_MINUTE &&
+    when.getUTCHours() % 2 === 0 &&
+    when.getUTCHours() >= SEARCH_UTC_HOURS.from &&
+    when.getUTCHours() <= SEARCH_UTC_HOURS.to;
   const checks = runSearch ? [...CHECKS, SEARCH_CHECK] : CHECKS;
   const allChecks = [...CHECKS, SEARCH_CHECK];
 
@@ -211,27 +254,58 @@ export async function check(env, scheduledTime = Date.now()) {
 
   // Et tjek der ikke kørte denne gang (søgningen), beholder sin tilstand.
   const down = {};
-  for (const [name, since] of Object.entries(prevDown)) {
-    if (!checks.some((c) => c.name === name) && allChecks.some((c) => c.name === name)) down[name] = since;
+  const fails = {};
+  const oks = {};
+  for (const c of allChecks) {
+    if (checks.includes(c)) continue;
+    if (prevDown[c.name]) down[c.name] = prevDown[c.name];
+    if (prevFails[c.name]) fails[c.name] = prevFails[c.name];
+    if (prevOks[c.name]) oks[c.name] = prevOks[c.name];
   }
   const newlyDown = [];
+  const recovered = [];
   for (const c of checks) {
-    if (results.get(c.name).ok) continue;
-    down[c.name] = prevDown[c.name] || now;
-    if (!prevDown[c.name]) newlyDown.push(c);
+    const failRuns = c.failRuns || FAIL_RUNS;
+    const okRuns = c.okRuns || OK_RUNS;
+    if (!results.get(c.name).ok) {
+      const f = prevFails[c.name] || { n: 0, since: now };
+      fails[c.name] = { n: f.n + 1, since: f.since };
+      if (prevDown[c.name]) down[c.name] = prevDown[c.name];
+      else if (f.n + 1 >= failRuns) {
+        down[c.name] = f.since;
+        newlyDown.push(c);
+      }
+    } else if (prevDown[c.name]) {
+      const n = (prevOks[c.name] || 0) + 1;
+      if (n >= okRuns) recovered.push(c.name);
+      else {
+        down[c.name] = prevDown[c.name];
+        oks[c.name] = n;
+      }
+    }
   }
-  const recovered = Object.keys(prevDown).filter((name) => !down[name]);
+  // Tjek der er fjernet fra listen, er ikke nede længere.
+  for (const name of Object.keys(prevDown)) {
+    if (!allChecks.some((c) => c.name === name)) recovered.push(name);
+  }
+
+  const newState = { down, fails, oks, tick, changed_at: now };
+  const changed =
+    JSON.stringify([down, fails, oks]) !== JSON.stringify([prevDown, prevFails, prevOks]);
 
   // Første kørsel efter deploy: én kvitteringsmail, så det er bevist at hele
   // vejen til indbakken virker, før der er brug for den.
-  if (firstRun && !newlyDown.length) {
+  if (firstRun) {
     const lines = checks.map((c) => `${c.name}: ${results.get(c.name).detail}`);
     if (await sendMail(env, "MadShopper uptime-overvågning er aktiv", lines)) {
-      await env.STATE.put(STATE_KEY, JSON.stringify({ down, changed_at: now }));
+      await env.STATE.put(STATE_KEY, JSON.stringify(newState));
     }
   } else if (newlyDown.length || recovered.length) {
     const lines = [];
-    for (const c of newlyDown) lines.push(`NEDE: ${c.name} (${c.url}): ${results.get(c.name).detail}`);
+    for (const c of newlyDown) {
+      lines.push(`NEDE: ${c.name} (${c.url}), fejlet ${fails[c.name].n} gange i træk siden ` +
+        `${fmtTime(fails[c.name].since)}: ${results.get(c.name).detail}`);
+    }
     for (const name of recovered) {
       const r = results.get(name);
       const detail = r ? r.detail : "tjekket findes ikke længere";
@@ -248,14 +322,110 @@ export async function check(env, scheduledTime = Date.now()) {
     // Tilstanden gemmes kun når mailen er sendt: fejler Resend, prøves den
     // igen ved næste kørsel i stedet for at alarmen forsvinder i stilhed.
     if (await sendMail(env, subject, lines)) {
-      await env.STATE.put(STATE_KEY, JSON.stringify({ down, changed_at: now }));
+      await env.STATE.put(STATE_KEY, JSON.stringify(newState));
     }
+  } else if (changed) {
+    // Tælleren flyttede sig uden mail (fx første fejl). Normal drift, hvor
+    // alt er OK og intet tæller, skriver intet til KV.
+    await env.STATE.put(STATE_KEY, JSON.stringify(newState));
   }
-  return { results: Object.fromEntries(results), down, newlyDown: newlyDown.map((c) => c.name), recovered };
+  return { results: Object.fromEntries(results), down, fails, newlyDown: newlyDown.map((c) => c.name), recovered };
+}
+
+// Nattens hentning af butikkerne (Kalle, 10-10-2026: siden skal opdateres så
+// hurtigt som muligt efter midnat). GitHubs egen cron kommer 1-4 timer for
+// sent; en Cloudflare-cron kommer til tiden. Den beder derfor GitHub om at
+// starte nightly-dispatcher.yml (slot "nat") kl. 00:01 dansk tid. Cron'en
+// står både på 22:01 og 23:01 UTC, og kun den der rammer midnat dansk tid
+// (sommer- eller vintertid) gør noget. Uden GH_DISPATCH_TOKEN gør den intet,
+// og GitHubs egen cron er sikkerhedsnet.
+//
+// Cache-updateren (D1-reseed) startes lige efter 00:00 UTC, ikke lige efter
+// scraperne: D1's skrivebudget nulstilles 00:00 UTC, og et reseed bruger det
+// meste af døgnets budget. Ventede dispatcheren selv til 00:00 UTC, kostede
+// det ~2 timers GitHub Actions-minutter hver nat (målt 11-10-2026).
+//
+// Den startes af 5-minutters-cron'en, ikke af sin egen: en egen cron "1 0 * * *"
+// blev aldrig kørt af Cloudflare natten til 13-10-2026 (ingen kørsel i
+// workersInvocationsScheduled, mens 22:01 og 23:01 kørte), og siden blev ikke
+// opdateret. Nu prøver hvert tick fra 00:00 til 00:30 UTC, til én er lykkedes.
+// KV-nøglen CACHE_KEY husker datoen, så det sker én gang pr. døgn; en dublet
+// der slipper igennem, stoppes af nightly-dispatcher (concurrency + højst én pr. UTC-døgn).
+//
+// LØRDAG kl. 04:00 UTC i stedet (06:00 dansk sommertid / 05:00 vintertid):
+// Nettos nye avis starter lørdag, men Netto lægger den først ud efter
+// midnat. Nattens hentning kl. 00:02 dansk tid fik derfor sidste uges avis,
+// og siden viste den gamle pris hele lørdagen (Skildpadde is 54,95 kr i
+// stedet for avisens 32 kr, 17-10-2026: 182 af 201 avisvarer manglede).
+// nightly-dispatcher henter Netto og Føtex igen lige før cache-updateren.
+const NIGHT_CRONS = ["1 22 * * *", "1 23 * * *"];
+const CACHE_KEY = "nat_cache_v1";
+const CACHE_WINDOW_MIN = 30;
+const CACHE_HOUR_UTC_SATURDAY = 4;
+const DISPATCH_URL =
+  "https://api.github.com/repos/Madshopper/Million/actions/workflows/nightly-dispatcher.yml/dispatches";
+
+function danishHour(ms) {
+  return new Intl.DateTimeFormat("da-DK", {
+    timeZone: "Europe/Copenhagen", hour: "2-digit", hourCycle: "h23",
+  }).format(new Date(ms));
+}
+
+export async function startNight(env, scheduledTime = Date.now()) {
+  if (danishHour(scheduledTime) !== "00") return "ikke midnat dansk tid";
+  return dispatch(env, "nat");
+}
+
+export async function startCache(env, scheduledTime = Date.now()) {
+  const when = new Date(scheduledTime);
+  const hour = when.getUTCDay() === 6 ? CACHE_HOUR_UTC_SATURDAY : 0;
+  if (when.getUTCHours() !== hour || when.getUTCMinutes() >= CACHE_WINDOW_MIN) return null;
+  const today = when.toISOString().slice(0, 10);
+  if ((await env.STATE.get(CACHE_KEY)) === today) return null;
+  // Datoen skrives før kaldet, så en dublet af samme tick ikke også starter.
+  // Fejler kaldet, slettes den igen, og næste tick prøver.
+  await env.STATE.put(CACHE_KEY, today);
+  try {
+    return await dispatch(env, "cache-fallback");
+  } catch (err) {
+    await env.STATE.delete(CACHE_KEY);
+    throw err;
+  }
+}
+
+async function dispatch(env, slot) {
+  if (!env.GH_DISPATCH_TOKEN) return "GH_DISPATCH_TOKEN mangler";
+  const res = await fetch(DISPATCH_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.GH_DISPATCH_TOKEN}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "MadShopper-Uptime",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ref: "main", inputs: { slot } }),
+  });
+  if (res.status !== 204) {
+    const text = (await res.text()).slice(0, 300);
+    throw new Error(`GitHub svarede ${res.status}: ${text}`);
+  }
+  return `startet (${slot})`;
 }
 
 export default {
   async scheduled(event, env, ctx) {
+    if (NIGHT_CRONS.includes(event.cron)) {
+      ctx.waitUntil(startNight(env, event.scheduledTime).then(
+        (r) => console.log("nat:", r),
+        (err) => console.error("nat: kunne ikke starte nightly-dispatcher:", String(err)),
+      ));
+      return;
+    }
+    ctx.waitUntil(startCache(env, event.scheduledTime).then(
+      (r) => r && console.log("nat-cache:", r),
+      (err) => console.error("nat-cache: kunne ikke starte cache-updater:", String(err)),
+    ));
     ctx.waitUntil(check(env, event.scheduledTime).then((r) => {
       const failing = Object.keys(r.down);
       if (failing.length) console.error("uptime: nede:", JSON.stringify(r.results));

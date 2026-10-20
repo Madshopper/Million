@@ -25,9 +25,9 @@ require_int() {
   esac
 }
 
-# DEPLOY_ENV=staging bygger madshopper-dev (egen KV/D1, custom domain
+# DEPLOY_ENV=staging bygger madshopper-dev (egen KV, samme D1 som produktionen, custom domain
 # dev.madshopper.dk + den gratis workers.dev-URL som fallback) i stedet for
-# produktions-workeren. Bruges af deploy-edge-dev.yml (manuel, vilkårlig branch) og kan
+# produktions-workeren. Bruges af deploy-edge-dev.yml (kun main) og kan
 # køres lokalt til test.
 #
 # Fail-safe: KUN de to kendte værdier accepteres. Før faldt ALT andet end
@@ -49,8 +49,12 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   WORKER_NAME="madshopper-dev"
   WORKERS_DEV="true"
   KV_NAMESPACE_ID="b879e69c3a1f477c9c69bbc7e7b041df"
-  D1_DATABASE_NAME="madshopper-dev"
-  D1_DATABASE_ID="fa7fab55-a5e8-485a-9084-068890e9c8c5"
+  # Samme D1 som produktionen (Kalle, 12-10-2026): dev'ens egen kopi kunne
+  # ikke seedes dagligt inden for det konto-brede skrivebudget og stod uger
+  # bagud. Staging skriver ikke til D1 (sikkerhedslogningen er slået fra dér,
+  # se src/worker.py::_sec_flush), og seed-d1.py skriver dens KV-nøgler.
+  D1_DATABASE_NAME="madshopper"
+  D1_DATABASE_ID="8a43b0d1-1733-4abe-ad71-aa9bde4d4d12"
   SITE_URL_VALUE="https://dev.madshopper.dk"
   TABLE_SUFFIX_VALUE="_dev"
   # Opskrifterne er skjult for brugerne på madshopper.dk, men skal kunne
@@ -64,8 +68,14 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   SWIPE_LINE='SWIPE_ENABLED = "1"'
   # "Køl & Mejeri" (app.py::_FEATURES 'mejeri_navn') er altid til på dev.
   MEJERI_NAVN_LINE='MEJERI_NAVN_ENABLED = "1"'
-  # Støt MadShopper-abonnementet (app.py::_FEATURES 'subscription') er altid til på dev.
-  SUBSCRIPTION_LINE='SUBSCRIPTION_ENABLED = "1"'
+  # Gul pris ved tilbud uden førpris (app.py::_FEATURES 'tilbud_gul') er altid til på dev.
+  TILBUD_GUL_LINE='TILBUD_GUL_ENABLED = "1"'
+  # Tilbudsavis pr. butik (app.py::_FEATURES 'butiksaviser') er altid til på dev.
+  BUTIKSAVISER_LINE='BUTIKSAVISER_ENABLED = "1"'
+  # Butikker nær mig (app.py::_FEATURES 'lokation') er altid til på dev.
+  LOKATION_LINE='LOKATION_ENABLED = "1"'
+  # App-designet C2 på hjemmesiden (app.py::_FEATURES 'design_c2') er altid til på dev.
+  DESIGN_C2_LINE='DESIGN_C2_ENABLED = "1"'
   # Custom domain så staging er nemmere at finde end workers.dev-URL'en
   # (samme adgangsspærring gælder stadig, se STAGING_ACCESS_SECRET nedenfor).
   ROUTES_BLOCK='
@@ -103,7 +113,10 @@ else
   STATS_LINE=""
   SWIPE_LINE=""
   MEJERI_NAVN_LINE=""
-  SUBSCRIPTION_LINE=""
+  TILBUD_GUL_LINE=""
+  BUTIKSAVISER_LINE=""
+  LOKATION_LINE=""
+  DESIGN_C2_LINE=""
   # Produktion: ALDRIG overstyrbar. En glemt miljoevariabel i en terminal maa
   # ikke kunne saette beskyttelsen ud af kraft paa det rigtige site.
   RATE_LIMIT_PER_MIN=150
@@ -336,7 +349,10 @@ ${PUSH_LINE}
 ${STATS_LINE}
 ${SWIPE_LINE}
 ${MEJERI_NAVN_LINE}
-${SUBSCRIPTION_LINE}
+${TILBUD_GUL_LINE}
+${BUTIKSAVISER_LINE}
+${LOKATION_LINE}
+${DESIGN_C2_LINE}
 ${ANALYTICS_LINES}
 ${STAGING_LINK_LINE}
 ${STAGING_SECRET_LINE}

@@ -123,6 +123,9 @@ function distribution(codes) {
 // scripts/playwright-uptime-check.mjs fandt samtidig - se den fils
 // kommentar. Fjerner samme automatiserings-fingeraftryk her.
 const browser = await chromium.launch({
+  // PW_CHANNEL=chrome: brug GitHub-runnerens forudinstallerede Chrome (se
+  // scripts/install-playwright-ci.sh). Uden variablen: Playwrights Chromium.
+  ...(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {}),
   args: ["--disable-blink-features=AutomationControlled"],
 });
 let total = 0;

@@ -322,6 +322,24 @@ def search_match_score(product: dict, query: str) -> int:
     return score * 1000 - min(len(name), 999)
 
 
+def store_match_names(store_matches) -> str:
+    """De andre butikkers navne for varen på kortet, til søgningen.
+
+    Kortet viser kun én butiks navn, men butikkerne kalder samme vare noget
+    forskelligt: Spar skriver "Toms Skildpadde", mens Føtex skriver "Flødeis m.
+    romsmag, karamelsauce og chokoladestykker". Uden de andre navne fandt en
+    søgning på "skildpadde is" ikke kortet (set 10-10-2026)."""
+    if not isinstance(store_matches, dict):
+        return ''
+    seen: list[str] = []
+    for m in store_matches.values():
+        if isinstance(m, dict):
+            name = str(m.get('name') or '').strip()
+            if name and name not in seen:
+                seen.append(name)
+    return ' '.join(seen)
+
+
 def build_search_index(products: list, normalize_fn, flavor_fn=None) -> dict[str, set[str]]:
     """token -> set of product ids for fast AND-search."""
     index: dict[str, set[str]] = {}
@@ -342,6 +360,9 @@ def build_search_index(products: list, normalize_fn, flavor_fn=None) -> dict[str
                     text = f"{text} {flavors}"
             except Exception:
                 pass
+        names = store_match_names(product.get('/product/store_matches'))
+        if names:
+            text = f"{text} {names}"
         norm = normalize_fn(text)
         seen_tokens: set[str] = set()
         for token in norm.split():
@@ -396,7 +417,11 @@ def _normalized_match_fields(product: dict) -> tuple[str, str, str]:
     fields = (
         normalize_name(str(product.get('name', ''))),
         normalize_name(str(product.get('brand', ''))),
-        normalize_name(str(product.get('description', ''))),
+        # Beskrivelsen bærer også de andre butikkers navne for varen (se
+        # store_match_names), samme tekst som søgeindekset er bygget af.
+        normalize_name(' '.join(filter(None, (
+            str(product.get('description', '')),
+            store_match_names(product.get('store_matches')))))),
     )
     product['_norm_fields'] = fields
     return fields
@@ -1370,9 +1395,23 @@ def meats_match(base_meats: frozenset, cand_meats: frozenset) -> bool:
 # ordmatch (som smags-gaten bruger, hvor sammensætning ER signalet) ville
 # fejlagtigt læse dem som farvevarianter.
 _COLOUR_RE = re.compile(
-    r'\b(bla|blaa|blå|rod|rød|gron|grøn|gul|hvid|sort|lilla|orange|brun|rosa|'
-    r'turkis|beige|solv|sølv|guld)\b'
+    r'\b(bla|blaa|blå|blat|rod|rød|rode|røde|rodt|rødt|gron|grøn|gronne|grønne|'
+    r'gront|grønt|gul|gule|gult|hvid|hvide|hvidt|sort|sorte|lilla|orange|brun|'
+    r'brune|brunt|rosa|turkis|beige|solv|sølv|guld)\b'
 )
+
+# Bøjede former tæller som grundformen. Uden dem var flertal usynligt for
+# gaten: Rema "STENFRI GRØNNE DRUER" stod på kort med "Druer Rød Stenfri", og
+# "ØKO. RØDE SPIDSKÅL" med "Æbl. Røde" (målt i D1 07-10-2026).
+_COLOUR_CANON = {
+    'blaa': 'bla', 'blå': 'bla', 'blat': 'bla',
+    'rød': 'rod', 'rode': 'rod', 'røde': 'rod', 'rodt': 'rod', 'rødt': 'rod',
+    'grøn': 'gron', 'gronne': 'gron', 'grønne': 'gron', 'gront': 'gron', 'grønt': 'gron',
+    'gule': 'gul', 'gult': 'gul',
+    'hvide': 'hvid', 'hvidt': 'hvid',
+    'sorte': 'sort',
+    'brune': 'brun', 'brunt': 'brun',
+}
 
 # Farveord der i praksis aldrig er en variant, men en produkttype eller et
 # mærke. 'guld' er det tydeligste (Guldkorn, Guldøl, Tuborg Guld).
@@ -1383,7 +1422,8 @@ def get_product_colours(text: str) -> frozenset:
     """Farveord der står som selvstændigt ord i produktteksten."""
     norm = normalize_name(text)
     return frozenset(
-        c for c in _COLOUR_RE.findall(norm) if c not in _COLOUR_NOISE
+        _COLOUR_CANON.get(c, c) for c in _COLOUR_RE.findall(norm)
+        if c not in _COLOUR_NOISE
     )
 
 
@@ -2219,6 +2259,32 @@ def product_available_at_active_stores(product: dict, active_stores: set | None)
         if label in active_stores:
             return True
     return False
+
+
+def offer_group_key(product: dict, store_key: str, label: str) -> str | None:
+    """Nøglen for det tilbud, varen hører til hos store_key, eller None (varen
+    er sit eget tilbud). Ét tilbud i avisen ("Tapas") dækker ofte mange varer:
+    Bilka havde 135 tilbud men 1.344 avisvarer (18-10-2026), og Kalle vil se
+    ét kort pr. tilbud. Samme nøgle tæller logoernes tal (scripts/seed-d1.py
+    gemmer den som /product/offer_keys) og samler kortene på butikkens
+    tilbudsside (app.py::_store_offer_key_sql).
+    - Avisvarer (Salling, Dagrofa): avisens tilbudstitel.
+    - Rema: samme mærke til samme tilbudspris er ét tilbud, for Remas data
+      kender ikke avisens tilbud ("Tex Mex tortilla chips, 3 slags, 5 kr")."""
+    match = (product.get('/product/store_matches') or {}).get(store_key) or {}
+    own = product.get('/product/store') == label
+    if own and product.get('/product/own_avis'):
+        title = product.get('/product/own_avis_titel')
+        return f"a:{title}" if title else None
+    if match.get('in_avis'):
+        title = match.get('avis_titel')
+        return f"a:{title}" if title else None
+    if (store_key == 'rema' and own
+            and (product.get('/product/sale_price') is not None
+                 or product.get('/product/own_sale'))):
+        brand = str(product.get('/product/brand') or '').split(',')[0].strip().lower()
+        return f"r:{product.get('/product/sale_price')}|{brand}"
+    return None
 
 
 def _promote_match_to_product(product: dict, store_key: str, match: dict) -> dict:

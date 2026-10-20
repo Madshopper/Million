@@ -16,14 +16,17 @@ import tempfile
 import time
 import urllib.request
 
-# DEPLOY_ENV=staging seeder madshopper-dev i stedet for produktions-D1/KV
-# (samme skelnen som scripts/build-pages.sh bruger til selve worker-deployet).
-if os.environ.get("DEPLOY_ENV") == "staging":
-    DB_NAME = "madshopper-dev"
-    KV_NAMESPACE_ID = "b879e69c3a1f477c9c69bbc7e7b041df"
-else:
-    DB_NAME = "madshopper"
-    KV_NAMESPACE_ID = "0e60bdf03ed4490cbfac5fa72c8adca5"
+DB_NAME = "madshopper"
+KV_NAMESPACE_ID = "0e60bdf03ed4490cbfac5fa72c8adca5"
+# dev.madshopper.dk (madshopper-dev) læser SAMME D1 som produktionen (Kalle,
+# 12-10-2026). Dens egen kopi blev kun fyldt ved manuelle staging-seeds, som
+# budgettet herunder ikke har plads til hver dag, så den stod uger bagud (fx
+# 3088 gamle Tjek-tilbud for Føtex i stedet for ugens 716 i avisen). Det, der
+# hører til tabellen i KV (søgeindeks, d1_stats_v1, forsidepuljer og
+# cache_version), skrives derfor til BEGGE namespaces i samme kørsel, så
+# staging aldrig peger på en anden tabelversion end den der ligger i D1.
+STAGING_KV_NAMESPACE_ID = "b879e69c3a1f477c9c69bbc7e7b041df"
+KV_NAMESPACE_IDS = (KV_NAMESPACE_ID, STAGING_KV_NAMESPACE_ID)
 
 # D1's gratis-plan-budget (100k rows written / 5M rows read pr. dag) er
 # KONTO-bredt - delt mellem madshopper og madshopper-dev, ikke pr. database
@@ -41,7 +44,8 @@ from app_support import (  # noqa: E402
     _fold, _get_subcategory, _STORE_CONFIGS, CAT_MEJERI,
     is_organic, is_lactose_free, parse_weight_to_grams,
     normalize_name, _PLACEHOLDER_IMGS,
-    is_non_food_name, is_age_restricted, is_rema_tobacco_id,
+    is_non_food_name, is_age_restricted, is_rema_tobacco_id, store_match_names,
+    offer_group_key,
 )
 from updater import get_search_flavor_keywords  # noqa: E402
 
@@ -83,7 +87,7 @@ def _home_is_allowed(p: dict) -> bool:
     return True
 
 # Skrive-tabellen cart_popularity er miljø-adskilt ligesom i app.py::_table_suffix.
-TABLE_SUFFIX = "_dev" if os.environ.get("DEPLOY_ENV") == "staging" else ""
+TABLE_SUFFIX = ""
 
 SUPABASE_URL = (
     os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
@@ -233,8 +237,11 @@ def fetch_products() -> list[dict]:
 # blob-størrelsen (mindre JSON-parsing i worker'en + mindre D1).
 # NB: /product/ean og store_matches 'ean' BEHOLDES nu - nutrition_candidate_keys
 # (app_support.py) slår næring op via EAN, så de skal med ud til edge/D1.
-_TOP_DROP = frozenset({"/product/image_hash", "/product/weight_grams"})
-_MATCH_DROP = frozenset({"_hash_int", "_norm_name", "_image_hash", "_weight_g", "_stk_count"})
+# own_avis_titel/avis_titel erstattes af /product/offer_keys (build_row_values).
+_TOP_DROP = frozenset({"/product/image_hash", "/product/weight_grams",
+                       "/product/own_avis_titel"})
+_MATCH_DROP = frozenset({"_hash_int", "_norm_name", "_image_hash", "_weight_g", "_stk_count",
+                         "avis_titel"})
 
 
 def slim_product(p: dict) -> dict:
@@ -275,7 +282,10 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
     except (TypeError, ValueError):
         price = 0.0
     sale_price = p.get("/product/sale_price")
-    is_sale = 1 if (sale_price is not None or p.get("/product/is_any_sale")) else 0
+    # own_sale: butikkens eget tilbud uden førpris (updater.py), så "Tilbud
+    # hos …" (app.py::_build_store_offer_listing) finder dem via indekset.
+    is_sale = 1 if (sale_price is not None or p.get("/product/is_any_sale")
+                    or p.get("/product/own_sale")) else 0
     try:
         eff_price = float(sale_price) if sale_price is not None else price
     except (TypeError, ValueError):
@@ -305,7 +315,10 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
     ])
     img_url = str(p.get("/product/imageLink", ""))
     flavor_kw = get_search_flavor_keywords(base_text, img_url)
-    search_text = normalize_name(f"{base_text} {flavor_kw}".strip())
+    # De andre butikkers navne for varen med (app_support.store_match_names):
+    # Spar kalder Føtex' "Flødeis m. romsmag ..." for "Toms Skildpadde".
+    names = store_match_names(p.get("/product/store_matches"))
+    search_text = normalize_name(f"{base_text} {flavor_kw} {names}".strip())
     # Samme regex-tunge opslag som lige er brugt til search_text ovenfor -
     # send resultatet med ind i data-JSON'en, så app_support._product_flavor_
     # search_field() kan slå det op i stedet for at genberegne det live pr.
@@ -323,9 +336,26 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
     p["/product/subcategory"] = subcategory
     p["/product/is_organic"] = bool(organic)
     p["/product/is_lactose_free"] = bool(lactose)
+    # Tilbuddets nøgle pr. butik, så butikkens tilbudsside viser ét kort pr.
+    # tilbud i SQL (app.py::_store_offer_key_sql) med samme regel som tallet
+    # på logoet (_count_store_offers).
+    offer_keys = {}
+    for key, cfg in _STORE_CONFIGS.items():
+        ok = offer_group_key(p, key, cfg["label"])
+        if ok:
+            offer_keys[key] = ok
+    if offer_keys:
+        p["/product/offer_keys"] = offer_keys
+    else:
+        p.pop("/product/offer_keys", None)
     data = json.dumps(slim_product(p), separators=(",", ":"), ensure_ascii=False)
     if stats is not None:
-        _count_row(stats, category, subcategory, is_sale)
+        # Tilbudssidens antal: own_sale-varer vises ikke dér (app.py::
+        # _build_sale_listing), så de tælles heller ikke med.
+        _count_row(stats, category, subcategory,
+                   1 if (sale_price is not None or p.get("/product/is_any_sale")) else 0)
+        if is_sale:
+            _count_store_offers(stats, p)
     if postings is not None and rowid is not None:
         _add_postings(postings, search_text, rowid)
     return (
@@ -353,6 +383,44 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
 # (CI: root wrangler.toml har D1-bindingen + CLOUDFLARE_API_TOKEN/ACCOUNT_ID).
 _DIST = os.path.join(ROOT, "dist")
 WRANGLER_CWD = _DIST if os.path.isdir(_DIST) else ROOT
+
+
+def _count_store_offers(stats: dict, p: dict) -> None:
+    """Antal tilbud pr. butik til forsidens tilbudsaviser (app.py::
+    _offer_store_counts). Samme regel som app.py::_as_store_offer:
+    visningsbutikkens eget tilbud ligger på kortet, de andres i store_matches.
+    Varer med samme tilbudsnøgle (app_support.offer_group_key: avistitel, eller
+    mærke + pris hos Rema) er ét tilbud: Bilka havde 1.304 avisvarer men kun
+    ~140 tilbud (13-10-2026), Rema 275 tilbudsvarer men ~155 tilbud."""
+    counts = stats.setdefault("offer_counts", {})
+    avis = stats.setdefault("avis_counts", {})
+    seen = stats.setdefault("_offer_keys_seen", {})
+    store = p.get("/product/store")
+    matches = p.get("/product/store_matches") or {}
+    for key, cfg in _STORE_CONFIGS.items():
+        m = matches.get(key) or {}
+        own = store == cfg["label"]
+        group = offer_group_key(p, key, cfg["label"])
+        if (own and (p.get("/product/sale_price") is not None
+                     or p.get("/product/own_sale"))) or m.get("is_sale"):
+            # Kun Remas grupper samler "alle tilbud"; de andre butikkers
+            # avistitler gælder kun avisoptællingen nedenfor.
+            if group and group.startswith("r:"):
+                rema = seen.setdefault(("o", key), set())
+                if group in rema:
+                    continue  # Rema har ingen avis-optælling nedenfor
+                rema.add(group)
+            counts[key] = counts.get(key, 0) + 1
+        # Kun ugens avisvarer (Salling og Dagrofa, tilbud='Avis'):
+        # app.py::_avis_leaflet. Varer uden titel (Netto) tælles hver for sig.
+        if not ((own and p.get("/product/own_avis")) or m.get("in_avis")):
+            continue
+        if group:
+            titles = seen.setdefault(("a", key), set())
+            if group in titles:
+                continue
+            titles.add(group)
+        avis[key] = avis.get(key, 0) + 1
 
 
 def _count_row(stats: dict, category: str, subcategory: str, is_sale: int) -> None:
@@ -430,6 +498,23 @@ def build_search_shards(postings: dict, version: int) -> tuple[list[dict], dict]
     return entries, manifest
 
 
+def _kv_all(args: list[str]) -> None:
+    """`wrangler kv <args>` mod produktionens namespace og derefter stagings
+    (se KV_NAMESPACE_IDS). En fejl i produktionen rejses som før; en fejl på
+    staging giver kun en advarsel, så dev aldrig kan vælte nattens seed."""
+    for ns in KV_NAMESPACE_IDS:
+        try:
+            subprocess.run(
+                ["npx", "wrangler", "kv", *args, "--namespace-id", ns, "--remote"],
+                cwd=WRANGLER_CWD,
+                check=True,
+            )
+        except Exception as e:
+            if ns == KV_NAMESPACE_ID:
+                raise
+            print(f"  advarsel: staging-KV ikke opdateret ({' '.join(args[:3])}): {e}")
+
+
 def write_search_shards(entries: list[dict]) -> bool:
     """Skriver shards FØR tabel-swappen: de er uvirksomme, indtil
     _SIDX_VER_KEY peger på deres version."""
@@ -437,12 +522,7 @@ def write_search_shards(entries: list[dict]) -> bool:
         json.dump(entries, f, separators=(",", ":"), ensure_ascii=False)
         path = f.name
     try:
-        subprocess.run(
-            ["npx", "wrangler", "kv", "bulk", "put", path,
-             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
-            cwd=WRANGLER_CWD,
-            check=True,
-        )
+        _kv_all(["bulk", "put", path])
         return True
     except Exception as e:
         print(f"  advarsel: kunne ikke skrive søgeindeks: {e}")
@@ -455,12 +535,7 @@ def write_search_version(manifest: dict) -> None:
     """Peger app.py på den nye indeksversion - EFTER tabel-swappen."""
     payload = json.dumps(manifest, separators=(",", ":"))
     try:
-        subprocess.run(
-            ["npx", "wrangler", "kv", "key", "put", _SIDX_VER_KEY, payload,
-             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
-            cwd=WRANGLER_CWD,
-            check=True,
-        )
+        _kv_all(["key", "put", _SIDX_VER_KEY, payload])
     except Exception as e:
         # Den gamle version bliver stående: dens rowid'er findes ikke i den
         # nye tabel, så app.py opdager det og bruger LIKE-søgningen.
@@ -477,6 +552,8 @@ def write_d1_stats(stats: dict) -> None:
     payload = {
         "products": stats.get("products", 0),
         "sale": stats.get("sale", 0),
+        "offer_counts": stats.get("offer_counts", {}),
+        "avis_counts": stats.get("avis_counts", {}),
         "cats": {
             c: {"n": v["n"], "subs": sorted(v["subs"])}
             for c, v in stats.get("cats", {}).items()
@@ -486,12 +563,7 @@ def write_d1_stats(stats: dict) -> None:
         json.dump(payload, f, separators=(",", ":"), ensure_ascii=False)
         path = f.name
     try:
-        subprocess.run(
-            ["npx", "wrangler", "kv", "key", "put", _D1_STATS_KV_KEY, f"--path={path}",
-             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
-            cwd=WRANGLER_CWD,
-            check=True,
-        )
+        _kv_all(["key", "put", _D1_STATS_KV_KEY, f"--path={path}"])
     except Exception as e:
         print(f"  advarsel: kunne ikke skrive {_D1_STATS_KV_KEY}: {e}")
     finally:
@@ -539,8 +611,15 @@ def fetch_popular_product_ids(limit: int = _HOME_FAV_LIMIT) -> list[str]:
 
 _HOME_RECIPE_LIMIT = 10
 
+# De 10 opskrifter forsiden viste fra starten (de eneste godkendte før de egne
+# opskrifter kom 07-10-2026), i den rækkefølge de stod i. Forsiden viser KUN
+# dem, indtil opskrifter udgives fra Feature-panelet (Kalle 18-10-2026).
+# Samme liste som app.py::_HOME_RECIPES_LOCKED_IDS.
+_HOME_RECIPES_LOCKED_IDS = (15, 14, 13, 12, 11, 9, 8, 7, 6, 5)
 
-def fetch_recipe_pool(limit: int = _HOME_RECIPE_LIMIT) -> list[dict]:
+
+def fetch_recipe_pool(limit: int = _HOME_RECIPE_LIMIT,
+                      only_ids: tuple | None = None) -> list[dict]:
     """"Lækre opskrifter"-pulje: godkendte opskrifter rangeret efter akkumuleret
     klik-pointsum (recipe_points{TABLE_SUFFIX}, nedtrappende pointværdi pr.
     klik med opskriftens alder - se scripts/supabase-recipe-clicks.sql).
@@ -605,7 +684,12 @@ def fetch_recipe_pool(limit: int = _HOME_RECIPE_LIMIT) -> list[dict]:
     # (total_points, created_at) begge faldende i én sort: højeste pointsum
     # øverst, uafgjort -> nyeste opskrift (ISO8601-strenge sammenligner
     # korrekt leksikografisk, samme UTC-format fra Supabase).
-    ranked.sort(key=lambda r: (r["total_points"], r["created_at"]), reverse=True)
+    if only_ids is not None:
+        # Fast liste: præcis de valgte, i listens rækkefølge, uanset klik.
+        order = {rid: i for i, rid in enumerate(only_ids)}
+        ranked = sorted((r for r in ranked if r["id"] in order), key=lambda r: order[r["id"]])
+    else:
+        ranked.sort(key=lambda r: (r["total_points"], r["created_at"]), reverse=True)
     top = ranked[:limit]
     for r in top:
         del r["created_at"]
@@ -653,6 +737,8 @@ def build_home_data(products: list[dict]) -> dict:
         "pop_ids": pop_ids,
         "fav_pool": fav_pool,
         "recipe_pool": fetch_recipe_pool(),
+        # Forsidens faste 10, så længe opskrifter er skjult (app.py vælger).
+        "recipe_pool_locked": fetch_recipe_pool(only_ids=_HOME_RECIPES_LOCKED_IDS),
     }
 
 
@@ -662,12 +748,7 @@ def write_home_data(data: dict) -> None:
         f.write(payload)
         path = f.name
     try:
-        subprocess.run(
-            ["npx", "wrangler", "kv", "key", "put", _HOME_KV_KEY, f"--path={path}",
-             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
-            cwd=WRANGLER_CWD,
-            check=True,
-        )
+        _kv_all(["key", "put", _HOME_KV_KEY, f"--path={path}"])
         print(f"  {_HOME_KV_KEY} opdateret ({len(payload) / 1024:.0f} KB)")
     except Exception as e:
         print(f"  advarsel: kunne ikke skrive {_HOME_KV_KEY}: {e}")
@@ -681,12 +762,7 @@ def set_cache_version() -> None:
     med det samme). Fejler blødt - caching virker stadig med gammel version."""
     version = str(int(time.time()))
     try:
-        subprocess.run(
-            ["npx", "wrangler", "kv", "key", "put", "cache_version", version,
-             "--namespace-id", KV_NAMESPACE_ID, "--remote"],
-            cwd=WRANGLER_CWD,
-            check=True,
-        )
+        _kv_all(["key", "put", "cache_version", version])
         print(f"  cache_version = {version}")
     except Exception as e:
         print(f"  advarsel: kunne ikke sætte cache_version: {e}")
@@ -735,6 +811,11 @@ def mark_seeded() -> None:
 
 
 def main() -> int:
+    if os.environ.get("DEPLOY_ENV") == "staging":
+        # Staging har ingen egen D1 længere (12-10-2026). Uden dette værn ville
+        # en gammel DEPLOY_ENV=staging-kommando seede PRODUKTIONENS tabel.
+        print("Staging læser produktionens D1; nattens seed skriver også dens KV. Intet at gøre.")
+        return 0
     # D1's gratis-plan-budget (100k rows written/dag, KONTO-bredt - delt
     # mellem madshopper og madshopper-dev) blev sprunget 7x på én dag
     # 2026-07-19 af gentagne fulde reseeds, og igen 2026-07-20. En fuld

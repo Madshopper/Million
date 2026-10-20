@@ -15,7 +15,7 @@ butiksfiltrering eller åbne en produkt-overlay med forkerte data ved klik.
     {% if clickable and recipe.sale_ratio and recipe.sale_ratio > 0 %}
     <span class="sale-badge">{{ (recipe.sale_ratio * 100) | round(0, 'floor') | int }}% på tilbud</span>
     {% endif %}
-    <img src="{{ recipe.image_url }}" alt="{{ recipe.title }}" class="product-image" loading="lazy">
+    <img src="{{ recipe.image_url or url_for('static', filename='images/opskrift-standard.svg') }}" alt="{{ recipe.title }}" class="product-image" loading="lazy">
   </div>
   <div class="product-content">
     <h3>{{ recipe.title }}</h3>

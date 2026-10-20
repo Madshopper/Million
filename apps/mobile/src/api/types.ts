@@ -54,6 +54,38 @@ export type StoreInfo = {
   logo: string;
 };
 
+/** En butik i forsidens tilbudsaviser (Feature-panelet 'butiksaviser'). */
+export type OfferStore = {
+  key: string;
+  label: string;
+  logo: string;
+  /** Butikkens egen avis; vi viser kun et link til den. */
+  avis_url: string;
+  /** Avisens farver (baggrund og tekst). */
+  color?: string;
+  text_color?: string;
+  /** Antal tilbud denne uge, når serveren kender det. */
+  count?: number;
+};
+
+/** /api/store-avis/<butik>: butikkens tilbudsavis bygget af vores egne priser. */
+export type StoreAvisResponse = {
+  success: boolean;
+  store: string;
+  label: string;
+  logo: string;
+  /** Flise med butikkens logo, gentages svagt i avisens baggrund. */
+  watermark?: string;
+  avis_url: string;
+  color: string;
+  text_color: string;
+  week: number;
+  total: number;
+  best: Product[];
+  sections: Array<{ slug: string; title: string; count: number; products: Product[] }>;
+  error?: string;
+};
+
 export type HomeSection = {
   key: string;
   title: string;
@@ -77,8 +109,13 @@ export type HomeResponse = {
   stats_enabled?: boolean;
   swipe_enabled?: boolean;
   mejeri_navn_enabled?: boolean;
-  /** Er "Støt MadShopper" udgivet i Feature-panelet (src/subscription/)? */
-  subscription_enabled?: boolean;
+  /** Er "Tilbudsavis pr. butik" udgivet i Feature-panelet? */
+  butiksaviser_enabled?: boolean;
+  /** Er "Butikker nær mig" udgivet i Feature-panelet? */
+  lokation_enabled?: boolean;
+  offer_stores?: OfferStore[];
+  /** Antal tilbud i alt (d1_stats_v1), til forsidens "214 tilbud"-link. */
+  sale_count?: number | null;
   /** Stub — reel data hentes client-side via get_personal_savings (JWT). */
   personal_savings: { available: boolean; message: string };
   error?: string;
@@ -96,6 +133,9 @@ export type ListingResponse = {
   available_subcategories?: string[];
   current_subcategory?: string | null;
   query?: string;
+  /** /api/store-offers/<butik>: butikkens navn og egen avis. */
+  label?: string;
+  avis_url?: string;
   error?: string;
 };
 
@@ -112,4 +152,6 @@ export type ListingParams = {
   page?: number;
   subcategory?: string;
   q?: string;
+  /** Ét afsnit i en butiks tilbudsavis (/api/store-offers/<butik>). */
+  kategori?: string;
 };

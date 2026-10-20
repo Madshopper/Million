@@ -11,6 +11,14 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Category: { slug: string; title: string };
   Sale: undefined;
+  StoreOffers: { storeKey: string; label: string; avisUrl: string };
+  StoreOffersList: {
+    storeKey: string;
+    label: string;
+    avisUrl: string;
+    title: string;
+    kategori?: string;
+  };
   Cart: undefined;
   ProductDetail: { product: import('../api/types').Product };
   RecipeDetail: { recipeId: number };
@@ -18,7 +26,8 @@ export type RootStackParamList = {
   Route: undefined;
   Auth: undefined;
   Settings: undefined;
+  Nearby: { welcome?: boolean } | undefined;
   Feedback: undefined;
-  Support: undefined;
+  RecipeAccess: undefined;
   Legal: { kind: 'terms' | 'privacy' | 'about' };
 };

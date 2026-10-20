@@ -87,7 +87,7 @@ BASELINE_PATH = os.path.join(
     'data', 'match_eval_baseline.json')
 
 
-def _prepare(match: dict) -> dict | None:
+def _prepare(match: dict, store_key: str = '') -> dict | None:
     """Genskab et butiksvare-dict med alle matchsignaler fra en cache-post.
 
     De transiente felter (_type, _flavors, ...) strippes før cachen gemmes, så
@@ -96,10 +96,11 @@ def _prepare(match: dict) -> dict | None:
     """
     p = dict(match)
     p.setdefault('Kategori', match.get('Kategori') or 'Kolonial')
-    if annotate_match_signals(p) is None:
+    if annotate_match_signals(p, brand_in_name=store_key in U._BRAND_OUTSIDE_NAME_STORES,
+                              store_key=store_key) is None:
         return None  # ikke-mad/tobak - hverken vist eller matchet
     p['_hash_int'] = match.get('_hash_int')
-    p['_cross_match_tokens'] = cross_store_tokens(p['_norm_name'])
+    p['_cross_match_tokens'] = cross_store_tokens(p['_xname'])
     return p
 
 
@@ -116,7 +117,7 @@ def build_gold_set(cache_path: str) -> tuple[dict, list]:
                    if isinstance(m, dict)]
         prepped = {}
         for key, m in members:
-            q = _prepare(m)
+            q = _prepare(m, key)
             if q is not None:
                 prepped[key] = q
                 corpus.append(q)
@@ -142,10 +143,10 @@ def verdict(a: dict, b: dict) -> tuple[bool, str]:
     Begge retninger prøves, fordi fase 2 itererer over alle butikker som base -
     hvilken vare der er "base", afhænger af butiksrækkefølgen, ikke af parret.
     """
-    ok_ab, _, r_ab = cross_store_pair_verdict(a, b, a['_norm_name'], a['_cross_match_tokens'])
+    ok_ab, _, r_ab = cross_store_pair_verdict(a, b, a['_xname'], a['_cross_match_tokens'])
     if ok_ab:
         return True, ''
-    ok_ba, _, r_ba = cross_store_pair_verdict(b, a, b['_norm_name'], b['_cross_match_tokens'])
+    ok_ba, _, r_ba = cross_store_pair_verdict(b, a, b['_xname'], b['_cross_match_tokens'])
     if ok_ba:
         return True, ''
     return False, (r_ab or r_ba)

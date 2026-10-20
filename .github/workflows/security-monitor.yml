@@ -16,7 +16,7 @@ name: Security Monitor
 #
 # 02-10-2026: uptime-check.yml er slettet (browsertjekkene er flyttet til
 # uptime-worker/). Dens to resterende trin, dette relae og synken af
-# koerselshistorik til /admin, koerer nu her hver 3. time.
+# koerselshistorik til /admin, koerer nu her én gang i døgnet (hver 3. time indtil 09-10-2026).
 #
 # Bemaerk: GitHub deaktiverer scheduled workflows efter 60 dages inaktivitet i
 # repoet - et push/commit nulstiller uret.
@@ -32,10 +32,12 @@ on:
         description: 'Valgfrit: CPU pr. minut til (ISO)'
         required: false
         default: ''
-  # LOOKBACK_HOURS i scriptet er 24 t, så hver 3. time er rigeligt, også når
-  # GitHub-cron i praksis kommer timer for sent.
+  # Én gang i døgnet (Kalle 09-10-2026, for at spare GitHub Actions-minutter;
+  # var hver 3. time). Lagt efter nattens kæde, så tomme svar efter reseed
+  # fanges samme morgen. LOOKBACK_HOURS i scriptet er 30 t for at dække
+  # GitHub-cronens forsinkelse. "Er sitet nede?" dækkes af uptime-worker/.
   schedule:
-    - cron: '23 */3 * * *'
+    - cron: '23 6 * * *'
 
 concurrency:
   group: security-monitor
@@ -90,3 +92,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: python scripts/sync-job-runs.py
+
+      # Udgiver en funktion fra Feature-panelet, når den appversion, den følger
+      # med, er i App Store (scripts/auto-publish-features.py). Lå indtil
+      # 09-10-2026 i sit eget workflow (feature-auto-publish.yml) med egen cron;
+      # her sparer den et Actions-minut pr. kørsel og tjekkes én gang i døgnet.
+      - name: Udgiv funktioner, hvis deres appversion er ude
+        if: ${{ !cancelled() }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 scripts/auto-publish-features.py

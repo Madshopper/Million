@@ -32,7 +32,7 @@ import updater  # noqa: E402
 from updater import (  # noqa: E402
     _merge_cards_sharing_ean, annotate_match_signals,
     backfill_attributes_by_ean, brands_conflict, build_token_idf,
-    cross_store_pair_verdict, cross_store_tokens, distinctive_token_shared,
+    cross_store_pair_verdict, cross_store_tokens, distinctive_token_shared, is_ice_text,
     photo_distance, stk_validates_pack_size,
 )
 
@@ -147,6 +147,21 @@ def test_smag_og_variant() -> None:
     must_not_match("Protein drik vs protein budding",
                    product('Arla Protein Drik Chokolade', 'Arla', '250 ml', 'Køl'),
                    product('Arla Protein Budding Chokolade', 'Arla', '250 ml', 'Køl'))
+    # Is: skildpadde-chokolade er ikke skildpadde-is, heller ikke uden vægt
+    # (Lidl/tilbudsaviser), hvor vægt-gaten er blind.
+    must_not_match("Skildpadde-chokolade vs skildpadde-is (uden vægt)",
+                   product('Toms Skildpadde', 'Toms', '', 'Kiosk - Slik Og Snack - Chokolade'),
+                   product('Toms Skildpadde Is', 'Toms', '', 'Kolonial'))
+    # Mærkenavngivet is (Dagrofa) mod "Mælkeis m. ..." (Salling) er samme vare:
+    # siden uden "is" ligger i Frost, så is-gaten må ikke afvise.
+    must_match("Magnum (Frost) vs Mælkeis m. ... (is-gaten tier)",
+               product('Magnum Classic Mælkeis', 'Magnum', '440 ml', 'Frost'),
+               product('Magnum Classic', 'Magnum', '440 ml', 'Frost'))
+    # Bart "is" kræver hel ordgrænse: ris/melis/iste er ikke is.
+    for txt in ('Jasminris', 'Flormelis', 'Iste m. ferskensmag', 'Chablis', 'Riskage'):
+        check(f"{txt!r} er ikke is", not is_ice_text(txt))
+    for txt in ('Skildpaddeis i bæger', 'Mælkeispinde m. solbær', 'Frys-selv-is', 'Toms Skildpadde Is'):
+        check(f"{txt!r} er is", is_ice_text(txt))
 
 
 def test_vaegt_og_antal() -> None:
@@ -264,10 +279,28 @@ def test_billede_gate() -> None:
     check("manglende hash giver None",
           photo_distance({'_hash_int': base_hash}, {'_hash_int': None}) is None)
 
-    # Tydeligt forskellige fotos afviser, selv når navnet er identisk.
+    # Tydeligt forskellige fotos afviser, selv når navnet er identisk - når
+    # mærket ikke beviser at det er samme vare.
     must_not_match("identisk navn, men vidt forskellige fotos",
-                   product('Kikærter øko', 'Bonduelle', '400 g', hash_int=base_hash),
-                   product('Kikærter øko', 'Bonduelle', '400 g', hash_int=flip(30)))
+                   product('Kikærter øko', '', '400 g', hash_int=base_hash),
+                   product('Kikærter øko', '', '400 g', hash_int=flip(30)))
+    # Samme mærke og samme vægt slår fotoet: to fotos af samme vare fra to
+    # forskellige kilder ligger typisk 20-35 bit fra hinanden (målt 19-10-2026
+    # på 1.192 EAN-verificerede Dagrofa/Salling-par med samme mærke og vægt).
+    must_match("samme mærke og vægt slår et fremmed foto",
+               product('Guldkorn', 'Guldkorn', '320 g', hash_int=base_hash),
+               product('Guldkorn', 'Guldkorn', '320 g', hash_int=flip(30)))
+    must_match("mærke-forkortelse som ord i mærket slår et fremmed foto",
+               product('Oetker Brunt Bagepulver', 'Oetker', '16 g', hash_int=base_hash),
+               product('Brunt bagepulver', 'Dr. Oetker', '16 g', hash_int=flip(30)))
+    # Men ikke når kun den ene side er light-udgaven.
+    must_not_match("light-udgave af samme mærke og vægt",
+                   product('K-Salat Mayonnaise', 'K-Salat', '375 g', hash_int=base_hash),
+                   product('Let mayonnaise', 'K-Salat', '375 g', hash_int=flip(30)))
+    # Eget mærke er aldrig bevis: to husmærker i samme vægt.
+    must_not_match("husmærke i samme vægt slår ikke fotoet",
+                   product('Kikærter øko', 'Salling', '400 g', hash_int=base_hash),
+                   product('Kikærter øko', 'Salling', '400 g', hash_int=flip(30)))
     # Nær-identisk foto må ikke redde et par som en anden gate afviser.
     must_not_match("nær-identisk foto redder ikke en procent-konflikt",
                    product('Tuborg Classic 4,6%', 'Tuborg', '33 cl', hash_int=base_hash),
@@ -473,7 +506,7 @@ def test_billedsignalets_tre_roller() -> None:
     # Men tydeligt forskellige fotos afviser stadig.
     must_not_match("foto med afstand 30 afviser stadig",
                    product('Kikaerter oeko', 'Bonduelle', '400 g', hash_int=base),
-                   product('Kikaerter oeko', 'Bonduelle', '400 g', hash_int=flip(30)))
+                   product('Kikaerter oeko', 'Bonduelle', '380 g', hash_int=flip(30)))
     # Den brede graense maa ikke lempe en HAARD gate - kun typen og blokeringen.
     must_not_match("afstand 12 lemper IKKE en procent-konflikt",
                    product('Tuborg Classic 4,6%', 'Tuborg', '33 cl', hash_int=base),
@@ -661,6 +694,45 @@ def test_ean_konflikt_og_varianter_2026_09_09() -> None:
           not updater._dedup_same_product(a, b))
 
 
+def test_rema_ordregel_2026_10_07() -> None:
+    """Falsk-positive fundet i D1 07-10-2026: Rema-varer stod paa kort med en
+    anden vare, fordi kun eet ord var faelles, og det ord der skilte dem ad,
+    slet ikke fandtes hos modparten."""
+    print("\nRema-ordregel og boejede farver")
+    from app_support import get_product_colours
+    cov = updater.rema_title_words_covered
+    n = updater.normalize_name
+
+    def afvis(label, rema, cand, produce=False):
+        check("AFVIS  " + label, not cov(n(rema), n(cand), produce))
+
+    def accept(label, rema, cand, produce=False):
+        check("ACCEPT " + label, cov(n(rema), n(cand), produce))
+
+    afvis("Tørret timian vs fransk salami", 'TØRRET TIMIAN', 'Tørret fransk salami i skiver Salling')
+    afvis("Risotto vs pizza m. spinat", 'RISOTTO MED SPINAT', 'Pizza m. prosciutto og spinat Salling')
+    afvis("Bacon tern vs bacon leverpostej", 'BACON TERN', 'Dgs Bacon Leverpostej Dgs')
+    afvis("Wok blanding vs Pingvin Blanding", 'WOK BLANDING', 'Pingvin Blanding Toms')
+    afvis("Tun i olie vs artiskok i olie", 'TUN I OLIE', 'Gestus Artiskok I Olie Gestus')
+    afvis("ONE Energy vs Red Bull", 'ONE ENERGY', 'Red Bull Energy Drink Red')
+    afvis("Røde spidskål vs Æbl. Røde (farve baerer ikke)", 'ØKO. RØDE SPIDSKÅL', 'Æbl. Røde Æbl.', produce=True)
+
+    accept("kandidaten maa have flere ord", 'SØDMÆLKSBRØD', 'Sødmælksbrød Schulstad')
+    accept("sammensat ord hos kandidaten", 'KYLLINGEBRYST', 'Kyllingebrystfilet Rose')
+    accept("Rema skriver sammen", 'BRUNE FULDKORNSRIS', 'Brune ris øko Salling ØKO')
+    accept("forkortelse hos modparten", 'ROYAL GALA ÆBLER', 'Æbl. Royal Gala 70+ Æbl.', produce=True)
+    accept("vokalloes Rema-forkortelse", 'CHORIZO M/RGT. PAPRIKA', 'Chorizo m. røget paprika Aalbæk')
+    accept("stavemaade", 'NATUREL YOGURT', 'Yoghurt naturel')
+    accept("synonym sovs/sauce", 'HAKKEBØF I SOVS', 'Jaka Hakkebøf I Sauce 4Stk Jaka')
+    accept("frugt & groent maa mangle eet ord", 'ICEBERG SALAT', 'Iceberg', produce=True)
+    accept("fyldord maa mangle", 'TOMATER VEJ SELV', 'Tomater', produce=True)
+
+    check("'Grønne druer' og 'Druer rød' er to farver",
+          get_product_colours('Stenfri grønne druer') != get_product_colours('Druer Rød Stenfri'))
+    check("'røde' og 'rød' er samme farve",
+          get_product_colours('Røde linser') == get_product_colours('Linser rød'))
+
+
 def test_kendte_huller() -> None:
     """Huller fundet ved matchmotor-analysen 25-08-2026, endnu ikke lukket."""
     print("\nKendte huller (skal fejle nu, bestå senere)")
@@ -676,6 +748,58 @@ def test_kendte_huller() -> None:
                product('Hänsebouillon', '', '100 g'),
                expect_fail=True)
 
+
+
+def test_egne_maerker_voldgift_2026_10_10() -> None:
+    print("\nVoldgift: kædernes egne mærker side om side (10-10-2026)")
+    from updater import (_arbitrate_ean_clusters, _drop_cross_conflicting_matches,
+                         _drop_silent_own_brand_organic, _NO_VARIANT_FLAGS)
+
+    def m(name, brand, ean, cls, oko=False):
+        return {'name': name, 'brand': brand, 'ean': ean, '_brand_cls': cls,
+                '_variants': (oko,) + _NO_VARIANT_FLAGS[1:], 'price': 10.0}
+    salling = m('Æblemos', 'Salling', '5712873289370', 'pl')
+    fp = m('Fp Æblemos', 'Fp', '7311041074039', 'pl')
+    egne = {'bilka': salling, 'foetex': dict(salling), 'meny': fp, 'spar': dict(fp)}
+    kept = _arbitrate_ean_clusters(egne, 'ÆBLEMOS', 'REMA 1000 Æblemos', 'REMA 1000', True)
+    check("to kæders egne mærker beholdes begge", set(kept) == set(egne))
+    kept = _drop_cross_conflicting_matches(kept, None, frozenset())
+    check("... og kryds-oprydningen smider dem ikke ud", set(kept) == set(egne))
+
+    banderos = m('Banderos Tacosauce', 'Banderos', '7611612700757', 'nat')
+    blandet = {'bilka': m('Tacosauce', 'Salling', '5712874926953', 'pl'), 'mk': banderos}
+    kept = _arbitrate_ean_clusters(blandet, 'TACOSAUCE', 'REMA 1000 Tacosauce', 'REMA 1000', True)
+    check("Rema-eget mod mærkevare: mærkevaren ryger, eget mærke bliver", set(kept) == {'bilka'})
+
+    mutti = {'bilka': m('Pizzasauce', 'Mutti', '8005110551215', 'nat'),
+             'foetex': m('Pizzasauce', 'Mutti', '5712875246708', 'nat')}
+    kept = _arbitrate_ean_clusters(mutti, 'PIZZASAUCE', '', '', False)
+    check("to mærkevare-stregkoder voldgiftes stadig (uafgjort = ingen)",
+          not any(k in kept for k in mutti))
+
+    oko = (True,) + _NO_VARIANT_FLAGS[1:]
+    blandet = {'mk': m('Fp Skummetmælk', 'Fp', '1', 'pl'),
+               'bilka': m('Skummetmælk øko', 'Salling ØKO', '2', 'pl', oko=True),
+               'meny': m('Arla Skummetmælk', 'Arla', '3', 'nat')}
+    kept = _drop_silent_own_brand_organic(blandet, oko)
+    check("øko Rema-vare: eget mærke uden øko droppes, mærkevare og øko-udgave bliver",
+          set(kept) == {'bilka', 'meny'})
+    check("ikke-øko Rema-vare: intet droppes",
+          _drop_silent_own_brand_organic(blandet, _NO_VARIANT_FLAGS) == blandet)
+
+
+def test_soegning_finder_andre_butikkers_navne_2026_10_10() -> None:
+    print("\nSøgning: andre butikkers navne for varen (10-10-2026)")
+    from app_support import product_matches_query, store_match_names
+    card = {'name': 'Flødeis m. romsmag, karamelsauce og chokoladestykker',
+            'brand': 'Toms', 'description': '825 ml',
+            'store_matches': {'foetex': {'name': 'Flødeis m. romsmag, karamelsauce og chokoladestykker'},
+                              'spar': {'name': 'Toms Skildpadde'}}}
+    check("navnene samles uden dubletter",
+          store_match_names(card['store_matches']).count('Flødeis') == 1)
+    check("'skildpadde is' finder Føtex' flødeis via Spars navn",
+          product_matches_query(dict(card), 'skildpadde is'))
+    check("'lakrids' finder den stadig ikke", not product_matches_query(dict(card), 'lakrids'))
 
 
 def main() -> int:
@@ -709,6 +833,9 @@ def main() -> int:
     test_produkt_id_variant()
     test_farve_og_trin_gates()
     test_ean_konflikt_og_varianter_2026_09_09()
+    test_rema_ordregel_2026_10_07()
+    test_egne_maerker_voldgift_2026_10_10()
+    test_soegning_finder_andre_butikkers_navne_2026_10_10()
     test_kendte_huller()
 
     print()

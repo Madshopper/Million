@@ -1,0 +1,77 @@
+/* Tilbudsavisen (templates/butiksavis.html): bladr side for side med pilene,
+ * ved at swipe (CSS scroll-snap) eller med piletasterne. På brede skærme står
+ * to sider ved siden af hinanden som et opslag. */
+(function () {
+  'use strict';
+  var book = document.querySelector('[data-avis-book]');
+  if (!book) return;
+  var track = book.querySelector('[data-avis-track]');
+  var prevs = book.querySelectorAll('[data-avis-prev]');
+  var nexts = book.querySelectorAll('[data-avis-next]');
+  var counters = book.querySelectorAll('[data-avis-counter]');
+  var pages = track ? track.querySelectorAll('.avis-page') : [];
+  if (!track || !pages.length) return;
+
+  function pageWidth() { return pages[0].getBoundingClientRect().width || 1; }
+  function perView() { return Math.max(1, Math.round(track.clientWidth / pageWidth())); }
+  function current() { return Math.round(track.scrollLeft / pageWidth()); }
+
+  function update() {
+    var i = current();
+    var n = perView();
+    var last = Math.min(pages.length, i + n);
+    var text = last > i + 1 ? 'Side ' + (i + 1) + '-' + last : 'Side ' + (i + 1);
+    counters.forEach(function (c) { c.textContent = text; });
+    prevs.forEach(function (b) { b.disabled = i <= 0; });
+    nexts.forEach(function (b) { b.disabled = last >= pages.length; });
+  }
+
+  function goTo(i) {
+    i = Math.max(0, Math.min(pages.length - 1, i));
+    track.scrollTo({ left: i * pageWidth(), behavior: 'smooth' });
+  }
+
+  prevs.forEach(function (b) { b.addEventListener('click', function () { goTo(current() - perView()); }); });
+  nexts.forEach(function (b) { b.addEventListener('click', function () { goTo(current() + perView()); }); });
+
+  var t = null;
+  track.addEventListener('scroll', function () {
+    if (t) cancelAnimationFrame(t);
+    t = requestAnimationFrame(update);
+  }, { passive: true });
+  window.addEventListener('resize', update);
+
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (/INPUT|TEXTAREA|SELECT/.test(tag) || e.target.isContentEditable) return;
+    if (document.body.classList.contains('no-scroll')) return; // vare, kurv eller menu er åben
+    if (e.key === 'ArrowRight') { e.preventDefault(); goTo(current() + perView()); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(current() - perView()); }
+  });
+
+  function jump(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var idx = Array.prototype.indexOf.call(pages, el);
+    if (idx >= 0) goTo(idx);
+  }
+  book.querySelectorAll('[data-avis-jump]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      jump(a.getAttribute('data-avis-jump'));
+      track.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  });
+  // Telefon: pilene står fast midt på skærmen og vises kun, mens avisen er
+  // synlig, så de ikke hænger over sidefoden.
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (entries) {
+      book.classList.toggle('avis-in-view', entries[0].isIntersecting);
+    }, { rootMargin: '-35% 0px -35% 0px' }).observe(track);
+  } else {
+    book.classList.add('avis-in-view');
+  }
+
+  if (location.hash) jump(location.hash.slice(1));
+  update();
+})();

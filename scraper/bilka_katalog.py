@@ -21,7 +21,7 @@ ALGOLIA_APP_ID = 'F9VBJLR1BK'
 ALGOLIA_KEY    = 'd4f161f51f749bdd5baf699175d5f956'
 ALGOLIA_INDEX  = 'prod_BILKATOGO_PRODUCTS'
 ALGOLIA_URL    = f'https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/{ALGOLIA_INDEX}/query'
-ALGOLIA_ATTRS  = ['name', 'gtin', 'objectID', 'manufacturer', 'brand', 'subBrand',
+ALGOLIA_ATTRS  = ['name', 'isInCurrentLeaflet', 'leafletTitle', 'gtin', 'objectID', 'manufacturer', 'brand', 'subBrand',
                   'categories', 'images', 'netcontent', 'units', 'unitsOfMeasure',
                   'unitOfMeasurePrice', 'unitOfMeasurePriceUnits',
                   'price', 'sales_price', 'storeData', 'multibuy_offer_description']
@@ -148,7 +148,24 @@ def build_rows(hits: list[dict]) -> list[dict]:
         if not multikob:
             multikob = (hit.get('multibuy_offer_description') or '').strip()
 
-        tilbud = 'Ja' if (on_offer or multikob) else 'Nej'
+        # Samme regel som netto_katalog.py/foetex_katalog.py: avisvarer uden
+        # beforePrice får førprisen regnet ud fra enhedspriserne.
+        if hit.get('isInCurrentLeaflet') and ref:
+            if not on_offer and not multikob:
+                uom       = ref.get('unitsOfMeasurePrice') or 0
+                uom_offer = ref.get('unitsOfMeasureOfferPrice') or 0
+                if uom_offer and uom > uom_offer:
+                    normalpris = round(price_ore * uom / uom_offer / 100, 2)
+            on_offer = True
+
+        # 'Avis' = i ugens avis (isInCurrentLeaflet). Stadig et tilbud for
+        # updater.py, men kun de varer tæller i "Tilbudsavis pr. butik"
+        # (Feature 'butiksaviser'): Sallings øvrige tilbud (Skarp pris,
+        # webkampagner, multikøb) gav Føtex over 2.000 "avisvarer".
+        if hit.get('isInCurrentLeaflet'):
+            tilbud = 'Avis'
+        else:
+            tilbud = 'Ja' if (on_offer or multikob) else 'Nej'
 
         producent = (hit.get('brand') or hit.get('manufacturer') or 'Salling').strip() or 'Salling'
         images = hit.get('images') or []
@@ -175,6 +192,10 @@ def build_rows(hits: list[dict]) -> list[dict]:
             'billede_hash': reused_hash,
             'tilbud':       tilbud,
             'multikob':     multikob or None,
+            # Avisens tilbud ("Haribo slikpose") deles af alle varianterne
+            # under det; tælles som ét tilbud på logoerne (seed-d1.py).
+            'avis_titel':   (hit.get('leafletTitle') or '').strip() or None
+                            if hit.get('isInCurrentLeaflet') else None,
         })
     enrich_billede_hashes(rows)
     return rows

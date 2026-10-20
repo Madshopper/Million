@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '../theme/Typography';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { fetchCategory, fetchSale } from '../api/listing';
+import { fetchCategory, fetchSale, fetchStoreOffers } from '../api/listing';
 import type { Product } from '../api/types';
 import { FiltersBar, type FiltersValue } from '../components/FiltersBar';
 import { ProductCard } from '../components/ProductCard';
@@ -20,6 +21,7 @@ import type { RootStackParamList } from '../navigation/types';
 
 type CategoryProps = NativeStackScreenProps<RootStackParamList, 'Category'>;
 type SaleProps = NativeStackScreenProps<RootStackParamList, 'Sale'>;
+type StoreOffersListProps = NativeStackScreenProps<RootStackParamList, 'StoreOffersList'>;
 
 function ListingBody({
   products,
@@ -35,6 +37,7 @@ function ListingBody({
   onFiltersChange,
   error,
   onRetry,
+  header,
 }: {
   products: Product[];
   page: number;
@@ -49,11 +52,14 @@ function ListingBody({
   onFiltersChange: (next: FiltersValue) => void;
   error?: string | null;
   onRetry?: () => void;
+  /** Vises øverst, over filtrene (fx linket til butikkens egen avis). */
+  header?: React.ReactNode;
 }) {
   const { colors } = useTheme();
 
   return (
     <StackScreenBody style={{ backgroundColor: colors.bg }}>
+      {header}
       <FiltersBar values={filters} onChange={onFiltersChange} showSubcats={subcategories.length > 0} />
       {subcategories.length > 0 ? (
         <FlatList
@@ -291,7 +297,83 @@ export function SaleScreen({ navigation }: SaleProps) {
   );
 }
 
+/**
+ * "Se alle" fra en butiks tilbudsavis (StoreAvisScreen, Feature-panelet
+ * 'butiksaviser'), samme som hjemmesidens /tilbud/<butik>?kategori=<slug>:
+ * alle butikkens tilbud, eller ét afsnit, med filtre og sider. Uafhængig af
+ * butiksvalget - siden ER butikken.
+ */
+export function StoreOffersListScreen({ route, navigation }: StoreOffersListProps) {
+  const { storeKey, label, avisUrl, kategori } = route.params;
+  const { colors } = useTheme();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [filters, setFilters] = useState<FiltersValue>({ sort: 'relevance' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchStoreOffers(storeKey, { page, kategori, ...filters });
+      setProducts(data.products || []);
+      setTotalPages(data.total_pages || 1);
+    } catch (e) {
+      // Se CategoryScreen: uden catch var offline en blank skærm.
+      setError(e instanceof Error ? e.message : 'Kunne ikke hente tilbuddene.');
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [storeKey, kategori, page, filters]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <ListingBody
+      header={
+        <View style={styles.avisIntro}>
+          <Text style={{ color: colors.textMuted }}>
+            Hentet direkte fra {label}.
+          </Text>
+          <Pressable
+            onPress={() => void Linking.openURL(avisUrl)}
+            accessibilityRole="link"
+            accessibilityHint="Åbner butikkens hjemmeside"
+            hitSlop={8}
+          >
+            <Text style={{ color: colors.primary, fontWeight: '700' }}>
+              Se hele avisen hos {label}
+            </Text>
+          </Pressable>
+        </View>
+      }
+      error={error}
+      onRetry={() => void load()}
+      products={products}
+      page={page}
+      totalPages={totalPages}
+      loading={loading}
+      subcategories={[]}
+      currentSub={null}
+      onPage={setPage}
+      onSub={() => {}}
+      onProduct={(p) => navigation.navigate('ProductDetail', { product: p })}
+      filters={filters}
+      onFiltersChange={(next) => {
+        setPage(1);
+        setFilters(next);
+      }}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
+  avisIntro: { paddingHorizontal: 16, paddingTop: 12, gap: 4 },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 8,

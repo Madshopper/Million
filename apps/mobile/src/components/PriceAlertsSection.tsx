@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/Typography';
 import { useFocusEffect } from '@react-navigation/native';
 import { getSupabase } from '../auth/supabase';
 import { useAuth } from '../auth/AuthContext';
@@ -158,13 +159,13 @@ export function PriceAlertsSection() {
             <View
               style={{ flex: 1, minWidth: 0 }}
               accessible
-              accessibilityLabel={`${a.product_name || 'Ukendt vare'}, giver besked under ${spokenKr(Number(a.target_price))}`}
+              accessibilityLabel={`${a.product_name || 'Ukendt vare'}, giver besked ved ${spokenKr(Number(a.target_price))} eller lavere`}
             >
               <Text style={{ color: colors.text, fontWeight: '600' }} numberOfLines={1}>
                 {a.product_name || 'Ukendt vare'}
               </Text>
               <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                Giver besked under {Number(a.target_price).toFixed(2)} kr
+                Giver besked ved {Number(a.target_price).toFixed(2)} kr eller lavere
               </Text>
             </View>
             <Pressable

@@ -80,7 +80,7 @@ ALGOLIA_APP_ID = 'F9VBJLR1BK'
 ALGOLIA_KEY    = 'd4f161f51f749bdd5baf699175d5f956'
 ALGOLIA_INDEX  = 'prod_FOETEX_PRODUCTS'
 ALGOLIA_URL    = f'https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/{ALGOLIA_INDEX}/query'
-ALGOLIA_ATTRS  = ['name', 'gtin', 'objectID', 'brand', 'subBrand', 'manufacturer',
+ALGOLIA_ATTRS  = ['name', 'isInCurrentLeaflet', 'leafletTitle', 'gtin', 'objectID', 'brand', 'subBrand', 'manufacturer',
                   'units', 'unitsOfMeasure', 'netcontent',
                   'consumerFacingHierarchy', 'categories', 'images',
                   'productType', 'properties',
@@ -213,7 +213,26 @@ def build_rows(hits: list[dict]) -> list[dict]:
         if not multikob:
             multikob = (hit.get('multibuy_offer_description') or '').strip()
 
-        tilbud = 'Ja' if (on_offer or multikob) else 'Nej'
+        # Ugens avisvarer: Salling markerer dem med isInCurrentLeaflet, men
+        # sender sjældent beforePrice (Netto aldrig). Før- og tilbudsprisen pr.
+        # enhed ligger begge i storeData, så førprisen regnes ud fra forholdet.
+        # Ikke ved multikøb, hvor enhedsprisen er mix-prisen og ikke stykprisen.
+        if hit.get('isInCurrentLeaflet') and ref:
+            if not on_offer and not multikob:
+                uom       = ref.get('unitsOfMeasurePrice') or 0
+                uom_offer = ref.get('unitsOfMeasureOfferPrice') or 0
+                if uom_offer and uom > uom_offer:
+                    normalpris = round(price_ore * uom / uom_offer / 100, 2)
+            on_offer = True
+
+        # 'Avis' = i ugens avis (isInCurrentLeaflet). Stadig et tilbud for
+        # updater.py, men kun de varer tæller i "Tilbudsavis pr. butik"
+        # (Feature 'butiksaviser'): Sallings øvrige tilbud (Skarp pris,
+        # webkampagner, multikøb) gav Føtex over 2.000 "avisvarer".
+        if hit.get('isInCurrentLeaflet'):
+            tilbud = 'Avis'
+        else:
+            tilbud = 'Ja' if (on_offer or multikob) else 'Nej'
         producent = (hit.get('brand') or hit.get('manufacturer') or 'Salling').strip() or 'Salling'
         images = hit.get('images') or []
         billede = images[0] if images else ''
@@ -237,6 +256,10 @@ def build_rows(hits: list[dict]) -> list[dict]:
             'billede_hash': reused_hash,
             'tilbud':       tilbud,
             'multikob':     multikob or None,
+            # Avisens tilbud ("Haribo slikpose") deles af alle varianterne
+            # under det; tælles som ét tilbud på logoerne (seed-d1.py).
+            'avis_titel':   (hit.get('leafletTitle') or '').strip() or None
+                            if hit.get('isInCurrentLeaflet') else None,
         })
     enrich_billede_hashes(rows)
     return rows
@@ -271,7 +294,10 @@ def main():
         print(f"  {r['navn']:35.35s} {r['pris']:>7} kr  {r['producent']:15.15s} "
               f"{r['netto_vaegt'] or '':>8}  tilbud={r['tilbud']}")
 
-    save_product_dicts(BUTIK, rows, delete_eq_kategori=KATEGORI)
+    # Hele butikken erstattes: kataloget er nu eneste kilde (ugens avisvarer
+    # ligger i det via isInCurrentLeaflet). Rydder samtidig de gamle
+    # Tjek-tilbudsrækker (kategori 'Tilbudsavis') væk ved første kørsel.
+    save_product_dicts(BUTIK, rows)
     print(f'\nFærdig! {len(rows)} Føtex-produkter gemt.')
 
 

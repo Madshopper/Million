@@ -1,0 +1,67 @@
+name: Butikkernes adresser
+
+# Henter alle butikker i vores kæder fra OpenStreetMap og gemmer dem i
+# static/data/butikker.json (Feature 'lokation', scripts/build-store-locations.py).
+# Butikker åbner og lukker sjældent, så én gang om måneden er nok. Filen kommer
+# ud med næste deploy; committen har [skip ci], så den ikke selv starter et.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 2 * *'
+
+concurrency:
+  group: store-locations
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Geofabriks gratis Danmark-udtræk (opdateres dagligt). Overpass gav 504
+      # på hele Danmark fra alle tre servere, så vi filtrerer selv med osmium.
+      - name: Hent OpenStreetMap-udtræk for Danmark
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+          curl -fsSL --retry 3 -o /tmp/dk.osm.pbf https://download.geofabrik.de/europe/denmark-latest.osm.pbf
+          osmium tags-filter /tmp/dk.osm.pbf \
+            nwr/shop=supermarket,convenience,department_store,general,hypermarket,discount,food \
+            -o /tmp/shops.osm.pbf --overwrite
+          osmium export /tmp/shops.osm.pbf -f geojsonseq -o /tmp/shops.geojsonseq --overwrite
+          # Adresserne står på egne punkter ved siden af butikkerne.
+          osmium tags-filter /tmp/dk.osm.pbf n/addr:postcode -o /tmp/addr.osm.pbf --overwrite
+          osmium export /tmp/addr.osm.pbf -f geojsonseq -o /tmp/addr.geojsonseq --overwrite
+
+      - name: Byg butikslisten
+        run: python scripts/build-store-locations.py --geojsonseq /tmp/shops.geojsonseq --addresses /tmp/addr.geojsonseq
+
+      - name: Gem filen hvis den er ændret
+        run: |
+          # "updated" skifter hver gang; kun gem når selve butikkerne har ændret sig.
+          if [ -z "$(git status --porcelain -- static/data/butikker.json)" ]; then
+            echo "Ingen ny fil"; exit 0
+          fi
+          if git show HEAD:static/data/butikker.json > /tmp/old.json 2>/dev/null; then
+            if python -c "import json,sys; a=json.load(open('/tmp/old.json')); b=json.load(open('static/data/butikker.json')); sys.exit(0 if (a['stores'],a['postcodes'])==(b['stores'],b['postcodes']) else 1)"; then
+              echo "Kun datoen er ændret"; exit 0
+            fi
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static/data/butikker.json
+          git commit -m "Butikkernes adresser fra OpenStreetMap [skip ci]"
+          # Nogen kan have pushet imens; læg committen oven på.
+          for i in 1 2 3; do
+            git pull --rebase -q origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep 5
+          done
+          exit 1
