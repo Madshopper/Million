@@ -20,6 +20,10 @@ declare namespace Cloudflare {
     SWIPE_ENABLED?: string
     MEJERI_NAVN_ENABLED?: string
     SUBSCRIPTION_ENABLED?: string
+    TILBUD_GUL_ENABLED?: string
+    BUTIKSAVISER_ENABLED?: string
+    LOKATION_ENABLED?: string
+    DESIGN_C2_ENABLED?: string
     // Admin (lib/admin-analytics.ts): D1-budget og Trafik-fanen via Cloudflares
     // GraphQL-analytics. Kontotoken med *Account Analytics: Read*.
     CF_ANALYTICS_TOKEN?: string
