@@ -6831,6 +6831,73 @@ html.c2 body[data-theme="dark"] {
   --c2-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
+/* Mørk tilstand i C2: hjemmesidens gamle mørke farver var blågrå
+   (#111827/#1f2937/#374151), mens C2-kortene bruger appens grønsorte. De to
+   familier side om side så forkerte ud (Kalle 20-10-2026). Her får de gamle
+   tokens appens farver, så menuen, indstillinger, varevinduet, filtre og
+   sammenligningen hører til samme familie som kortene. */
+html.c2 body[data-theme="dark"] {
+  --white: #1C1F1B;
+  --gray-50: #121412;
+  --gray-100: #2C312B;
+  --gray-200: #3A4038;
+  --gray-300: #565D53;
+  --gray-400: #8A9184;
+  --gray-500: #A3AAA0;
+  --gray-600: #C7CCC3;
+  --gray-700: #E3E6DF;
+  --gray-800: #F0F2ED;
+  --gray-900: #F7F8F5;
+  --bg: #121412;
+  --text-main: #F0F2ED;
+  --text-muted: #A3AAA0;
+  --border-color: #2C312B;
+}
+
+/* De få mørke regler med faste farver i stedet for tokens. */
+html.c2 body[data-theme="dark"] .sco-modal,
+html.c2 body[data-theme="dark"] .sco-missing-body,
+html.c2 body[data-theme="dark"] .sco-il-img,
+html.c2 body[data-theme="dark"] .lok-modal,
+html.c2 body[data-theme="dark"] .lok-route,
+html.c2 body[data-theme="dark"] .lok-pc input {
+  background: var(--c2-surface);
+}
+
+html.c2 body[data-theme="dark"] .sco-close,
+html.c2 body[data-theme="dark"] .sco-store-card,
+html.c2 body[data-theme="dark"] .sco-il-img--empty,
+html.c2 body[data-theme="dark"] .br-store-header,
+html.c2 body[data-theme="dark"] .lok-btn:not(.lok-btn-primary) {
+  background: var(--c2-border);
+}
+
+html.c2 body[data-theme="dark"] .sco-store-items,
+html.c2 body[data-theme="dark"] .sco-il-row,
+html.c2 body[data-theme="dark"] .sco-il-img,
+html.c2 body[data-theme="dark"] .sco-il-total,
+html.c2 body[data-theme="dark"] .br-store-group,
+html.c2 body[data-theme="dark"] .br-store-header,
+html.c2 body[data-theme="dark"] .br-item:not(:last-child),
+html.c2 body[data-theme="dark"] .lok-btn:not(.lok-btn-primary),
+html.c2 body[data-theme="dark"] .lok-route,
+html.c2 body[data-theme="dark"] .lok-pc input {
+  border-color: var(--c2-border);
+}
+
+html.c2 body[data-theme="dark"] .sco-il-divider {
+  background: var(--c2-border);
+}
+
+/* Rute-knapperne var blå; i C2 er de lysegrønne som de andre knapper. */
+html.c2 body[data-theme="dark"] .butiksrute-btn,
+html.c2 body[data-theme="dark"] .sco-butiksrute-btn,
+html.c2 body[data-theme="dark"] .sco-butiksrute-head-btn {
+  background: var(--c2-green-soft);
+  border-color: var(--c2-green-soft);
+  color: var(--c2-green-ink);
+}
+
 .c2-hide {
   position: absolute;
   width: 1px;
@@ -7705,4 +7772,11 @@ html.c2 .c2-tabbar {
   html.c2 .c2-search-panel {
     max-height: calc(100vh - 220px);
   }
+}
+
+/* Cookie-advarslen i Indstillinger: dæmpet rød i mørk tilstand (appens sale-farve),
+   ikke en lys pink boks. */
+html.c2 body[data-theme="dark"] .settings-consent-warning {
+  background: rgba(198, 40, 40, 0.18);
+  color: #EF9A9A;
 }
