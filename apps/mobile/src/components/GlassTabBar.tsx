@@ -33,13 +33,17 @@ function pillBottom(insets: EdgeInsets): number {
 export function glassPillTabBarStyle(insets: EdgeInsets) {
   return {
     position: 'absolute' as const,
-    left: PILL_SIDE_MARGIN,
-    right: PILL_SIDE_MARGIN,
+    // start/end, ikke left/right: navigatorens egen stil sætter start/end: 0,
+    // og de vinder over left/right (pillen gik ud til skærmkanten).
+    start: PILL_SIDE_MARGIN,
+    end: PILL_SIDE_MARGIN,
     bottom: pillBottom(insets),
     height: PILL_HEIGHT,
     // Navigatoren lægger ellers hjemme-stregens højde ind i bunden af bjælken.
-    paddingTop: 8,
-    paddingBottom: 8,
+    // Fanen lægger selv ikon og tekst øverst med 5 pt luft; indholdet er ca.
+    // 46 pt (målt i simulatoren), så 4 + 5 pt over giver ~9 pt over og under.
+    paddingTop: 4,
+    paddingBottom: 0,
     paddingHorizontal: 4,
     borderRadius: PILL_RADIUS,
     borderTopWidth: 0,
