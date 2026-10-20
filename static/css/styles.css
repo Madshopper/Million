@@ -7096,6 +7096,26 @@ html.c2 .product-image {
   padding: 10px;
 }
 
+/* Mørk tilstand på computeren: de store hvide billedfelter lyste op og
+   gjorde siden skarp og mærkelig (Kalle 20-10-2026). Feltet og billedet
+   dæmpes en smule, så de falder ind i den mørke side. */
+html.c2 body[data-theme="dark"] .product-image-container {
+  background: #E6E6E8;
+}
+
+html.c2 body[data-theme="dark"] .product-image {
+  filter: brightness(0.9);
+}
+
+/* Computer: seks kort i rækken i stedet for fem, så kortene får appens
+   størrelse og ikke bliver kæmpestore på brede skærme. */
+@media (min-width: 1280px) {
+  html.c2 .products {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 18px;
+  }
+}
+
 html.c2 .sale-badge {
   top: 8px;
   left: 8px;
