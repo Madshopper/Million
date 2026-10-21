@@ -6913,6 +6913,9 @@ html.c2 body[data-theme="dark"] .sco-butiksrute-head-btn {
 html.c2 header {
   background: var(--c2-bg);
   border-bottom-color: var(--c2-border);
+  /* Tom luft under den faste top, så varerne ikke klippes lige under
+     kategorierne (Kalle 21-10-2026; appen har samme luft). */
+  padding-bottom: 12px;
 }
 
 html.c2 .logo-icon {
