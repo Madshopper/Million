@@ -283,6 +283,7 @@
   }
 
   // ── Rækkefølge i "Billigste butikker" ──────────────────────────────────
+  var ROUTE_SHOWN = 3;
   function renderRoute(container, labels, groupsEl) {
     var keys = labels.map(keyOf).filter(Boolean);
     if (!keys.length) return;
@@ -299,15 +300,25 @@
       loadData().then(function (data) {
         var plan = planRoute(data, pos, keys, pos.precise);
         if (!plan) { result.innerHTML = '<p class="lok-msg">Vi fandt ingen af butikkerne i nærheden.</p>'; return; }
-        var html = '<ol class="lok-stops">' + plan.stops.map(function (s) {
-          return '<li><strong>' + esc(labelOf(s.key)) + '</strong>' +
+        // Kun de første butikker, så kurvens varer ses hurtigt; resten bag en knap.
+        var many = plan.stops.length > ROUTE_SHOWN + 1;
+        var html = '<ol class="lok-stops">' + plan.stops.map(function (s, i) {
+          return '<li' + (many && i >= ROUTE_SHOWN ? ' class="lok-stop-extra" hidden' : '') + '><strong>' + esc(labelOf(s.key)) + '</strong>' +
             '<span class="lok-addr">' + esc(address(s)) + '</span>' +
             '<span class="lok-dist">' + fmtKm(s.dist) + ' fra ' + esc(pos.label) + '</span></li>';
         }).join('') + '</ol>' +
+          (many ? '<button type="button" class="lok-more" aria-expanded="false">Vis alle ' + plan.stops.length + ' butikker</button>' : '') +
           '<p class="lok-total">Turen er ca. ' + fmtKm(plan.km) + ' i fugleflugt' + (pos.precise ? ', hjem igen' : '') + '.</p>' +
           '<a class="lok-btn lok-btn-primary lok-maps" target="_blank" rel="noopener" href="' + esc(mapsUrl(pos, plan.stops, pos.precise)) + '">Åbn turen i Google Maps</a>' +
           ATTRIB;
         result.innerHTML = html;
+        var more = result.querySelector('.lok-more');
+        if (more) more.addEventListener('click', function () {
+          var open = more.getAttribute('aria-expanded') !== 'true';
+          result.querySelectorAll('.lok-stop-extra').forEach(function (li) { li.hidden = !open; });
+          more.setAttribute('aria-expanded', open ? 'true' : 'false');
+          more.textContent = open ? 'Vis færre' : 'Vis alle ' + plan.stops.length + ' butikker';
+        });
         // Butikkernes varer i samme rækkefølge som turen, med nummer på.
         if (groupsEl) {
           plan.stops.slice().reverse().forEach(function (s, i) {

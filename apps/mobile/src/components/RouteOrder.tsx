@@ -24,6 +24,7 @@ export function RouteOrder({
   const { colors } = useTheme();
   const [plan, setPlan] = React.useState<{ pos: Pos; km: number; stops: Place[] } | null>(null);
   const [msg, setMsg] = React.useState('');
+  const [showAll, setShowAll] = React.useState(false);
   const labelOf = (key: string) => catalog.find((s) => s.key === key)?.label || key;
 
   const onPos = React.useCallback(
@@ -62,7 +63,7 @@ export function RouteOrder({
       {msg ? <Text style={{ color: colors.textMuted, marginTop: 8 }}>{msg}</Text> : null}
       {plan ? (
         <View style={{ marginTop: 12 }}>
-          {plan.stops.map((s, i) => (
+          {(showAll || plan.stops.length <= SHOWN + 1 ? plan.stops : plan.stops.slice(0, SHOWN)).map((s, i) => (
             <View
               key={`${s.key}-${i}`}
               style={styles.stop}
@@ -81,6 +82,13 @@ export function RouteOrder({
               </View>
             </View>
           ))}
+          {plan.stops.length > SHOWN + 1 ? (
+            <Pressable onPress={() => setShowAll((v) => !v)} accessibilityRole="button" style={{ paddingVertical: 4 }}>
+              <Text style={{ color: colors.primary, fontWeight: '700' }}>
+                {showAll ? 'Vis færre' : `Vis alle ${plan.stops.length} butikker`}
+              </Text>
+            </Pressable>
+          ) : null}
           <Text style={{ color: colors.text, marginVertical: 6 }}>
             Turen er ca. {fmtKm(plan.km)} i fugleflugt.
           </Text>
@@ -97,6 +105,9 @@ export function RouteOrder({
     </View>
   );
 }
+
+// Kun de første butikker vises, så kurvens varer kommer hurtigt til syne.
+const SHOWN = 3;
 
 const styles = StyleSheet.create({
   box: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
