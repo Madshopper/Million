@@ -251,9 +251,11 @@ const config = {
   // fingerprintet blev regnet forskelligt på Mac'en og GitHubs Linux (målt
   // 10-10-2026: 65f6bf13... mod d39078e0... på samme commit), så ingen
   // opdatering nogensinde ville lande.
+  // TEST_RUNTIME_VERSION bruges kun af test-app-update.yml til at sende samme
+  // opdatering til et ældre build på telefonen (se workflowet).
   ...(IS_TEST_APP
     ? {
-        runtimeVersion: 'test-3',
+        runtimeVersion: process.env.TEST_RUNTIME_VERSION || 'test-3',
         updates: {
           url: 'https://u.expo.dev/61fb2d3e-805e-4d2f-9c78-5e9705d28fd8',
           requestHeaders: { 'expo-channel-name': 'test' },
