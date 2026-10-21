@@ -72,3 +72,24 @@ jobs:
           MSG="$(git log -1 --pretty=%s | cut -c1-100)"
           npx --yes eas-cli@16 update --channel test --platform all \
             --message "$MSG" --non-interactive
+
+      # Bro til den iPhone-udgave af MadShopper Test, der ligger på Kalles
+      # telefon nu (runtimeVersion test-2, bygget 14-10-2026). PR #130 hævede
+      # runtimeVersion til test-3 for expo-system-ui, så fra 21-10-2026 kl.
+      # 11:52 landede ingen opdatering på telefonen. Den eneste nye native-
+      # pakke siden test-2 er expo-system-ui, og den importeres ikke fra
+      # JS-koden (kun et config-plugin), så samme kode kan køre i det gamle
+      # build. Fjern trinnet, når Mac'en har bygget MadShopper Test fra main.
+      - name: Send også til iPhone-build test-2
+        if: steps.secrets.outputs.ok == 'true'
+        working-directory: apps/mobile
+        env:
+          TEST_RUNTIME_VERSION: test-2
+        run: |
+          if grep -rq "expo-system-ui" src index.ts App.tsx 2>/dev/null; then
+            echo "::error::JS-koden bruger nu expo-system-ui, som build test-2 ikke har. Byg MadShopper Test på Mac'en og fjern dette trin."
+            exit 1
+          fi
+          MSG="$(git log -1 --pretty=%s | cut -c1-100)"
+          npx --yes eas-cli@16 update --channel test --platform ios \
+            --message "$MSG" --non-interactive
