@@ -5,19 +5,18 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Text } from '../theme/Typography';
 import { useTheme } from '../theme/ThemeContext';
-import { CartIcon } from './CartIcon';
 import { lookupPostcode, useLokationEnabled } from '../location/nearby';
 import { loadStoreLocations, savedPostcode } from '../location/storage';
 import type { RootStackParamList } from '../navigation/types';
 
-/** Forsidens top til venstre: grønt logo-felt med hvid kurv + "MadShopper". */
+/**
+ * Forsidens top til venstre: kun "MadShopper". Det grønne kurv-ikon er
+ * fjernet (Kalle 21-10-2026), så kurv-knappen til højre er den eneste kurv.
+ */
 export function HomeHeaderTitle() {
   const { colors } = useTheme();
   return (
     <View style={styles.titleRow} accessible accessibilityRole="header" accessibilityLabel="MadShopper">
-      <View style={[styles.logoBox, { backgroundColor: colors.primary }]}>
-        <CartIcon count={0} color={colors.onPrimary} size={22} />
-      </View>
       <Text style={[styles.title, { color: colors.text }]}>MadShopper</Text>
     </View>
   );
@@ -81,14 +80,7 @@ export function LocationPill() {
 
 const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  logoBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: { fontSize: 19, fontWeight: '800', letterSpacing: -0.3 },
+  title: { fontSize: 21, fontWeight: '800', letterSpacing: -0.3 },
   pill: {
     height: 36,
     borderRadius: 999,
