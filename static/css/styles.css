@@ -6759,6 +6759,8 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
 [data-theme="dark"] .lok-route-title { color: #f5f5f5; }
 .lok-stops { margin: 12px 0 6px; padding-left: 1.4em; }
 .lok-stops li { margin: 0 0 8px; }
+.lok-more { background: none; border: 0; padding: 0 0 8px; color: var(--green); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+[data-theme="dark"] .lok-more { color: #34d399; }
 .lok-stops strong { display: block; color: var(--gray-800); }
 [data-theme="dark"] .lok-stops strong { color: #f5f5f5; }
 .lok-addr, .lok-dist { display: block; font-size: 0.82rem; color: var(--gray-600); }
@@ -6920,6 +6922,12 @@ html.c2 header {
 
 html.c2 .logo-icon {
   border-radius: 12px;
+}
+
+/* Kun ordet "MadShopper" i toppen: logoets kurv lignede kurv-knappen
+   (Kalle 21-10-2026), samme som appens HomeHeaderTitle. */
+html.c2 header .logo-icon {
+  display: none;
 }
 
 html.c2 .logo-text {
@@ -7403,7 +7411,7 @@ html.c2 .c2-plus svg {
   height: 20px;
 }
 
-/* Søgefeltets panel: seneste søgninger og "Køb igen" */
+/* Søgefeltets panel: seneste søgninger */
 html.c2 .c2-search-panel {
   position: absolute;
   top: calc(100% + 8px);

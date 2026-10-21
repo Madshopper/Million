@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingBottom: 12,
     marginHorizontal: 3,
-    marginVertical: 4,
+    marginVertical: 3,
     overflow: 'hidden',
   },
   imageWrap: {

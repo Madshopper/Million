@@ -22,8 +22,6 @@ import { useTheme } from '../theme/ThemeContext';
 import { Pager } from '../components/Pager';
 import { setServerStatsEnabled, trackSearch } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
-import { BuyAgainCard } from '../components/BuyAgain';
-import { useBuyAgain } from '../cart/recentItems';
 import { rememberSearch, useRecentSearches } from '../search/recentSearches';
 import { SearchCache, matchRecentSearches } from '../search/searchCache';
 
@@ -83,10 +81,9 @@ export function SearchScreen() {
   // på samme søgning må ikke tælle som en ny søgning (samme regel som webben).
   const countedQueryRef = useRef('');
   const [focused, setFocused] = useState(false);
-  // C2: "Seneste søgninger" og "Køb igen" (de 5 varer man oftest har lagt i
-  // kurven), begge kun gemt på telefonen.
+  // C2: "Seneste søgninger", kun gemt på telefonen. "Køb igen" vises kun
+  // nederst i kurven ("Glemt noget?"), ikke i Søg (Kalle 21-10-2026).
   const recentSearches = useRecentSearches();
-  const buyAgain = useBuyAgain(5);
 
   // Ny søgning nulstiller advanced filters (web-paritet). Sætter DEFAULT_FILTERS
   // (samme objektreference hver gang) og kun når der faktisk er noget at
@@ -160,7 +157,7 @@ export function SearchScreen() {
 
   const showStarter = q.trim().length === 0 && !!starter?.products.length;
   const isEmptyQuery = q.trim().length === 0;
-  const hasPersonal = recentSearches.length > 0 || buyAgain.length > 0;
+  const hasPersonal = recentSearches.length > 0;
 
   /** Søg med det samme, uden at vente på skrive-debouncen. */
   const commitNow = (term: string) => {
@@ -209,19 +206,6 @@ export function SearchScreen() {
                 </Text>
               </Pressable>
             ))}
-          </View>
-        </>
-      ) : null}
-      {buyAgain.length ? (
-        <>
-          <View style={styles.buyAgainHead}>
-            <Text style={[styles.buyAgainTitle, { color: colors.text }]} accessibilityRole="header">
-              Køb igen
-            </Text>
-            <Text style={[styles.buyAgainSub, { color: colors.textMuted }]}>Det du plejer at købe</Text>
-          </View>
-          <View style={styles.buyAgainCard}>
-            <BuyAgainCard items={buyAgain} />
           </View>
         </>
       ) : null}
@@ -496,17 +480,6 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   recentText: { fontSize: 14, fontWeight: '500', flexShrink: 1 },
-  buyAgainHead: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 22,
-    paddingBottom: 10,
-  },
-  buyAgainTitle: { fontSize: 17, fontWeight: '800' },
-  buyAgainSub: { fontSize: 13 },
-  buyAgainCard: { paddingHorizontal: 12 },
   sug: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -51,7 +51,12 @@ ALERT_DEGRADED_PER_HOUR = 10
 # 14-09-2026) og loeb op i ca. 13 degraderede svar i doegnet - aldrig 20 paa
 # én time, saa INGEN alarm. Efter render-laasen er normalen 0-faa; revurdér
 # taersklen naar der er en uges data efter rettelsen.
-ALERT_DEGRADED_PER_DAY = 10
+# 21-10-2026, efter tre ugers data: et normalt doegn har 1-8, og de doegn der
+# gav 11-15 (17-10 og 20-10) var korte overbelastninger, der allerede ses som
+# 1101/1102 nedenfor. 25 er et vedvarende problem; over 10 bliver en advarsel
+# i koerslen (ikke roed, ingen mail).
+ALERT_DEGRADED_PER_DAY = 25
+WARN_DEGRADED_PER_DAY = 10
 # busy: workeren svarede selv "travlt" (503 + X-MadShopper-Busy) i stedet for
 # at rendere - CPU-budget, koe-loft eller ventetid (src/worker.py). Det
 # erstatter 1102, saa Cloudflare-analytics viser "success" og intet andet
@@ -64,8 +69,24 @@ ALERT_BUSY_PER_DAY = 200
 # Cloudflares egne fejlsider (se fetch_worker_invocations). Normal drift er 0;
 # en enkelt 1102 kan ske ved et tilfaeldigt CPU-tungt kald, men 10 paa en time
 # er et moenster - samtidighedstesten 15-09-2026 gav 6 paa ét minut.
-ALERT_CPU_LIMIT_PER_HOUR = 10
-ALERT_EXCEPTION_PER_HOUR = 10
+#
+# 21-10-2026: talt i MINUTTER med fejl, ikke i antal fejl. Naar én isolate
+# dør, faar alle i den 1101 i 1-2 minutter, og klienterne proever selv igen
+# 3-4 gange - saa ét kort hik gav 50-90 fejl og en roed koersel (11-10, 17-10,
+# 20-10-2026: en crawler eller én app-bruger der tastede hurtigt). De
+# taersklede antal (10/t) blev derfor ramt hver 3.-4. dag uden noget at rette.
+# Roed (mail) kun naar sitet har fejlet i mange minutter, dvs. ikke kom sig
+# selv - fx 11-10-2026, hvor uptime-tjekkets isolate gav 1101 hvert 5.
+# minut i timevis (12 fejlminutter i timen). Korte hik bliver en advarsel i
+# koerslen med alle tal, saa de stadig kan ses.
+ALERT_ERROR_MINUTES_PER_HOUR = 6
+ALERT_ERROR_MINUTES_PER_DAY = 15
+# Nødbremse: en fejlbølge så stor at den er en alarm, uanset hvor kort.
+ALERT_CPU_LIMIT_PER_HOUR = 200
+ALERT_EXCEPTION_PER_HOUR = 200
+# Under disse er der intet at sige; over dem bliver det en advarsel.
+WARN_CPU_LIMIT_PER_HOUR = 10
+WARN_EXCEPTION_PER_HOUR = 10
 
 # Vinduet alarmerne vurderer. Var "seneste time" - men workflowet er sat til
 # hvert 15. minut og koerer i praksis kun hver 2.-6. time (GitHub-cron-
@@ -413,16 +434,19 @@ def check_d1_events() -> list[str]:
         )
     hour, peak = worst_hour("degraded")
     degraded_day = recent.get("degraded", 0)
+    degraded_msg = (
+        f"{degraded_day} degraderede svar (X-Data-Degraded) de seneste "
+        f"{LOOKBACK_HOURS} t, vaerste time {hour} UTC: {peak} (taerskler "
+        f"{ALERT_DEGRADED_PER_HOUR}/t og {ALERT_DEGRADED_PER_DAY}/doegn) - "
+        f"rigtige besoegende fik tomme lister/soegninger, status er stadig "
+        f"200. Se top-stierne ovenfor; kendte aarsager: isolate-kollision i "
+        f"D1-broen (render-laasen i src/worker.py), D1-budget sprængt, "
+        f"fejlet seed."
+    )
     if peak > ALERT_DEGRADED_PER_HOUR or degraded_day > ALERT_DEGRADED_PER_DAY:
-        alarms.append(
-            f"{degraded_day} degraderede svar (X-Data-Degraded) de seneste "
-            f"{LOOKBACK_HOURS} t, vaerste time {hour} UTC: {peak} (taerskler "
-            f"{ALERT_DEGRADED_PER_HOUR}/t og {ALERT_DEGRADED_PER_DAY}/doegn) - "
-            f"rigtige besoegende fik tomme lister/soegninger, status er stadig "
-            f"200. Se top-stierne ovenfor; kendte aarsager: isolate-kollision i "
-            f"D1-broen (render-laasen i src/worker.py), D1-budget sprængt, "
-            f"fejlet seed."
-        )
+        alarms.append(degraded_msg)
+    elif degraded_day > WARN_DEGRADED_PER_DAY:
+        warn(degraded_msg)
     hour, peak = worst_hour("busy")
     busy_day = recent.get("busy", 0)
     if peak > ALERT_BUSY_PER_HOUR or busy_day > ALERT_BUSY_PER_DAY:
@@ -444,26 +468,61 @@ def check_d1_events() -> list[str]:
     return alarms
 
 
+def warn(msg: str) -> None:
+    """Advarsel: vises i koerslens oversigt paa GitHub, men goer den ikke roed
+    (ingen mail). Til ting der er vaerd at se, men som ikke kraever handling."""
+    print(f"::warning::{msg}")
+
+
+_ERROR_KINDS = ("exceededResources", "scriptThrewException")
+
+
+def error_minute_alarms(problems_minute: dict) -> list[str]:
+    """Alarmer paa hvor mange MINUTTER sitet gav 1101/1102, ikke hvor mange
+    fejl. Se ALERT_ERROR_MINUTES_* for hvorfor."""
+    minutes = sorted({m for (m, k) in problems_minute if k in _ERROR_KINDS})
+    per_hour: dict[str, int] = {}
+    for m in minutes:
+        per_hour[m[:13]] = per_hour.get(m[:13], 0) + 1
+    alarms = []
+    if per_hour:
+        hour, peak = max(per_hour.items(), key=lambda hn: hn[1])
+        if peak >= ALERT_ERROR_MINUTES_PER_HOUR or len(minutes) >= ALERT_ERROR_MINUTES_PER_DAY:
+            alarms.append(
+                f"Sitet gav Cloudflares fejlside (1101/1102) i {len(minutes)} "
+                f"forskellige minutter de seneste {CF_LOOKBACK_HOURS} t, flest i "
+                f"timen {hour} UTC: {peak} (taerskler "
+                f"{ALERT_ERROR_MINUTES_PER_HOUR} minutter/t og "
+                f"{ALERT_ERROR_MINUTES_PER_DAY}/doegn) - det kom sig ikke selv. "
+                f"Se 'Fejl pr. minut' ovenfor."
+            )
+    return alarms
+
+
 def check_worker_invocations() -> list[str]:
     try:
         acct = fetch_worker_invocations(CF_LOOKBACK_HOURS)
     except Exception as e:
         return [f"Cloudflare-analytics kunne ikke hentes: {e}"]
-    problems_hour, _ = summarize_invocations(acct)
-    alarms = []
-    for kind, label, limit in (
-        ("exceededResources", "Error 1102 (CPU-graensen)", ALERT_CPU_LIMIT_PER_HOUR),
-        ("scriptThrewException", "Error 1101 (uncaught exception)", ALERT_EXCEPTION_PER_HOUR),
+    problems_hour, problems_minute = summarize_invocations(acct)
+    alarms = error_minute_alarms(problems_minute)
+    for kind, label, limit, warn_limit in (
+        ("exceededResources", "Error 1102 (CPU-graensen)",
+         ALERT_CPU_LIMIT_PER_HOUR, WARN_CPU_LIMIT_PER_HOUR),
+        ("scriptThrewException", "Error 1101 (uncaught exception)",
+         ALERT_EXCEPTION_PER_HOUR, WARN_EXCEPTION_PER_HOUR),
     ):
         hours = [(h, n) for (h, k), n in problems_hour.items() if k == kind]
         if not hours:
             continue
         hour, peak = max(hours, key=lambda hn: hn[1])
+        msg = (f"{peak} x {label} i timen {hour} UTC (taerskel {limit}/t) - "
+               f"besoegende fik Cloudflares fejlside. Se 'Fejl pr. minut' ovenfor.")
         if peak > limit:
-            alarms.append(
-                f"{peak} x {label} i timen {hour} UTC (taerskel {limit}/t) - "
-                f"besoegende fik Cloudflares fejlside. Se 'Fejl pr. minut' ovenfor."
-            )
+            alarms.append(msg)
+        elif peak > warn_limit and not alarms:
+            warn(f"{peak} x {label} i timen {hour} UTC - kort fejlbølge, sitet "
+                 f"kom sig selv (ingen alarm). Se 'Fejl pr. minut' i loggen.")
     other = sorted({k for (_, k) in problems_hour} - {"exceededResources", "scriptThrewException"})
     if other:
         print(f"  Oevrige ikke-success-statusser (ingen alarm): {other}")

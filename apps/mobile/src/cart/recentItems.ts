@@ -1,6 +1,6 @@
 /**
- * "Køb igen" (version C 18-10-2026, C2 19-10-2026: i Søg og nederst i
- * kurven). Appen har ingen købshistorik, så vi husker de varer, man selv har
+ * "Køb igen" (version C 18-10-2026, C2 19-10-2026: nederst i kurven som
+ * "Glemt noget?"; fjernet fra Søg 21-10-2026). Appen har ingen købshistorik, så vi husker de varer, man selv har
  * lagt i kurven, og hvor mange gange, kun her på telefonen (AsyncStorage).
  * Intet sendes til serveren.
  */
