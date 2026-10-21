@@ -12,6 +12,7 @@ import type { Product } from '../api/types';
 import { useTheme } from '../theme/ThemeContext';
 import { useCart } from '../cart/CartContext';
 import { buildStorePrices } from '../cart/buildStorePrices';
+import { showCartToast } from '../cart/CartToast';
 import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { StoreDot } from './StoreChip';
 import { StoreLogo } from '../stores/storeLogos';
@@ -79,6 +80,7 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
   const add = () => {
     if (quantity > 0) {
       updateQuantity(cartId, quantity + 1);
+      showCartToast();
       AccessibilityInfo.announceForAccessibility(`${quantity + 1} ${product.name} i kurven`);
       return;
     }

@@ -1093,6 +1093,29 @@ window.addEventListener('pagehide', () => {
     if (_statsViews.size || _statsSearches.length) flushStats(true);
 });
 
+// "Lagt i kurven" (Feature-panelet 'kurv_besked'): lille svag besked nederst,
+// samme som appens CartToast.tsx. Står ~1,8 s og kan ikke trykkes på.
+let _cartToastTimer = null;
+function showCartToast(count) {
+    if (window.__KURV_BESKED_ON !== true) return;
+    const el = document.getElementById('cart-toast');
+    if (!el) return;
+    const n = Math.max(1, count || 1);
+    const text = n > 1 ? `${n} varer lagt i kurven` : 'Lagt i kurven';
+    // Tøm først, så skærmlæseren også siger det, når teksten er den samme.
+    el.textContent = '';
+    requestAnimationFrame(() => {
+        el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+        el.appendChild(document.createTextNode(text));
+        el.classList.add('show');
+    });
+    clearTimeout(_cartToastTimer);
+    _cartToastTimer = setTimeout(() => {
+        el.classList.remove('show');
+        _cartToastTimer = setTimeout(() => { el.textContent = ''; }, 250);
+    }, 1800);
+}
+
 function addToCart(event, productElementOrId) {
     // Prevent event bubbling
     event.stopPropagation();
@@ -1174,6 +1197,7 @@ function addToCart(event, productElementOrId) {
     // Save cart
     saveCart();
     c2RecordItem(cart.find(item => item.id === productId));
+    showCartToast(1);
 
     // Record popularity (fire-and-forget, debounced). qty er altid 1 - hvert
     // klik lægger præcis én vare i kurven, uanset hvor mange der allerede
@@ -1240,6 +1264,7 @@ function addRecipeToCart(items, btn) {
 
     if (addedCount === 0) return;
     saveCart();
+    showCartToast(addedCount);
 
     fetch('/api/cart-event', {
         method: 'POST',
@@ -3136,6 +3161,7 @@ function addToCartFromOverlay(event) {
 
     // Save cart and animate overlay closing
     saveCart();
+    showCartToast(1);
 
     // Samme populaeritets-registrering som addToCart (debounced, se
     // queueCartEvent). Manglede her, saa varer lagt i fra overlayet aldrig
@@ -6080,6 +6106,7 @@ function c2AddRecent(id) {
     }
     saveCart();
     c2RecordItem(cart.find(i => i.id === id));
+    showCartToast(1);
     queueCartEvent('add', String(id).replace(/^product/, ''), 1);
     renderC2SearchPanel();
 }

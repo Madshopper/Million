@@ -210,6 +210,8 @@ _EDGE_ENV_VARS = (
     'LOKATION_ENABLED',
     # Kun på staging: app-designet C2 på hjemmesiden (_FEATURES 'design_c2').
     'DESIGN_C2_ENABLED',
+    # Kun på staging: lille besked når en vare lægges i kurven (_FEATURES 'kurv_besked').
+    'KURV_BESKED_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -532,6 +534,8 @@ def _inject_site_meta():
         'stats_enabled': _feature_enabled('stats'),
         # Swipe i kurven (Feature-panelet 'swipe').
         'swipe_enabled': _feature_enabled('swipe'),
+        # "Lagt i kurven"-beskeden (Feature-panelet 'kurv_besked').
+        'kurv_besked_enabled': _feature_enabled('kurv_besked'),
         # "Køl & Mejeri" i kategorimenuen (Feature-panelet 'mejeri_navn').
         'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
         # Butikslogoer med tilbudsavis på forsiden (Feature-panelet 'butiksaviser').
@@ -1863,6 +1867,27 @@ _FEATURES = (
                      'placering" (også når man opretter sig). Har man sagt ja, '
                      'bruger appen der hvor man er lige nu, også i en anden by. '
                      'Kun mens appen er åben.'},
+        ),
+    },
+    {
+        'key': 'kurv_besked',
+        'name': 'Besked når en vare lægges i kurven',
+        'env': 'KURV_BESKED_ENABLED',
+        'desc': 'En lille, svag grøn besked "Lagt i kurven" nederst på '
+                'skærmen, hver gang man lægger en vare i kurven. Forsvinder '
+                'af sig selv efter knap 2 sekunder og kan ikke trykkes på, så '
+                'den står aldrig i vejen. Følger lys og mørk tilstand '
+                '(Kalle 21-10-2026).',
+        'app': 'MadShopper Test har den med det samme. Butiksappen får den '
+               'først med en ny App Store-version.',
+        'parts': (
+            {'kind': 'web', 'name': 'Beskeden på hjemmesiden',
+             'desc': 'Fra varekortet, varens egen side, "Køb igen" og '
+                     '"Læg alle i kurv" på en opskrift. Skærmlæseren siger '
+                     '"Lagt i kurven".'},
+            {'kind': 'app', 'name': 'Beskeden i appen',
+             'desc': 'Samme besked lige over fanerne i bunden. VoiceOver og '
+                     'TalkBack siger som før hvilken vare der blev lagt i.'},
         ),
     },
     {
@@ -5724,6 +5749,8 @@ def api_home():
             # Swipe i kurven: appen swiper kun, når den er udgivet, så
             # hjemmesiden og appen følges ad (Kalle 06-10-2026).
             'swipe_enabled': _feature_enabled('swipe'),
+            # "Lagt i kurven"-beskeden: appen viser den samtidig med webben.
+            'kurv_besked_enabled': _feature_enabled('kurv_besked'),
             # "Køl & Mejeri": appen skifter kategorinavn samtidig med webben.
             'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
             # Tilbudsavis pr. butik: appen viser logoerne, når den er udgivet.
