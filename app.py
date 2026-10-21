@@ -1884,7 +1884,7 @@ _FEATURES = (
                'først med en ny App Store-version.',
         'parts': (
             {'kind': 'web', 'name': 'Beskeden på hjemmesiden',
-             'desc': 'Fra varekortet, varens egen side, "Køb igen" og '
+             'desc': 'Fra varekortet, varens egen side, "Glemt noget?" og '
                      '"Læg alle i kurv" på en opskrift. Skærmlæseren siger '
                      '"Lagt i kurven".'},
             {'kind': 'app', 'name': 'Beskeden i appen',
@@ -1898,8 +1898,8 @@ _FEATURES = (
         'env': 'DESIGN_C2_ENABLED',
         'desc': 'Hjemmesiden får samme udseende som appen (design C2): '
                 'appens skrift, lille gul "Spar"-pille og butikslogo i '
-                'varebilledet, aviser som runde logoer, seneste søgninger og '
-                '"Køb igen" under søgefeltet, vinderkort, "Handl i 2 butikker" '
+                'varebilledet, aviser som runde logoer, seneste søgninger '
+                'under søgefeltet, vinderkort, "Handl i 2 butikker" '
                 'og "Glemt noget?" i kurven og en bundmenu på telefonen. '
                 'Altid slået til på dev.madshopper.dk, så MadShopper Test og '
                 'dev-siden ligner hinanden (Kalle 19-10-2026).',
@@ -1917,8 +1917,8 @@ _FEATURES = (
                      'med startdag eller "Ny i dag" og "Ugens største fald" '
                      'med antal tilbud.'},
             {'kind': 'web', 'name': 'Søgning',
-             'desc': 'Seneste søgninger og "Køb igen" (de 5 varer man oftest '
-                     'lægger i kurven), kun gemt i browseren.'},
+             'desc': 'Seneste søgninger, kun gemt i browseren. "Køb igen" '
+                     'vises kun i kurven (Kalle 21-10-2026).'},
             {'kind': 'web', 'name': 'Kurv',
              'desc': 'Vinderkort med de to næste butikker, "Handl i 2 '
                      'butikker" og "Glemt noget? Du plejer at købe".'},
@@ -2134,8 +2134,8 @@ _PROJECTS = (
         'name': 'Nyt app-design (C2)',
         'status': 'doing',
         'desc': 'Videre fra version C, så appen ser mindre generisk ud: lille '
-                'gul "Spar"-pille, aviser som runde logoer, "Køb igen" og '
-                'seneste søgninger i Søg, "Handl i 2 butikker" og "Glemt '
+                'gul "Spar"-pille, aviser som runde logoer, seneste '
+                'søgninger i Søg, "Handl i 2 butikker" og "Glemt '
                 'noget?" i kurven (19-10-2026). Hjemmesiden har fået det '
                 'samme bag funktionen "Nyt udseende på hjemmesiden (C2)".',
         'parts': (
@@ -2143,7 +2143,8 @@ _PROJECTS = (
              'desc': 'Søgefelt, kompakt besparelse, aviser denne uge og '
                      '"Ugens største fald".'},
             {'done': True, 'name': 'Søgning',
-             'desc': 'Seneste søgninger og "Køb igen", kun gemt på telefonen.'},
+             'desc': 'Seneste søgninger, kun gemt på telefonen. "Køb igen" '
+                     'kun i kurven (21-10-2026).'},
             {'done': True, 'name': 'Produktkort',
              'desc': 'Lille gul "Spar"-pille, butikslogo og kun kg-pris.'},
             {'done': True, 'name': 'Kurv',
