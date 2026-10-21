@@ -7118,15 +7118,6 @@ html.c2 body[data-theme="dark"] .product-image {
   filter: brightness(0.9);
 }
 
-/* Computer: seks kort i rækken i stedet for fem, så kortene får appens
-   størrelse og ikke bliver kæmpestore på brede skærme. */
-@media (min-width: 1280px) {
-  html.c2 .products {
-    grid-template-columns: repeat(6, 1fr);
-    gap: 18px;
-  }
-}
-
 /* Anden linje af tilbudsmærket ("i Bilka", "ved 5 stk"), se product_card.html. */
 .sale-badge-sub {
   position: absolute;
