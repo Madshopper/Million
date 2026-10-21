@@ -73,10 +73,16 @@
   onclick="openOverlay(this)"
   onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault();openOverlay(this);}">
   <div class="product-image-container">
-    {% if product.is_sale or product.is_any_sale %}
-    {%- set discount_pct = ((1 - (product.sale_price / product.price)) * 100) | round(0, 'floor') if (product.is_sale and product.price and product.sale_price and product.sale_price < product.price) else None -%}
-    <span class="sale-badge">{% if discount_pct %}Spar {{ discount_pct|int }}%{% else %}Tilbud{% endif %}</span>
-    {% endif %}
+    {# Fælles regel med appen: app_support.sale_badge ("Spar xx%", "Spar 14% ved 5 stk", "Tilbud i Bilka"). #}
+    {%- set badge = product.sale_badge if product.sale_badge is defined else sale_badge(product) -%}
+    {# Hovedteksten i mærket, resten ("i Bilka", "ved 5 stk") på en linje under,
+       så det lange mærke ikke løber ind i butiksmærket øverst til højre. #}
+    {%- if badge -%}
+    {%- set badge_main = badge.split('%')[0] ~ '%' if '%' in badge else badge.split(' i ')[0] -%}
+    {%- set badge_sub = badge[badge_main|length:]|trim -%}
+    <span class="sale-badge">{{ badge_main }}</span>
+    {%- if badge_sub %}<span class="sale-badge-sub">{{ badge_sub }}</span>{% endif %}
+    {%- endif %}
     <span class="store-badge {{ badge_class }}">{{ badge_label }}</span>
     <img src="{{ product.image_url }}" alt="{{ product.name }}" class="product-image" loading="lazy">
   </div>

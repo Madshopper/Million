@@ -2093,6 +2093,8 @@ def product_to_display_dict(
         'rema_price': product.get('/product/rema_price'),
         'rema_is_sale': product.get('/product/rema_is_sale'),
         'multi_deal': product.get('/product/multi_deal', ''),
+        # Visningsbutikkens eget tilbud uden kendt førpris (updater.py).
+        'own_sale': bool(product.get('/product/own_sale')),
         'lowest_price_30d': product.get('/product/lowest_price_30d'),
         # subcategory/is_organic/is_lactose_free er præcomputeret ved nattens
         # seed (scripts/seed-d1.py, samme kolonner som SQL-filtrene bruger) -
@@ -2124,7 +2126,82 @@ def product_to_display_dict(
         result['_flavor_field'] = product['/product/flavor_kw'] or ''
     if not is_sale:
         result['sale_end_date'] = sale_end_date
+    result['sale_badge'] = sale_badge(result)
     return result
+
+
+# "Mix 5 for 300,00", "2 for 25", "Mix 2 for 36.-"
+_MULTI_DEAL_RE = re.compile(r'(\d+)\s*for\s*(\d+(?:[.,]\d+)?)', re.IGNORECASE)
+
+
+def _saving_pct(before, now) -> int | None:
+    """Hele procent sparet, rundet NED (vi lover aldrig for meget). Under 1 %
+    eller over 90 % (forkerte data) giver None, så kortet siger "Tilbud"."""
+    try:
+        before, now = float(before), float(now)
+    except (TypeError, ValueError):
+        return None
+    if before <= 0 or now <= 0 or now >= before:
+        return None
+    pct = int((1 - now / before) * 100 + 1e-6)  # 1 - 12/15 = 0,1999...
+    return pct if 1 <= pct <= 90 else None
+
+
+def _multi_deal_saving(multi_deal, unit_price) -> tuple[int, int] | None:
+    """(procent, antal) for et multikøb som "Mix 5 for 300,00" mod stykprisen."""
+    m = _MULTI_DEAL_RE.search(str(multi_deal or ''))
+    if not m:
+        return None
+    qty = int(m.group(1))
+    if qty < 2:
+        return None
+    pct = _saving_pct(unit_price, float(m.group(2).replace(',', '.')) / qty)
+    return (pct, qty) if pct else None
+
+
+def _offer_badge(price, sale_price, multi_deal) -> str:
+    pct = _saving_pct(price, sale_price) if sale_price is not None else None
+    if pct:
+        return f'Spar {pct}%'
+    deal = _multi_deal_saving(multi_deal, sale_price if sale_price is not None else price)
+    if deal:
+        return f'Spar {deal[0]}% ved {deal[1]} stk'
+    return 'Tilbud'
+
+
+def sale_badge(display: dict) -> str | None:
+    """Teksten i det gule tilbudsmærke på produktkortet - fælles for
+    hjemmesiden (product_card.html) og appen (sale_badge i API'et).
+
+    "Spar xx%" så tit vi kender en førpris eller et multikøb (Kalle
+    21-10-2026). Har kun en anden butik tilbuddet, står butikken med, så
+    kortet ikke kalder Remas almindelige pris et tilbud: "Spar 20% i Bilka"
+    eller "Tilbud i Bilka". None = intet mærke."""
+    store = display.get('store') or 'Rema 1000'
+    matches = display.get('store_matches') or {}
+    if display.get('is_sale') or display.get('own_sale'):
+        return _offer_badge(display.get('price'), display.get('sale_price'),
+                            display.get('multi_deal'))
+    if not display.get('is_any_sale'):
+        return None
+    best = None  # (procent, egen butik først, label, tekst)
+    offers = []
+    if display.get('rema_is_sale') and store != 'Rema 1000':
+        offers.append(('Rema 1000', None, display.get('rema_price'), ''))
+    for key, m in matches.items():
+        if isinstance(m, dict) and m.get('is_sale'):
+            label = _STORE_CONFIGS.get(key, {}).get('label') or key
+            offers.append((label, m.get('normal_price'), m.get('price'), m.get('multi_deal')))
+    for label, normal, price, deal in offers:
+        text = _offer_badge(normal or price, price if normal else None, deal)
+        m = re.match(r'Spar (\d+)%', text)
+        rank = (int(m.group(1)) if m else 0, label == store, label)
+        if best is None or rank[:2] > best[0][:2]:
+            best = (rank, label, text)
+    if best is None:
+        return None
+    _rank, label, text = best
+    return text if label == store else f'{text} i {label}'
 
 
 def _serialize_store_match(match: dict) -> dict:
@@ -2227,6 +2304,8 @@ def product_to_api_dict(display: dict) -> dict:
         'stk_count': display.get('stk_count'),
         'kg_price': kg_price,
         'multi_deal': str(display.get('multi_deal') or ''),
+        # Mærketeksten, så appen viser præcis det samme som hjemmesiden.
+        'sale_badge': display.get('sale_badge') if 'sale_badge' in display else sale_badge(display),
         'is_organic': bool(display.get('is_organic')),
         'is_lactose_free': bool(display.get('is_lactose_free')),
         'has_match': bool(store_matches) or rem_price > 0,

@@ -30,7 +30,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Forsidens Ugens Tilbud: højst 2 varer pr. butik forrest | ✅ | ✅ | ✅ `_build_home_categories` | ❌ | Complete *(01-10-2026; gælder ikke Populære varer)* |
 | Underkategori-chips | ✅ | ✅ | ✅ | ✅ | Complete |
 | Paginering | ✅ | ✅ | ✅ | ✅ | Complete |
-| Produktkort: mærke/navn/pris/tilbudsbadge | ✅ | ✅ | ✅ | ✅ | Complete |
+| Produktkort: mærke/navn/pris/tilbudsbadge (én fælles tekst fra `app_support.sale_badge`, `sale_badge` i API'et: "Spar xx%" når førprisen kendes, "Spar 14% ved 5 stk" ved multikøb, "Tilbud" uden førpris, og butikken med når kun en anden butik har tilbuddet: "Spar 20% i Bilka" / "Tilbud i Bilka") | ✅ | ✅ | ✅ | ✅ `test-listing-api.py` | Complete *(21-10-2026)* |
 | Produktkort: vægt, "X stk", **kg-pris** | ✅ | ✅ | ✅ | ✅ | Complete *(app fik dem 19-08-2026)* |
 | "Kun hos <butik>"-badge | ✅ | ✅ | ✅ | ✅ | Complete |
 | Farver: tre grønne (#059669 / #047857 / #D6F5E3) + gul til alt tilbud (én gul #DFA300: flade på SPAR-mærket, tekst på tilbudsprisen), intet rødt tilbud, grønt butiksmærke i kurven | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; se `theme/colors.ts`)* |

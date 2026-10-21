@@ -26,7 +26,7 @@ from app_support import (
     CAT_FROST, CAT_KOLONIAL, CAT_DRIKKEVARER, CAT_SLIK,
     _SUBCATEGORY_RULES, _get_subcategory,
     product_content_words, variant_flags, get_meat_types, meats_match,
-    parse_sale_end_date, product_to_display_dict,
+    parse_sale_end_date, product_to_display_dict, sale_badge,
     products_to_api_list, product_to_api_dict,
     product_available_at_active_stores,
     product_for_active_stores,
@@ -2228,6 +2228,7 @@ def _feature_enabled(key: str) -> bool:
 # Makroer importeres uden kontekst (fx product_card), så flaget skal være en
 # global for at kunne ses derinde.
 app.jinja_env.globals['feature_enabled'] = _feature_enabled
+app.jinja_env.globals['sale_badge'] = sale_badge
 
 # Tilbudsavis pr. butik (Feature 'butiksaviser'): butikkerne hvis tilbud vi selv
 # henter direkte fra butikken, med et link til butikkens egen avis. Selve

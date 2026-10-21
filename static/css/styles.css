@@ -7116,6 +7116,26 @@ html.c2 body[data-theme="dark"] .product-image {
   }
 }
 
+/* Anden linje af tilbudsmærket ("i Bilka", "ved 5 stk"), se product_card.html. */
+.sale-badge-sub {
+  position: absolute;
+  top: 32px;
+  left: 8px;
+  z-index: 2;
+  max-width: calc(100% - 16px);
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1A1C19;
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html.c2 .sale-badge-sub { top: 34px; border-radius: 999px; font-size: 0.7rem; }
+.avis-page .sale-badge-sub { display: none; }
+
 html.c2 .sale-badge {
   top: 8px;
   left: 8px;
