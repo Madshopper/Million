@@ -7,7 +7,9 @@ name: MadShopper Test (opdatering over nettet)
 # testappen via EAS Update (kanalen "test"). Appen henter den, når den åbnes
 # (src/updates/testAppUpdates.ts), uanset hvor telefonen er.
 #
-# Kun testappen (APP_VARIANT=test, dk.madshopper.app.test) lytter på kanalen.
+# Kun testappen (APP_VARIANT=test, dk.madshopper.app.test) lytter på kanalen,
+# både på iPhone og Android (Android-udgaven bygges med eas.json-profilen
+# test-android, se docs/udgivelse.md).
 # Butiksappen har opdateringer slået fra (app.config.js) og får aldrig noget
 # herfra. Ændres native-delen (ny pakke, ikon, tilladelse), skal runtimeVersion
 # i app.config.js hæves i samme PR (test-1 -> test-2), og Mac'en skal bygge
@@ -68,5 +70,5 @@ jobs:
         working-directory: apps/mobile
         run: |
           MSG="$(git log -1 --pretty=%s | cut -c1-100)"
-          npx --yes eas-cli@16 update --channel test --platform ios \
+          npx --yes eas-cli@16 update --channel test --platform all \
             --message "$MSG" --non-interactive

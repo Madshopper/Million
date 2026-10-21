@@ -600,6 +600,8 @@ class Env(Protocol):
     STAGING_LINK_SECRET: str
     RECIPES_PREVIEW_KEY: str
     SERVER_RPC_KEY: str
+    APPLE_TEAM_ID: str
+    ANDROID_CERT_SHA256: str
 
 
 # Den tidligere login-side (mail + fælles adgangskode). Svarer nu samme 404

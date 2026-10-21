@@ -224,6 +224,8 @@ _EDGE_ENV_VARS = (
     # (bag sin rate limiter) kan tælle, ikke enhver med den offentlige nøgle
     # (scripts/supabase-server-rpc-gate.sql). Worker-secret, aldrig i git.
     'SERVER_RPC_KEY',
+    # App-links: /.well-known/apple-app-site-association og assetlinks.json.
+    'APPLE_TEAM_ID', 'ANDROID_CERT_SHA256',
 )
 
 
@@ -1948,13 +1950,22 @@ _PROJECTS = (
             {'done': True, 'name': 'iPhone-appen i App Store',
              'desc': 'Apple Developer-konto, test på din iPhone og Apples '
                      'godkendelse er klaret.'},
+            {'done': True, 'name': 'Android gjort klar i koden',
+             'desc': 'Samme skærme som iPhone-appen. Ubrugte tilladelser '
+                     'fjernet, mørkt tema virker, og et Play-build stopper '
+                     'selv, hvis Firebase-filen mangler.'},
+            {'done': False, 'name': 'MadShopper Test på en Android-telefon',
+             'desc': 'Byg med "npm run eas:build:test-android" (gratis kø hos '
+                     'Expo, ingen Mac). Følger main ligesom på iPhone.'},
             {'done': False, 'name': 'Google Play-konto',
-             'desc': 'Koster ca. 25 USD én gang.'},
-            {'done': False, 'name': 'Android klar til Google Play',
-             'desc': 'Ligger klar i PR #50. Beskeder kræver også en gratis '
-                     'Firebase-opsætning.'},
+             'desc': 'Koster ca. 25 USD én gang. Identitetstjek kan tage dage.'},
+            {'done': False, 'name': 'Firebase til beskeder på Android',
+             'desc': 'Gratis. Uden den når prisalarmer aldrig frem på Android.'},
             {'done': False, 'name': 'Skærmbilleder til Android',
-             'desc': 'Kræver en Android-telefon eller -simulator.'},
+             'desc': 'Kræver en Android-telefon eller emulatoren på Windows-pc\'en.'},
+            {'done': False, 'name': 'Lukket test i 14 dage',
+             'desc': 'Nye personlige Play-konti skal have 12 testere i 14 dage '
+                     'før appen må udgives til alle.'},
             {'done': False, 'name': 'Send til godkendelse i Google Play',
              'desc': 'Udfyld oplysningerne i Play Console og indsend.'},
         ),

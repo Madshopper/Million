@@ -101,6 +101,29 @@ if (IS_LOCAL_XCODE_RELEASE) {
   }
 }
 
+// Firebase-filen til Android-beskeder (prisalarmer). Expos push-tjeneste
+// sender via Googles Firebase Cloud Messaging på Android, og uden filen får
+// appen aldrig en push-adresse: prisalarmer ville så tavst aldrig nå frem
+// (der sendes ingen mails, når "Beskeder på telefonen" er udgivet). Filen er
+// ikke hemmelig (Firebase-projektets offentlige id'er) og ligger i git, men
+// kan også gives som EAS-filvariabel GOOGLE_SERVICES_JSON.
+const APP_ROOT = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+const GOOGLE_SERVICES_FILE =
+  process.env.GOOGLE_SERVICES_JSON ||
+  (fs.existsSync(path.join(APP_ROOT, 'google-services.json')) ? './google-services.json' : undefined);
+
+// Et Android-build til Google Play må ikke laves uden Firebase-filen (se ovenfor).
+if (
+  process.env.EAS_BUILD_PLATFORM === 'android' &&
+  process.env.EAS_BUILD_PROFILE === 'production' &&
+  !GOOGLE_SERVICES_FILE
+) {
+  throw new Error(
+    'apps/mobile/google-services.json mangler: uden den virker prisalarmer ikke på Android. ' +
+      'Se docs/udgivelse.md § 3 (Firebase).',
+  );
+}
+
 /** @type {import('expo/config').ExpoConfig} */
 const config = {
   name: 'MadShopper',
@@ -183,21 +206,37 @@ const config = {
     },
   },
   android: {
-    package: 'dk.madshopper.app',
+    // Testappen får sin egen identitet ligesom på iPhone, så den kan ligge ved
+    // siden af butiksudgaven. Navnet på hjemmeskærmen: plugins/withAndroidAppName.
+    package: IS_TEST_APP ? 'dk.madshopper.app.test' : 'dk.madshopper.app',
+    ...(GOOGLE_SERVICES_FILE ? { googleServicesFile: GOOGLE_SERVICES_FILE } : {}),
+    // Expos skabelon tilføjer adgang til filer og "vis over andre apps", som
+    // appen aldrig bruger. Google Play spørger ind til hver tilladelse, og en
+    // ubrugt en modsiger svarene i store/privacy-answers.md.
+    blockedPermissions: [
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.WRITE_EXTERNAL_STORAGE',
+      'android.permission.SYSTEM_ALERT_WINDOW',
+      'android.permission.RECORD_AUDIO',
+    ],
     adaptiveIcon: {
       backgroundColor: '#059669',
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
     },
-    intentFilters: [
-      {
-        action: 'VIEW',
-        autoVerify: true,
-        data: [{ scheme: 'https', host: 'madshopper.dk', pathPrefix: '/' }],
-        category: ['BROWSABLE', 'DEFAULT'],
-      },
-    ],
+    // App Links til madshopper.dk hører kun til butiksappen (assetlinks.json
+    // nævner kun dk.madshopper.app), ligesom associatedDomains på iPhone.
+    intentFilters: IS_TEST_APP
+      ? []
+      : [
+          {
+            action: 'VIEW',
+            autoVerify: true,
+            data: [{ scheme: 'https', host: 'madshopper.dk', pathPrefix: '/' }],
+            category: ['BROWSABLE', 'DEFAULT'],
+          },
+        ],
     predictiveBackGestureEnabled: false,
   },
   web: {
@@ -214,7 +253,7 @@ const config = {
   // opdatering nogensinde ville lande.
   ...(IS_TEST_APP
     ? {
-        runtimeVersion: 'test-2',
+        runtimeVersion: 'test-3',
         updates: {
           url: 'https://u.expo.dev/61fb2d3e-805e-4d2f-9c78-5e9705d28fd8',
           requestHeaders: { 'expo-channel-name': 'test' },
@@ -226,6 +265,8 @@ const config = {
   plugins: [
     // iOS 27 kræver scene-opstart (ellers lukker appen ved start).
     './plugins/withSceneLifecycle',
+    // "MadShopper Test" på Android-hjemmeskærmen (på iPhone: CFBundleDisplayName).
+    ...(IS_TEST_APP ? [['./plugins/withAndroidAppName', { name: 'MadShopper Test' }]] : []),
     // faceIDPermission: false fjerner NSFaceIDUsageDescription helt fra
     // Info.plist (compliance-audit 19-08-2026, GDPR-029). Ingen SecureStore-
     // kald i src/ bruger requireAuthentication, og der er ingen
