@@ -78,6 +78,8 @@
     window.__STATS_ON = {{ 'true' if stats_enabled else 'false' }};
     // Swipe i kurven (Feature-panelet 'swipe').
     window.__SWIPE_ON = {{ 'true' if swipe_enabled else 'false' }};
+    // "Lagt i kurven"-beskeden (Feature-panelet 'kurv_besked').
+    window.__KURV_BESKED_ON = {{ 'true' if kurv_besked_enabled else 'false' }};
     // App-designet C2 (Feature-panelet 'design_c2').
     window.__C2_ON = {{ 'true' if design_c2_enabled else 'false' }};
     // Offentligt Google OAuth client-id (samme som i Supabase). Bruges af
@@ -886,6 +888,12 @@
       <span>Profil</span>
     </button>
   </nav>
+  {% endif %}
+
+  {% if kurv_besked_enabled %}
+  {# "Lagt i kurven" (Feature 'kurv_besked'): lille besked nederst, som i
+     appen. Kan ikke trykkes på; skærmlæseren læser den op (role=status). #}
+  <div id="cart-toast" class="cart-toast" role="status" aria-live="polite" aria-atomic="true"></div>
   {% endif %}
 
   {% include 'partials/auth_modal.html' %}

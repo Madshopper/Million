@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { postCartEvent } from '../api/listing';
 import type { CartItem } from './types';
 import { loadRecentItems, rememberRecentItem } from './recentItems';
+import { showCartToast } from './CartToast';
 
 const CART_KEY = 'madshopper_cart';
 
@@ -172,6 +173,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         const rawId = item.id.replace(/^product/, '');
         queueCartEvent('add', rawId, qty);
       }
+      showCartToast();
     },
     [fireSync],
   );

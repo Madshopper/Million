@@ -10,6 +10,7 @@ import { StoreCatalogProvider } from './src/stores/StoreCatalogContext';
 import { CartProvider } from './src/cart/CartContext';
 import { AuthProvider } from './src/auth/AuthContext';
 import { SharedCartProvider } from './src/cart/SharedCartContext';
+import { CartToast } from './src/cart/CartToast';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { startTestAppUpdates } from './src/updates/testAppUpdates';
 import { FONT_ASSETS, setFontsReady } from './src/theme/Typography';
@@ -40,6 +41,7 @@ function AppShell() {
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <RootNavigator />
+      <CartToast />
     </>
   );
 }
