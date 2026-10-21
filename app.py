@@ -1924,8 +1924,13 @@ _FEATURES = (
                      'butikker" og "Glemt noget? Du plejer at købe".'},
             {'kind': 'web', 'name': 'Bundmenu på telefonen',
              'desc': 'Hjem, Søg, Kurv og Profil i bunden af skærmen.'},
+            {'kind': 'web', 'name': 'Mørk tilstand',
+             'desc': 'Neutrale grå farver uden grønt skær, dæmpede '
+                     'billedfelter og seks kort i rækken på computer '
+                     '(20-10-2026).'},
             {'kind': 'app', 'name': 'Design C2 i appen',
-             'desc': 'Findes allerede på MadShopper Test (PR #123).'},
+             'desc': 'Findes allerede på MadShopper Test (PR #123), med de '
+                     'samme neutrale mørke farver som hjemmesiden (PR #129).'},
         ),
     },
 )
@@ -2084,7 +2089,8 @@ _PROJECTS = (
                      'og app (PR #87).'},
             {'done': False, 'name': '365discount, Brugsen, Kvickly og SuperBrugsen',
              'desc': 'Hentes stadig via Tjek. Mail sendt til Coop '
-                     '10-10-2026; venter på svar.'},
+                     '10-10-2026; venter på svar. Tjek giver ingen førpris, '
+                     'så deres tilbud står som "Tilbud" og ikke "Spar xx%".'},
         ),
     },
     {
@@ -2120,7 +2126,7 @@ _PROJECTS = (
              'desc': 'Merget og sendt til testappen 18-10-2026 (PR #119).'},
             {'done': False, 'name': 'Med i næste App Store-version',
              'desc': 'App 1.0.4 i App Store har det ikke. Butiksappen får det '
-                     'først med et nyt build (1.0.5).'},
+                     'først med et nyt build (se "Næste app-version").'},
         ),
     },
     {
@@ -2130,7 +2136,8 @@ _PROJECTS = (
         'desc': 'Videre fra version C, så appen ser mindre generisk ud: lille '
                 'gul "Spar"-pille, aviser som runde logoer, "Køb igen" og '
                 'seneste søgninger i Søg, "Handl i 2 butikker" og "Glemt '
-                'noget?" i kurven. Kun appen (19-10-2026).',
+                'noget?" i kurven (19-10-2026). Hjemmesiden har fået det '
+                'samme bag funktionen "Nyt udseende på hjemmesiden (C2)".',
         'parts': (
             {'done': True, 'name': 'Forside',
              'desc': 'Søgefelt, kompakt besparelse, aviser denne uge og '
@@ -2149,6 +2156,32 @@ _PROJECTS = (
              'desc': 'Bygget på hjemmesiden bag funktionen "Nyt udseende på '
                      'hjemmesiden (C2)". Slået til på dev-siden, udgives '
                      'herfra.'},
+        ),
+    },
+    {
+        'key': 'app_1_0_5',
+        'name': 'Næste app-version i App Store (1.0.5)',
+        'status': 'waiting',
+        'desc': 'Det her ligger klar på MadShopper Test, men den rigtige app '
+                'får det først, når 1.0.5 er bygget på Mac\'en og godkendt af '
+                'Apple. Butiksappen henter ikke opdateringer over nettet.',
+        'parts': (
+            {'done': True, 'name': 'Nyt design (version C og C2)',
+             'desc': 'Forside, søgning, varekort, kurv og bundmenu '
+                     '(PR #119, #123, #129).'},
+            {'done': True, 'name': '"Spar xx%" på tilbudsmærket',
+             'desc': 'Samme regel som hjemmesiden, hvor det allerede er ude '
+                     '(PR #133, 21-10-2026).'},
+            {'done': True, 'name': 'Hurtigere søgning',
+             'desc': 'Ingen kø mens man skriver, kortere ventetid, og svar '
+                     'huskes (PR #134, 21-10-2026). Kun appen; hjemmesiden '
+                     'havde ikke problemet.'},
+            {'done': True, 'name': '"Lagt i kurven"-beskeden',
+             'desc': 'Vises først, når funktionen "Besked når en vare lægges '
+                     'i kurven" er udgivet her (PR #132).'},
+            {'done': False, 'name': 'Byg 1.0.5 og send til Apple',
+             'desc': 'Bygges på Mac\'en som dk.madshopper.app (ikke test). '
+                     'Du sender den selv til godkendelse.'},
         ),
     },
     {
