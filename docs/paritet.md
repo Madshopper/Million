@@ -42,7 +42,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Feature | Web | App | Backend | Tests | Status |
 |---|---|---|---|---|---|
 | Fritekstsøgning | ✅ | ✅ | ✅ `/api/search` | ✅ | Complete |
-| Autocomplete (debounced) | ✅ | ✅ | ✅ `/api/autocomplete` | ✅ | Complete |
+| Autocomplete (debounced) | ✅ | ➖ | ✅ `/api/autocomplete` | ✅ | Bevidst forskel (21-10-2026): appen søger selv, mens man skriver (350 ms efter sidste tastetryk), så serverens forslag kom alligevel kun til syne et øjeblik og stillede søgningen i kø bag sig (én render ad gangen pr. isolate). Appen viser i stedet de seneste søgninger, der passer til det man skriver (uden net), og husker søgesvar i 10 minutter (`apps/mobile/src/search/searchCache.ts`). Webben søger først ved Enter og beholder forslagene |
 | Stavekorrektion ("mlæk" → "mælk") | ✅ | ✅ | ✅ | ✅ | Complete |
 | Varer vist før man skriver (app: "Populære varer" fra `/api/home`, edge-cachet) | ➖ | ✅ | ✅ `/api/home` | ➖ | App-only |
 | Sortering (5 typer, inkl. kg-pris) | ✅ | ✅ | ✅ | ✅ | Complete |
