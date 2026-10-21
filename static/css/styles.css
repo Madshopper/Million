@@ -6919,6 +6919,12 @@ html.c2 .logo-icon {
   border-radius: 12px;
 }
 
+/* Kun ordet "MadShopper" i toppen: logoets kurv lignede kurv-knappen
+   (Kalle 21-10-2026), samme som appens HomeHeaderTitle. */
+html.c2 header .logo-icon {
+  display: none;
+}
+
 html.c2 .logo-text {
   color: var(--c2-text);
   font-weight: 800;
