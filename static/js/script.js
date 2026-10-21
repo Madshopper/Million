@@ -795,6 +795,7 @@ function updateStoreBadges() {
 
         const priceContainer = p.querySelector('.product-price');
         const saleBadge      = p.querySelector('.sale-badge');
+        const saleBadgeSub   = p.querySelector('.sale-badge-sub');
 
         // Restore any display state overridden in a previous call
         if (p.dataset.originalPriceHtml !== undefined && priceContainer) {
@@ -803,6 +804,7 @@ function updateStoreBadges() {
         }
         if (p.dataset.originalSaleBadgeDisplay !== undefined && saleBadge) {
             saleBadge.style.display = p.dataset.originalSaleBadgeDisplay;
+            if (saleBadgeSub) saleBadgeSub.style.display = '';
             delete p.dataset.originalSaleBadgeDisplay;
         }
 
@@ -834,6 +836,8 @@ function updateStoreBadges() {
                 if (saleBadge) {
                     p.dataset.originalSaleBadgeDisplay = saleBadge.style.display;
                     saleBadge.style.display = p.dataset.remaIsSale === 'true' ? '' : 'none';
+                    // "i Bilka" / "ved 5 stk" hører til det oprindelige tilbud, ikke Remas.
+                    if (saleBadgeSub) saleBadgeSub.style.display = 'none';
                 }
             } else {
                 const match = ALL_STORES.find(({ key, label }) =>

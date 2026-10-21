@@ -36,6 +36,9 @@ export type Product = {
   stk_count: number | null;
   kg_price: number | null;
   multi_deal: string;
+  /** Tilbudsmærkets tekst (app_support.sale_badge), fx "Spar 14% ved 5 stk"
+   *  eller "Tilbud i Bilka"; null = intet mærke. Mangler i ældre svar. */
+  sale_badge?: string | null;
   is_organic: boolean;
   is_lactose_free: boolean;
   has_match: boolean;

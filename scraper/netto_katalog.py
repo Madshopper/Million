@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from supabase_utils import get_client, enrich_billede_hashes, shrink_guard_ok, fetch_existing_products, save_product_dicts
+from supabase_utils import get_client, enrich_billede_hashes, shrink_guard_ok, fetch_existing_products, save_product_dicts, salling_offer_fields
 from keywords import is_non_food
 
 # ── Madfilter ────────────────────────────────────────────────────────────────
@@ -188,30 +188,8 @@ def build_rows(hits: list[dict]) -> list[dict]:
         if not price_ore:
             continue
 
-        before = (ref or {}).get('beforePrice') or 0
-        on_offer = bool(before and before > price_ore)
-        pris       = round(price_ore / 100, 2)
-        normalpris = round(before / 100, 2) if on_offer else None
-
-        multikob = ''
-        if ref:
-            mp  = str(ref.get('multipromo') or '').strip()
-            mpp = str(ref.get('multiPromoPrice') or '').strip()
-            # Netto sætter multipromo=0/'0' når der ikke er multikøb
-            if mp and mp not in ('0', '0.0'):
-                multikob = f'{mp} {mpp}'.strip()
-
-        # Ugens avisvarer: Salling markerer dem med isInCurrentLeaflet, men
-        # sender sjældent beforePrice (Netto aldrig). Før- og tilbudsprisen pr.
-        # enhed ligger begge i storeData, så førprisen regnes ud fra forholdet.
-        # Ikke ved multikøb, hvor enhedsprisen er mix-prisen og ikke stykprisen.
-        if hit.get('isInCurrentLeaflet') and ref:
-            if not on_offer and not multikob:
-                uom       = ref.get('unitsOfMeasurePrice') or 0
-                uom_offer = ref.get('unitsOfMeasureOfferPrice') or 0
-                if uom_offer and uom > uom_offer:
-                    normalpris = round(price_ore * uom / uom_offer / 100, 2)
-            on_offer = True
+        on_offer, normalpris, multikob = salling_offer_fields(hit, ref, price_ore)
+        pris = round(price_ore / 100, 2)
 
         # 'Avis' = i ugens avis (isInCurrentLeaflet). Stadig et tilbud for
         # updater.py, men kun de varer tæller i "Tilbudsavis pr. butik"

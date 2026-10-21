@@ -20,7 +20,7 @@ sys.path.insert(0, ROOT)
 
 os.environ.setdefault('ENABLE_PRICE_DB', '0')
 
-from app_support import product_to_api_dict, product_to_display_dict  # noqa: E402
+from app_support import product_to_api_dict, product_to_display_dict, sale_badge  # noqa: E402
 import app as app_module  # noqa: E402
 
 flask_app = app_module.app
@@ -31,7 +31,7 @@ _PRODUCT_REQUIRED = {
     'is_any_sale', 'sale_end_date', 'unit_measure', 'weight_g', 'stk_count',
     'kg_price', 'multi_deal', 'is_organic', 'is_lactose_free', 'has_match',
     'has_match_rema', 'cheapest_at', 'cheaper_at', 'rema_price', 'rema_is_sale',
-    'lowest_price_30d', 'store_matches',
+    'lowest_price_30d', 'store_matches', 'sale_badge',
 }
 
 _MATCH_REQUIRED = {
@@ -127,6 +127,33 @@ def test_serializer() -> None:
         fail(f'store_matches.bilka mangler: {sorted(miss_m)}')
     else:
         ok('store_matches-entry har alle felter')
+
+
+def test_sale_badge() -> None:
+    """Tilbudsmærket er fælles for web og app (app_support.sale_badge)."""
+    print('\n== sale_badge ==')
+    bilka_sale = {'bilka': {'is_sale': True, 'price': 12.0, 'normal_price': 15.0}}
+    cases = [
+        ('egen førpris', dict(store='Meny', is_sale=True, price=26.95, sale_price=9.95), 'Spar 63%'),
+        ('egen uden førpris', dict(store='Føtex', own_sale=True, price=12.0), 'Tilbud'),
+        ('multikøb', dict(store='Bilka', own_sale=True, price=70.0,
+                          multi_deal='Mix 5 for 300,00'), 'Spar 14% ved 5 stk'),
+        ('kun anden butik, med førpris', dict(store='Rema 1000', price=13.0, is_any_sale=True,
+                                              store_matches=bilka_sale), 'Spar 20% i Bilka'),
+        ('kun anden butik, uden førpris', dict(store='Rema 1000', price=13.0, is_any_sale=True,
+                                               store_matches={'bilka': {'is_sale': True, 'price': 14.0}}),
+         'Tilbud i Bilka'),
+        ('egen butik i store_matches', dict(store='Bilka', price=12.0, is_any_sale=True,
+                                            store_matches=bilka_sale), 'Spar 20%'),
+        ('intet tilbud', dict(store='Rema 1000', price=8.39), None),
+        ('urimelig førpris', dict(store='Netto', is_sale=True, price=100.0, sale_price=1.0), 'Tilbud'),
+    ]
+    for label, display, want in cases:
+        got = sale_badge(display)
+        if got != want:
+            fail(f'{label}: {got!r}, ventede {want!r}')
+        else:
+            ok(f'{label}: {got!r}')
 
 
 def _assert_product_list(products: list, label: str) -> None:
@@ -248,6 +275,7 @@ def test_routes() -> None:
 def main() -> int:
     print('Listing-API kontrakt-test (native-app Fase 0)')
     test_serializer()
+    test_sale_badge()
     test_routes()
     print()
     if _failures:

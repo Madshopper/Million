@@ -19,6 +19,54 @@ def enrich_billede_hashes(rows: list[dict]) -> None:
     attach_billede_hashes(rows)
 
 
+def salling_offer_fields(hit: dict, ref: dict | None, price_ore) -> tuple[bool, float | None, str]:
+    """(på tilbud, førpris i kr, multikøb-tekst) for en vare fra Sallings
+    Algolia (Bilka, Føtex, Netto).
+
+    Salling sender kun sjældent beforePrice: Bilka manglede førprisen på ca.
+    2.900 af 4.300 tilbud (21-10-2026), så kortet sagde "Tilbud" i stedet for
+    "Spar xx%". Før- og tilbudsprisen pr. enhed ligger begge i storeData, så
+    førprisen regnes ud fra forholdet (giver præcis hit['price'], hvor det
+    findes). Ikke ved multikøb, hvor enhedsprisen er mix-prisen og ikke
+    stykprisen; dér viser kortet "Spar xx% ved 5 stk" ud fra teksten.
+    Multikøbet gemmes som Sallings egen tekst ("Mix 5 for 300,00"). Før stod
+    der kampagne-id og pris i øre ("2660 30000"), som overlayet viste råt, og
+    som kurven ikke kunne regne med."""
+    ref = ref or {}
+    before = ref.get('beforePrice') or 0
+    on_offer = bool(before and before > price_ore)
+    normalpris = round(before / 100, 2) if on_offer else None
+
+    multikob = ''
+    desc = str(ref.get('offerDescription') or '').strip()
+    if desc.lower() == 'avisvare':  # Nettos avismærke; avisen tæller via isInCurrentLeaflet
+        desc = ''
+    mp = str(ref.get('multipromo') or '').strip()
+    is_multibuy = bool(mp and mp not in ('0', '0.0'))  # Netto sætter '0' uden multikøb
+    if is_multibuy:
+        multikob = desc
+        if not multikob:
+            try:
+                multikob = f"{int(ref['offerCount'])} for {int(ref['multiPromoPrice']) / 100:.2f}"
+            except (KeyError, TypeError, ValueError):
+                # Netto sender tit kun id'et; som før, så det stadig er et tilbud.
+                multikob = f"{mp} {ref.get('multiPromoPrice') or ''}".strip()
+    if not multikob:
+        # "Skarp pris", "Se Her" o.l.: stadig et tilbud, men ikke et multikøb.
+        # Kun varens egen tekst, som før: butikkens offerDescription ville gøre
+        # ca. 1.800 Føtex-varer til nye tilbud, og det er ikke denne ændring.
+        multikob = str(hit.get('multibuy_offer_description') or '').strip()
+
+    uom = ref.get('unitsOfMeasurePrice') or 0
+    uom_offer = ref.get('unitsOfMeasureOfferPrice') or 0
+    # Kun varer Salling selv kalder et tilbud (avis eller tilbudstekst); en
+    # lavere enhedspris alene gør ikke en vare til et tilbud.
+    marked = bool(hit.get('isInCurrentLeaflet') or multikob)
+    if marked and not on_offer and not is_multibuy and uom_offer and uom > uom_offer:
+        normalpris = round(price_ore * uom / uom_offer / 100, 2)
+    return on_offer or marked, normalpris, multikob
+
+
 def get_client():
     """Klient til scraper-skrivning (kun produkter-tabellen).
 

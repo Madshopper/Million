@@ -31,6 +31,33 @@ type Props = {
 };
 
 /** Byg kurv-varen ud fra et produkt (samme felter som før version C). */
+/** Tilbudsmærket: serverens tekst, så app og hjemmeside siger det samme
+ *  (app_support.sale_badge). Svar fra før feltet fandtes bruger den gamle regel. */
+export function saleBadgeText(product: Product): string | null {
+  if (product.sale_badge !== undefined) return product.sale_badge;
+  if (!(product.is_sale || product.is_any_sale)) return null;
+  const pct =
+    product.is_sale && product.normal_price > product.price
+      ? Math.floor((1 - product.price / product.normal_price) * 100)
+      : 0;
+  return pct >= 1 ? `Spar ${pct}%` : 'Tilbud';
+}
+
+/** "Spar 26% i SuperBrugsen" -> ["Spar 26%", "i SuperBrugsen"]: hovedteksten i
+ *  pillen og resten på en lille linje under, som på hjemmesiden. */
+export function splitBadge(badge: string): [string, string] {
+  const cut = badge.includes('%') ? badge.indexOf('%') + 1 : badge.indexOf(' i ');
+  if (cut <= 0) return [badge, ''];
+  return [badge.slice(0, cut), badge.slice(cut).trim()];
+}
+
+/** Mærket som VoiceOver siger det: "Tilbud, spar 14 procent ved 5 stk". */
+function spokenBadge(badge: string | null): string | null {
+  if (!badge) return null;
+  const text = badge.replace('%', ' procent');
+  return badge.startsWith('Spar') ? `Tilbud, s${text.slice(1)}` : text;
+}
+
 function cartItemFrom(product: Product, catalog: ReturnType<typeof useStoreCatalog>['catalog']) {
   const { storePrices, storeMultiDeals } = buildStorePrices(product, catalog);
   return {
@@ -66,11 +93,8 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
   const cartId = `product${product.id}`;
   const quantity = items.find((i) => i.id === cartId)?.quantity ?? 0;
 
-  const onSale = product.is_sale || product.is_any_sale;
+  const badge = saleBadgeText(product);
   const hasBefore = product.is_sale && product.normal_price > product.price;
-  const discountPct = hasBefore
-    ? Math.round((1 - product.price / product.normal_price) * 100)
-    : null;
   const onlyHere = Object.keys(product.store_matches || {}).length === 0;
   const kgPrice =
     product.kg_price != null && product.kg_price > 0
@@ -101,7 +125,7 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
     product.brand,
     product.description,
     product.stk_count ? `${product.stk_count} stk` : null,
-    onSale ? (discountPct ? `Tilbud, spar ${discountPct} procent` : 'Tilbud') : null,
+    spokenBadge(badge),
     spokenKr(product.price),
     hasBefore ? `før ${spokenKr(product.normal_price)}` : null,
     kgPrice ? `${spokenKr(product.kg_price)} pr. kilo` : null,
@@ -151,7 +175,7 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
         </View>
       </View>
 
-      {onSale ? (
+      {badge ? (
         // C2: lille, rolig gul pille øverst til venstre i billedfeltet (14 fra
         // kortets kant), ikke drejet og inden for kortet.
         <View
@@ -159,8 +183,19 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
-          <Text style={[cStyles.salePillText, { color: colors.dealText }]}>
-            {discountPct ? `Spar ${discountPct}%` : 'Tilbud'}
+          <Text style={[cStyles.salePillText, { color: colors.dealText }]} numberOfLines={1}>
+            {splitBadge(badge)[0]}
+          </Text>
+        </View>
+      ) : null}
+      {badge && splitBadge(badge)[1] ? (
+        <View
+          style={[cStyles.saleSub, { backgroundColor: colors.logoBg }]}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <Text style={[cStyles.saleSubText, { color: colors.text }]} numberOfLines={1}>
+            {splitBadge(badge)[1]}
           </Text>
         </View>
       ) : null}
@@ -238,6 +273,23 @@ const cStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   salePillText: { fontSize: 12, fontWeight: '800', letterSpacing: -0.1 },
+  saleSub: {
+    position: 'absolute',
+    top: 40,
+    left: 14,
+    right: 14,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    zIndex: 2,
+  },
+  saleSubText: {
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
   body: { paddingHorizontal: 12, paddingTop: 8 },
   name: { fontSize: 14, fontWeight: '600', lineHeight: 18, minHeight: 36 },
   meta: { fontSize: 12, marginTop: 2 },
@@ -268,7 +320,7 @@ function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
     };
   }, []);
 
-  const onSale = product.is_sale || product.is_any_sale;
+  const badge = saleBadgeText(product);
   // Tilbud uden førpris (fx multikøb): butikken på kortet har tilbud, men
   // oplyser ikke normalprisen. Prisen skal stadig være gul. Samme regel i
   // webbens produktkort-makro.
@@ -306,11 +358,6 @@ function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
     AccessibilityInfo.announceForAccessibility(`${product.name} lagt i kurven`);
   };
 
-  const discountPct =
-    product.is_sale && product.normal_price > product.price
-      ? Math.round((1 - product.price / product.normal_price) * 100)
-      : null;
-
   // Hele kortet er ét element for VoiceOver: en knap der åbner varen, med alt
   // det vigtige i én sætning. Kurv-knappen inde i kortet kan VoiceOver ikke
   // fokusere på (kortet samler sine børn), så den ligger også som handling
@@ -320,7 +367,7 @@ function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
     product.brand,
     product.description,
     product.stk_count ? `${product.stk_count} stk` : null,
-    onSale ? (discountPct ? `Tilbud, spar ${discountPct} procent` : 'Tilbud') : null,
+    spokenBadge(badge),
     spokenKr(product.price),
     product.is_sale && product.normal_price > product.price
       ? `før ${spokenKr(product.normal_price)}`
@@ -361,9 +408,12 @@ function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
           avis && styles.imageWrapAvis,
         ]}
       >
-        {onSale ? (
+        {badge ? (
           <View style={[styles.saleBadge, avis && styles.saleBadgeAvis]}>
-            <Text style={[styles.saleText, avis && styles.saleTextAvis]}>{discountPct ? `SPAR ${discountPct}%` : 'TILBUD'}</Text>
+            <Text style={[styles.saleText, avis && styles.saleTextAvis]}>{splitBadge(badge)[0].toUpperCase()}</Text>
+            {splitBadge(badge)[1] && !avis ? (
+              <Text style={styles.saleSubOld} numberOfLines={1}>{splitBadge(badge)[1]}</Text>
+            ) : null}
           </View>
         ) : null}
         {/* Neutral flade med en grøn prik: grøn er primærfarven, gul er
@@ -542,6 +592,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#DFA300',
   },
   saleText: { color: '#1A1C19', fontSize: 11, fontWeight: '800', letterSpacing: 0.2 },
+  saleSubOld: { color: '#1A1C19', fontSize: 10, fontWeight: '600', marginTop: 1 },
   // Avis: rødt, skråt mærke nederst til højre på billedet, som på web.
   saleBadgeAvis: {
     top: undefined,
