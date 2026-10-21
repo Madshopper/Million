@@ -14,7 +14,8 @@ import { askOnFirstLaunch, usePushFeature } from '../push/push';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getDefaultHeaderHeight } from '@react-navigation/elements';
 import { useTheme } from '../theme/ThemeContext';
 import { useCart } from '../cart/CartContext';
 import { CartIcon } from '../components/CartIcon';
@@ -211,9 +212,14 @@ function tabLabel(text: string) {
   };
 }
 
+/** Tom luft under forsidens top-felt, så indholdet ikke klippes lige under kurven (Kalle 21-10-2026). */
+const HOME_HEADER_AIR = 12;
+
 function MainTabs() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const frame = useSafeAreaFrame();
+  const homeHeaderHeight = getDefaultHeaderHeight(frame, false, insets.top) + HOME_HEADER_AIR;
 
   return (
     <Tabs.Navigator
@@ -247,7 +253,11 @@ function MainTabs() {
           // Version C: eget top-felt med logo, lokation og kurv.
           headerTitle: () => <HomeHeaderTitle />,
           headerTitleAlign: 'left',
-          headerStyle: { backgroundColor: colors.bg },
+          // Højere top-felt med luften nederst: indholdet centreres som før
+          // og har HOME_HEADER_AIR tom plads under sig.
+          headerStyle: { backgroundColor: colors.bg, height: homeHeaderHeight },
+          headerTitleContainerStyle: { paddingBottom: HOME_HEADER_AIR },
+          headerRightContainerStyle: { paddingBottom: HOME_HEADER_AIR },
           headerShadowVisible: false,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color} active="home" inactive="home-outline" />
