@@ -7400,7 +7400,7 @@ html.c2 .c2-plus svg {
   height: 20px;
 }
 
-/* Søgefeltets panel: seneste søgninger og "Køb igen" */
+/* Søgefeltets panel: seneste søgninger */
 html.c2 .c2-search-panel {
   position: absolute;
   top: calc(100% + 8px);

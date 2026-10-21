@@ -6038,7 +6038,6 @@ const C2_RECENT_SEARCHES_KEY = 'madshopper_recent_searches';
 const C2_RECENT_ITEMS_KEY = 'madshopper_recent_items';
 const C2_RECENT_SEARCHES_MAX = 8;
 const C2_RECENT_ITEMS_MAX = 40;
-const C2_BUY_AGAIN_MAX = 5;
 
 function c2On() {
     return window.__C2_ON === true;
@@ -6143,15 +6142,15 @@ function c2TimesLabel(item) {
     return n === 1 ? 'Købt 1 gang' : `Købt ${n} gange`;
 }
 
-// Søgefeltet: seneste søgninger og "Køb igen", når feltet er tomt.
+// Søgefeltet: seneste søgninger, når feltet er tomt. "Køb igen" vises kun
+// nederst i kurven ("Glemt noget?"), ikke under søgningen (Kalle 21-10-2026).
 function renderC2SearchPanel() {
     const panel = document.getElementById('c2-search-panel');
     const input = document.getElementById('searchInput');
     if (!panel || !input) return;
     const open = document.activeElement === input && !input.value.trim();
     const searches = c2Read(C2_RECENT_SEARCHES_KEY).filter(s => typeof s === 'string');
-    const items = c2BuyAgain(C2_BUY_AGAIN_MAX);
-    if (!open || (!searches.length && !items.length)) {
+    if (!open || !searches.length) {
         panel.hidden = true;
         return;
     }
@@ -6162,10 +6161,6 @@ function renderC2SearchPanel() {
                 + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`
                 + `${escapeHtml(s)}</button>`).join('')
             + `</div>`;
-    }
-    if (items.length) {
-        html += `<div class="c2-sp-head"><span class="c2-sp-big">Køb igen</span><span>Det du plejer at købe</span></div>`
-            + `<div class="c2-list">${items.map(i => c2ItemRow(i, c2TimesLabel(i))).join('')}</div>`;
     }
     panel.innerHTML = html;
     panel.hidden = false;
