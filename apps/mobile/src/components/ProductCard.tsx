@@ -238,7 +238,10 @@ const cStyles = StyleSheet.create({
     paddingBottom: 12,
     position: 'relative',
   },
-  cardGrid: { flex: 1, width: '100%', alignSelf: 'stretch' },
+  // Ingen width: '100%' her: sammen med margenen blev kortet 12 px bredere
+  // end sin plads på forsiden, så det skubbede sig ind i nabokortet og ud
+  // over højre kant (Kalle 21-10-2026). flex/stretch fylder pladsen.
+  cardGrid: { flex: 1, alignSelf: 'stretch' },
   cardRail: { width: '100%' },
   imageWrap: {
     margin: 8,
@@ -543,7 +546,6 @@ const styles = StyleSheet.create({
   },
   cardGrid: {
     flex: 1,
-    width: '100%',
     alignSelf: 'stretch',
   },
   cardAvis: {

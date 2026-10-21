@@ -484,10 +484,11 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 17, fontWeight: '800' },
   sectionLink: { fontSize: 13, fontWeight: '600' },
   // C2: 2 kolonner med 16 i kanten, 12 imellem og 14 lodret (kortets margin 6/7).
+  // 6 + kortets egen margen på 6 = 12 til kanten, samme som mellem kortene.
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
   },
   gridItem: {
     width: '50%',
