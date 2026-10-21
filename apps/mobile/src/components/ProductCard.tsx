@@ -231,8 +231,10 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
 const cStyles = StyleSheet.create({
   card: {
     borderRadius: 22,
+    // Samme afstand vandret og lodret (6 + 6 = 12 mellem kortene), så
+    // gitteret ser ens ud hele vejen rundt om kortet, ligesom webbens gap.
     marginHorizontal: 6,
-    marginVertical: 7,
+    marginVertical: 6,
     paddingBottom: 12,
     position: 'relative',
   },
@@ -535,7 +537,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingBottom: 12,
     marginHorizontal: 3,
-    marginVertical: 4,
+    marginVertical: 3,
     position: 'relative',
     overflow: 'hidden',
   },
