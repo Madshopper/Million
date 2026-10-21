@@ -18,6 +18,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useCart } from '../cart/CartContext';
 import { CartIcon } from '../components/CartIcon';
+import {
+  GLASS_TAB_BAR,
+  GlassTabBarBackground,
+  LIQUID_GLASS,
+  glassPillTabBarStyle,
+} from '../components/GlassTabBar';
 import { HomeHeaderTitle, LocationPill } from '../components/HomeHeader';
 import { HomeScreen } from '../screens/HomeScreen';
 import { CategoryScreen, SaleScreen, StoreOffersListScreen } from '../screens/CategoryScreen';
@@ -158,9 +164,21 @@ function BackHeaderButton({ onPress }: { onPress: () => void }) {
       hitSlop={{ top: 12, bottom: 12, left: 12, right: 24 }}
       accessibilityRole="button"
       accessibilityLabel="Tilbage"
-      style={{ paddingVertical: 4, paddingRight: 16 }}
+      // iOS 26 lægger knappen i en rund glasboble; pilen skal stå midt i den
+      // (den skæve padding fik den til at sidde ude i venstre side).
+      style={
+        LIQUID_GLASS
+          ? { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }
+          : { paddingVertical: 4, paddingRight: 16 }
+      }
     >
-      <Ionicons name="chevron-back" size={26} color={colors.text} />
+      <Ionicons
+        name="chevron-back"
+        size={26}
+        color={colors.text}
+        // Ionicons' pil har luft til højre; skub den lidt, så den ser centreret ud.
+        style={LIQUID_GLASS ? { marginLeft: -2 } : undefined}
+      />
     </Pressable>
   );
 }
@@ -221,14 +239,20 @@ function MainTabs() {
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,
         headerTitleStyle: fontStyle('700'),
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          paddingTop: 6,
-          // Plads til pillen (30) og teksten (12) over hjemme-stregen.
-          height: 62 + insets.bottom,
-        },
+        tabBarStyle: GLASS_TAB_BAR
+          ? // iOS: svævende glaspille over indholdet. Baggrunden tegnes af
+            // GlassTabBarBackground, og fane-skærmenes lister giver plads i
+            // bunden med useTabBarOverlap().
+            glassPillTabBarStyle(insets)
+          : {
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
+              borderTopWidth: 1,
+              paddingTop: 6,
+              // Plads til pillen (30) og teksten (12) over hjemme-stregen.
+              height: 62 + insets.bottom,
+            },
+        tabBarBackground: GLASS_TAB_BAR ? () => <GlassTabBarBackground /> : undefined,
         // Pillen bag ikonet er 30 høj; uden plads til den skubbes teksten ud.
         tabBarIconStyle: { width: 56, height: 30 },
         tabBarActiveTintColor: colors.primaryDark,

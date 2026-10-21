@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '../theme/Typography';
 import { useTheme } from '../theme/ThemeContext';
+import { useTabBarOverlap } from '../components/GlassTabBar';
 import type { Recipe } from '../api/recipes';
 import {
   BUDGET,
@@ -38,6 +39,7 @@ type Props = {
 
 export function MealPlanWizard({ recipes, initial, onCancel, onDone }: Props) {
   const { colors } = useTheme();
+  const tabOverlap = useTabBarOverlap();
   const [p, setP] = useState<MealPrefs>(initial);
   const [step, setStep] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -190,7 +192,8 @@ export function MealPlanWizard({ recipes, initial, onCancel, onDone }: Props) {
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      {/* iOS: glas-fanebjælken svæver over bunden; løft knappen fri af den. */}
+      <View style={[styles.footer, { paddingBottom: 12 + tabOverlap }]}>
         <Pressable
           onPress={() => go(1)}
           disabled={name === 'kitchen' && !p.kitchen.length}

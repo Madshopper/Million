@@ -9,6 +9,7 @@ import { useLokationEnabled } from '../location/nearby';
 import { shouldAskAfterSignup } from '../location/storage';
 import { memberInitial, useSharedCart } from '../cart/SharedCartContext';
 import { useTheme } from '../theme/ThemeContext';
+import { useTabBarOverlap } from '../components/GlassTabBar';
 import { env } from '../config/env';
 import { PriceAlertsSection } from '../components/PriceAlertsSection';
 import type { RootStackParamList } from '../navigation/types';
@@ -24,6 +25,7 @@ import type { RootStackParamList } from '../navigation/types';
  */
 export function ProfileScreen() {
   const { colors } = useTheme();
+  const tabOverlap = useTabBarOverlap();
   const { user, displayName, logout, saveDisplayName } = useAuth();
   const { active, title, members, maxMembers, inviteUrl, createShared, leaveShared } = useSharedCart();
   const [sharing, setSharing] = React.useState(false);
@@ -79,7 +81,11 @@ export function ProfileScreen() {
   const shownName = displayName || user?.email || '';
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 16 + tabOverlap }}
+      scrollIndicatorInsets={{ bottom: tabOverlap }}
+    >
       {user ? (
         <View style={[styles.row, card]}>
           <View
