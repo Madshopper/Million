@@ -12,20 +12,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { Text, TextInput } from '../theme/Typography';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { fetchAutocomplete, fetchHome, fetchSearch } from '../api/listing';
-import type { Product } from '../api/types';
+import { fetchHome, fetchSearch } from '../api/listing';
+import type { ListingResponse, Product } from '../api/types';
 import { FiltersBar, type FiltersValue } from '../components/FiltersBar';
 import { ProductCard } from '../components/ProductCard';
 import { TabScreenBody } from '../components/ScreenBody';
 import { useStoreCatalog, storesParam } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { Pager } from '../components/Pager';
-import { spokenKr } from '../a11y/speech';
 import { setServerStatsEnabled, trackSearch } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
 import { BuyAgainCard } from '../components/BuyAgain';
 import { useBuyAgain } from '../cart/recentItems';
 import { rememberSearch, useRecentSearches } from '../search/recentSearches';
+import { SearchCache, matchRecentSearches } from '../search/searchCache';
 
 /**
  * Stabil reference til "ingen filtre valgt".
@@ -39,6 +39,16 @@ import { rememberSearch, useRecentSearches } from '../search/recentSearches';
  */
 const DEFAULT_FILTERS: FiltersValue = { sort: 'relevance' };
 
+/**
+ * Ventetid efter sidste tastetryk, før der søges. Var 500 ms; 350 ms er stadig
+ * længere end pausen mellem to tastetryk for de fleste, så et ord der skrives
+ * færdigt giver én søgning, ikke én pr. bogstav.
+ */
+const TYPE_DEBOUNCE_MS = 350;
+
+/** Søgesvar fra de seneste 10 minutter, se search/searchCache.ts. */
+const searchCache = new SearchCache<ListingResponse>();
+
 export function SearchScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
@@ -46,15 +56,11 @@ export function SearchScreen() {
   // hvert butikstryk i filter-arket koste baade en autocomplete og en soegning.
   const { queryLabels, catalog, ready } = useStoreCatalog();
   const [q, setQ] = useState('');
-  // Kun opdateret 500 ms efter brugeren er holdt op med at skrive - selve
-  // søgningen (inkl. sideskift) afhænger af DENNE, ikke af q direkte, så et
-  // sideskift ikke også skal vente 500 ms.
+  // Kun opdateret TYPE_DEBOUNCE_MS efter brugeren er holdt op med at skrive
+  // (eller med det samme ved søg-knappen/et tryk på en seneste søgning) -
+  // selve søgningen (inkl. sideskift) afhænger af DENNE, ikke af q direkte,
+  // så et sideskift ikke også skal vente.
   const [committedQuery, setCommittedQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<
-    Array<{ name: string; brand: string; price: number }>
-  >([]);
-  /** Serverens stavekorrektion, fx "mlæk" → "mælk". Web-paritet. */
-  const [querySuggestion, setQuerySuggestion] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -68,13 +74,6 @@ export function SearchScreen() {
   // ingen D1-søgning og intet ekstra rows_read.
   const [starter, setStarter] = useState<{ title: string; products: Product[] } | null>(null);
 
-  // Delt mellem de to debounce-effects nedenfor, så søge-kaldet kan annullere
-  // en ventende/igangværende autocomplete FØR det selv sendes af sted - uden
-  // det kan begge ramme samme Cloudflare Workers-isolate næsten samtidig, som
-  // ikke tillader overlappende request-tasks (samme fejlklasse som blev
-  // rettet for web i static/js/script.js, closeAutocomplete()).
-  const acTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const acControllerRef = useRef<AbortController | null>(null);
   // Aktuel søgnings AbortController - annulleres ved næste søgning, så et
   // langsomt, forældet svar ikke kan overskrive et nyere (fx skriver
   // brugeren "mælk" og retter hurtigt til "mælkebøtte": to kald i luften,
@@ -89,17 +88,6 @@ export function SearchScreen() {
   const recentSearches = useRecentSearches();
   const buyAgain = useBuyAgain(5);
 
-  function cancelAutocomplete() {
-    if (acTimeoutRef.current) {
-      clearTimeout(acTimeoutRef.current);
-      acTimeoutRef.current = null;
-    }
-    if (acControllerRef.current) {
-      acControllerRef.current.abort();
-      acControllerRef.current = null;
-    }
-  }
-
   // Ny søgning nulstiller advanced filters (web-paritet). Sætter DEFAULT_FILTERS
   // (samme objektreference hver gang) og kun når der faktisk er noget at
   // nulstille - se kommentaren ved DEFAULT_FILTERS.
@@ -107,38 +95,17 @@ export function SearchScreen() {
     setFilters((prev) => (prev === DEFAULT_FILTERS ? prev : DEFAULT_FILTERS));
   }, [q]);
 
-  // Autocomplete debounce 200 ms
-  useEffect(() => {
-    if (q.trim().length < 2) {
-      setSuggestions([]);
-      cancelAutocomplete();
-      return;
-    }
-    acTimeoutRef.current = setTimeout(() => {
-      const controller = new AbortController();
-      acControllerRef.current = controller;
-      void fetchAutocomplete(q.trim(), storesParam(queryLabels, catalog), controller)
-        .then((r) => {
-          setSuggestions(r.suggestions || []);
-          // Serverens stavekorrektion. Webben har altid brugt den
-          // (`data.query_suggestion || query` i script.js), mens appen kun
-          // læste `suggestions` - så en bruger der skrev "mlæk" fik forslaget
-          // på web, men ikke i appen.
-          setQuerySuggestion(r.query_suggestion || null);
-        })
-        .catch(() => {
-          setSuggestions([]);
-          setQuerySuggestion(null);
-        });
-    }, 200);
-    return () => {
-      if (acTimeoutRef.current) clearTimeout(acTimeoutRef.current);
-    };
-  }, [q, queryLabels, catalog]);
+  // Ingen kald til /api/autocomplete i appen længere (21-10-2026). Det blev
+  // sendt 200 ms efter hvert ophold i tastningen, og søgningen 300 ms efter.
+  // Serveren regner kun én ting ad gangen pr. isolate (src/worker.py:
+  // _render_exclusive), så søgningen stod i kø bag forslagene - og
+  // forslagene blev alligevel skjult, så snart varerne kom. I stedet vises de
+  // seneste søgninger, der passer til det man skriver, med det samme og uden
+  // net (matchRecentSearches).
 
-  // Skriv-debounce 500 ms: opdaterer KUN committedQuery og nulstiller til
-  // side 1. Selve hentningen sker i effekten nedenfor, som også dækker
-  // sideskift - et sideskift skal ikke vente 500 ms som en tastetryk-søgning.
+  // Skriv-debounce: opdaterer KUN committedQuery og nulstiller til side 1.
+  // Selve hentningen sker i effekten nedenfor, som også dækker sideskift -
+  // et sideskift skal ikke vente som en tastetryk-søgning.
   useEffect(() => {
     const query = q.trim();
     if (!query) {
@@ -149,11 +116,14 @@ export function SearchScreen() {
       setError(null);
       return;
     }
+    // Ét bogstav søger ikke af sig selv: "m" rammer tusindvis af varer, er
+    // den tungeste søgning serveren har, og bliver alligevel aldrig vist,
+    // fordi man skriver videre. Søg-knappen søger stadig på ét bogstav.
+    if (query.length < 2) return;
     const t = setTimeout(() => {
-      cancelAutocomplete();
       setPage(1);
       setCommittedQuery(query);
-    }, 500);
+    }, TYPE_DEBOUNCE_MS);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
@@ -192,10 +162,21 @@ export function SearchScreen() {
   const isEmptyQuery = q.trim().length === 0;
   const hasPersonal = recentSearches.length > 0 || buyAgain.length > 0;
 
+  /** Søg med det samme, uden at vente på skrive-debouncen. */
+  const commitNow = (term: string) => {
+    const query = term.trim();
+    if (!query) return;
+    setPage(1);
+    setCommittedQuery(query);
+  };
+
   const searchFor = (term: string) => {
     rememberSearch(term);
     setQ(term);
+    commitNow(term);
   };
+
+  const typedMatches = q.trim().length >= 1 ? matchRecentSearches(recentSearches, q) : [];
 
   const cancel = () => {
     setQ('');
@@ -257,19 +238,14 @@ export function SearchScreen() {
     if (searchControllerRef.current) searchControllerRef.current.abort();
     const controller = new AbortController();
     searchControllerRef.current = controller;
-    setLoading(true);
-    setError(null);
-    try {
-      const r = await fetchSearch(
-        {
-          q: committedQuery,
-          page,
-          stores: storesParam(queryLabels, catalog),
-          ...filters,
-        },
-        controller,
-      );
-      if (controller.signal.aborted) return;
+    const params = {
+      q: committedQuery,
+      page,
+      stores: storesParam(queryLabels, catalog),
+      ...filters,
+    };
+    const cacheKey = JSON.stringify(params);
+    const show = (r: ListingResponse) => {
       if (countedQueryRef.current !== committedQuery) {
         countedQueryRef.current = committedQuery;
         trackSearch(committedQuery);
@@ -282,6 +258,24 @@ export function SearchScreen() {
       AccessibilityInfo.announceForAccessibility(
         r.total ? `${r.total} resultater` : 'Ingen varer matcher din søgning',
       );
+    };
+    const cached = searchCache.get(cacheKey);
+    if (cached) {
+      // Samme søgning for lidt siden: vis den med det samme, ingen netkald.
+      setError(null);
+      setLoading(false);
+      show(cached);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetchSearch(params, controller);
+      if (controller.signal.aborted) return;
+      // Tomme svar gemmes ikke: et "0 varer" kan være en forbigående fejl på
+      // serveren (X-Data-Degraded), og det må ikke hænge ved i 10 minutter.
+      if (r.success !== false && (r.total ?? 0) > 0) searchCache.set(cacheKey, r);
+      show(r);
     } catch (e) {
       if (controller.signal.aborted) return;
       // Uden denne gren var offline/en serverfejl lig med en tom skærm, ikke
@@ -323,7 +317,10 @@ export function SearchScreen() {
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             onSubmitEditing={() => {
-              if (q.trim()) rememberSearch(q);
+              if (q.trim()) {
+                rememberSearch(q);
+                commitNow(q);
+              }
             }}
             accessibilityLabel="Søg efter varer"
             returnKeyType="search"
@@ -340,27 +337,20 @@ export function SearchScreen() {
           <Text style={[styles.cancelText, { color: colors.primaryDark }]}>Annullér</Text>
         </Pressable>
       </View>
-      {q.trim().length >= 2 && suggestions.length > 0 && !products.length ? (
-        <View style={{ paddingHorizontal: 12 }} accessibilityLabel="Forslag">
-          <Pressable
-            onPress={() => searchFor(querySuggestion || q.trim())}
-            accessibilityRole="button"
-          >
-            <Text style={{ color: colors.primary, paddingVertical: 8 }}>
-              Søg efter {querySuggestion || q.trim()}
-            </Text>
-          </Pressable>
-          {suggestions.map((s) => (
+      {typedMatches.length > 0 && !products.length ? (
+        <View style={{ paddingHorizontal: 12 }} accessibilityLabel="Seneste søgninger der passer">
+          {typedMatches.map((term) => (
             <Pressable
-              key={s.name}
-              onPress={() => searchFor(s.name)}
+              key={term}
+              onPress={() => searchFor(term)}
               style={styles.sug}
               accessibilityRole="button"
-              accessibilityLabel={`${s.name}, ${spokenKr(s.price)}`}
-              accessibilityHint="Søger efter varen"
+              accessibilityLabel={`Søg efter ${term} igen`}
             >
-              <Text style={{ color: colors.text }}>{s.name}</Text>
-              <Text style={{ color: colors.textMuted }}>{s.price.toFixed(2)} kr</Text>
+              <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+              <Text style={{ color: colors.text, flex: 1 }} numberOfLines={1}>
+                {term}
+              </Text>
             </Pressable>
           ))}
         </View>
@@ -369,7 +359,14 @@ export function SearchScreen() {
         <FiltersBar values={filters} onChange={setFilters} />
       ) : null}
       {total > 0 ? (
-        <Text style={[styles.meta, { color: colors.textMuted }]}>{total} resultater</Text>
+        <View style={styles.metaRow}>
+          <Text style={[styles.meta, { color: colors.textMuted }]}>{total} resultater</Text>
+          {/* Der vises stadig varer fra forrige søgning, mens den nye hentes.
+              Uden et tegn lignede det, at appen bare stod stille. */}
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.primary} accessibilityLabel="Søger" />
+          ) : null}
+        </View>
       ) : null}
       {error && !loading ? (
         <View style={{ padding: 24, alignItems: 'center', gap: 10 }}>
@@ -512,12 +509,14 @@ const styles = StyleSheet.create({
   buyAgainCard: { paddingHorizontal: 12 },
   sug: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#ccc',
   },
-  meta: { paddingHorizontal: 16, marginBottom: 4 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 16, marginBottom: 4 },
+  meta: { paddingHorizontal: 16 },
   starterTitle: { fontSize: 17, fontWeight: '800', paddingHorizontal: 12, paddingTop: 22, paddingBottom: 4 },
   pager: {
     flexDirection: 'row',
