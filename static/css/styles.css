@@ -7693,6 +7693,79 @@ html.c2 .c2-item-missing {
   color: var(--c2-warning);
 }
 
+/* Fanen under en vare vinderen ikke har: smallere end varekortet og kun
+   runde hjørner forneden, så den hænger under varen (Kalle 22-10-2026). */
+html.c2 .c2-alt-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -10px 18px 0;
+  padding: 7px 8px 7px 8px;
+  background: var(--c2-stepper);
+  border-radius: 0 0 14px 14px;
+  flex-shrink: 0;
+}
+
+html.c2 .c2-alt-img {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+html.c2 .c2-alt-img img {
+  max-width: 28px;
+  max-height: 28px;
+  object-fit: contain;
+}
+
+html.c2 .c2-alt-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+html.c2 .c2-alt-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--c2-muted);
+}
+
+html.c2 .c2-alt-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--c2-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.c2 .c2-alt-price {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--c2-text);
+  white-space: nowrap;
+}
+
+html.c2 .c2-alt-btn {
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--green, #059669);
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 html.c2 .cart-item-price {
   font-size: 1.05rem;
   font-weight: 800;

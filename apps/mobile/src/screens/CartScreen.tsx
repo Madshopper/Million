@@ -676,7 +676,7 @@ export function CartScreen() {
                           { name: 'removeAll', label: 'Fjern fra kurv' },
                         ]
                       : []),
-                    ...(alt ? [{ name: 'swap', label: `Byt til ${alt.alt_name}` }] : []),
+                    ...(alt ? [{ name: 'swap', label: `Erstat med ${alt.alt_name}` }] : []),
                   ]
                 : undefined
             }
@@ -698,7 +698,6 @@ export function CartScreen() {
               !item.kgPrice ? item.multiDeal : null,
               `i alt ${spokenKr(lineTotal)}`,
               missingText || null,
-              alt ? `forslag: ${alt.alt_name}, ${spokenKr(alt.alt_price)}` : null,
             ])}
           >
             <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
@@ -721,13 +720,6 @@ export function CartScreen() {
               <Text style={[styles.itemMissing, { color: colors.warning }]} numberOfLines={2}>
                 {missingText}
               </Text>
-            ) : null}
-            {alt ? (
-              <Pressable onPress={swap} hitSlop={6} style={styles.swapLink}>
-                <Text style={[styles.swapText, { color: colors.primaryDark }]} numberOfLines={1}>
-                  Byt til {alt.alt_name}, {kr(alt.alt_price)}
-                </Text>
-              </Pressable>
             ) : null}
           </View>
 
@@ -752,6 +744,58 @@ export function CartScreen() {
     );
   };
 
+  /** Lille fane under varen: en lignende vare som vinderen har, med "Erstat"
+   *  (Kalle 22-10-2026). Forslaget kommer fra /api/alternatives, som kun
+   *  foreslår samme slags vare (samme underkategori, fælles indholdsord,
+   *  samme variant og kødtype, pris og vægt i samme klasse). */
+  const renderAltTab = (item: CartItem) => {
+    const alt =
+      winner && (missingByItem[item.id] || []).includes(winner.name)
+        ? alternatives[item.id]
+        : undefined;
+    if (!alt || !winner) return null;
+    return (
+      <View style={[styles.altTab, { backgroundColor: colors.stepperBg }]}>
+        <View
+          style={[styles.altThumb, { backgroundColor: colors.logoBg }]}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          {alt.alt_image ? (
+            <Image source={{ uri: alt.alt_image }} style={styles.altImg} resizeMode="contain" />
+          ) : null}
+        </View>
+        <View
+          style={{ flex: 1, minWidth: 0 }}
+          accessible
+          accessibilityLabel={`Forslag i ${winner.name}: ${alt.alt_name}, ${spokenKr(alt.alt_price)}`}
+        >
+          <Text style={[styles.altLabel, { color: colors.textMuted }]} numberOfLines={1}>
+            I {winner.name} i stedet
+          </Text>
+          <Text style={[styles.altName, { color: colors.text }]} numberOfLines={1}>
+            {alt.alt_name}
+          </Text>
+        </View>
+        <Text style={[styles.altPrice, { color: colors.text }]} accessibilityElementsHidden importantForAccessibility="no">
+          {kr(alt.alt_price)}
+        </Text>
+        <Pressable
+          onPress={() => replaceItem(alt.cart_id, alternativeAsCartItem(alt, item))}
+          accessibilityRole="button"
+          accessibilityLabel={`Erstat ${cartItemTitle(item)} med ${alt.alt_name}`}
+          hitSlop={6}
+          style={({ pressed }) => [
+            styles.altBtn,
+            { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
+          ]}
+        >
+          <Text style={[styles.altBtnText, { color: colors.onPrimary }]}>Erstat</Text>
+        </Pressable>
+      </View>
+    );
+  };
+
   const itemsCard = (
     <View style={[styles.itemsCard, { backgroundColor: colors.surface }, cardShadow(colors.shadow)]}>
       {groups.map(([cat, catItems], gi) => (
@@ -768,6 +812,7 @@ export function CartScreen() {
           {catItems.map((item, idx) => (
             <View key={item.id}>
               {renderItemRow(item)}
+              {renderAltTab(item)}
               {idx < catItems.length - 1 ? (
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
               ) : null}
@@ -1284,8 +1329,34 @@ const styles = StyleSheet.create({
   itemPrice: { fontSize: 15, fontWeight: '800' },
   // 80 % af varenavnets 14 (Kalle 22-10-2026).
   itemMissing: { fontSize: 11.2, fontWeight: '600' },
-  swapLink: { alignSelf: 'flex-start' },
-  swapText: { fontSize: 11.2, fontWeight: '700', textDecorationLine: 'underline' },
+  // Fanen under varen: smallere end rækken og kun runde hjørner forneden, så
+  // den hænger under varen som på Kalles skitse.
+  altTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 28,
+    marginTop: -4,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+  },
+  altThumb: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  altImg: { width: 28, height: 28 },
+  altLabel: { fontSize: 10.5, fontWeight: '600' },
+  altName: { fontSize: 12, fontWeight: '600' },
+  altPrice: { fontSize: 12, fontWeight: '800' },
+  altBtn: { height: 28, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center' },
+  altBtnText: { fontSize: 12, fontWeight: '700' },
   footerPad: {
     paddingHorizontal: 16,
     paddingTop: 8,

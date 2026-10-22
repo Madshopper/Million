@@ -6212,6 +6212,96 @@ function c2BestTwoStoreSplit(winner, candidates, minSaving = 1) {
     return best;
 }
 
+/**
+ * Lille fane under hver vare vinderen ikke har: en lignende vare fra
+ * vinderen med knappen "Erstat" (Kalle 22-10-2026, som appens CartScreen).
+ * /api/alternatives foreslår kun samme slags vare (samme underkategori,
+ * fælles indholdsord, variant, kødtype, pris- og vægtklasse). Svaret huskes
+ * pr. vinder + varer, så + og - i kurven ikke spørger serveren igen.
+ */
+let _c2AltCache = { key: '', map: null };
+
+function c2CartAlternatives(list, winner, itemStores) {
+    const missingItems = [];
+    cart.forEach((item, idx) => {
+        const has = itemStores[idx];
+        if (!has || has.has(winner)) return;
+        const known = Object.values(item.storePrices || {}).filter(p => Number(p) > 0);
+        missingItems.push({
+            cart_id: item.id,
+            product_id: item.id,
+            name: stripStoreBrand(item.name || 'Vare'),
+            image: item.image || '',
+            category: item.category || '',
+            weight_str: item.unitMeasure || '',
+            price: known.length ? Math.min(...known) : Number(item.price) || 0,
+            store: winner,
+        });
+    });
+    if (!missingItems.length) return;
+    const key = winner + ':' + missingItems.map(m => m.cart_id).join(',');
+    if (_c2AltCache.key === key) {
+        if (_c2AltCache.map) c2RenderAltTabs(list, winner, _c2AltCache.map);
+        return;
+    }
+    _c2AltCache = { key, map: null };
+    fetchWithDegradedRetry('/api/alternatives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ missing_items: missingItems }),
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (_c2AltCache.key !== key) return;
+            if (!data.success) { _c2AltCache.key = ''; return; }
+            const map = {};
+            (data.alternatives || []).forEach(a => { map[a.cart_id] = a; });
+            _c2AltCache.map = map;
+            c2RenderAltTabs(list, winner, map);
+        })
+        .catch(() => { if (_c2AltCache.key === key) _c2AltCache.key = ''; });
+}
+
+function c2RenderAltTabs(list, winner, map) {
+    list.querySelectorAll('.c2-alt-tab').forEach(el => el.remove());
+    list.querySelectorAll('.cart-item[data-index]').forEach(row => {
+        const item = cart[Number(row.dataset.index)];
+        const alt = item && map[item.id];
+        const wrap = row.closest('.cart-swipe') || row;
+        if (!alt) return;
+        const tab = document.createElement('div');
+        tab.className = 'c2-alt-tab';
+        tab.innerHTML = `<span class="c2-alt-img">${alt.alt_image ? `<img src="${escapeHtml(alt.alt_image)}" alt="" onerror="this.style.display='none'">` : ''}</span>
+            <span class="c2-alt-text"><span class="c2-alt-label">I ${escapeHtml(winner)} i stedet</span>
+            <span class="c2-alt-name">${escapeHtml(stripStoreBrand(alt.alt_name))}</span></span>
+            <span class="c2-alt-price">${c2Kr(Number(alt.alt_price))}</span>
+            <button type="button" class="c2-alt-btn" aria-label="Erstat ${escapeHtml(cartItemTitle(item))} med ${escapeHtml(alt.alt_name)}">Erstat</button>`;
+        tab.querySelector('.c2-alt-btn').addEventListener('click', () => c2ReplaceWithAlternative(item.id, alt));
+        wrap.after(tab);
+    });
+}
+
+/** Som acceptAlternative, men bliver i kurven i stedet for at åbne sammenligningen. */
+function c2ReplaceWithAlternative(oldId, alt) {
+    const index = cart.findIndex(c => c.id === oldId);
+    if (index === -1) return;
+    cart[index] = {
+        id: 'product' + alt.alt_id,
+        name: alt.alt_name,
+        store: alt.alt_store,
+        price: alt.alt_price,
+        storePrices: alt.alt_storePrices,
+        image: alt.alt_image,
+        category: alt.alt_category,
+        unitMeasure: alt.alt_unitMeasure,
+        kgPrice: alt.alt_kgPrice,
+        quantity: cart[index].quantity,
+        storeMultiDeals: {},
+    };
+    saveCart();
+    updateCartDisplay();
+}
+
 /** "Findes ikke i Netto og Lidl", højst to navne og så "og N andre". */
 function c2MissingText(stores) {
     if (!stores.length) return '';
@@ -6235,7 +6325,7 @@ function renderC2Cart(sorted, covered, itemStores = []) {
             : '';
     }
     if (!list || !cart.length) return;
-    list.querySelectorAll('.c2-cart-top, .c2-cart-forgot, .c2-item-missing').forEach(el => el.remove());
+    list.querySelectorAll('.c2-cart-top, .c2-cart-forgot, .c2-item-missing, .c2-alt-tab').forEach(el => el.remove());
     const top = document.createElement('div');
     top.className = 'c2-cart-top';
     const forgot = document.createElement('div');
@@ -6290,6 +6380,7 @@ function renderC2Cart(sorted, covered, itemStores = []) {
             line.textContent = text;
             title.after(line);
         });
+        c2CartAlternatives(list, winner, itemStores);
     }
     const items = c2BuyAgain(3, new Set(cart.map(i => i.id)));
     if (items.length) {
