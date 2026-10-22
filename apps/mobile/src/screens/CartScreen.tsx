@@ -30,6 +30,7 @@ import {
   bestTwoStoreSplit,
   calculateStoreComparisons,
   extraCostVs,
+  missingStoresText,
   sortScoStores,
   type ScoResult,
   type ScoStoreResult,
@@ -152,6 +153,16 @@ export function CartScreen() {
       })
       .catch(() => setAlternatives({}));
   }, [winner]);
+
+  // Under hver vare: de valgte butikker der ikke har den, vinderen først
+  // (Kalle 22-10-2026; erstatter den gule boks nederst i kortet).
+  const missingByItem = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const st of ranked) {
+      for (const m of st.missingDetails) (map[m.cart_id] = map[m.cart_id] || []).push(st.name);
+    }
+    return map;
+  }, [ranked]);
 
   const groups = useMemo(() => {
     const map = new Map<string, CartItem[]>();
@@ -625,6 +636,12 @@ export function CartScreen() {
 
   const renderItemRow = (item: CartItem) => {
     const lineTotal = item.price * item.quantity;
+    const missingIn = missingByItem[item.id] || [];
+    const missingText = missingStoresText(missingIn);
+    // Forslag fra /api/alternatives findes kun for vinderens manglende varer.
+    const alt = winner && missingIn.includes(winner.name) ? alternatives[item.id] : undefined;
+    const swap = () =>
+      alt && replaceItem(alt.cart_id, alternativeAsCartItem(alt, item));
     return (
       <SwipeableCartRow
         key={item.id}
@@ -651,10 +668,15 @@ export function CartScreen() {
             style={styles.itemBody}
             accessible
             accessibilityActions={
-              swipeEnabled
+              swipeEnabled || alt
                 ? [
-                    { name: 'addOne', label: 'Tilføj én mere til kurven' },
-                    { name: 'removeAll', label: 'Fjern fra kurv' },
+                    ...(swipeEnabled
+                      ? [
+                          { name: 'addOne', label: 'Tilføj én mere til kurven' },
+                          { name: 'removeAll', label: 'Fjern fra kurv' },
+                        ]
+                      : []),
+                    ...(alt ? [{ name: 'swap', label: `Byt til ${alt.alt_name}` }] : []),
                   ]
                 : undefined
             }
@@ -663,6 +685,8 @@ export function CartScreen() {
                 addOne(item);
               } else if (e.nativeEvent.actionName === 'removeAll') {
                 removeItem(item.id);
+              } else if (e.nativeEvent.actionName === 'swap') {
+                swap();
               }
             }}
             accessibilityLabel={joinLabel([
@@ -673,6 +697,8 @@ export function CartScreen() {
               item.kgPrice ? item.kgPrice.replace('kr/kg', 'kr pr. kilo').replace('.', ',') : null,
               !item.kgPrice ? item.multiDeal : null,
               `i alt ${spokenKr(lineTotal)}`,
+              missingText || null,
+              alt ? `forslag: ${alt.alt_name}, ${spokenKr(alt.alt_price)}` : null,
             ])}
           >
             <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
@@ -690,6 +716,18 @@ export function CartScreen() {
               <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
                 {item.unitMeasure}
               </Text>
+            ) : null}
+            {missingText ? (
+              <Text style={[styles.itemMissing, { color: colors.warning }]} numberOfLines={2}>
+                {missingText}
+              </Text>
+            ) : null}
+            {alt ? (
+              <Pressable onPress={swap} hitSlop={6} style={styles.swapLink}>
+                <Text style={[styles.swapText, { color: colors.primaryDark }]} numberOfLines={1}>
+                  Byt til {alt.alt_name}, {kr(alt.alt_price)}
+                </Text>
+              </Pressable>
             ) : null}
           </View>
 
@@ -714,12 +752,6 @@ export function CartScreen() {
     );
   };
 
-  const missingInWinner = winner
-    ? winner.missingDetails
-        .map((m) => ({ m, item: items.find((i) => i.id === m.cart_id) }))
-        .filter((x) => !!x.item)
-    : [];
-
   const itemsCard = (
     <View style={[styles.itemsCard, { backgroundColor: colors.surface }, cardShadow(colors.shadow)]}>
       {groups.map(([cat, catItems], gi) => (
@@ -743,51 +775,6 @@ export function CartScreen() {
           ))}
         </View>
       ))}
-      {winner
-        ? missingInWinner.map(({ m }) => {
-            const alt = alternatives[m.cart_id];
-            return (
-              <View key={m.cart_id} style={[styles.missing, { backgroundColor: colors.warningMuted }]}>
-                {m.image ? (
-                  <Image source={{ uri: m.image }} style={styles.missingImg} resizeMode="contain" />
-                ) : null}
-                <View
-                  style={{ flex: 1 }}
-                  accessible
-                  accessibilityLabel={joinLabel([
-                    `${m.name} findes ikke i ${winner.name}`,
-                    alt ? `forslag: ${alt.alt_name}, ${spokenKr(alt.alt_price)}` : null,
-                  ])}
-                >
-                  <Text style={[styles.missingTitle, { color: colors.text }]} numberOfLines={2}>
-                    {m.name} findes ikke i {winner.name}
-                  </Text>
-                  {alt ? (
-                    <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={2}>
-                      Forslag: {alt.alt_name}, {kr(alt.alt_price)}
-                    </Text>
-                  ) : null}
-                </View>
-                {alt ? (
-                  <Pressable
-                    onPress={() =>
-                      replaceItem(
-                        alt.cart_id,
-                        alternativeAsCartItem(alt, items.find((i) => i.id === alt.cart_id)),
-                      )
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={`Byt ${m.name} til ${alt.alt_name}`}
-                    hitSlop={6}
-                    style={[styles.swapBtn, { backgroundColor: colors.surface }]}
-                  >
-                    <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13 }}>Byt</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            );
-          })
-        : null}
     </View>
   );
 
@@ -1295,18 +1282,10 @@ const styles = StyleSheet.create({
   itemMeta: { fontSize: 12 },
   itemPriceCol: { alignItems: 'flex-end', gap: 6 },
   itemPrice: { fontSize: 15, fontWeight: '800' },
-  missing: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 18,
-    padding: 10,
-    margin: 10,
-    marginBottom: 6,
-  },
-  missingImg: { width: 44, height: 44, borderRadius: 14 },
-  missingTitle: { fontSize: 13, fontWeight: '700' },
-  swapBtn: { height: 36, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center' },
+  // 80 % af varenavnets 14 (Kalle 22-10-2026).
+  itemMissing: { fontSize: 11.2, fontWeight: '600' },
+  swapLink: { alignSelf: 'flex-start' },
+  swapText: { fontSize: 11.2, fontWeight: '700', textDecorationLine: 'underline' },
   footerPad: {
     paddingHorizontal: 16,
     paddingTop: 8,

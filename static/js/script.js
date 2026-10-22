@@ -1607,7 +1607,10 @@ function updateCartDisplay() {
             // en butik der kun foerer 1 af 4 varer faa den laveste total og
             // blive udnaevnt til "billigst" - se filtreringen ved savingsEl.
             const storeCovered = {};
-            cart.forEach(item => {
+            // Butikkerne der har hver kurvlinje (efter index), så C2 kan
+            // skrive "Findes ikke i ..." lige under den vare der mangler.
+            const itemStores = [];
+            cart.forEach((item, idx) => {
                 // New format: item.storePrices = { 'Rema 1000': price, ... }
                 // Legacy format: item.remaPrice / item.bilkaPrice / etc.
                 let prices = item.storePrices;
@@ -1622,17 +1625,19 @@ function updateCartDisplay() {
                     }
                     if (Object.keys(prices).length === 0) prices[item.store || 'Rema 1000'] = item.price;
                 }
+                itemStores[idx] = new Set();
                 for (const [label, p] of Object.entries(prices)) {
                     if (p != null && !isNaN(p)) {
                         storeTotals[label] = (storeTotals[label] || 0) + Number(p) * item.quantity;
                         storeCovered[label] = (storeCovered[label] || 0) + 1;
+                        itemStores[idx].add(label);
                     }
                 }
             });
             const sorted = Object.entries(storeTotals)
                 .filter(([name]) => isStoreSelected(name))
                 .sort((a, b) => a[1] - b[1]);
-            renderC2Cart(sorted, storeCovered);
+            renderC2Cart(sorted, storeCovered, itemStores);
 
             if (storeGrid) {
                 storeGrid.innerHTML = sorted.map(([name, price], i) =>
@@ -6207,8 +6212,17 @@ function c2BestTwoStoreSplit(winner, candidates, minSaving = 1) {
     return best;
 }
 
+/** "Findes ikke i Netto og Lidl", højst to navne og så "og N andre". */
+function c2MissingText(stores) {
+    if (!stores.length) return '';
+    if (stores.length === 1) return `Findes ikke i ${stores[0]}`;
+    if (stores.length === 2) return `Findes ikke i ${stores[0]} og ${stores[1]}`;
+    const rest = stores.length - 2;
+    return `Findes ikke i ${stores[0]}, ${stores[1]} og ${rest} ${rest === 1 ? 'anden' : 'andre'}`;
+}
+
 // Kurven: vinderkort, "Handl i 2 butikker" og "Glemt noget?".
-function renderC2Cart(sorted, covered) {
+function renderC2Cart(sorted, covered, itemStores = []) {
     if (!c2On()) return;
     // Vinderkortet øverst og "Glemt noget?" nederst inde i den rulbare liste,
     // som updateCartDisplay() netop har fyldt.
@@ -6221,7 +6235,7 @@ function renderC2Cart(sorted, covered) {
             : '';
     }
     if (!list || !cart.length) return;
-    list.querySelectorAll('.c2-cart-top, .c2-cart-forgot').forEach(el => el.remove());
+    list.querySelectorAll('.c2-cart-top, .c2-cart-forgot, .c2-item-missing').forEach(el => el.remove());
     const top = document.createElement('div');
     top.className = 'c2-cart-top';
     const forgot = document.createElement('div');
@@ -6261,6 +6275,21 @@ function renderC2Cart(sorted, covered) {
         }
         top.innerHTML = html;
         list.prepend(top);
+
+        // Under hver vare: de valgte butikker der ikke har den, vinderen
+        // først (Kalle 22-10-2026). Samme tekst som appens CartScreen.
+        const order = ranked.map(([n]) => n);
+        list.querySelectorAll('.cart-item[data-index]').forEach(row => {
+            const has = itemStores[Number(row.dataset.index)];
+            if (!has) return;
+            const text = c2MissingText(order.filter(n => !has.has(n)));
+            const title = row.querySelector('.cart-item-title');
+            if (!text || !title) return;
+            const line = document.createElement('div');
+            line.className = 'c2-item-missing';
+            line.textContent = text;
+            title.after(line);
+        });
     }
     const items = c2BuyAgain(3, new Set(cart.map(i => i.id)));
     if (items.length) {
