@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth/AuthContext';
 import { useCart } from '../cart/CartContext';
+import { showCartToast } from '../cart/CartToast';
 import { memberInitial, useSharedCart } from '../cart/SharedCartContext';
 import type { CartItem } from '../cart/types';
 import { cartItemTitle } from '../cart/stripStoreBrand';
@@ -615,12 +616,19 @@ export function CartScreen() {
     );
   }
 
+  // "Lagt i kurven" også når der kommer én mere til inde i kurven (+, swipe,
+  // VoiceOver), men ikke ved "−" (Kalle 22-10-2026). Følger Feature kurv_besked.
+  const addOne = (item: CartItem) => {
+    updateQuantity(item.id, item.quantity + 1);
+    showCartToast();
+  };
+
   const renderItemRow = (item: CartItem) => {
     const lineTotal = item.price * item.quantity;
     return (
       <SwipeableCartRow
         key={item.id}
-        onAddOne={() => updateQuantity(item.id, item.quantity + 1)}
+        onAddOne={() => addOne(item)}
         onRemoveAll={() => removeItem(item.id)}
         onSwipeActive={setSwiping}
         enabled={swipeEnabled}
@@ -652,7 +660,7 @@ export function CartScreen() {
             }
             onAccessibilityAction={(e) => {
               if (e.nativeEvent.actionName === 'addOne') {
-                updateQuantity(item.id, item.quantity + 1);
+                addOne(item);
               } else if (e.nativeEvent.actionName === 'removeAll') {
                 removeItem(item.id);
               }
@@ -697,7 +705,7 @@ export function CartScreen() {
               variant="row"
               quantity={item.quantity}
               name={cartItemTitle(item)}
-              onAdd={() => updateQuantity(item.id, item.quantity + 1)}
+              onAdd={() => addOne(item)}
               onRemove={() => updateQuantity(item.id, item.quantity - 1)}
             />
           </View>
