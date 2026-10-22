@@ -6821,42 +6821,24 @@ html.c2 body {
 }
 
 html.c2 body[data-theme="dark"] {
-  --c2-bg: #111111;
-  --c2-surface: #1C1C1E;
-  --c2-text: #F2F2F7;
-  --c2-muted: #A1A1A6;
-  --c2-border: #2C2C2E;
-  --c2-stepper: #2C2C2E;
+  --c2-bg: #111827;
+  --c2-surface: #1f2937;
+  --c2-text: #f9fafb;
+  --c2-muted: #9ca3af;
+  --c2-border: #374151;
+  --c2-stepper: #374151;
   /* Som appen: sekundær og tertiær grøn bytter plads i mørk tilstand. */
   --c2-green-soft: #047857;
   --c2-green-ink: #D6F5E3;
   --c2-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
-/* Mørk tilstand i C2: hjemmesidens gamle mørke farver var blågrå
-   (#111827/#1f2937/#374151), mens C2-kortene bruger appens grønsorte. De to
-   familier side om side så forkerte ud (Kalle 20-10-2026). Her får de gamle
-   tokens appens farver, så menuen, indstillinger, varevinduet, filtre og
-   sammenligningen hører til samme familie som kortene. Gråtonerne er neutrale (uden det
-   grønlige skær fra appen), da det grønne så mærkeligt ud på forsiden
-   (Kalle 20-10-2026). */
-html.c2 body[data-theme="dark"] {
-  --white: #1C1C1E;
-  --gray-50: #111111;
-  --gray-100: #2C2C2E;
-  --gray-200: #3A3A3C;
-  --gray-300: #545456;
-  --gray-400: #8E8E93;
-  --gray-500: #A1A1A6;
-  --gray-600: #C7C7CC;
-  --gray-700: #E5E5EA;
-  --gray-800: #F2F2F7;
-  --gray-900: #F9F9FB;
-  --bg: #111111;
-  --text-main: #F2F2F7;
-  --text-muted: #A1A1A6;
-  --border-color: #2C2C2E;
-}
+/* Mørk tilstand i C2: samme blågrå farver som hjemmesidens gamle mørke tilstand
+   (#111827/#1f2937/#374151), så menu, indstillinger, varevindue, filtre og
+   kortene hører til samme familie. De gamle tokens (--white, --gray-*) får
+   deres oprindelige mørke værdier fra [data-theme="dark"] længere oppe.
+   Grønsort (20-10) og helt neutral grå (20-10) blev for sort; Kalle ville
+   have det blå skær tilbage (22-10-2026). */
 
 /* De få mørke regler med faste farver i stedet for tokens. */
 html.c2 body[data-theme="dark"] .sco-modal,

@@ -54,14 +54,14 @@ export const lightColors = {
   logoBg: '#FFFFFF',
 };
 
-// Mørk tilstand bruger neutrale grå uden grønt skær, samme som
-// hjemmesiden (static/css/styles.css, html.c2 mørk). Kalle 20-10-2026.
+// Mørk tilstand bruger hjemmesidens blågrå farver (static/css/styles.css,
+// html.c2 mørk). Neutral grå var for sort; Kalle 22-10-2026.
 export const darkColors = {
-  bg: '#111111',
-  surface: '#1C1C1E',
-  text: '#F2F2F7',
-  textMuted: '#A1A1A6',
-  border: '#2C2C2E',
+  bg: '#111827',
+  surface: '#1F2937',
+  text: '#F9FAFB',
+  textMuted: '#9CA3AF',
+  border: '#374151',
   primary: '#059669',
   primarySolid: '#059669',
   // I mørk tilstand bytter sekundær og tertiær plads: lys grøn tekst på mørk
@@ -74,10 +74,10 @@ export const darkColors = {
   dealText: '#1A1C19',
   dealInk: '#DFA300',
   badge: '#059669',
-  tabInactive: '#7C7C80',
+  tabInactive: '#6B7280',
   warning: '#F5B94D',
   warningMuted: '#3A2E12',
-  stepperBg: '#2C2C2E',
+  stepperBg: '#374151',
   onPrimary: '#FFFFFF',
   onPrimarySoft: 'rgba(255,255,255,0.14)',
   bannerBg: '#047857',
