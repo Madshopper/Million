@@ -1035,7 +1035,7 @@
       // logger direkte ind → onAuthStateChange lukker modalen. Skulle bekræftelse
       // være slået til, får brugeren besked her.
       if (res.data && res.data.session) { closeAuthModal(); }
-      else if (authMode === 'signup') { setError('Tjek din email for at bekræfte kontoen.'); }
+      else if (authMode === 'signup') { setError('Tjek din email for at bekræfte kontoen. Kan du ikke finde den? Tjek også din spam.'); }
     } catch (err) {
       console.error('[auth] Undtagelse under login/signup:', err);
       if (signupPos && window.Lokation) window.Lokation.afterSignup(null, false);
@@ -1298,7 +1298,7 @@
       // accepteres kun hvis DENNE enhed selv bad om nulstilling for netop
       // denne email for nylig. Se kommentaren ved PENDING_RESET_KEY.
       _writeLS(PENDING_RESET_KEY, JSON.stringify({ email: email.trim().toLowerCase(), ts: Date.now() }));
-      setMsg('auth-reset-msg', 'Tjek din email for et link til at nulstille adgangskoden.', false);
+      setMsg('auth-reset-msg', 'Tjek din email for et link til at nulstille adgangskoden. Kan du ikke finde den? Tjek også din spam.', false);
     } catch (err) {
       console.error('[auth] reset-undtagelse:', err);
       setMsg('auth-reset-msg', 'Noget gik galt. Prøv igen.', true);

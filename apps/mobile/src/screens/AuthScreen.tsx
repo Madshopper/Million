@@ -207,7 +207,7 @@ export function AuthScreen({ navigation }: Props) {
           else setSelected(nearLabels);
         }
         if (res.error) setError(res.error);
-        else if (res.needsConfirmation) setInfo('Tjek din mail for at bekræfte oprettelsen.');
+        else if (res.needsConfirmation) setInfo('Tjek din mail for at bekræfte oprettelsen. Kan du ikke finde den? Tjek også din spam.');
         // Session med det samme = brugeren ER logget ind. Luk skærmen, som
         // login-grenen gør. Før viste vi en besked om en bekræftelsesmail der
         // aldrig sendes (Supabase kører med auto-bekræftelse), og skærmen blev
@@ -216,7 +216,7 @@ export function AuthScreen({ navigation }: Props) {
       } else if (mode === 'reset') {
         const err = await resetPassword(email.trim());
         if (err) setError(err);
-        else setInfo('Vi har sendt et link til nulstilling af adgangskode.');
+        else setInfo('Vi har sendt et link til nulstilling af adgangskode. Kan du ikke finde mailen? Tjek også din spam.');
       } else if (mode === 'newpassword') {
         const err = await updatePassword(password);
         if (err) setError(err);
