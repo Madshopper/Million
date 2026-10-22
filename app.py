@@ -1925,12 +1925,11 @@ _FEATURES = (
             {'kind': 'web', 'name': 'Bundmenu på telefonen',
              'desc': 'Hjem, Søg, Kurv og Profil i bunden af skærmen.'},
             {'kind': 'web', 'name': 'Mørk tilstand',
-             'desc': 'Neutrale grå farver uden grønt skær, dæmpede '
-                     'billedfelter og seks kort i rækken på computer '
-                     '(20-10-2026).'},
+             'desc': 'Blågrå farver som den gamle mørke tilstand '
+                     '(22-10-2026), dæmpede billedfelter.'},
             {'kind': 'app', 'name': 'Design C2 i appen',
              'desc': 'Findes allerede på MadShopper Test (PR #123), med de '
-                     'samme neutrale mørke farver som hjemmesiden (PR #129).'},
+                     'samme blågrå mørke farver som hjemmesiden (22-10-2026).'},
         ),
     },
 )
