@@ -1808,9 +1808,11 @@ _FEATURES = (
                 'kun et link til butikkens egen avis. Coop-butikkerne og 365 '
                 'Discount er ikke med, før Coop har svaret (de kommer stadig '
                 'fra Tjek).',
-        'app': 'App 1.0.4 i App Store har dem med, men skjult. De vises i '
-               'appen, så snart den udgives her. MadShopper Test har dem '
-               'allerede.',
+        'app': 'App 1.0.4 i App Store har dem med, men skjult. Udgives '
+               'automatisk her, når 1.0.5 er i App Store '
+               '(feature-auto-publish.yml), sammen med C2 (Kalle 22-10-2026). '
+               'MadShopper Test har dem allerede.',
+        'with_app': '1.0.5',
         'parts': (
             {'kind': 'web', 'name': 'Butikslogoer på forsiden',
              'desc': 'Kun de butikker man har valgt, med antal tilbud. Tryk '
@@ -1880,8 +1882,10 @@ _FEATURES = (
                 'af sig selv efter knap 2 sekunder og kan ikke trykkes på, så '
                 'den står aldrig i vejen. Følger lys og mørk tilstand '
                 '(Kalle 21-10-2026).',
-        'app': 'MadShopper Test har den med det samme. Butiksappen får den '
-               'først med en ny App Store-version.',
+        'app': 'MadShopper Test har den med det samme. Udgives automatisk '
+               'her, når 1.0.5 er i App Store (feature-auto-publish.yml), så '
+               'web og app følges ad (Kalle 22-10-2026).',
+        'with_app': '1.0.5',
         'parts': (
             {'kind': 'web', 'name': 'Beskeden på hjemmesiden',
              'desc': 'Fra varekortet, varens egen side, "Glemt noget?" og '
@@ -1905,8 +1909,10 @@ _FEATURES = (
                 'og "Glemt noget?" i kurven og en bundmenu på telefonen. '
                 'Altid slået til på dev.madshopper.dk, så MadShopper Test og '
                 'dev-siden ligner hinanden (Kalle 19-10-2026).',
-        'app': 'Appen har det på MadShopper Test. Butiksappen får det først '
-               'med en ny App Store-version.',
+        'app': 'Appen har det på MadShopper Test. Udgives automatisk her, '
+               'når 1.0.5 er i App Store (feature-auto-publish.yml), så '
+               'hjemmesiden og butiksappen skifter samme dag (Kalle 22-10-2026).',
+        'with_app': '1.0.5',
         'parts': (
             {'kind': 'web', 'name': 'Skrift og farver',
              'desc': 'Schibsted Grotesk som i appen, lys grå baggrund og '
@@ -2180,7 +2186,13 @@ _PROJECTS = (
                      'havde ikke problemet.'},
             {'done': True, 'name': '"Lagt i kurven"-beskeden',
              'desc': 'Vises først, når funktionen "Besked når en vare lægges '
-                     'i kurven" er udgivet her (PR #132).'},
+                     'i kurven" er udgivet her (PR #132). Sker af sig selv, '
+                     'når 1.0.5 er i App Store.'},
+            {'done': True, 'name': 'Tilbudsavis pr. butik',
+             'desc': 'Udgives af sig selv, når 1.0.5 er i App Store. '
+                     'Opskrifter og madplan er IKKE med (Kalle 22-10-2026).'},
+            {'done': True, 'name': 'Versionsnummer 1.0.5',
+             'desc': 'Sat i apps/mobile/app.config.js (22-10-2026).'},
             {'done': False, 'name': 'Byg 1.0.5 og send til Apple',
              'desc': 'Bygges på Mac\'en som dk.madshopper.app (ikke test). '
                      'Du sender den selv til godkendelse.'},
