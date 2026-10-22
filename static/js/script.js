@@ -1569,7 +1569,7 @@ function updateCartDisplay() {
             const swipe = document.createElement('div');
             swipe.className = 'cart-swipe';
             swipe.innerHTML = '<div class="cart-swipe-bg" aria-hidden="true">'
-                + '<span class="cart-swipe-add">Tilføj til kurv</span>'
+                + '<span class="cart-swipe-add">Tilføj en til kurven</span>'
                 + '<span class="cart-swipe-remove">Fjern fra kurv</span></div>';
             swipe.appendChild(cartItem);
             // Udgives fra Feature-panelet ('swipe') samtidig med appen.
