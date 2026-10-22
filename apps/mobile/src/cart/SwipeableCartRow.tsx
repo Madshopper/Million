@@ -6,7 +6,7 @@ import { useTheme } from '../theme/ThemeContext';
 /**
  * En kurvlinje man kan swipe på (Kalle 05-10-2026):
  *  - mod venstre: hele varen ud af kurven, alle stk ("Fjern fra kurv", rød)
- *  - mod højre: én mere af varen ("Tilføj til kurv", grøn)
+ *  - mod højre: én mere af varen ("Tilføj en til kurven", grøn)
  * (Byttet om efter Kalles første prøve i simulatoren.)
  *
  * Knapperne på linjen virker som før; swipe er kun en ekstra vej. Bygget på
@@ -149,7 +149,7 @@ export function SwipeableCartRow({
           ]}
         >
           <AnimatedText style={[styles.label, { transform: [{ scale: addScale }] }]}>
-            Tilføj til kurv
+            Tilføj en til kurven
           </AnimatedText>
         </Animated.View>
       </View>
