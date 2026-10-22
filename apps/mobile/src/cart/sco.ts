@@ -406,17 +406,4 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/**
- * Teksten under en vare i kurven, som de valgte butikker der ikke har den:
- * "Findes ikke i Netto og Lidl", højst to navne og så "og N andre".
- * Samme tekst som c2MissingText i static/js/script.js.
- */
-export function missingStoresText(stores: string[]): string {
-  if (!stores.length) return '';
-  if (stores.length === 1) return `Findes ikke i ${stores[0]}`;
-  if (stores.length === 2) return `Findes ikke i ${stores[0]} og ${stores[1]}`;
-  const rest = stores.length - 2;
-  return `Findes ikke i ${stores[0]}, ${stores[1]} og ${rest} ${rest === 1 ? 'anden' : 'andre'}`;
-}
-
 export const SCO_TOP_N = 5;
