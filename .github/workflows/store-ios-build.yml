@@ -1,0 +1,67 @@
+name: Byg butiksappen til App Store (iPhone)
+
+# Bygger den rigtige MadShopper-app (dk.madshopper.app) i Expos sky og sender
+# den til TestFlight, så der ikke skal bygges på Mac'en (Kalle 22-10-2026,
+# version 1.0.5). Startes kun med knappen "Run workflow" på GitHub.
+#
+# Versionen står i apps/mobile/app.config.js; build-nummeret tæller EAS selv
+# op (autoIncrement + appVersionSource remote i eas.json). Opskrifterne er
+# ikke med: EXPO_PUBLIC_RECIPES_ENABLED sættes kun i testappen.
+#
+# Sender ALDRIG til Apples gennemgang og udgiver intet. Det gør Kalle selv
+# i App Store Connect. Kræver GitHub-secret EXPO_TOKEN (samme som
+# test-app-update.yml). Fejler kun upload-trinnet, mangler Apple-nøglen hos
+# Expo: kør `eas credentials` én gang, eller tryk "Submit" på buildet på
+# expo.dev.
+on:
+  workflow_dispatch:
+    inputs:
+      send_til_testflight:
+        description: 'Send buildet til TestFlight bagefter'
+        type: boolean
+        default: true
+
+concurrency:
+  group: store-ios-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Tjek secret
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN mangler i GitHub-secrets."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install mobile deps
+        working-directory: apps/mobile
+        run: npm ci
+
+      - name: Tjek at det er butiksappen uden opskrifter
+        working-directory: apps/mobile
+        run: |
+          if [ -n "$APP_VARIANT" ] || [ -n "$EXPO_PUBLIC_RECIPES_ENABLED" ]; then
+            echo "::error::APP_VARIANT eller EXPO_PUBLIC_RECIPES_ENABLED er sat - det ville bygge testappen eller tage opskrifterne med."
+            exit 1
+          fi
+          node -e "const c=require('./app.config.js'); const x=(c.default||c); const cfg=typeof x==='function'?x({config:{}}):x; console.log('Bundle id:', cfg.ios.bundleIdentifier, 'version:', cfg.version); if (cfg.ios.bundleIdentifier!=='dk.madshopper.app') process.exit(1);"
+
+      - name: Byg i Expos sky
+        working-directory: apps/mobile
+        run: |
+          SUBMIT=""
+          if [ "${{ inputs.send_til_testflight }}" = "true" ]; then SUBMIT="--auto-submit"; fi
+          npx --yes eas-cli@16 build --platform ios --profile production \
+            --non-interactive --wait $SUBMIT

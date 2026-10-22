@@ -422,8 +422,12 @@ export function RootNavigator() {
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Indstillinger' }} />
         <Stack.Screen name="Nearby" component={NearbyStoresScreen} options={{ title: 'Butikker nær mig' }} />
         <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ title: 'Feedback' }} />
-        {/* Abonnement på opskrifterne, nås fra Opskrift-fanen (src/recipes/access.ts). */}
-        <Stack.Screen name="RecipeAccess" component={RecipeAccessScreen} options={{ title: 'Opskrifter' }} />
+        {/* Abonnement på opskrifterne, nås fra Opskrift-fanen (src/recipes/access.ts).
+            Kun med opskrifter slået til, så butiksappen ikke har en købsskærm,
+            før opskrifterne er udgivet (Kalle 22-10-2026, app 1.0.5). */}
+        {recipesEnabled && (
+          <Stack.Screen name="RecipeAccess" component={RecipeAccessScreen} options={{ title: 'Opskrifter' }} />
+        )}
         <Stack.Screen
           name="Legal"
           component={LegalScreen}
