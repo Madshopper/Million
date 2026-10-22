@@ -30,7 +30,6 @@ import {
   bestTwoStoreSplit,
   calculateStoreComparisons,
   extraCostVs,
-  missingStoresText,
   sortScoStores,
   type ScoResult,
   type ScoStoreResult,
@@ -137,25 +136,34 @@ export function CartScreen() {
 
   // Varer vinderbutikken ikke har, med forslag fra /api/alternatives.
   const [alternatives, setAlternatives] = useState<Record<string, AlternativeItem>>({});
+  // Svaret er kommet (også et tomt), så boksen kan skrive "Kan ikke erstattes".
+  const [altReady, setAltReady] = useState(false);
   const altKey = useRef('');
   useEffect(() => {
     if (!winner || !winner.missingDetails.length) {
       altKey.current = '';
       setAlternatives({});
+      setAltReady(false);
       return;
     }
     const key = `${winner.name}:${winner.missingDetails.map((m) => m.cart_id).join(',')}`;
     if (altKey.current === key) return;
     altKey.current = key;
+    setAltReady(false);
     fetchAlternatives(winner)
       .then((map) => {
-        if (altKey.current === key) setAlternatives(map);
+        if (altKey.current !== key) return;
+        setAlternatives(map);
+        setAltReady(true);
       })
-      .catch(() => setAlternatives({}));
+      .catch(() => {
+        if (altKey.current !== key) return;
+        setAlternatives({});
+        setAltReady(true);
+      });
   }, [winner]);
 
-  // Under hver vare: de valgte butikker der ikke har den, vinderen først
-  // (Kalle 22-10-2026; erstatter den gule boks nederst i kortet).
+  // Varer vinderen ikke har (efter id), til den gule boks under varen.
   const missingByItem = useMemo(() => {
     const map: Record<string, string[]> = {};
     for (const st of ranked) {
@@ -637,7 +645,6 @@ export function CartScreen() {
   const renderItemRow = (item: CartItem) => {
     const lineTotal = item.price * item.quantity;
     const missingIn = missingByItem[item.id] || [];
-    const missingText = missingStoresText(missingIn);
     // Forslag fra /api/alternatives findes kun for vinderens manglende varer.
     const alt = winner && missingIn.includes(winner.name) ? alternatives[item.id] : undefined;
     const swap = () =>
@@ -697,7 +704,6 @@ export function CartScreen() {
               item.kgPrice ? item.kgPrice.replace('kr/kg', 'kr pr. kilo').replace('.', ',') : null,
               !item.kgPrice ? item.multiDeal : null,
               `i alt ${spokenKr(lineTotal)}`,
-              missingText || null,
             ])}
           >
             <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
@@ -714,11 +720,6 @@ export function CartScreen() {
             ) : item.unitMeasure ? (
               <Text style={[styles.itemMeta, { color: colors.textMuted }]} numberOfLines={1}>
                 {item.unitMeasure}
-              </Text>
-            ) : null}
-            {missingText ? (
-              <Text style={[styles.itemMissing, { color: colors.warning }]} numberOfLines={1}>
-                {missingText}
               </Text>
             ) : null}
           </View>
@@ -744,18 +745,32 @@ export function CartScreen() {
     );
   };
 
-  /** Lille fane under varen: en lignende vare som vinderen har, med "Erstat"
-   *  (Kalle 22-10-2026). Forslaget kommer fra /api/alternatives, som kun
-   *  foreslår samme slags vare (samme underkategori, fælles indholdsord,
-   *  samme variant og kødtype, pris og vægt i samme klasse). */
+  /** Gul boks under en vare vinderen ikke har (Kalle 22-10-2026): en
+   *  lignende vare fra vinderen med "Erstat", eller "Kan ikke erstattes".
+   *  Forslaget kommer fra /api/alternatives, som kun foreslår samme slags
+   *  vare (samme underkategori, fælles indholdsord, samme variant og
+   *  kødtype, pris og vægt i samme klasse). */
   const renderAltTab = (item: CartItem) => {
-    const alt =
-      winner && (missingByItem[item.id] || []).includes(winner.name)
-        ? alternatives[item.id]
-        : undefined;
-    if (!alt || !winner) return null;
+    if (!winner || !altReady || !(missingByItem[item.id] || []).includes(winner.name)) return null;
+    const alt = alternatives[item.id];
+    if (!alt) {
+      return (
+        <View
+          style={[styles.altTab, { backgroundColor: colors.warningMuted }]}
+          accessible
+          accessibilityLabel={`Findes ikke i ${winner.name}. Kan ikke erstattes`}
+        >
+          <Text style={[styles.altLabel, { color: colors.text }]} numberOfLines={1}>
+            Ikke i {winner.name}
+          </Text>
+          <Text style={[styles.altName, { color: colors.text, flex: 1, textAlign: 'right' }]} numberOfLines={1}>
+            Kan ikke erstattes
+          </Text>
+        </View>
+      );
+    }
     return (
-      <View style={[styles.altTab, { backgroundColor: colors.stepperBg }]}>
+      <View style={[styles.altTab, { backgroundColor: colors.warningMuted }]}>
         <View
           style={[styles.altThumb, { backgroundColor: colors.logoBg }]}
           accessibilityElementsHidden
@@ -768,10 +783,10 @@ export function CartScreen() {
         <View
           style={{ flex: 1, minWidth: 0 }}
           accessible
-          accessibilityLabel={`Forslag i ${winner.name}: ${alt.alt_name}, ${spokenKr(alt.alt_price)}`}
+          accessibilityLabel={`Findes ikke i ${winner.name}. Forslag: ${alt.alt_name}, ${spokenKr(alt.alt_price)}`}
         >
-          <Text style={[styles.altLabel, { color: colors.textMuted }]} numberOfLines={1}>
-            I {winner.name} i stedet
+          <Text style={[styles.altLabel, { color: colors.text }]} numberOfLines={1}>
+            Ikke i {winner.name}, i stedet:
           </Text>
           <Text style={[styles.altName, { color: colors.text }]} numberOfLines={1}>
             {alt.alt_name}
@@ -1327,10 +1342,8 @@ const styles = StyleSheet.create({
   itemMeta: { fontSize: 12 },
   itemPriceCol: { alignItems: 'flex-end', gap: 6 },
   itemPrice: { fontSize: 15, fontWeight: '800' },
-  // 80 % af varenavnets 14 (Kalle 22-10-2026).
-  itemMissing: { fontSize: 11.2, fontWeight: '600' },
-  // Fanen under varen: smallere end rækken og kun runde hjørner forneden, så
-  // den hænger under varen som på Kalles skitse.
+  // Boksen under varen: smallere end rækken og kun runde hjørner forneden,
+  // så den hænger under varen som på Kalles skitse.
   altTab: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1340,6 +1353,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
+    minHeight: 40,
     borderBottomLeftRadius: 14,
     borderBottomRightRadius: 14,
   },

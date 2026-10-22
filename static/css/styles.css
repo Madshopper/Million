@@ -6810,7 +6810,7 @@ html.c2 body {
   --c2-border: #E2E6DE;
   --c2-deal: #DFA300;
   --c2-deal-text: #1A1C19;
-  --c2-warning: #D97706;
+  --c2-warning-soft: #FEF3C7;
   --c2-stepper: #F2F4EF;
   --c2-green-soft: #D6F5E3;
   --c2-green-ink: #047857;
@@ -6828,7 +6828,7 @@ html.c2 body[data-theme="dark"] {
   --c2-muted: #9ca3af;
   --c2-border: #374151;
   --c2-stepper: #374151;
-  --c2-warning: #F5B94D;
+  --c2-warning-soft: #3A2E12;
   /* Som appen: sekundær og tertiær grøn bytter plads i mørk tilstand. */
   --c2-green-soft: #047857;
   --c2-green-ink: #D6F5E3;
@@ -7683,28 +7683,18 @@ html.c2 .cart-item-title {
   color: var(--c2-text);
 }
 
-/* "Findes ikke i ..." lige under varen: 80 % af navnets størrelse, gul
-   advarselsfarve som appens colors.warning (Kalle 22-10-2026). */
-html.c2 .c2-item-missing {
-  margin-top: 2px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--c2-warning);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Fanen under en vare vinderen ikke har: smallere end varekortet og kun
-   runde hjørner forneden, så den hænger under varen (Kalle 22-10-2026). */
+/* Gul boks under en vare vinderen ikke har: smallere end varekortet og kun
+   runde hjørner forneden, så den hænger under varen (Kalle 22-10-2026).
+   Samme farver som appens colors.warningMuted. */
 html.c2 .c2-alt-tab {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: -10px 18px 0;
-  padding: 7px 8px 7px 8px;
-  background: var(--c2-stepper);
+  min-height: 46px;
+  padding: 7px 10px;
+  background: var(--c2-warning-soft);
+  color: var(--c2-text);
   border-radius: 0 0 14px 14px;
   flex-shrink: 0;
 }
@@ -7737,7 +7727,13 @@ html.c2 .c2-alt-text {
 html.c2 .c2-alt-label {
   font-size: 0.68rem;
   font-weight: 600;
-  color: var(--c2-muted);
+}
+
+html.c2 .c2-alt-none {
+  flex: 1;
+  text-align: right;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 html.c2 .c2-alt-name {

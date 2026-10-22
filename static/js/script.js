@@ -1608,7 +1608,7 @@ function updateCartDisplay() {
             // blive udnaevnt til "billigst" - se filtreringen ved savingsEl.
             const storeCovered = {};
             // Butikkerne der har hver kurvlinje (efter index), så C2 kan
-            // skrive "Ikke i ..." lige under den vare der mangler.
+            // vise den gule boks under de varer vinderen ikke har.
             const itemStores = [];
             cart.forEach((item, idx) => {
                 // New format: item.storePrices = { 'Rema 1000': price, ... }
@@ -6213,8 +6213,9 @@ function c2BestTwoStoreSplit(winner, candidates, minSaving = 1) {
 }
 
 /**
- * Lille fane under hver vare vinderen ikke har: en lignende vare fra
- * vinderen med knappen "Erstat" (Kalle 22-10-2026, som appens CartScreen).
+ * Gul boks under hver vare vinderen ikke har: en lignende vare fra vinderen
+ * med knappen "Erstat", eller "Kan ikke erstattes" (Kalle 22-10-2026, som
+ * appens CartScreen). Ingen tekst inde i selve varekortet.
  * /api/alternatives foreslår kun samme slags vare (samme underkategori,
  * fælles indholdsord, variant, kødtype, pris- og vægtklasse). Svaret huskes
  * pr. vinder + varer, så + og - i kurven ikke spørger serveren igen.
@@ -6239,9 +6240,10 @@ function c2CartAlternatives(list, winner, itemStores) {
         });
     });
     if (!missingItems.length) return;
-    const key = winner + ':' + missingItems.map(m => m.cart_id).join(',');
+    const ids = new Set(missingItems.map(m => m.cart_id));
+    const key = winner + ':' + [...ids].join(',');
     if (_c2AltCache.key === key) {
-        if (_c2AltCache.map) c2RenderAltTabs(list, winner, _c2AltCache.map);
+        if (_c2AltCache.map) c2RenderAltTabs(list, winner, _c2AltCache.map, ids);
         return;
     }
     _c2AltCache = { key, map: null };
@@ -6253,26 +6255,36 @@ function c2CartAlternatives(list, winner, itemStores) {
         .then(r => r.json())
         .then(data => {
             if (_c2AltCache.key !== key) return;
-            if (!data.success) { _c2AltCache.key = ''; return; }
             const map = {};
             (data.alternatives || []).forEach(a => { map[a.cart_id] = a; });
-            _c2AltCache.map = map;
-            c2RenderAltTabs(list, winner, map);
+            // En fejl giver "Kan ikke erstattes" nu, men næste visning spørger igen.
+            if (data.success) _c2AltCache.map = map; else _c2AltCache.key = '';
+            c2RenderAltTabs(list, winner, map, ids);
         })
-        .catch(() => { if (_c2AltCache.key === key) _c2AltCache.key = ''; });
+        .catch(() => {
+            if (_c2AltCache.key !== key) return;
+            _c2AltCache.key = '';
+            c2RenderAltTabs(list, winner, {}, ids);
+        });
 }
 
-function c2RenderAltTabs(list, winner, map) {
+function c2RenderAltTabs(list, winner, map, ids) {
     list.querySelectorAll('.c2-alt-tab').forEach(el => el.remove());
     list.querySelectorAll('.cart-item[data-index]').forEach(row => {
         const item = cart[Number(row.dataset.index)];
-        const alt = item && map[item.id];
+        if (!item || !ids.has(item.id)) return;
+        const alt = map[item.id];
         const wrap = row.closest('.cart-swipe') || row;
-        if (!alt) return;
         const tab = document.createElement('div');
         tab.className = 'c2-alt-tab';
+        if (!alt) {
+            tab.innerHTML = `<span class="c2-alt-label">Ikke i ${escapeHtml(winner)}</span>`
+                + `<span class="c2-alt-none">Kan ikke erstattes</span>`;
+            wrap.after(tab);
+            return;
+        }
         tab.innerHTML = `<span class="c2-alt-img">${alt.alt_image ? `<img src="${escapeHtml(alt.alt_image)}" alt="" onerror="this.style.display='none'">` : ''}</span>
-            <span class="c2-alt-text"><span class="c2-alt-label">I ${escapeHtml(winner)} i stedet</span>
+            <span class="c2-alt-text"><span class="c2-alt-label">Ikke i ${escapeHtml(winner)}, i stedet:</span>
             <span class="c2-alt-name">${escapeHtml(stripStoreBrand(alt.alt_name))}</span></span>
             <span class="c2-alt-price">${c2Kr(Number(alt.alt_price))}</span>
             <button type="button" class="c2-alt-btn" aria-label="Erstat ${escapeHtml(cartItemTitle(item))} med ${escapeHtml(alt.alt_name)}">Erstat</button>`;
@@ -6302,15 +6314,6 @@ function c2ReplaceWithAlternative(oldId, alt) {
     updateCartDisplay();
 }
 
-/** "Ikke i Netto og Lidl"; ved 3+ kun den første og "og N andre", så
- * linjen altid kan stå på én linje (Kalle 22-10-2026). */
-function c2MissingText(stores) {
-    if (!stores.length) return '';
-    if (stores.length === 1) return `Ikke i ${stores[0]}`;
-    if (stores.length === 2) return `Ikke i ${stores[0]} og ${stores[1]}`;
-    return `Ikke i ${stores[0]} og ${stores.length - 1} andre`;
-}
-
 // Kurven: vinderkort, "Handl i 2 butikker" og "Glemt noget?".
 function renderC2Cart(sorted, covered, itemStores = []) {
     if (!c2On()) return;
@@ -6325,7 +6328,7 @@ function renderC2Cart(sorted, covered, itemStores = []) {
             : '';
     }
     if (!list || !cart.length) return;
-    list.querySelectorAll('.c2-cart-top, .c2-cart-forgot, .c2-item-missing, .c2-alt-tab').forEach(el => el.remove());
+    list.querySelectorAll('.c2-cart-top, .c2-cart-forgot, .c2-alt-tab').forEach(el => el.remove());
     const top = document.createElement('div');
     top.className = 'c2-cart-top';
     const forgot = document.createElement('div');
@@ -6366,20 +6369,6 @@ function renderC2Cart(sorted, covered, itemStores = []) {
         top.innerHTML = html;
         list.prepend(top);
 
-        // Under hver vare: de valgte butikker der ikke har den, vinderen
-        // først (Kalle 22-10-2026). Samme tekst som appens CartScreen.
-        const order = ranked.map(([n]) => n);
-        list.querySelectorAll('.cart-item[data-index]').forEach(row => {
-            const has = itemStores[Number(row.dataset.index)];
-            if (!has) return;
-            const text = c2MissingText(order.filter(n => !has.has(n)));
-            const title = row.querySelector('.cart-item-title');
-            if (!text || !title) return;
-            const line = document.createElement('div');
-            line.className = 'c2-item-missing';
-            line.textContent = text;
-            title.after(line);
-        });
         c2CartAlternatives(list, winner, itemStores);
     }
     const items = c2BuyAgain(3, new Set(cart.map(i => i.id)));
