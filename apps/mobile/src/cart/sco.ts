@@ -408,15 +408,15 @@ function round2(n: number): number {
 
 /**
  * Teksten under en vare i kurven, som de valgte butikker der ikke har den:
- * "Findes ikke i Netto og Lidl", højst to navne og så "og N andre".
+ * "Ikke i Netto og Lidl"; ved 3+ kun den første og "og N andre", så
+ * linjen altid kan stå på én linje (Kalle 22-10-2026).
  * Samme tekst som c2MissingText i static/js/script.js.
  */
 export function missingStoresText(stores: string[]): string {
   if (!stores.length) return '';
-  if (stores.length === 1) return `Findes ikke i ${stores[0]}`;
-  if (stores.length === 2) return `Findes ikke i ${stores[0]} og ${stores[1]}`;
-  const rest = stores.length - 2;
-  return `Findes ikke i ${stores[0]}, ${stores[1]} og ${rest} ${rest === 1 ? 'anden' : 'andre'}`;
+  if (stores.length === 1) return `Ikke i ${stores[0]}`;
+  if (stores.length === 2) return `Ikke i ${stores[0]} og ${stores[1]}`;
+  return `Ikke i ${stores[0]} og ${stores.length - 1} andre`;
 }
 
 export const SCO_TOP_N = 5;

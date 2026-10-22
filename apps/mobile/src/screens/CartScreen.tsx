@@ -717,7 +717,7 @@ export function CartScreen() {
               </Text>
             ) : null}
             {missingText ? (
-              <Text style={[styles.itemMissing, { color: colors.warning }]} numberOfLines={2}>
+              <Text style={[styles.itemMissing, { color: colors.warning }]} numberOfLines={1}>
                 {missingText}
               </Text>
             ) : null}

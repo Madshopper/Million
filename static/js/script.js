@@ -1608,7 +1608,7 @@ function updateCartDisplay() {
             // blive udnaevnt til "billigst" - se filtreringen ved savingsEl.
             const storeCovered = {};
             // Butikkerne der har hver kurvlinje (efter index), så C2 kan
-            // skrive "Findes ikke i ..." lige under den vare der mangler.
+            // skrive "Ikke i ..." lige under den vare der mangler.
             const itemStores = [];
             cart.forEach((item, idx) => {
                 // New format: item.storePrices = { 'Rema 1000': price, ... }
@@ -6302,13 +6302,13 @@ function c2ReplaceWithAlternative(oldId, alt) {
     updateCartDisplay();
 }
 
-/** "Findes ikke i Netto og Lidl", højst to navne og så "og N andre". */
+/** "Ikke i Netto og Lidl"; ved 3+ kun den første og "og N andre", så
+ * linjen altid kan stå på én linje (Kalle 22-10-2026). */
 function c2MissingText(stores) {
     if (!stores.length) return '';
-    if (stores.length === 1) return `Findes ikke i ${stores[0]}`;
-    if (stores.length === 2) return `Findes ikke i ${stores[0]} og ${stores[1]}`;
-    const rest = stores.length - 2;
-    return `Findes ikke i ${stores[0]}, ${stores[1]} og ${rest} ${rest === 1 ? 'anden' : 'andre'}`;
+    if (stores.length === 1) return `Ikke i ${stores[0]}`;
+    if (stores.length === 2) return `Ikke i ${stores[0]} og ${stores[1]}`;
+    return `Ikke i ${stores[0]} og ${stores.length - 1} andre`;
 }
 
 // Kurven: vinderkort, "Handl i 2 butikker" og "Glemt noget?".

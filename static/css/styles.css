@@ -7691,6 +7691,9 @@ html.c2 .c2-item-missing {
   font-weight: 600;
   line-height: 1.3;
   color: var(--c2-warning);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Fanen under en vare vinderen ikke har: smallere end varekortet og kun
