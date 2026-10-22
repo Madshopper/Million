@@ -1766,6 +1766,8 @@ function updateQuantity(index, change) {
     item.quantity = newQuantity;
     saveCart();
     updateCartDisplay();
+    // Kun når der kommer flere til (+ eller swipe), ikke ved "−" (Kalle 22-10-2026).
+    if (change > 0) showCartToast(change);
 }
 
 // Global state for store comparison popup

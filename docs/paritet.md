@@ -71,7 +71,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 |---|---|---|---|---|---|
 | Kurv: tilføj/fjern/antal | ✅ | ✅ | – | ✅ | Complete |
 | Kurv: swipe på en vare (venstre = fjern alle stk, højre = én mere), Feature `swipe` | ✅ kun touch | ✅ + skærmlæser-handlinger | ✅ `swipe_enabled` i sidekontekst og `/api/home` | ❌ | Udgivet på madshopper.dk 18-10-2026, da app 1.0.4 kom i App Store (`feature-auto-publish.yml`), og gjort permanent i panelet |
-| Kurv: lille besked "Lagt i kurven" nederst, når en vare lægges i (Feature `kurv_besked`) | ✅ `showCartToast()`, role=status | ✅ `CartToast.tsx`, over fanerne | ✅ `kurv_besked_enabled` i sidekontekst og `/api/home` | ❌ | Bygget 21-10-2026. Slået til på dev.madshopper.dk, skjult på madshopper.dk indtil den udgives i panelet. Butiksappen får den først med en ny App Store-version |
+| Kurv: lille besked "Lagt i kurven" nederst, når en vare lægges i (Feature `kurv_besked`) | ✅ `showCartToast()`, role=status | ✅ `CartToast.tsx`, over fanerne | ✅ `kurv_besked_enabled` i sidekontekst og `/api/home` | ❌ | Bygget 21-10-2026. Siden 22-10-2026 også ved + og swipe inde i kurven (ikke ved −). Slået til på dev.madshopper.dk, skjult på madshopper.dk indtil den udgives i panelet. Butiksappen får den først med en ny App Store-version |
 | Kurv gemt på server pr. bruger | ✅ | ✅ | ✅ `carts` + RLS | ❌ | Complete |
 | Kurv-synk web ↔ app | ✅ | ✅ | ✅ | ❌ | Complete |
 | Anonym kurv-statistik | ✅ | ✅ | ✅ RPC `record_cart_activity` | ❌ | Complete |

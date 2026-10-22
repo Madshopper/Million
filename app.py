@@ -1885,10 +1885,12 @@ _FEATURES = (
         'parts': (
             {'kind': 'web', 'name': 'Beskeden på hjemmesiden',
              'desc': 'Fra varekortet, varens egen side, "Glemt noget?" og '
-                     '"Læg alle i kurv" på en opskrift. Skærmlæseren siger '
-                     '"Lagt i kurven".'},
+                     '"Læg alle i kurv" på en opskrift, og når man trykker + '
+                     'eller swiper inde i kurven (ikke ved −). Skærmlæseren '
+                     'siger "Lagt i kurven".'},
             {'kind': 'app', 'name': 'Beskeden i appen',
-             'desc': 'Samme besked lige over fanerne i bunden. VoiceOver og '
+             'desc': 'Samme besked lige over fanerne i bunden, også ved + og '
+                     'swipe inde i kurven. VoiceOver og '
                      'TalkBack siger som før hvilken vare der blev lagt i.'},
         ),
     },
