@@ -332,63 +332,51 @@ export async function check(env, scheduledTime = Date.now()) {
   return { results: Object.fromEntries(results), down, fails, newlyDown: newlyDown.map((c) => c.name), recovered };
 }
 
-// Nattens hentning af butikkerne (Kalle, 10-10-2026: siden skal opdateres så
-// hurtigt som muligt efter midnat). GitHubs egen cron kommer 1-4 timer for
-// sent; en Cloudflare-cron kommer til tiden. Den beder derfor GitHub om at
-// starte nightly-dispatcher.yml (slot "nat") kl. 00:01 dansk tid. Cron'en
-// står både på 22:01 og 23:01 UTC, og kun den der rammer midnat dansk tid
-// (sommer- eller vintertid) gør noget. Uden GH_DISPATCH_TOKEN gør den intet,
-// og GitHubs egen cron er sikkerhedsnet.
+// Morgenens hentning af butikkerne. GitHubs egen cron kommer 1-4 timer for
+// sent; Cloudflare kommer til tiden. Workeren beder derfor GitHub om at starte
+// nightly-dispatcher.yml (slot "nat") kl. 05:30 dansk tid (sommer- og
+// vintertid). Dispatcheren venter på scraperne og starter selv
+// cache-updateren bagefter, så siden er opdateret ca. kl. 06:15.
 //
-// Cache-updateren (D1-reseed) startes lige efter 00:00 UTC, ikke lige efter
-// scraperne: D1's skrivebudget nulstilles 00:00 UTC, og et reseed bruger det
-// meste af døgnets budget. Ventede dispatcheren selv til 00:00 UTC, kostede
-// det ~2 timers GitHub Actions-minutter hver nat (målt 11-10-2026).
+// HVORFOR 05:30 OG IKKE 00:01 (Kalle, 23-10-2026): butikkerne lægger ugens nye
+// tilbud ud i løbet af natten og morgenen, ikke ved midnat. Med hentning kl.
+// 00:01 viste siden sidste uges tilbud hele skiftedagen: Netto lørdag
+// 17-10-2026 (182 af 201 avisvarer manglede, Skildpadde is 54,95 kr i stedet
+// for 32 kr) og Bilka, Føtex, Meny, Spar og Min Købmand fredag 23-10-2026
+// (300-1.700 forkerte priser hver). D1's skrivebudget nulstilles 00:00 UTC, så
+// én reseed kl. ~04 UTC ligger altid i et nyt UTC-døgn.
 //
-// Den startes af 5-minutters-cron'en, ikke af sin egen: en egen cron "1 0 * * *"
-// blev aldrig kørt af Cloudflare natten til 13-10-2026 (ingen kørsel i
-// workersInvocationsScheduled, mens 22:01 og 23:01 kørte), og siden blev ikke
-// opdateret. Nu prøver hvert tick fra 00:00 til 00:30 UTC, til én er lykkedes.
-// KV-nøglen CACHE_KEY husker datoen, så det sker én gang pr. døgn; en dublet
-// der slipper igennem, stoppes af nightly-dispatcher (concurrency + højst én pr. UTC-døgn).
-//
-// LØRDAG kl. 04:00 UTC i stedet (06:00 dansk sommertid / 05:00 vintertid):
-// Nettos nye avis starter lørdag, men Netto lægger den først ud efter
-// midnat. Nattens hentning kl. 00:02 dansk tid fik derfor sidste uges avis,
-// og siden viste den gamle pris hele lørdagen (Skildpadde is 54,95 kr i
-// stedet for avisens 32 kr, 17-10-2026: 182 af 201 avisvarer manglede).
-// nightly-dispatcher henter Netto og Føtex igen lige før cache-updateren.
-const NIGHT_CRONS = ["1 22 * * *", "1 23 * * *"];
-const CACHE_KEY = "nat_cache_v1";
-const CACHE_WINDOW_MIN = 30;
-const CACHE_HOUR_UTC_SATURDAY = 4;
+// Startes af 5-minutters-cron'en, ikke af en egen cron: en egen cron "1 0 * * *"
+// blev aldrig kørt af Cloudflare natten til 13-10-2026. Hvert tick fra 05:30 til
+// 05:55 dansk tid prøver, til én er lykkedes; KV-nøglen MORNING_KEY husker den
+// danske dato, så det sker én gang pr. døgn. En dublet der slipper igennem,
+// stoppes af nightly-dispatcher (concurrency + højst én cache-updater pr. UTC-døgn).
+const MORNING_KEY = "nat_morgen_v1";
+const MORNING_HOUR = "05";
+const MORNING_FROM_MIN = 30;
 const DISPATCH_URL =
   "https://api.github.com/repos/Madshopper/Million/actions/workflows/nightly-dispatcher.yml/dispatches";
 
-function danishHour(ms) {
-  return new Intl.DateTimeFormat("da-DK", {
-    timeZone: "Europe/Copenhagen", hour: "2-digit", hourCycle: "h23",
-  }).format(new Date(ms));
+function danishParts(ms) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Copenhagen", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(ms));
+  const get = (t) => parts.find((p) => p.type === t).value;
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: get("hour"), minute: Number(get("minute")) };
 }
 
-export async function startNight(env, scheduledTime = Date.now()) {
-  if (danishHour(scheduledTime) !== "00") return "ikke midnat dansk tid";
-  return dispatch(env, "nat");
-}
-
-export async function startCache(env, scheduledTime = Date.now()) {
-  const when = new Date(scheduledTime);
-  const hour = when.getUTCDay() === 6 ? CACHE_HOUR_UTC_SATURDAY : 0;
-  if (when.getUTCHours() !== hour || when.getUTCMinutes() >= CACHE_WINDOW_MIN) return null;
-  const today = when.toISOString().slice(0, 10);
-  if ((await env.STATE.get(CACHE_KEY)) === today) return null;
+export async function startMorning(env, scheduledTime = Date.now()) {
+  const dk = danishParts(scheduledTime);
+  if (dk.hour !== MORNING_HOUR || dk.minute < MORNING_FROM_MIN) return null;
+  if ((await env.STATE.get(MORNING_KEY)) === dk.date) return null;
   // Datoen skrives før kaldet, så en dublet af samme tick ikke også starter.
   // Fejler kaldet, slettes den igen, og næste tick prøver.
-  await env.STATE.put(CACHE_KEY, today);
+  await env.STATE.put(MORNING_KEY, dk.date);
   try {
-    return await dispatch(env, "cache-fallback");
+    return await dispatch(env, "nat");
   } catch (err) {
-    await env.STATE.delete(CACHE_KEY);
+    await env.STATE.delete(MORNING_KEY);
     throw err;
   }
 }
@@ -415,16 +403,9 @@ async function dispatch(env, slot) {
 
 export default {
   async scheduled(event, env, ctx) {
-    if (NIGHT_CRONS.includes(event.cron)) {
-      ctx.waitUntil(startNight(env, event.scheduledTime).then(
-        (r) => console.log("nat:", r),
-        (err) => console.error("nat: kunne ikke starte nightly-dispatcher:", String(err)),
-      ));
-      return;
-    }
-    ctx.waitUntil(startCache(env, event.scheduledTime).then(
-      (r) => r && console.log("nat-cache:", r),
-      (err) => console.error("nat-cache: kunne ikke starte cache-updater:", String(err)),
+    ctx.waitUntil(startMorning(env, event.scheduledTime).then(
+      (r) => r && console.log("morgen:", r),
+      (err) => console.error("morgen: kunne ikke starte nightly-dispatcher:", String(err)),
     ));
     ctx.waitUntil(check(env, event.scheduledTime).then((r) => {
       const failing = Object.keys(r.down);

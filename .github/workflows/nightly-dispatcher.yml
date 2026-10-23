@@ -3,22 +3,19 @@ name: Nightly Dispatcher
 # Starter nattens kæde: scrapers, så cache-updateren, så næringsdata.
 # Scraperne og cache-updateren har ingen egen cron - de startes herfra.
 #
-# START KL. 00:01 DANSK TID (Kalle, 10-10-2026): Cloudflare-workeren
+# START KL. 05:30 DANSK TID (Kalle, 23-10-2026): Cloudflare-workeren
 # madshopper-uptime starter slot "nat" til tiden (uptime-worker/worker.js,
-# startNight). GitHub-cron kommer i praksis 1-4 timer for sent, så cron'erne
-# herunder er kun sikkerhedsnet: scraper-cron'en (01:01 dansk sommertid /
-# 00:01 vintertid) gør intet, hvis natten allerede er startet; næring kører
-# 03:00 / 02:00.
+# startMorning). Før lå starten kl. 00:01, men butikkerne lægger ugens nye
+# tilbud ud i løbet af natten og morgenen, så siden viste sidste uges tilbud
+# hele skiftedagen (Netto lørdag 17-10, Bilka/Føtex/Meny/Spar/Min Købmand
+# fredag 23-10-2026). Dispatcheren venter på scraperne og starter
+# cache-updateren straks bagefter: kl. ~04 UTC er altid et nyt UTC-døgn for
+# D1's skrivebudget, så siden er opdateret ca. kl. 06:15.
 #
-# CACHE-UPDATEREN LIGE EFTER 00:00 UTC (Kalle, 10-10-2026: siden skal opdateres så
-# hurtigt som muligt). Den må højst køre én gang pr. UTC-døgn (D1's
-# skrivebudget, se CLAUDE.md), så Cloudflare starter slot cache-fallback lige
-# efter 00:00 UTC (02:01 dansk sommertid / 01:01 vintertid), og siden er opdateret
-# ca. et kvarter efter. Kommer GitHubs scraper-cron først efter midnat UTC
-# (sikkerhedsnettet), venter slottet på scraperne og starter den straks. Før
-# 10-10-2026 havde den sin egen GitHub-cron og blev opdateret ca. 06:25.
-# Slottet cache-fallback gør kun noget, hvis cache-updateren ikke allerede
-# har kørt i dette UTC-døgn.
+# GitHub-cron kommer i praksis 1-4 timer for sent, så cron'erne herunder er kun
+# sikkerhedsnet: scraper-cron'en gør intet, hvis morgenen allerede er startet;
+# cache-fallback gør kun noget, hvis cache-updateren ikke har kørt i dette
+# UTC-døgn; næring kører bagefter.
 #
 # BUTIKSDAGE (Kalle, 09-10-2026, for at spare GitHub Actions-minutter): hver
 # butik hentes kun de nætter, hvor dens nye avis/tilbud kommer (målt i
@@ -28,9 +25,9 @@ name: Nightly Dispatcher
 # (uden cache-updater bagefter); slot "nat" gør det samme som om natten.
 on:
   schedule:
-    - cron: '1 23 * * *'   # scrapers
-    - cron: '0 3 * * *'    # cache-updater, kun sikkerhedsnet
-    - cron: '0 1 * * *'    # nutrition
+    - cron: '31 4 * * *'   # scrapers, kun sikkerhedsnet
+    - cron: '0 7 * * *'    # cache-updater, kun sikkerhedsnet
+    - cron: '0 8 * * *'    # nutrition
   workflow_dispatch:
     inputs:
       slot:
@@ -71,8 +68,8 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           # nat=true: nattens rigtige kørsel (butiksdage + cache-updater
-          # bagefter). "nat" startes kl. 00:01 dansk tid af Cloudflare
-          # (uptime-worker/worker.js, startNight). Manuel "scrapers" henter
+          # bagefter). "nat" startes kl. 05:30 dansk tid af Cloudflare
+          # (uptime-worker/worker.js, startMorning). Manuel "scrapers" henter
           # alle butikker og rører ikke cache-updateren.
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             if [ "$INPUT_SLOT" = "nat" ]; then
@@ -84,9 +81,9 @@ jobs:
             exit 0
           fi
           case "$CRON" in
-            "1 23 * * *") SLOT=scrapers ;;
-            "0 3 * * *")  SLOT=cache-fallback ;;
-            "0 1 * * *")  SLOT=nutrition ;;
+            "31 4 * * *") SLOT=scrapers ;;
+            "0 7 * * *")  SLOT=cache-fallback ;;
+            "0 8 * * *")  SLOT=nutrition ;;
             *)            SLOT=skip ;;
           esac
           # GitHubs scraper-cron er kun sikkerhedsnet for Cloudflare-starten:
@@ -179,24 +176,12 @@ jobs:
           START: ${{ steps.scrapers.outputs.start }}
           ANTAL: ${{ steps.scrapers.outputs.antal || '0' }}
         run: |
-          # D1-skrivebudgettet (100k rækker) nulstilles 00:00 UTC, og et fuldt
-          # reseed bruger det meste. Har cache-updateren allerede kørt i dette
-          # UTC-døgn (det normale, når natten starter kl. 00:01 dansk tid), må
-          # den ikke køre igen før 00:00 UTC. Så startes den ikke herfra:
-          # Cloudflare (uptime-worker, startCache) starter slot cache-fallback
-          # lige efter 00:00 UTC. At vente her kostede ~2 timers Actions-minutter
-          # hver nat (målt 11-10-2026). Kommer GitHubs cron først efter
-          # midnat UTC (sikkerhedsnettet), startes den straks.
+          # Højst én cache-updater pr. UTC-døgn (D1's skrivebudget på 100k
+          # rækker nulstilles 00:00 UTC, og et fuldt reseed bruger det meste).
           SIDST=$(gh run list -R "$REPO" -w cache-updater.yml -L 1 \
             --json createdAt --jq '.[0].createdAt // ""' || echo "")
           if [ "${SIDST:0:10}" = "$(date -u +%F)" ]; then
-            echo "Cache-updater kørte allerede i dag (UTC, $SIDST) - Cloudflare starter den lige efter 00:00 UTC"
-            exit 0
-          fi
-          # Lørdag (UTC) starter Cloudflare den først kl. 04:00 UTC efter en ny
-          # hentning af Netto (se cache-fallback herunder).
-          if [ "$(date -u +%u)" = "6" ]; then
-            echo "Lørdag: cache-updateren startes af slot cache-fallback efter Nettos nye avis"
+            echo "Cache-updater kørte allerede i dag (UTC, $SIDST) - starter den ikke igen"
             exit 0
           fi
           # Venter til alle nattens scrapere er færdige (højst 40 min), så
@@ -238,32 +223,6 @@ jobs:
           if [ "${SIDST:0:10}" = "$(date -u +%Y-%m-%d)" ]; then
             echo "Cache-updater kørte allerede $SIDST (samme UTC-døgn) - intet at gøre"
             exit 0
-          fi
-          # LØRDAG: Nettos nye avis starter lørdag, men ligger først hos Netto
-          # efter midnat. Hentningen kl. 00:01 dansk tid fik derfor sidste uges
-          # avis (17-10-2026: Skildpadde is 54,95 kr i stedet for 32 kr, 182 af
-          # 201 avisvarer manglede). Cloudflare starter derfor dette slot kl.
-          # 04:00 UTC om lørdagen (uptime-worker/worker.js), og Netto + Føtex
-          # hentes igen her lige før cache-updateren (~4 min).
-          if [ "$(TZ=Europe/Copenhagen date +%u)" = "6" ]; then
-            START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-            gh workflow run scraper-Katalog.yml --ref "${{ github.ref_name }}" -R "$REPO"
-            echo "Startet: scraper-Katalog.yml (Nettos lørdagsavis)"
-            SLUT=$(( $(date +%s) + 25 * 60 ))
-            sleep 20
-            while :; do
-              STATUS=$(gh run list -R "$REPO" -w scraper-Katalog.yml -L 5 \
-                --json status,createdAt \
-                --jq "[.[] | select(.createdAt >= \"$START\")] | .[0].status // \"\"" \
-                || echo "")
-              echo "scraper-Katalog: ${STATUS:-ikke set endnu}"
-              [ "$STATUS" = "completed" ] && break
-              if [ "$(date +%s)" -ge "$SLUT" ]; then
-                echo "::warning::scraper-Katalog var ikke færdig efter 25 min - starter cache-updater alligevel"
-                break
-              fi
-              sleep 30
-            done
           fi
           gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "$REPO"
 
