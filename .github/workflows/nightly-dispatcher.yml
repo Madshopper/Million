@@ -3,14 +3,15 @@ name: Nightly Dispatcher
 # Starter nattens kæde: scrapers, så cache-updateren, så næringsdata.
 # Scraperne og cache-updateren har ingen egen cron - de startes herfra.
 #
-# START KL. 05:30 DANSK TID (Kalle, 23-10-2026): Cloudflare-workeren
-# madshopper-uptime starter slot "nat" til tiden (uptime-worker/worker.js,
-# startMorning). Før lå starten kl. 00:01, men butikkerne lægger ugens nye
-# tilbud ud i løbet af natten og morgenen, så siden viste sidste uges tilbud
-# hele skiftedagen (Netto lørdag 17-10, Bilka/Føtex/Meny/Spar/Min Købmand
-# fredag 23-10-2026). Dispatcheren venter på scraperne og starter
-# cache-updateren straks bagefter: kl. ~04 UTC er altid et nyt UTC-døgn for
-# D1's skrivebudget, så siden er opdateret ca. kl. 06:15.
+# SÅ TIDLIGT SOM MULIGT, MEN MED DE RIGTIGE PRISER (Kalle, 24-10-2026):
+# Cloudflare-workeren madshopper-uptime starter slot "nat" (uptime-worker/
+# worker.js, startMorning) kl. 00:05 UTC (01:05/02:05 dansk tid, første
+# øjeblik i D1's nye skrivedøgn). Fredag og lørdag skifter butikkerne uge på
+# et tidspunkt, der varierer (Netto lørdag 17-10 og 24-10, Bilka/Føtex/Meny/
+# Spar/Min Købmand fredag 23-10-2026); der starter butikker-klar.yml slottet,
+# når den nye uge er ude i butikkernes data, og workeren senest kl. 09:00.
+# Dispatcheren venter på scraperne og starter cache-updateren straks
+# bagefter.
 #
 # GitHub-cron kommer i praksis 1-4 timer for sent, så cron'erne herunder er kun
 # sikkerhedsnet: scraper-cron'en gør intet, hvis morgenen allerede er startet;
@@ -68,8 +69,8 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           # nat=true: nattens rigtige kørsel (butiksdage + cache-updater
-          # bagefter). "nat" startes kl. 05:30 dansk tid af Cloudflare
-          # (uptime-worker/worker.js, startMorning). Manuel "scrapers" henter
+          # bagefter). "nat" startes af Cloudflare (uptime-worker/worker.js,
+          # startMorning) eller af butikker-klar.yml. Manuel "scrapers" henter
           # alle butikker og rører ikke cache-updateren.
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             if [ "$INPUT_SLOT" = "nat" ]; then
@@ -86,13 +87,14 @@ jobs:
             "0 8 * * *")  SLOT=nutrition ;;
             *)            SLOT=skip ;;
           esac
-          # Lørdag starter Cloudflare først kl. 09:00 (Nettos nye avis kommer
-          # sent, se uptime-worker/worker.js). Sikkerhedsnettet må ikke hente
-          # eller genopbygge før, ellers bruges dagens ene D1-reseed på
-          # sidste uges Netto-priser.
-          if [ "$SLOT" != "nutrition" ] && [ "$(TZ=Europe/Copenhagen date +%u)" = "6" ] \
+          # Fredag og lørdag starter hentningen først, når butikkernes nye uge
+          # er ude (butikker-klar.yml), senest kl. 09:00 dansk tid. Sikkerheds-
+          # nettet må ikke hente eller genopbygge før, ellers bruges dagens ene
+          # D1-genopbygning på sidste uges priser.
+          DK_DAG=$(TZ=Europe/Copenhagen date +%u)
+          if [ "$SLOT" != "nutrition" ] && { [ "$DK_DAG" = "5" ] || [ "$DK_DAG" = "6" ]; } \
              && [ "$(TZ=Europe/Copenhagen date +%-H)" -lt 9 ]; then
-            echo "Lørdag før kl. 09 dansk tid - venter på Cloudflare-starten"
+            echo "Fredag/lørdag før kl. 09 dansk tid - venter på at ugens tilbud er ude"
             SLOT=skip
           fi
           # GitHubs scraper-cron er kun sikkerhedsnet for Cloudflare-starten:

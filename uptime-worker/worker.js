@@ -334,34 +334,38 @@ export async function check(env, scheduledTime = Date.now()) {
 
 // Morgenens hentning af butikkerne. GitHubs egen cron kommer 1-4 timer for
 // sent; Cloudflare kommer til tiden. Workeren beder derfor GitHub om at starte
-// nightly-dispatcher.yml (slot "nat") kl. 05:30 dansk tid (sommer- og
-// vintertid). Dispatcheren venter på scraperne og starter selv
-// cache-updateren bagefter, så siden er opdateret ca. kl. 06:15.
+// nightly-dispatcher.yml (slot "nat"), som venter på scraperne og selv starter
+// cache-updateren bagefter (siden er opdateret ca. 45 min efter start).
 //
-// HVORFOR 05:30 OG IKKE 00:01 (Kalle, 23-10-2026): butikkerne lægger ugens nye
-// tilbud ud i løbet af natten og morgenen, ikke ved midnat. Med hentning kl.
-// 00:01 viste siden sidste uges tilbud hele skiftedagen: Netto lørdag
-// 17-10-2026 (182 af 201 avisvarer manglede, Skildpadde is 54,95 kr i stedet
-// for 32 kr) og Bilka, Føtex, Meny, Spar og Min Købmand fredag 23-10-2026
-// (300-1.700 forkerte priser hver). D1's skrivebudget nulstilles 00:00 UTC, så
-// én reseed kl. ~04 UTC ligger altid i et nyt UTC-døgn.
+// SÅ TIDLIGT SOM MULIGT, MEN MED DE RIGTIGE PRISER (Kalle, 24-10-2026):
+// - D1 må kun genopbygges én gang pr. UTC-døgn (skrivebudgettet), og en kørsel
+//   kort efter dansk midnat ville bruge det forrige UTC-døgns budget. Dagens
+//   kørsel starter derfor tidligst 00:05 UTC (01:05 dansk vintertid, 02:05
+//   sommertid).
+// - Søndag til torsdag skifter de målte butikker ikke uge, og hentningen
+//   starter med det samme.
+// - Fredag (Bilka, Føtex, Meny, Spar, Min Købmand) og lørdag (Netto) lægger
+//   butikkerne ugens nye tilbud ud på et tidspunkt, der skifter: Nettos avis
+//   var ude før kl. 06 lørdag 18-10, men først efter 06:02 lørdag 24-10-2026,
+//   og fredag 23-10 havde fem butikker stadig sidste uges priser kl. 00:01.
+//   Workeren starter derfor .github/workflows/butikker-klar.yml hvert 15.
+//   minut; den kigger i butikkernes egne data og starter selv hentningen,
+//   når den nye uge er ude. Kl. 09:00 starter workeren den under alle
+//   omstændigheder.
 //
 // Startes af 5-minutters-cron'en, ikke af en egen cron: en egen cron "1 0 * * *"
-// blev aldrig kørt af Cloudflare natten til 13-10-2026. Hvert tick fra 05:30 til
-// 05:55 dansk tid prøver, til én er lykkedes; KV-nøglen MORNING_KEY husker den
-// danske dato, så det sker én gang pr. døgn. En dublet der slipper igennem,
-// stoppes af nightly-dispatcher (concurrency + højst én cache-updater pr. UTC-døgn).
-//
-// LØRDAG KL. 09:00: Nettos nye avis starter lørdag, men kom først i Nettos
-// data efter kl. 06:02 lørdag 24-10-2026 (kørslen kl. 06:01 fik sidste uges
-// 200 avisvarer, kl. 08:30 var der en ny avis). D1 må kun genopbygges én gang
-// pr. døgn, så hele lørdagens hentning venter til 09:00.
+// blev aldrig kørt af Cloudflare natten til 13-10-2026. KV-nøglen MORNING_KEY
+// husker den danske dato, så det sker én gang pr. døgn. En dublet der slipper
+// igennem, stoppes af nightly-dispatcher (concurrency + højst én
+// cache-updater pr. UTC-døgn).
 const MORNING_KEY = "nat_morgen_v1";
-const MORNING_HOUR = "05";
-const MORNING_FROM_MIN = 30;
-const SATURDAY_HOUR = "09";
-const DISPATCH_URL =
-  "https://api.github.com/repos/Madshopper/Million/actions/workflows/nightly-dispatcher.yml/dispatches";
+const CHECK_KEY = "nat_klartjek_v1";
+const CHECK_EVERY_MS = 15 * 60 * 1000;
+const GATED_DAYS = new Set(["Fri", "Sat"]);
+const DEADLINE_HOUR = 9;
+const GH_API = "https://api.github.com/repos/Madshopper/Million/actions/workflows";
+const DISPATCH_URL = `${GH_API}/nightly-dispatcher.yml/dispatches`;
+const KLAR_URL = `${GH_API}/butikker-klar.yml/dispatches`;
 
 function danishParts(ms) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -369,46 +373,73 @@ function danishParts(ms) {
     hour: "2-digit", minute: "2-digit", hourCycle: "h23", weekday: "short",
   }).formatToParts(new Date(ms));
   const get = (t) => parts.find((p) => p.type === t).value;
-  return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: get("hour"), minute: Number(get("minute")), weekday: get("weekday") };
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: Number(get("hour")),
+           minute: Number(get("minute")), weekday: get("weekday") };
+}
+
+function ghHeaders(env) {
+  return {
+    Authorization: `Bearer ${env.GH_DISPATCH_TOKEN}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "MadShopper-Uptime",
+    "Content-Type": "application/json",
+  };
+}
+
+// Har klar-tjekket allerede startet hentningen i dette UTC-døgn? Meny hentes
+// hver morgen, så en Meny-kørsel i dag betyder, at den er i gang.
+async function startedToday(env, utcDate) {
+  const res = await fetch(`${GH_API}/scraper-Meny.yml/runs?per_page=1&created=%3E%3D${utcDate}`,
+                          { headers: ghHeaders(env) });
+  if (!res.ok) throw new Error(`GitHub svarede ${res.status} på kørselslisten`);
+  return ((await res.json()).total_count || 0) > 0;
 }
 
 export async function startMorning(env, scheduledTime = Date.now()) {
+  if (!env.GH_DISPATCH_TOKEN) return null;
   const dk = danishParts(scheduledTime);
-  if (dk.weekday === "Sat") {
-    if (dk.hour !== SATURDAY_HOUR) return null;
-  } else if (dk.hour !== MORNING_HOUR || dk.minute < MORNING_FROM_MIN) {
-    return null;
-  }
+  const utc = new Date(scheduledTime);
+  const utcDate = utc.toISOString().slice(0, 10);
+  if (utcDate !== dk.date || (utc.getUTCHours() === 0 && utc.getUTCMinutes() < 5)) return null;
+  if (dk.hour >= 12) return null;  // kun om morgenen; kl. 09 er den altid startet
   if ((await env.STATE.get(MORNING_KEY)) === dk.date) return null;
+
+  if (GATED_DAYS.has(dk.weekday)) {
+    if (await startedToday(env, utcDate)) {
+      await env.STATE.put(MORNING_KEY, dk.date);
+      return "startet af klar-tjekket";
+    }
+    if (dk.hour < DEADLINE_HOUR) {
+      const last = Number((await env.STATE.get(CHECK_KEY)) || 0);
+      if (scheduledTime - last < CHECK_EVERY_MS - 60 * 1000) return null;
+      await env.STATE.put(CHECK_KEY, String(scheduledTime));
+      await dispatch(env, KLAR_URL, {});
+      return "klar-tjek startet";
+    }
+  }
   // Datoen skrives før kaldet, så en dublet af samme tick ikke også starter.
   // Fejler kaldet, slettes den igen, og næste tick prøver.
   await env.STATE.put(MORNING_KEY, dk.date);
   try {
-    return await dispatch(env, "nat");
+    await dispatch(env, DISPATCH_URL, { slot: "nat" });
+    return "startet (nat)";
   } catch (err) {
     await env.STATE.delete(MORNING_KEY);
     throw err;
   }
 }
 
-async function dispatch(env, slot) {
-  if (!env.GH_DISPATCH_TOKEN) return "GH_DISPATCH_TOKEN mangler";
-  const res = await fetch(DISPATCH_URL, {
+async function dispatch(env, url, inputs) {
+  const res = await fetch(url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.GH_DISPATCH_TOKEN}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "MadShopper-Uptime",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ ref: "main", inputs: { slot } }),
+    headers: ghHeaders(env),
+    body: JSON.stringify({ ref: "main", inputs }),
   });
   if (res.status !== 204) {
     const text = (await res.text()).slice(0, 300);
     throw new Error(`GitHub svarede ${res.status}: ${text}`);
   }
-  return `startet (${slot})`;
 }
 
 export default {

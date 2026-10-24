@@ -9,8 +9,7 @@ compatibility_date = "2026-07-03"
 workers_dev = false
 
 [triggers]
-# */5: uptime-tjekket og morgenens hentning af butikkerne kl. 05:30 dansk tid
-# (sommer- og vintertid), se startMorning() i worker.js.
+# */5: uptime-tjekket og morgenens hentning af butikkerne (se startMorning i worker.js)
 crons = ["*/5 * * * *"]
 
 # Logs er slået TIL her, modsat madshopper/madshopper-dev. Nedbruddet

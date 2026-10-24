@@ -13,7 +13,7 @@ name: Deploy uptime-worker
 #     er sat direkte i Cloudflare (wrangler secret put ALERT_EMAIL)
 #   NIGHTLY_DISPATCH_TOKEN                        valgfri; GitHub-nøgle (kun
 #     Actions: write på Million), som workeren bruger til at starte nattens
-#     hentning af butikkerne kl. 05:30 dansk tid. Uden den bruges GitHubs
+#     hentning af butikkerne (se startMorning i worker.js). Uden den bruges GitHubs
 #     egen cron, der kommer 1-4 timer for sent.
 # Workflowet fejler hvis RESEND_API_KEY mangler: en uptime-worker der ikke kan
 # sende mail, alarmerer ingen.
