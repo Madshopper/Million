@@ -351,24 +351,34 @@ export async function check(env, scheduledTime = Date.now()) {
 // 05:55 dansk tid prøver, til én er lykkedes; KV-nøglen MORNING_KEY husker den
 // danske dato, så det sker én gang pr. døgn. En dublet der slipper igennem,
 // stoppes af nightly-dispatcher (concurrency + højst én cache-updater pr. UTC-døgn).
+//
+// LØRDAG KL. 09:00: Nettos nye avis starter lørdag, men kom først i Nettos
+// data efter kl. 06:02 lørdag 24-10-2026 (kørslen kl. 06:01 fik sidste uges
+// 200 avisvarer, kl. 08:30 var der en ny avis). D1 må kun genopbygges én gang
+// pr. døgn, så hele lørdagens hentning venter til 09:00.
 const MORNING_KEY = "nat_morgen_v1";
 const MORNING_HOUR = "05";
 const MORNING_FROM_MIN = 30;
+const SATURDAY_HOUR = "09";
 const DISPATCH_URL =
   "https://api.github.com/repos/Madshopper/Million/actions/workflows/nightly-dispatcher.yml/dispatches";
 
 function danishParts(ms) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Copenhagen", year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23", weekday: "short",
   }).formatToParts(new Date(ms));
   const get = (t) => parts.find((p) => p.type === t).value;
-  return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: get("hour"), minute: Number(get("minute")) };
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, hour: get("hour"), minute: Number(get("minute")), weekday: get("weekday") };
 }
 
 export async function startMorning(env, scheduledTime = Date.now()) {
   const dk = danishParts(scheduledTime);
-  if (dk.hour !== MORNING_HOUR || dk.minute < MORNING_FROM_MIN) return null;
+  if (dk.weekday === "Sat") {
+    if (dk.hour !== SATURDAY_HOUR) return null;
+  } else if (dk.hour !== MORNING_HOUR || dk.minute < MORNING_FROM_MIN) {
+    return null;
+  }
   if ((await env.STATE.get(MORNING_KEY)) === dk.date) return null;
   // Datoen skrives før kaldet, så en dublet af samme tick ikke også starter.
   // Fejler kaldet, slettes den igen, og næste tick prøver.

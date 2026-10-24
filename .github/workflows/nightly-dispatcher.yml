@@ -86,6 +86,15 @@ jobs:
             "0 8 * * *")  SLOT=nutrition ;;
             *)            SLOT=skip ;;
           esac
+          # Lørdag starter Cloudflare først kl. 09:00 (Nettos nye avis kommer
+          # sent, se uptime-worker/worker.js). Sikkerhedsnettet må ikke hente
+          # eller genopbygge før, ellers bruges dagens ene D1-reseed på
+          # sidste uges Netto-priser.
+          if [ "$SLOT" != "nutrition" ] && [ "$(TZ=Europe/Copenhagen date +%u)" = "6" ] \
+             && [ "$(TZ=Europe/Copenhagen date +%-H)" -lt 9 ]; then
+            echo "Lørdag før kl. 09 dansk tid - venter på Cloudflare-starten"
+            SLOT=skip
+          fi
           # GitHubs scraper-cron er kun sikkerhedsnet for Cloudflare-starten:
           # er Meny (hentes hver nat) allerede startet de sidste 12 t, er
           # natten klaret.
