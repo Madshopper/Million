@@ -360,7 +360,7 @@ export async function check(env, scheduledTime = Date.now()) {
 // cache-updater pr. UTC-døgn).
 const MORNING_KEY = "nat_morgen_v1";
 const CHECK_KEY = "nat_klartjek_v1";
-const CHECK_EVERY_MS = 15 * 60 * 1000;
+const CHECK_EVERY_MS = 30 * 60 * 1000;  // hvert 30. min: GitHub-kvoten (Kalle 24-10-2026)
 const GATED_DAYS = new Set(["Fri", "Sat"]);
 const DEADLINE_HOUR = 9;
 const GH_API = "https://api.github.com/repos/Madshopper/Million/actions/workflows";

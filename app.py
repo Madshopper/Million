@@ -2116,7 +2116,7 @@ _PROJECTS = (
              'desc': 'Netto lørdag 17-10 og 24-10 og Bilka, Føtex, Meny, Spar '
                      'og Min Købmand fredag 23-10-2026 viste sidste uges '
                      'tilbud, fordi de skifter på et tidspunkt der varierer. '
-                     'butikker-klar.yml tjekker hvert 15. minut.'},
+                     'butikker-klar.yml tjekker hvert 30. minut.'},
             {'done': False, 'name': 'Første morgener tjekket',
              'desc': 'Sammenlign butikkernes priser med siden efter en fredag og en lørdag.'},
         ),

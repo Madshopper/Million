@@ -3,7 +3,7 @@ name: Er ugens tilbud ude?
 # Fredag og lørdag starter morgenens hentning først, når butikkerne har lagt
 # ugens nye tilbud ud (Kalle 24-10-2026: "så tidligt som muligt, men med de
 # rigtige priser"). Cloudflare-workeren madshopper-uptime starter dette tjek
-# hvert 15. minut fra kl. ~01-02 (når D1's nye døgn er begyndt), indtil
+# hvert 30. minut fra kl. ~01-02 (når D1's nye døgn er begyndt), indtil
 # hentningen er i gang; kl. 09:00 starter workeren den under alle
 # omstændigheder. Se scripts/butikker-klar.py og uptime-worker/worker.js.
 on:
