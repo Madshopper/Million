@@ -150,8 +150,13 @@ jobs:
               # (lidl.dk, 10-10-2026). Kataloget bliver om onsdagen.
               scraper-Lidl.yml) echo "4 7" ;;
               scraper-Lidl-Katalog.yml) echo "3" ;;
-              scraper-SuperBrugsen.yml|scraper-Kvickly.yml|scraper-Brugsen.yml) echo "3 6" ;;
-              scraper-365discount.yml|scraper-ABC-Lavpris.yml) echo "2" ;;
+              # Coops aviser (Tjek) starter ved dansk midnat: ugeavisen fredag,
+              # "Søndag & Mandag" søndag, og den slutter mandag (målt 24-10-2026).
+              # Kun aviser der gælder nu hentes (tjek_tilbud_scraper.running_now).
+              scraper-SuperBrugsen.yml|scraper-Kvickly.yml|scraper-Brugsen.yml) echo "5 7 2" ;;
+              # 365discounts uge starter torsdag (Uge 43: 22-10 til 28-10-2026).
+              scraper-365discount.yml) echo "4" ;;
+              scraper-ABC-Lavpris.yml) echo "2" ;;
               *) echo "1 2 3 4 5 6 7" ;;  # Meny og nye butikker: hver nat
             esac
           }
