@@ -2,6 +2,8 @@
 import os
 import re
 import sys
+from datetime import datetime, timezone
+
 import requests
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -91,6 +93,30 @@ def fetch_active_catalogs(dealer_id: str) -> list[dict]:
     )
     r.raise_for_status()
     return r.json()
+
+
+def running_now(catalogs: list[dict], now: datetime | None = None) -> list[dict]:
+    """Kun aviser der gælder nu. Tjek viser også aviser, der først starter om
+    et par dage: lørdag 24-10-2026 stod Coops "Søndag & Mandag"-avis allerede
+    på listen, og om onsdagen stod næste uges avis side om side med denne
+    uges, så siden viste fremtidige priser (og dedupe valgte tilfældigt
+    mellem to ugers pris for samme vare). Avisen starter ved dansk midnat, og
+    morgenens hentning kører efter, så avisen er med samme morgen."""
+    now = now or datetime.now(timezone.utc)
+    out = []
+    for cat in catalogs:
+        try:
+            start = datetime.strptime(cat["run_from"], "%Y-%m-%dT%H:%M:%S%z")
+            slut = datetime.strptime(cat["run_till"], "%Y-%m-%dT%H:%M:%S%z")
+        except (KeyError, TypeError, ValueError):
+            out.append(cat)  # ukendt periode: som før
+            continue
+        if start <= now <= slut:
+            out.append(cat)
+        else:
+            print(f"    Springer over (gælder ikke nu): {cat.get('label')} "
+                  f"{cat['run_from'][:10]} til {cat['run_till'][:10]}")
+    return out
 
 
 def fetch_all_offers(catalog_id: str) -> list[dict]:
@@ -321,7 +347,7 @@ def fetch_tjek_tilbud(
     hver enkelt avis her, hvor vi kender dem, og totalantallet får lov at følge
     med antallet af aviser.
     """
-    catalogs = fetch_active_catalogs(dealer_id)
+    catalogs = running_now(fetch_active_catalogs(dealer_id))
     print(f"  Fandt {len(catalogs)} aktive {butik}-kataloger")
 
     # Nogle butikker (Løvbjerg, ABC Lavpris) har intet dealer-API og falder i

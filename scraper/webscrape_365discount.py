@@ -8,7 +8,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 from app_support import attach_billede_hashes
-from tjek_tilbud_scraper import assert_catalogs_healthy
+from tjek_tilbud_scraper import assert_catalogs_healthy, running_now
 from supabase_utils import save_product_dicts
 from keywords import is_non_food as _is_non_food
 
@@ -81,7 +81,7 @@ def fetch_all_offers(catalog_id: str) -> list[dict]:
 
 
 def fetch_365discount_tilbud() -> list[dict]:
-    catalogs = fetch_active_catalogs()
+    catalogs = running_now(fetch_active_catalogs())
     print(f"  Fandt {len(catalogs)} aktive 365discount-kataloger")
     _tomme_kataloger: list[str] = []
 
