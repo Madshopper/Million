@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.wrangler/
+.wrangler-state/
+.tanstack/
+*.local
+.dev.vars
