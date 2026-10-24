@@ -1,0 +1,83 @@
+name: Er ugens tilbud ude?
+
+# Fredag og lørdag starter morgenens hentning først, når butikkerne har lagt
+# ugens nye tilbud ud (Kalle 24-10-2026: "så tidligt som muligt, men med de
+# rigtige priser"). Cloudflare-workeren madshopper-uptime starter dette tjek
+# hvert 30. minut fra kl. ~01-02 (når D1's nye døgn er begyndt), indtil
+# hentningen er i gang; kl. 09:00 starter workeren den under alle
+# omstændigheder. Se scripts/butikker-klar.py og uptime-worker/worker.js.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: butikker-klar
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  tjek:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Er morgenens hentning allerede startet?
+        id: start
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Meny hentes hver morgen; en Meny-kørsel i dette UTC-døgn betyder,
+          # at hentningen er i gang (eller færdig).
+          SIDST=$(gh run list -R "$REPO" -w scraper-Meny.yml -L 1 \
+            --json createdAt --jq '.[0].createdAt // ""')
+          if [ "${SIDST:0:10}" = "$(date -u +%F)" ]; then
+            echo "Hentningen startede allerede $SIDST - intet at gøre"
+            echo "startet=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.start.outputs.startet != 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.start.outputs.startet != 'true'
+        with:
+          python-version: '3.11'
+
+      - name: Installér dependencies
+        if: steps.start.outputs.startet != 'true'
+        run: pip install requests supabase python-dotenv selenium webdriver-manager openpyxl imagehash Pillow
+
+      - name: Tjek butikkerne
+        id: tjek1
+        if: steps.start.outputs.startet != 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Jt8N0XezmzfZJSzzSwBBKQ_uGbNoq8f
+          SCRAPER_EMAIL: ${{ secrets.SCRAPER_EMAIL }}
+          SCRAPER_PASSWORD: ${{ secrets.SCRAPER_PASSWORD }}
+        run: python scripts/butikker-klar.py
+
+      # Midt i et skift kan butikkens data være halvt opdateret. Først når
+      # svaret stadig er "klar" 5 minutter senere, startes hentningen.
+      - name: Tjek igen om 5 minutter
+        id: tjek2
+        if: steps.tjek1.outputs.klar == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Jt8N0XezmzfZJSzzSwBBKQ_uGbNoq8f
+          SCRAPER_EMAIL: ${{ secrets.SCRAPER_EMAIL }}
+          SCRAPER_PASSWORD: ${{ secrets.SCRAPER_PASSWORD }}
+        run: |
+          sleep 300
+          python scripts/butikker-klar.py
+
+      - name: Start morgenens hentning
+        if: steps.tjek2.outputs.klar == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run nightly-dispatcher.yml --ref main -R "${{ github.repository }}" -f slot=nat

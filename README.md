@@ -158,7 +158,7 @@ All deploys and data refreshes run via GitHub Actions (`.github/workflows/`):
 | Workflow | Purpose |
 |---|---|
 | `scraper-*.yml` | One workflow per store (`scraper-Katalog.yml` = Netto + Føtex catalogue), dispatched nightly by `nightly-dispatcher.yml` |
-| `nightly-dispatcher.yml` | DST-aware trigger for every nightly job (GitHub cron is UTC-only): scrapers 00:01, cache updater 01:00, nutrition 02:00 |
+| `nightly-dispatcher.yml` | DST-aware trigger for every nightly job (GitHub cron is UTC-only): scrapers at 00:05 UTC, on Fridays and Saturdays as soon as `butikker-klar.yml` sees the stores' new week (at the latest 09:00 Danish time) (started by the uptime worker), cache updater right after, nutrition after that |
 | `nightly-health-check.yml` | Verifies that every bot-dispatched nightly run actually ran and succeeded (failures of bot-triggered runs don't e-mail anyone) |
 | `cache-updater.yml` | Runs `updater.py` (incl. price-alert mails), then `scripts/seed-d1.py` (D1 reseed, `home_data_v1`, `cache_version`) |
 | `build-nutrition.yml` | Incrementally fills `nutrition_data` via `scripts/build-nutrition.py`, streaming results to Supabase as it goes |

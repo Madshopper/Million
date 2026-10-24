@@ -2102,20 +2102,23 @@ _PROJECTS = (
     },
     {
         'key': 'nat_hurtigere',
-        'name': 'Hurtigere opdatering om natten',
-        'status': 'waiting',
-        'desc': 'Cloudflare starter hentningen af butikkerne kl. 00:01, og '
-                'siden opdateres lige efter, i stedet for at vente på '
-                'GitHubs ur, der kom 1-4 timer for sent.',
+        'name': 'Opdatering så tidligt som muligt',
+        'status': 'doing',
+        'desc': 'Cloudflare starter hentningen af butikkerne kl. 01:05 '
+                '(sommertid 02:05). Fredag og lørdag venter den, til '
+                'butikkernes nye uge er ude, og starter senest kl. 09:00.',
         'parts': (
             {'done': True, 'name': 'Siden opdateres lige efter butikkerne',
-             'desc': 'Cache-opdateringen starter, når nattens hentning er færdig.'},
+             'desc': 'Cache-opdateringen starter, når hentningen er færdig.'},
             {'done': True, 'name': 'Start kl. 00:01 fra Cloudflare',
-             'desc': 'Merget 10-10-2026 (PR #88), nøglen er sat.'},
-            {'done': True, 'name': 'Første nætter tjekket',
-             'desc': 'Butikkerne hentes kl. 00:01 dansk tid og siden '
-                     'opdateres kl. 00:01 UTC (tjekket 19-10-2026). Kan '
-                     'markeres som færdig.'},
+             'desc': 'Merget 10-10-2026 (PR #88).'},
+            {'done': False, 'name': 'Vent på ugens nye tilbud fre og lør',
+             'desc': 'Netto lørdag 17-10 og 24-10 og Bilka, Føtex, Meny, Spar '
+                     'og Min Købmand fredag 23-10-2026 viste sidste uges '
+                     'tilbud, fordi de skifter på et tidspunkt der varierer. '
+                     'butikker-klar.yml tjekker hvert 30. minut.'},
+            {'done': False, 'name': 'Første morgener tjekket',
+             'desc': 'Sammenlign butikkernes priser med siden efter en fredag og en lørdag.'},
         ),
     },
     {
