@@ -884,7 +884,7 @@ Events: `add_to_cart`, `compare_prices`, `category_click`, `search`.
 - [x] `/.well-known/apple-app-site-association` + `assetlinks.json` routes (aktiveres når `APPLE_TEAM_ID` / `ANDROID_CERT_SHA256` er sat) — verificeret lokalt 2026-07-26 med Flask test client + dummy env: begge routes returnerer gyldig JSON både uden vars (tomme `details`/`[]`) og med vars sat (udfyldt `appID`/`sha256_cert_fingerprints`).
 - [x] `apps/mobile/package.json` scripts: `eas:build:dev`, `eas:build:preview`, `eas:build:prod`, `eas:submit` (kalder profilerne i `eas.json`)
 - [x] `apps/mobile/store/` — da-DK beskrivelser, keywords, privacy/support, screenshot-checklist
-- [x] CI: `.github/workflows/mobile-tests.yml` (mobile tests på PR)
+- [x] CI: `.github/workflows/pr-tests.yml` (mobile tests på PR)
 - [x] Supabase Auth redirects til native (`madshopper://`, `madshopper://**`, `exp://127.0.0.1:8081/--/*`)
 - [x] Google Cloud iOS- + Android-OAuth-klienter for `dk.madshopper.app` (web-klient urørt)
 - [ ] Apple Developer (~99 USD/år) + Google Play (~25 USD engangs)

@@ -1,0 +1,162 @@
+name: PR-tests
+
+# Én kørsel pr. push til en PR i stedet for tre (Kalle 24-10-2026, for at
+# spare GitHub Actions-minutter: hvert job koster mindst 1 minut, også når det
+# kun kører i 10 sekunder). Samler det, der før var tre workflows:
+#
+# - Konfliktmarkører (før conflict-markers.yml): fanger en uløst merge
+#   (<<<<<<< / ======= / >>>>>>>), før den når main. 02-10-2026 stod
+#   markørerne som synlig tekst øverst på madshopper.dk. Samme test kører også
+#   i deploy-edge.yml før noget går live, så en PR uden for stierne herunder
+#   er stadig dækket.
+# - Mobile tests (før mobile-tests.yml): de lette, netværksfrie checks fra
+#   apps/mobile/README.md § Tests + listing-API-kontrakten.
+# - Web/app-paritet (før parity-tests.yml): tema-valget gemmes i SAMME nøgle
+#   med SAMME værdier på web og app (docs/paritet.md). Kører mod lokal Flask,
+#   ikke staging (staging er spærret, og testen skal måle førstegangsbesøg).
+#   Bevidst uden for deploy-workflowet: Playwright har hængt i deploys før, og
+#   en paritetstest må ikke kunne blokere en hotfix.
+#
+# Kun på PR'er og manuelt (push til main fjernet 09-10-2026: samme kode er
+# allerede testet i PR'en). Manuel start kører alle dele.
+on:
+  pull_request:
+    paths:
+      # Mobile tests
+      - 'apps/mobile/**'
+      - 'app.py'
+      - 'app_support.py'
+      - 'scripts/test-listing-api.py'
+      # Paritet
+      - 'templates/base.html'
+      - 'static/js/script.js'
+      - 'static/css/styles.css'
+      - 'scripts/test-theme-parity.mjs'
+      # Konfliktmarkører i det, der deployes
+      - 'templates/**'
+      - 'static/**'
+      - 'src/**'
+      - 'scripts/test-conflict-markers.py'
+      - '.github/workflows/pr-tests.yml'
+  workflow_dispatch:
+
+# En ny push til samme PR stopper den gamle kørsel.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    # Brug runnerens forudinstallerede Chrome (scripts/install-playwright-ci.sh).
+    env:
+      PW_CHANNEL: chrome
+    timeout-minutes: 20
+    steps:
+      # fetch-depth 2: på en PR er HEAD GitHubs merge-commit, og HEAD^1 er
+      # main, så diffen mellem dem er præcis PR'ens ændringer.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Hvilke tests skal køre?
+        id: dele
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+            echo "paritet=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          FILER=$(git diff --name-only HEAD^1 HEAD)
+          echo "$FILER"
+          if echo "$FILER" | grep -qE '^(apps/mobile/|app\.py$|app_support\.py$|scripts/test-listing-api\.py$|\.github/workflows/pr-tests\.yml$)'; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$FILER" | grep -qE '^(templates/base\.html$|static/js/script\.js$|static/css/styles\.css$|apps/mobile/src/theme/|scripts/test-theme-parity\.mjs$|\.github/workflows/pr-tests\.yml$)'; then
+            echo "paritet=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test for git-konfliktmarkører
+        run: python3 scripts/test-conflict-markers.py
+
+      # Node 22, ikke 20: app'ens unit-tests køres med
+      # `node --experimental-strip-types`, og det flag findes først fra 22.6.
+      - name: Setup Node
+        if: steps.dele.outputs.mobile == 'true' || steps.dele.outputs.paritet == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install mobile deps
+        if: steps.dele.outputs.mobile == 'true'
+        working-directory: apps/mobile
+        run: npm ci
+
+      - name: Run mobile unit tests (multi-deal + SCO)
+        if: steps.dele.outputs.mobile == 'true'
+        working-directory: apps/mobile
+        run: npm test
+
+      - name: Typecheck mobile app
+        if: steps.dele.outputs.mobile == 'true'
+        working-directory: apps/mobile
+        run: npx tsc --noEmit
+
+      - name: Install uv
+        if: steps.dele.outputs.mobile == 'true' || steps.dele.outputs.paritet == 'true'
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        if: steps.dele.outputs.mobile == 'true' || steps.dele.outputs.paritet == 'true'
+        run: uv python install 3.12
+
+      - name: Install Python dependencies
+        if: steps.dele.outputs.mobile == 'true' || steps.dele.outputs.paritet == 'true'
+        run: uv sync
+
+      - name: Run listing-API contract tests
+        if: steps.dele.outputs.mobile == 'true'
+        run: uv run python scripts/test-listing-api.py
+
+      # Logikken ligger i scripts/install-playwright-ci.sh, så de workflows der
+      # bruger Playwright ikke driver fra hinanden (se scriptets hoved).
+      - name: Install Playwright (Chromium)
+        if: steps.dele.outputs.paritet == 'true'
+        run: bash scripts/install-playwright-ci.sh
+
+      - name: Start lokal Flask
+        if: steps.dele.outputs.paritet == 'true'
+        run: |
+          uv run python app.py > /tmp/flask.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:5001/; then
+              echo "Flask svarer efter ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Flask kom aldrig op"
+          tail -50 /tmp/flask.log
+          exit 1
+
+      - name: Tema-paritet (web mod app-kontrakten)
+        if: steps.dele.outputs.paritet == 'true'
+        run: node scripts/test-theme-parity.mjs http://127.0.0.1:5001
+
+      - name: Flask-log ved fejl
+        if: failure() && steps.dele.outputs.paritet == 'true'
+        run: tail -80 /tmp/flask.log || true
+
+      # Flask (startet via `uv run`) holder uv's cache-lås. Lever den stadig,
+      # når setup-uv's efterrydning kører "uv cache prune", venter den i 5 min
+      # og fejler jobbet, selvom alle tests bestod (sket 04-10-2026, PR #43).
+      - name: Stop lokal Flask
+        if: always()
+        run: pkill -f "python app.py" || true

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Hent appens tal fra Apple til /admin (fanen App).
 
-Køres hver dag af app-stats.yml og gemmer i Supabase med service_role:
+Køres hver dag af nightly-health-check.yml og gemmer i Supabase med service_role:
   - public.app_store_daily (dag, måling, værdi), upsert, så en dag der
     hentes igen bare overskrives.
   - public.app_store_reviews (de nyeste anmeldelser).

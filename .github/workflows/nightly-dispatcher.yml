@@ -25,10 +25,14 @@ name: Nightly Dispatcher
 # cache-updateren. Manuel start med slot "scrapers" henter altid alle butikker
 # (uden cache-updater bagefter); slot "nat" gør det samme som om natten.
 on:
+  # Ét sikkerhedsnet om dagen (24-10-2026, sparer ca. 60 GitHub-minutter om
+  # måneden). Søndag-torsdag tidligt; fredag og lørdag efter kl. 09 dansk tid,
+  # hvor workeren altid har startet hentningen. Slottet henter butikkerne, hvis
+  # morgenen ikke er startet, og ellers cache-updateren, hvis den mangler.
+  # Næringsdata startes nu af cache-updater.yml selv.
   schedule:
-    - cron: '31 4 * * *'   # scrapers, kun sikkerhedsnet
-    - cron: '0 7 * * *'    # cache-updater, kun sikkerhedsnet
-    - cron: '0 8 * * *'    # nutrition
+    - cron: '31 4 * * 0-4'   # søn-tor (UTC-ugedag = dansk ugedag kl. 04:31)
+    - cron: '45 8 * * 5,6'   # fre og lør, god afstand til workerens start kl. 09
   workflow_dispatch:
     inputs:
       slot:
@@ -82,10 +86,8 @@ jobs:
             exit 0
           fi
           case "$CRON" in
-            "31 4 * * *") SLOT=scrapers ;;
-            "0 7 * * *")  SLOT=cache-fallback ;;
-            "0 8 * * *")  SLOT=nutrition ;;
-            *)            SLOT=skip ;;
+            "31 4 * * 0-4"|"45 8 * * 5,6") SLOT=scrapers ;;
+            *)                           SLOT=skip ;;
           esac
           # Fredag og lørdag starter hentningen først, når butikkernes nye uge
           # er ude (butikker-klar.yml), senest kl. 09:00 dansk tid. Sikkerheds-
@@ -105,8 +107,16 @@ jobs:
               --json createdAt --jq '.[0].createdAt // ""' || echo "")
             if [ -n "$SIDST" ] && \
                [ $(( $(date +%s) - $(date -d "$SIDST" +%s) )) -lt $(( 12 * 3600 )) ]; then
-              echo "Nattens hentning startede allerede $SIDST - intet at gøre"
-              SLOT=skip
+              # Hentningen er startet. Er den mindst 60 min gammel (dispatcheren
+              # venter højst 40 min på scraperne), skal cache-updateren også
+              # have kørt i dette UTC-døgn; ellers startes den herfra.
+              if [ $(( $(date +%s) - $(date -d "$SIDST" +%s) )) -ge 3600 ]; then
+                echo "Hentningen startede $SIDST - tjekker cache-updateren"
+                SLOT=cache-fallback
+              else
+                echo "Hentningen startede $SIDST og er stadig i gang - intet at gøre"
+                SLOT=skip
+              fi
             else
               echo "nat=true" >> "$GITHUB_OUTPUT"
             fi

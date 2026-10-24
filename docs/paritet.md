@@ -202,7 +202,7 @@ nuværende funktionalitet; de er efterslæb, ikke defekter.
 | Playwright-installationen kunne aldrig komme sig efter en timeout - ramte 4 kørsler, heraf produktions-deployet | CI | `scripts/install-playwright-ci.sh`: rydder den efterladte `apt-get` op, venter på låsen, og dropper `--with-deps` på sidste forsøg |
 | Død markup: `#overlay-pills` | Web | Fjernet (HTML + CSS) |
 | `prisovervaagning.md` påstod at "Mine alarmer" manglede | Docs | Rettet - den findes på begge platforme |
-| Web manglede app'ens "Følg system"-tema | Web | Tre valg med NØJAGTIG app'ens lagringskontrakt + `scripts/test-theme-parity.mjs` som gate (`parity-tests.yml`) |
+| Web manglede app'ens "Følg system"-tema | Web | Tre valg med NØJAGTIG app'ens lagringskontrakt + `scripts/test-theme-parity.mjs` som gate (`pr-tests.yml`) |
 
 ---
 

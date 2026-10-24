@@ -34,6 +34,11 @@ concurrency:
   group: madshopper-edge-production
   cancel-in-progress: false
 
+# actions: write til at starte build-nutrition.yml bagefter (sidste trin).
+permissions:
+  actions: write
+  contents: read
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -190,3 +195,14 @@ jobs:
       # (_queue_background_warm) - Workeren varmer sig selv via interne kald,
       # der aldrig rammer Cloudflares edge og derfor aldrig kan Bot Fight-
       # blokeres.
+
+      # Næringsdata for nye varer, lige efter nattens nye vareliste. Startes
+      # herfra siden 24-10-2026 (før en egen cron i nightly-dispatcher.yml, der
+      # kostede et ekstra GitHub-minut hver dag). Kun ved den natlige kørsel,
+      # ikke ved et push til main.
+      - name: Start næringsdata (build-nutrition.yml)
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build-nutrition.yml --ref main -R "${{ github.repository }}"
