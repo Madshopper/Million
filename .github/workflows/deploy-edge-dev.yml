@@ -10,30 +10,11 @@ name: Deploy Edge Worker (staging)
 # PR-branch hertil: Kalle tester main live på dev fra sin telefon (MadShopper
 # Test), så dev skal altid være synkroniseret med main (Kalle, 10-10-2026).
 # Manuel start er kun til main, fx efter et [skip ci]-merge.
+# SIDEN 24-10-2026 deployer deploy-edge.yml også staging i samme job ved hver
+# push til main (sparer GitHub Actions-minutter). Dette workflow er kun til
+# manuel start af staging alene, fx hvis staging-delen fejlede.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'app.py'
-      - 'app_support.py'
-      - 'src/**'
-      - 'templates/**'
-      - 'static/**'
-      - 'pyproject.toml'
-      - 'scripts/build-pages.sh'
-      - 'scripts/playwright-uptime-check.mjs'
-      # Nyt 19-08-2026: Playwright-installationen er flyttet hertil, og en
-      # aendring i den skal kunne proeves af med det samme.
-      - 'scripts/install-playwright-ci.sh'
-      - 'scripts/wrangler-redacted.sh'
-      - 'scripts/test-render-exclusive.py'
-      - 'scripts/test-edge-env.py'
-      - '.github/workflows/deploy-edge-dev.yml'
-      # Indgår i bundtet/afhængigheds-opløsningen - uden dem her kunne en
-      # ændring ligge udeployeret uden at nogen så det.
-      - '_routes.json'
-      - 'uv.lock'
 
 
 # Se begrundelsen i deploy-edge.yml.

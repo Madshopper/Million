@@ -8,7 +8,7 @@ npx expo start --dev-client
 ### Klar (kode/opsætning)
 - Hjemmeside: live og sund (smoke/uptime/API OK; `verify-integrations` 35/35).
 - Native app fase 0–8: færdig i `apps/mobile`.
-- Fase 9 forberedt i repo: `eas.json`, npm `eas:*`-scripts, AASA/assetlinks-routes, `apps/mobile/store/`, CI `mobile-tests.yml`.
+- Fase 9 forberedt i repo: `eas.json`, npm `eas:*`-scripts, AASA/assetlinks-routes, `apps/mobile/store/`, CI `pr-tests.yml`.
 - Supabase Auth redirects: `madshopper://`, `madshopper://**`, `exp://127.0.0.1:8081/--/*` (+ web) — på plads.
 - Google Cloud: iOS- + Android-OAuth-klienter til `dk.madshopper.app` findes (web-klient urørt).
 - Native Google Sign-In (`@react-native-google-signin/google-signin`) + Sign in with Apple (`expo-apple-authentication`) implementeret 2026-07-27 — se `docs/native-app.md` §14 Fase 6.

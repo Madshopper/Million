@@ -2,7 +2,7 @@ name: MadShopper Test (opdatering over nettet)
 
 # MadShopper Test er dev-siden på Kalles telefon (Kalle, 10-10-2026: "dev skal
 # altid være synkroniseret med main"). Serveren (dev.madshopper.dk) følger
-# allerede main via deploy-edge-dev.yml. Denne kørsel gør det samme for selve
+# allerede main via deploy-edge.yml (staging-delen). Denne kørsel gør det samme for selve
 # appen: ved hvert merge til main, der rører appen, sendes den nye appkode til
 # testappen via EAS Update (kanalen "test"). Appen henter den, når den åbnes
 # (src/updates/testAppUpdates.ts), uanset hvor telefonen er.

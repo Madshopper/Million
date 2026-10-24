@@ -145,7 +145,7 @@ Kan springes over til daglig lokal udvikling.
 ## 4b) Valgfrit: D1-budgettet i admin-panelet (`/admin`)
 
 `CF_ANALYTICS_TOKEN` (+ `CLOUDFLARE_ACCOUNT_ID`) er GitHub repo-secrets, som
-`deploy-edge.yml` og `deploy-edge-dev.yml` lægger ind i workerens vars ved
+`deploy-edge.yml` (begge miljøer) og `deploy-edge-dev.yml` lægger ind i workerens vars ved
 deploy (`scripts/build-pages.sh`). Tokenen er en Cloudflare API-token med kun
 *Account Analytics: Read*. Uden den viser D1-kortet "kræver CF_ANALYTICS_TOKEN";
 resten af panelet virker.

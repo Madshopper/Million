@@ -6,11 +6,11 @@ name: Recipe Import & Moderation
 
 on:
   # Dagligt (import, moderation og opskrifternes priser), men kun når
-  # opskrifterne er udgivet fra Feature-fanen i /admin (tjekkes i første trin
-  # via scripts/feature_flags.py). Mens de er skjult,
-  # stopper kørslen efter tjekket. Manuel start kører altid.
-  schedule:
-    - cron: '0 4 * * *'
+  # opskrifterne er udgivet fra Feature-fanen i /admin. Siden 24-10-2026 har
+  # den ingen egen cron: nightly-health-check.yml tjekker knappen
+  # (scripts/feature_flags.py) og starter den kun, når opskrifterne er udgivet.
+  # Før betalte den 1 minut hver dag for at se, at de var skjult.
+  # Manuel start kører altid.
   workflow_dispatch:
     inputs:
       url:

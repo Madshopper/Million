@@ -26,7 +26,7 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: dev.madshopper.dk 
 - **Accessibility** - screen-reader labels and descriptions on every app screen (VoiceOver/TalkBack), see `apps/mobile/src/a11y/`
 - **Product statistics** (Feature `stats`) - anonymous daily counts of product views, cart adds and searches per product/search term (`stats_daily`, `scripts/supabase-stats.sql`), from both website and app. Only numbers, never a user id
 - **User feedback** - stored in Supabase (`public.feedback`) via the validated, throttled `submit_feedback` RPC (`scripts/supabase-admin.sql`)
-- **Admin panel** at `/admin`, invisible to everyone except admins (it answers the normal 404 page otherwise). Tabs: overview, scraping, traffic (Cloudflare Web Analytics), App (downloads, ratings and crashes from App Store Connect via `app-stats.yml`), product statistics, feedback, job runs, recipe moderation and **Feature**
+- **Admin panel** at `/admin`, invisible to everyone except admins (it answers the normal 404 page otherwise). Tabs: overview, scraping, traffic (Cloudflare Web Analytics), App (downloads, ratings and crashes from App Store Connect via `nightly-health-check.yml`), product statistics, feedback, job runs, recipe moderation and **Feature**
 - **Feature panel** - the overview of everything in progress. Each feature sits in `app._FEATURES` with all its parts (pages, nightly jobs, app parts) and stays hidden on madshopper.dk until it is published from the panel; jobs check the same switch via `scripts/feature_flags.py`. Projects without a switch (e.g. the app in the stores) sit in `app._PROJECTS` with steps marked done. On staging everything is always switched on
 
 ## Tech Stack
@@ -121,7 +121,7 @@ A second Cloudflare Worker (`madshopper-dev`, own KV namespace, reading the prod
 - Everything is switched on there, including features still hidden on production
 - Reads share production's Supabase tables (always-fresh product data); writes go to the `_dev` tables
 - There is no `dev` branch: work happens on feature branches with pull requests straight to `main`; merging to `main` → `deploy-edge.yml` deploys to production
-- Staging deploys automatically from `main` alongside production; to try a PR branch before merging, run `deploy-edge-dev.yml` manually on it (the next push to `main` overwrites it)
+- Staging deploys automatically from `main` in the same job as production (`deploy-edge.yml`); `deploy-edge-dev.yml` redeploys staging alone from `main` by hand
 - Full workflow and one-time setup: `docs/Dev.md`
 
 ### Run cache updater
@@ -163,15 +163,12 @@ All deploys and data refreshes run via GitHub Actions (`.github/workflows/`):
 | `cache-updater.yml` | Runs `updater.py` (incl. price-alert mails), then `scripts/seed-d1.py` (D1 reseed, `home_data_v1`, `cache_version`) |
 | `build-nutrition.yml` | Incrementally fills `nutrition_data` via `scripts/build-nutrition.py`, streaming results to Supabase as it goes |
 | `recipe-import.yml` | Recipe import from URL + re-matching of user-submitted recipes (`recipe_importer.py`); manual only while recipes are hidden |
-| `deploy-edge.yml` / `deploy-edge-dev.yml` | Builds and deploys the Worker to production / staging, then runs a functional check in a real browser (a fresh search render must return products) |
+| `deploy-edge.yml` | Builds and deploys the Worker to production and then staging in one job, then runs a functional check on both in a real browser (a fresh search render must return products). `deploy-edge-dev.yml` = staging alone, manual only |
 | `canary-upload.yml` | Uploads a new Worker version to Cloudflare **without** moving traffic to it |
 | `deploy-uptime-worker.yml` | Deploys `uptime-worker/` (`madshopper-uptime`): a Cloudflare cron every 5 min that checks the front page, a category page (product cards and match ratio), `/api/home`, `/api/stores` and that staging still answers 404, plus a fresh search render every 2 hours (cached pages never exercise the render path). E-mails via Resend when something goes down and when it recovers. Needs the `RESEND_API_KEY` secret; the recipient is the worker secret `ALERT_EMAIL` (set in Cloudflare, or from the optional `UPTIME_ALERT_EMAIL` GitHub secret) |
 | `security-monitor.yml` | Every 3 h (plus manual runs): `scripts/relay-security-events.py` relays security events from D1 to Supabase and **fails (→ e-mail) on attack thresholds, degraded responses, busy responses and Cloudflare 1101/1102 errors** (read from GraphQL analytics), then syncs recent GitHub Actions runs to Supabase for `/admin` (`scripts/sync-job-runs.py`). A manual run with `cpu_detail_from`/`cpu_detail_to` reports CPU per minute - the only way to measure CPU on edge |
-| `app-stats.yml` | Daily: fetches downloads, ratings and crashes from App Store Connect into Supabase for the App tab in `/admin` (`scripts/app-store-stats.py`) |
 | `push-test.yml` | Manual: sends a test push to devices registered on staging / the app's test build only, never real users |
-| `conflict-markers.yml` | Fails a PR that still contains unresolved merge markers |
-| `mobile-tests.yml` | Network-free checks of the native app (multi-deal/SCO port, listing-API contract) on every PR |
-| `parity-tests.yml` | Tests for the contracts web and app share without sharing code (e.g. the theme setting) |
+| `pr-tests.yml` | One run per PR push: unresolved merge markers, network-free checks of the native app (multi-deal/SCO port, listing-API contract) and the web/app contracts (e.g. the theme setting); each part only runs when its files changed |
 | `dependency-audit.yml` | Scheduled dependency vulnerability check |
 
 GitHub cron is delayed by hours in practice, so alert windows are sized to tolerate that. The CI smoke test and warm-up requests from GitHub Actions get 403 from Cloudflare's Bot Fight Mode, so they prove nothing on their own - the real-browser functional check, the fresh search in `uptime-worker/` and the monitor's alarms on real traffic are what actually measure the site.
@@ -405,11 +402,11 @@ python scripts/test-security-logging.py   # logging stays aggregated, observabil
 python scripts/test-render-exclusive.py   # every render goes through _render_exclusive()
 python scripts/test-cache-bust.py         # no manual ?v= in templates; ?v= is an automatic content hash
 
-# Listing-API contract shared with the native app (run by mobile-tests.yml)
+# Listing-API contract shared with the native app (run by pr-tests.yml)
 uv run python scripts/test-listing-api.py
 
 # Concurrent-request smoke test against a deployed site (run automatically
-# after deploy-edge.yml / deploy-edge-dev.yml)
+# after deploy-edge.yml)
 node scripts/smoke-test.mjs https://madshopper.dk
 
 # Uptime probe used after deploy-edge.yml (real headless browser -

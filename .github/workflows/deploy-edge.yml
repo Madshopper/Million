@@ -213,6 +213,48 @@ jobs:
           cat /tmp/purge.json
           test "$code" = "200"
 
+      # ---- Staging (dev.madshopper.dk) i samme job ----
+      # Til 24-10-2026 lå staging i sit eget workflow (deploy-edge-dev.yml),
+      # der startede på samme push. To jobs betalte hver for opsætning og
+      # oprundingen til hele minutter (4 + 3 min pr. merge); i samme job er
+      # det ca. 6 (Kalle 24-10-2026, GitHub Actions-minutter). Staging kommer
+      # efter produktionen, så dev aldrig kører kode, produktionen afviste.
+      # deploy-edge-dev.yml findes stadig til manuel start af staging alene.
+      # Bygget overskriver dist/; produktionens trin herefter bruger kun URL'er.
+      - name: Byg staging-bundle
+        id: stg_build
+        env:
+          DEPLOY_ENV: staging
+          CACHE_REFRESH_SECRET: ${{ secrets.CACHE_REFRESH_SECRET }}
+          STAGING_ACCESS_SECRET: ${{ secrets.STAGING_ACCESS_SECRET }}
+          CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bash scripts/build-pages.sh
+
+      - name: Staging - test sikkerhedslogning + cache-bust
+        env:
+          REQUIRE_DIST: "1"
+        run: |
+          python3 scripts/test-security-logging.py
+          python3 scripts/test-cache-bust.py
+
+      - name: Staging - deploy worker
+        id: stg_deploy
+        working-directory: dist
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bash ../scripts/wrangler-redacted.sh deploy
+
+      - name: Staging - nulstil edge-cache (cache_version)
+        working-directory: dist
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          npx --yes wrangler@4.114.0 kv key put cache_version "$(date +%s)" \
+            --namespace-id b879e69c3a1f477c9c69bbc7e7b041df \
+            --remote
+
       # cache_version-bump + CDN-purge gør ALLE sider kolde. Der er IKKE et
       # opvarmningstrin her længere: målt (2026-08-03) at det fejlede 14/14
       # ved gentagne deploys - Cloudflares gratis Bot Fight Mode blokerer ALT
@@ -259,6 +301,14 @@ jobs:
       # 14-09-2026), mens hvert deploy stod groent.
       - name: Funktionstjek - soegning giver varer (rigtig browser)
         run: node scripts/playwright-uptime-check.mjs "https://madshopper.dk/search/results?q=m%C3%A6lk"
+
+      # Samme tjek på staging. Kører også når produktionens tjek fejlede, så
+      # begge svar står i samme kørsel. Nøglen sendes med på samme navigation.
+      - name: Staging - funktionstjek (rigtig browser)
+        if: ${{ !cancelled() && steps.stg_deploy.outcome == 'success' }}
+        env:
+          STAGING_ACCESS_SECRET: ${{ secrets.STAGING_ACCESS_SECRET }}
+        run: node scripts/playwright-uptime-check.mjs "https://dev.madshopper.dk/search/results?q=m%C3%A6lk"
 
       # Fanger 2026-07-19-fejlklassen (1101/1102 under samtidig trafik, straks
       # efter deploy) FOER den naar rigtige brugere ubemaerket.

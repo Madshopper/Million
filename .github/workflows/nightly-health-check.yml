@@ -25,13 +25,18 @@ name: Nightly Pipeline Health Check
 # ca. 6 timer ved et stort efterslaeb, og sommer-/vintertidsskiftet i
 # nightly-dispatcher.yml flytter start-tidspunktet ±1 time.
 
+# SIDEN 24-10-2026 også dagens andre små opgaver i samme kørsel (hvert job
+# koster mindst 1 GitHub Actions-minut): Apples app-tal til /admin (før
+# app-stats.yml) og start af opskrift-importen, når opskrifterne er udgivet
+# (før recipe-import.yml's egen cron). Trinene kører hver for sig, så et rødt
+# tjek ikke stopper app-tallene.
 on:
   workflow_dispatch:
   schedule:
     - cron: '0 6 * * *'   # 08:00 dansk sommertid / 07:00 vintertid - rigelig margin efter hele nattens kaede
 
 permissions:
-  actions: read
+  actions: write   # starter recipe-import.yml (trinnet nederst)
   contents: read
 
 env:
@@ -96,3 +101,43 @@ jobs:
             fi
           done
           exit $FEJL
+
+      - uses: actions/checkout@v4
+        if: ${{ !cancelled() }}
+
+      - name: Setup Python
+        if: ${{ !cancelled() }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Henter salgs-, analytics- og anmeldelsestal for de seneste dage
+      # (SALES_DAYS), så tidspunktet på dagen er ligegyldigt.
+      - name: App-tal fra Apple (fanen App i /admin)
+        if: ${{ !cancelled() }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          ASC_VENDOR_NUMBER: ${{ secrets.ASC_VENDOR_NUMBER }}
+          ASC_ADMIN_KEY_ID: ${{ secrets.ASC_ADMIN_KEY_ID }}
+          ASC_ADMIN_PRIVATE_KEY: ${{ secrets.ASC_ADMIN_PRIVATE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          pip install 'pyjwt[crypto]==2.10.1'
+          python scripts/app-store-stats.py
+
+      - name: Er opskrifterne udgivet?
+        id: opskrifter
+        if: ${{ !cancelled() }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 scripts/feature_flags.py recipes
+
+      - name: Start opskrift-import
+        if: ${{ !cancelled() && steps.opskrifter.outputs.on == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run recipe-import.yml --ref main -R "${{ github.repository }}"

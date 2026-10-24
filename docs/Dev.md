@@ -34,10 +34,11 @@ Der er ingen dev-branch længere (fjernet 02-10-2026). Alt arbejde går via en f
 6. git add -A
    git commit -m "..."
    git push -u origin min-feature
-7. Åbn en pull request mod main på GitHub. Tests (mobile-tests, parity-tests m.fl.) kører på PR'en.
+7. Åbn en pull request mod main på GitHub. Tests (`pr-tests.yml`: konfliktmarkører, mobile tests og paritet i én kørsel) kører på PR'en.
 8. Deploy IKKE en PR-branch til dev.madshopper.dk. Dev skal altid køre præcis det samme som main (Kalle, 10-10-2026), fordi Kalle tester main live på sin telefon i MadShopper Test.
 9. Tilfreds? Merge PR'en ind i main -> deployer automatisk til både produktion (madshopper.dk) og staging (dev.madshopper.dk).
-   Rører PR'en updater.py, app_support.py, scraper/** eller cache-updater.yml, så skriv [skip ci] i merge-committen (ellers en ekstra fuld D1-reseed, se CLAUDE.md § D1-skrivebudget). [skip ci] springer også deploy over, så kør derefter "Deploy Edge Worker" og "Deploy Edge Worker (staging)" manuelt på main hvis edge-koden også er ændret. Rører den apps/mobile/**, så kør også "MadShopper Test (opdatering over nettet)".
+   Rører PR'en updater.py, app_support.py, scraper/** eller cache-updater.yml, så skriv [skip ci] i merge-committen (ellers en ekstra fuld D1-reseed, se CLAUDE.md § D1-skrivebudget). [skip ci] springer også deploy over, så kør derefter "Deploy Edge Worker" manuelt på main hvis edge-koden også er ændret (den deployer både produktion og staging). Rører den apps/mobile/**, så kør også "MadShopper Test (opdatering over nettet)".
+   Merges flere PR'er i samme omgang, så få `[skip ci]` på alle undtagen den sidste (hver merge koster ellers ca. 10 GitHub-minutter i deploys), og kør de manuelle deploys ovenfor, hvis den sidste ikke selv rører de stier.
    MadShopper Test (kun Kalles telefon) følger main af sig selv: ved hvert merge, der rører apps/mobile/**, sender test-app-update.yml den nye appkode til den over nettet (EAS Update), og appen henter den, når den åbnes. Det gælder både iPhone og Android (Android-udgaven bygges i skyen med `npm run eas:build:test-android`, se docs/udgivelse.md § 1f). Kun nye native-pakker, ikoner og tilladelser kræver et nyt build på Mac'en (APP_VARIANT=test, fra en frisk main med npm ci) og af Android-APK'en, og så hæves runtimeVersion (test-1 -> test-2) i apps/mobile/app.config.js i samme PR.
 
 
@@ -53,5 +54,5 @@ Dev har ingen egen D1 længere (12-10-2026): den læser produktionens, og natten
 HUSK
 
 - .env følger IKKE med git mellem computere - skal sættes op manuelt hver gang du starter på en ny (se trin 2 ovenfor).
-- Dev-deployet genbruger CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID og CACHE_REFRESH_SECRET fra produktion. Ingen nye GitHub secrets nødvendige - røgtesten (se deploy-edge-dev.yml) kører via Playwright/headless browser og kræver ingen delt hemmelighed.
+- Dev-deployet genbruger CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID og CACHE_REFRESH_SECRET fra produktion. Ingen nye GitHub secrets nødvendige - røgtesten (se staging-delen af deploy-edge.yml) kører via Playwright/headless browser og kræver ingen delt hemmelighed.
 - Dev-workeren har custom domain dev.madshopper.dk og beholder også den gratis *.workers.dev-URL.

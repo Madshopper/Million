@@ -692,7 +692,7 @@ class Default(WSGI[Env]):
             path = url.path or "/"
 
             # ?k=<secret> sætter en cookie, så resten af sessionen bare
-            # virker. Bruges af CI's warmup/røgtest (se deploy-edge-dev.yml).
+            # virker. Bruges af CI's warmup/røgtest (se staging-delen af deploy-edge.yml).
             got_key = parse_qs(url.query or "").get("k", [""])[0]
             if got_key and hmac.compare_digest(got_key.encode(), secret.encode()):
                 # Resten af query'en bevares (k/t fjernes), så CI's

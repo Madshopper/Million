@@ -6,7 +6,7 @@
  *    is_admin() i SQL, så en ikke-admin får 403 uanset hvad denne fil gør.
  *  - POST /api/admin/edge (app.py) til D1, KV og D1-budgettet, med samme
  *    access-token som Bearer.
- * Fanen App (admin_app_stats) er Apples tal, som app-stats.yml gemmer i
+ * Fanen App (admin_app_stats) er Apples tal, som nightly-health-check.yml gemmer i
  * Supabase via scripts/app-store-stats.py, plus egne brugertal.
  * Kørselshistorikken (admin_job_runs) er GitHub Actions-kørsler, som
  * et planlagt workflow gemmer i Supabase via scripts/sync-job-runs.py.
@@ -601,7 +601,7 @@
   }
 
   /* ------------------------------------------------------------------- app */
-  // Tal fra Apple (scripts/app-store-stats.py, hentes hver dag af app-stats.yml)
+  // Tal fra Apple (scripts/app-store-stats.py, hentes hver dag af nightly-health-check.yml)
   // og egne brugertal, alt fra admin_app_stats() i scripts/supabase-app-stats.sql.
   function barRows(items) {
     var max = items.reduce(function (a, x) { return Math.max(a, x.value); }, 0) || 1;
