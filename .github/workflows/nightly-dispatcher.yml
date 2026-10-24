@@ -132,7 +132,9 @@ jobs:
               # stadig 200 avisvarer, som Netto selv ikke længere havde på
               # tilbud (fx Havredrik til 12 kr, der kostede 15 kr igen).
               # Kører ~3 min, ingen ekstra D1-skrivning.
-              scraper-Spar.yml|scraper-minkobmand.yml) echo "6" ;;
+              # Spar og Min Købmand skifter uge fredag morgen (målt 23-10-2026:
+              # 312 og 453 nye priser); lørdag fanger det, der kommer sent.
+              scraper-Spar.yml|scraper-minkobmand.yml) echo "5 6" ;;
               scraper-Lovbjerg.yml) echo "5" ;;
               # Lidls uge starter søndag og weekendpriserne torsdag
               # (lidl.dk, 10-10-2026). Kataloget bliver om onsdagen.
