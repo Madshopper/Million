@@ -101,10 +101,37 @@ def _vapid_auth(endpoint: str, private_key_b64: str) -> str:
     return f"vapid t={head}.{claims}.{sig}, k={VAPID_PUBLIC_KEY}"
 
 
+# Browsernes egne push-tjenester. Adressen kommer fra browseren via
+# register_push_device, så uden listen kunne hvem som helst tilmelde en
+# "telefon" på en server, der svarer langsomt med vilje, og holde nattens
+# opdatering hen (sikkerhedstjek runde 3). Chrome/Edge/Opera/Samsung bruger
+# FCM, Firefox Mozilla, Safari Apple og gamle Edge Windows.
+_WEB_PUSH_HOSTS = ("fcm.googleapis.com", "android.googleapis.com",
+                   "updates.push.services.mozilla.com", "push.apple.com",
+                   "notify.windows.com")
+# Samlet tid til beskeder til hjemmesiden pr. bruger, uanset antal enheder.
+_WEB_PUSH_BUDGET_S = 30.0
+
+
+def _web_push_host_ok(endpoint: str) -> bool:
+    try:
+        u = urlparse(endpoint)
+    except ValueError:
+        return False
+    host = (u.hostname or "").lower()
+    if u.scheme != "https" or u.port not in (None, 443) or u.username or u.password:
+        return False
+    return any(host == h or host.endswith("." + h) for h in _WEB_PUSH_HOSTS)
+
+
 def _send_web(client, device: dict, message: dict, private_key: str) -> str:
     """'ok', 'gone' (slet enheden) eller 'error'."""
     endpoint = device.get("token") or ""
     if not endpoint.startswith("https://"):
+        return "gone"
+    if not _web_push_host_ok(endpoint):
+        logger.warning("Web Push: ukendt push-tjeneste %s - springer over",
+                       urlparse(endpoint).netloc[:80])
         return "gone"
     body = encrypt_web_push(
         json.dumps(message, ensure_ascii=False).encode(),
@@ -160,7 +187,7 @@ def send_to_devices(devices: list[dict], message: dict) -> tuple[int, list]:
     """Send `message` ({title, body, data, url}) til en brugers enheder.
 
     Returnerer (antal leveret, id'er på enheder der er væk og skal slettes).
-    Fejler aldrig højlydt: kalderen falder tilbage til mail ved 0 leveret.
+    Fejler aldrig højlydt: ved 0 leveret prøver kalderen igen næste nat.
     """
     import httpx
 
@@ -169,10 +196,14 @@ def send_to_devices(devices: list[dict], message: dict) -> tuple[int, list]:
     gone: list = []
     web = [d for d in devices if d.get("kind") == "web"]
     expo = [d for d in devices if d.get("kind") == "expo"]
-    with httpx.Client(timeout=15.0) as client:
+    with httpx.Client(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
         if web and not private_key:
             logger.info("VAPID_PRIVATE_KEY ikke sat - springer beskeder til hjemmesiden over")
+        web_deadline = time.monotonic() + _WEB_PUSH_BUDGET_S
         for d in web if private_key else []:
+            if time.monotonic() > web_deadline:
+                logger.warning("Web Push: tiden er brugt - resten prøves næste nat")
+                break
             try:
                 status = _send_web(client, d, message, private_key)
             except Exception as e:

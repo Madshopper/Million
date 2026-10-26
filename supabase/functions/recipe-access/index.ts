@@ -41,6 +41,7 @@ type Tx = {
   productId?: string;
   expiresDate?: number;
   revocationDate?: number;
+  signedDate?: number;
   appAccountToken?: string;
   environment?: string;
 };
@@ -56,12 +57,19 @@ async function apply(tx: Tx, userId: string): Promise<{ expires?: string; error?
 
   const { data: owner, error: readErr } = await admin
     .from('recipe_access')
-    .select('user_id')
+    .select('user_id, expires_at, updated_at')
     .eq('original_transaction_id', tx.originalTransactionId)
     .maybeSingle();
   if (readErr) return { error: 'db', status: 503 };
   // Ét abonnement låser kun én konto op.
   if (owner && owner.user_id !== userId) return { error: 'other account', status: 409 };
+  // En besked Apple underskrev, før rækken sidst blev skrevet, er forældet.
+  // Ellers kunne et gammelt køb sendes igen efter en refusion og give adgang
+  // tilbage resten af perioden (sikkerhedstjek runde 3). Rækken står som den er.
+  const signedMs = Number(tx.signedDate ?? 0);
+  if (owner && (!signedMs || signedMs < Date.parse(owner.updated_at))) {
+    return { expires: new Date(owner.expires_at).toISOString() };
+  }
 
   const { error } = await admin.from('recipe_access').upsert({
     user_id: userId,

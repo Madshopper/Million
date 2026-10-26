@@ -35,6 +35,9 @@ concurrency:
 
 jobs:
   update:
+    # Kun fra main: MadShopper Test skal altid have main, og kørslen bruger
+    # hemmelige nøgler (sikkerhedstjek runde 3).
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

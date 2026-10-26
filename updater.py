@@ -3707,9 +3707,12 @@ def _send_price_alert_email(to_email: str, product_name: str, target_price: floa
         return False
 
 
-def _push_live() -> bool:
+def _push_live():
     """Er "Beskeder på telefonen" udgivet i Feature-panelet? PUSH_ENABLED=1
-    tvinger den til (lokalt). Ved tvivl: nej, så mailen bruges som før."""
+    tvinger den til (lokalt). None = panelet kunne ikke læses: så sendes
+    hverken besked eller mail i nat, og alarmerne prøves igen næste nat.
+    Før faldt den tilbage til mail, så en fejl hos Cloudflare kunne sende
+    mails til adresser, ingen havde bekræftet (sikkerhedstjek runde 3)."""
     if os.environ.get('PUSH_ENABLED') == '1':
         return True
     try:
@@ -3719,7 +3722,7 @@ def _push_live() -> bool:
         return feature_live('push')
     except Exception as e:
         logger.warning("Prisalarmer: kunne ikke læse Feature-panelet: %s", e)
-        return False
+        return None
 
 
 def _push_devices_for(base: str, headers: dict, user_ids: set) -> dict:
@@ -3849,7 +3852,13 @@ def check_price_alerts(products: list) -> None:
     # Har brugeren ingen telefon tilmeldt, eller kom beskeden ikke frem, bliver
     # alarmen stående og prøves igen næste nat, så den når frem, så snart
     # brugeren slår beskeder til. Før udgivelsen sendes mail som hidtil.
-    push_live = bool(hits) and _push_live()
+    push_state = _push_live() if hits else False
+    if push_state is None:
+        logger.warning("Prisalarmer: %d udløst, men Feature-panelet kunne ikke "
+                       "læses - venter til næste nat", len(hits))
+        unsent.extend(a['id'] for a, _ in hits)
+        hits = []
+    push_live = bool(hits) and bool(push_state)
     devices_by_user = _push_devices_for(
         base, headers, {str(a.get('user_id')) for a, _ in hits if a.get('user_id')}
     ) if push_live else {}

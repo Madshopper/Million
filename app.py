@@ -2843,6 +2843,12 @@ _CART_EVENT_MAX_QTY = 99
 # Den må ikke sendes fra klienten, som ellers selv kunne vælge sin vægt.
 
 
+# Vare-id'er ser ud som Remas tal, ean_<hex> eller <butik>_<hex> (updater.py).
+# Alt andet tælles ikke, så kurv-tabellerne ikke kan fyldes med opdigtet tekst
+# (sikkerhedstjek runde 3). Samme regel står i SQL'en.
+_CART_PID_RE = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
+
+
 def _parse_cart_items(data: dict) -> tuple[list[dict], str]:
     """Normaliser payload til ([{'pid': str, 'qty': int}], event_type).
 
@@ -2871,7 +2877,7 @@ def _parse_cart_items(data: dict) -> tuple[list[dict], str]:
                 qty = 1
         else:
             pid, qty = str(raw).strip()[:64], 1
-        if not pid or pid in seen:
+        if not pid or pid in seen or not _CART_PID_RE.match(pid):
             continue
         seen.add(pid)
         items.append({'pid': pid, 'qty': max(1, min(qty, _CART_EVENT_MAX_QTY))})
@@ -3487,7 +3493,11 @@ def _fetch_recipe_detail(recipe_id, token=None):
 
     snap_rows, snap_status = _supabase_rest(
         "GET", "recipe_price_snapshot",
-        params={"select": "*", "recipe_id": f"eq.{recipe_id}", "limit": "1"},
+        # Ikke "*": cheapest_store_breakdown (varerne bag hver ingrediens) er
+        # lukket for den offentlige nøgle (scripts/supabase-security-round3.sql).
+        params={"select": "recipe_id,computed_at,cheapest_total_price,matched_ingredient_count,"
+                          "total_ingredient_count,ingredients_on_sale_count",
+                "recipe_id": f"eq.{recipe_id}", "limit": "1"},
     )
     snapshot = snap_rows[0] if snap_status == 200 and isinstance(snap_rows, list) and snap_rows else None
 

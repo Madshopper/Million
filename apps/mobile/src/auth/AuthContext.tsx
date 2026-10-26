@@ -545,6 +545,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Tjek kontoen FØR sessionen sættes: setSession logger ind med det
+      // samme (kurv-synk og push kører for den konto), så et fremmed links
+      // tokens skal afvises uden at blive brugt (sikkerhedstjek runde 3).
+      // getUser(token) spørger Supabase uden at gemme nogen session.
+      if (link.kind === 'tokens') {
+        const pre = await sb.auth.getUser(link.accessToken);
+        if (cancelled) return;
+        const preEmail = pre.data.user?.email?.trim().toLowerCase();
+        if (pre.error || preEmail !== pendingEmail) {
+          setRecoveryError('Linket matcher ikke en nulstilling, du selv har bedt om. Bed om et nyt link.');
+          return;
+        }
+      }
+
       setRecoveryError(null);
       // Sæt flaget FØR sessionen: onAuthStateChange fyrer synkront bagefter,
       // og AuthScreen skal vise "vælg ny adgangskode", ikke "du er logget ind".
@@ -571,6 +585,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // sessionen lukkes med det samme igen.
       const sessionEmail = result.data.session?.user?.email?.trim().toLowerCase();
       if (sessionEmail !== pendingEmail) {
+        await disablePush().catch(() => {});
         await sb.auth.signOut().catch(() => {});
         setRecoveryActive(false);
         setRecoveryError('Linket matcher ikke en nulstilling, du selv har bedt om. Bed om et nyt link.');
@@ -618,6 +633,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSignupLinkNotice('Din e-mail er bekræftet. Log ind for at fortsætte.');
         return;
       }
+      if (link.kind === 'tokens') {
+        const pre = await sb.auth.getUser(link.accessToken);
+        if (cancelled) return;
+        const preEmail = pre.data.user?.email?.trim().toLowerCase();
+        if (pre.error || preEmail !== pendingEmail) {
+          setSignupLinkNotice('Linket matcher ikke en konto, du har oprettet her. Log ind for at fortsætte.');
+          return;
+        }
+      }
       const result =
         link.kind === 'tokens'
           ? await sb.auth.setSession({
@@ -632,6 +656,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const sessionEmail = result.data.session?.user?.email?.trim().toLowerCase();
       if (sessionEmail !== pendingEmail) {
+        await disablePush().catch(() => {});
         await sb.auth.signOut().catch(() => {});
         setSignupLinkNotice('Linket matcher ikke en konto, du har oprettet her. Log ind for at fortsætte.');
         return;

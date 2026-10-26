@@ -45,6 +45,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Kun læseadgang: testene skal ikke kunne skrive i repoet (sikkerhedstjek runde 3).
+permissions:
+  contents: read
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 

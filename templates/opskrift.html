@@ -37,7 +37,8 @@
         {% if recipe.source_name or recipe.source_url %}
         <div class="recipe-source">
           Opskrift fra
-          {% if recipe.source_url %}<a href="{{ recipe.source_url }}" rel="nofollow noopener" target="_blank">{{ recipe.source_name or recipe.source_url }}</a>{% else %}{{ recipe.source_name }}{% endif %}
+          {# Kun http(s)-links bliver til et link: et javascript:-link fra en brugeropskrift må aldrig kunne klikkes (sikkerhedstjek runde 3). #}
+          {% if (recipe.source_url and recipe.source_url.lower().startswith(('http://', 'https://'))) %}<a href="{{ recipe.source_url }}" rel="nofollow noopener" target="_blank">{{ recipe.source_name or recipe.source_url }}</a>{% else %}{{ recipe.source_name or 'en bruger' }}{% endif %}
         </div>
         {% endif %}
 
@@ -180,7 +181,7 @@
         {% endfor %}
       </ol>
     </section>
-    {% elif recipe.source_url %}
+    {% elif (recipe.source_url and recipe.source_url.lower().startswith(('http://', 'https://'))) %}
     <section class="recipe-section">
       <h2>Fremgangsmåde</h2>
       <p><a href="{{ recipe.source_url }}" rel="nofollow noopener" target="_blank">Se hele fremgangsmåden hos {{ recipe.source_name or 'kilden' }} →</a></p>
@@ -301,8 +302,11 @@
       const timesLabel = picked.units > 1 ? ' × ' + picked.units : '';
       const saleTag = p.is_sale ? '<span class="recipe-ingredient-sale-tag">Tilbud</span>' : '';
       if (matchEl) {
-        matchEl.innerHTML = '(' + [p.unit_measure, p.name].filter(Boolean).join(' ') +
-          timesLabel + ' · ' + totalPrice + ' kr) ' + saleTag;
+        // Varenavn og mængde kommer fra butikkernes data: skrives som tekst,
+        // aldrig som HTML (sikkerhedstjek runde 3).
+        matchEl.textContent = '(' + [p.unit_measure, p.name].filter(Boolean).join(' ') +
+          timesLabel + ' · ' + totalPrice + ' kr) ';
+        if (p.is_sale) matchEl.insertAdjacentHTML('beforeend', saleTag);
       }
       if (img && p.image) img.src = p.image;
       li.dataset.overlayId = 'product' + p.id; // "åbn produkt" følger den nu viste pakke
