@@ -50,6 +50,8 @@ permissions:
   contents: read
 
 env:
+  # Grenens navn som variabel, ikke indsat direkte i kommandoerne.
+  REF_NAME: ${{ github.ref_name }}
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -183,7 +185,7 @@ jobs:
               echo "Ikke i nat (butiksdage): $wf"
               continue
             fi
-            if gh workflow run "$wf" --ref "${{ github.ref_name }}" -R "${{ github.repository }}"; then
+            if gh workflow run "$wf" --ref "$REF_NAME" -R "${{ github.repository }}"; then
               echo "Startet: $wf"
               ANTAL=$((ANTAL + 1))
             else
@@ -233,7 +235,7 @@ jobs:
             fi
             sleep 30
           done
-          gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "$REPO"
+          gh workflow run cache-updater.yml --ref "$REF_NAME" -R "$REPO"
           echo "Startet: cache-updater.yml"
 
       - name: Start cache-updater (sikkerhedsnet)
@@ -252,7 +254,7 @@ jobs:
             echo "Cache-updater kørte allerede $SIDST (samme UTC-døgn) - intet at gøre"
             exit 0
           fi
-          gh workflow run cache-updater.yml --ref "${{ github.ref_name }}" -R "$REPO"
+          gh workflow run cache-updater.yml --ref "$REF_NAME" -R "$REPO"
 
       # Startes herfra og ikke af et workflow_run paa "Update Product Cache":
       # cache-updateren dispatches selv af denne bot, og GitHub udloeser ikke
@@ -264,4 +266,4 @@ jobs:
         if: steps.slot.outputs.slot == 'nutrition'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run build-nutrition.yml --ref "${{ github.ref_name }}" -R "${{ github.repository }}"
+        run: gh workflow run build-nutrition.yml --ref "$REF_NAME" -R "${{ github.repository }}"

@@ -185,6 +185,32 @@
     } catch (e) { /* privat browsing o.l. - saa falder vi tilbage til fletning */ }
   }
 
+  /* Samme vaern for ALLE andre login-links med #access_token (Google-redirect,
+     bekraeftelse af ny konto): et videresendt link med en angribers egne
+     tokens maa ikke logge offerets browser ind paa angriberens konto (login
+     CSRF, sikkerhedstjek runde 3). Vi accepterer kun tokens i URL'en, naar
+     DENNE enhed selv lige har startet et redirect-login eller en oprettelse. */
+  var PENDING_REDIRECT_KEY = 'pendingAuthRedirect';
+  var PENDING_REDIRECT_TTL_MS = 24 * 60 * 60 * 1000; // bekraeftelses-mail kan aabnes senere samme dag
+
+  function _markPendingRedirect() {
+    _writeLS(PENDING_REDIRECT_KEY, JSON.stringify({ ts: Date.now() }));
+  }
+
+  function _guardForeignSessionHash() {
+    var hash = window.location.hash || '';
+    if (hash.indexOf('access_token') === -1) return;
+    var ok = false;
+    try {
+      var parsed = JSON.parse(_readLS(PENDING_REDIRECT_KEY) || 'null');
+      ok = !!(parsed && typeof parsed.ts === 'number' &&
+        (Date.now() - parsed.ts) < PENDING_REDIRECT_TTL_MS);
+    } catch (e) { ok = false; }
+    _writeLS(PENDING_REDIRECT_KEY, null);
+    if (ok) return;                  // vores eget login - lad supabase-js tage det
+    try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e2) { /* ignorér */ }
+  }
+
   async function pullCart() {
     // ok:false betyder "opslaget fejlede", IKKE "serveren har en tom kurv" -
     // de to må aldrig forveksles af kalderne, for et fejlet opslag ville
@@ -1008,6 +1034,7 @@
         catch (err) { setError(err.message); return false; }
         window.Lokation.beforeSignup(signupPos);
       }
+      if (authMode === 'signup') _markPendingRedirect();
       var res = (authMode === 'signup')
         ? await SB.auth.signUp({
             email: email, password: pw,
@@ -1051,6 +1078,7 @@
   // ikke kan loade eller ID-token-loginet fejler.
   async function signInGoogle() {
     if (!initClient()) return;
+    _markPendingRedirect();
     try {
       await SB.auth.signInWithOAuth({
         provider: 'google',
@@ -1484,6 +1512,7 @@
 
   function boot() {
     _tryHandleRecoveryLink();
+    _guardForeignSessionHash();     // før initClient()/detectSessionInUrl
     var sb = initClient();
     if (!sb) return;                 // supabase-js ikke loadet → login deaktiveret
     applyMode();

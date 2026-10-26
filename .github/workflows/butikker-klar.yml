@@ -22,6 +22,8 @@ env:
 
 jobs:
   tjek:
+    # Kun fra main: kørslen bruger hemmelige nøgler (sikkerhedstjek runde 3).
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -50,7 +52,7 @@ jobs:
 
       - name: Installér dependencies
         if: steps.start.outputs.startet != 'true'
-        run: pip install requests supabase python-dotenv selenium webdriver-manager openpyxl imagehash Pillow
+        run: pip install 'requests>=2.31,<3' 'supabase>=2.30.0,<3' 'python-dotenv>=1.0.1,<2' 'selenium>=4.0,<5' 'webdriver-manager>=4.0,<5' 'openpyxl>=3.1,<4' 'imagehash>=4.3.1,<5' 'Pillow>=10.0,<13'
 
       - name: Tjek butikkerne
         id: tjek1

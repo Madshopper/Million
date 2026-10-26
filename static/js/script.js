@@ -2038,6 +2038,7 @@ function renderScoItemList(storeName, matched, missing, alternatives, totalPrice
     if (!list) return;
 
     let html = '';
+    const altActions = [];
 
     // Varer der MANGLER hos butikken (øverst)
     if (missing.length > 0) {
@@ -2048,8 +2049,10 @@ function renderScoItemList(storeName, matched, missing, alternatives, totalPrice
 
             let altHtml = '';
             if (alt) {
-                const altData = JSON.stringify(alt).replace(/"/g, '&quot;');
-                const safeCartId = escapeHtml(item.cart_id).replace(/'/g, '&#39;');
+                // Data bindes med addEventListener nedenfor, ikke i en inline
+                // onclick: butiksnavne med &quot; o.l. kunne ellers bryde ud
+                // af attributten (sikkerhedstjek runde 3).
+                const altIdx = altActions.push({ cartId: item.cart_id, alt: alt }) - 1;
                 altHtml = `
                     <div class="sco-il-alt">
                         <img class="sco-il-alt-img" src="${escapeHtml(alt.alt_image || '')}" alt="${escapeHtml(alt.alt_name)}" onerror="this.style.display='none'">
@@ -2057,7 +2060,7 @@ function renderScoItemList(storeName, matched, missing, alternatives, totalPrice
                             <div class="sco-il-alt-name">${escapeHtml(stripStoreBrand(alt.alt_name))}</div>
                             <div class="sco-il-alt-price">${alt.alt_price.toFixed(2)} kr</div>
                         </div>
-                        <button class="sco-il-alt-btn" onclick="acceptAlternative('${safeCartId}', ${altData})" title="Skift til dette alternativ">+</button>
+                        <button class="sco-il-alt-btn" data-alt-idx="${altIdx}" title="Skift til dette alternativ">+</button>
                     </div>`;
             }
 
@@ -2096,6 +2099,10 @@ function renderScoItemList(storeName, matched, missing, alternatives, totalPrice
         </div>`;
 
     list.innerHTML = html;
+    list.querySelectorAll('.sco-il-alt-btn[data-alt-idx]').forEach(btn => {
+        const action = altActions[Number(btn.dataset.altIdx)];
+        if (action) btn.addEventListener('click', () => acceptAlternative(action.cartId, action.alt));
+    });
 }
 
 // Produktnavne og billed-URL'er kommer fra butikkernes feeds og indsaettes

@@ -26,7 +26,7 @@
   function staleLimit(butik) {
     return DAILY_STORES[String(butik || '').toLowerCase()] ? STALE_HOURS_DAILY : STALE_HOURS;
   }
-  var state = { feedback: [], pending: [], showAll: false, runs: null, access: null, accessAll: false, ov: null };
+  var state = { feedback: [], pending: [], showAll: false, runs: null, ov: null };
 
   function $(id) { return document.getElementById(id); }
 
@@ -200,7 +200,6 @@
     badge('badge-scraping', staleStores(ov).length);
     badge('badge-opskrifter', (ov.pending_recipes || []).length);
     badge('badge-korsler', failingWorkflows().length);
-    badge('badge-brugere', waitingUsers().length);
   }
 
   // Overblikkets "kræver opmærksomhed": hvert punkt linker til sin sektion.
@@ -218,8 +217,6 @@
     if (synced != null && synced > SYNC_STALE_HOURS) {
       items.push(['warn', 'Kørselshistorikken er ikke synket i ' + agoText(synced).replace(' siden', ''), '#korsler']);
     }
-    var wu = waitingUsers().length;
-    if (wu) items.push(['warn', wu + ' bruger' + (wu === 1 ? '' : 'e') + ' venter på godkendelse', '#brugere']);
     var pr = (ov.pending_recipes || []).length;
     if (pr) items.push(['info', pr + ' opskrift' + (pr === 1 ? '' : 'er') + ' venter på godkendelse', '#opskrifter']);
     var db = ov.database || {};
@@ -735,57 +732,7 @@
       : empty('Ingen tabeller.'));
   }
 
-  /* ------------------------------------------- adgang (privat site) */
-  // admin_list_users/admin_set_approved fra scripts/supabase-site-approval.sql.
-  // Findes de ikke endnu (SQL'en ikke kørt), vises den gamle liste over nyeste
-  // brugere i stedet. Godkendelsen slår først igennem hos brugeren, når
-  // brugerens token fornyes (login-siden har "Tjek igen").
-  function waitingUsers() {
-    return (state.access || []).filter(function (x) { return !x.approved && !x.is_admin; });
-  }
-
-  function renderAccess() {
-    var list = state.access || [];
-    var shown = state.accessAll ? list : waitingUsers();
-    $('users-filter').hidden = false;
-    $('admin-users-title').textContent = 'Adgang til sitet';
-    if (!shown.length) {
-      fill('admin-users', empty(state.accessAll ? 'Ingen brugere.' : 'Ingen venter på godkendelse.'));
-      return;
-    }
-    fill('admin-users', table(['E-mail', 'Via', 'Oprettet', 'Sidst logget ind', 'Adgang', ''], shown.map(function (x) {
-      var status = x.is_admin ? pill('info', 'Admin') : x.approved ? pill('ok', 'Godkendt') : pill('warn', 'Venter');
-      var btn = x.is_admin ? null : el('button', {
-        type: 'button', class: 'adm-btn' + (x.approved ? ' danger' : ' primary'),
-        text: x.approved ? 'Fjern adgang' : 'Godkend',
-        onclick: function () { setApproved(x, !x.approved, this); }
-      });
-      return [x.email || '-', x.provider || 'email', when(x.created_at), when(x.last_sign_in_at), status, btn];
-    })));
-  }
-
-  function setApproved(x, approved, btn) {
-    if (!approved && !window.confirm('Fjern adgangen for ' + (x.email || 'brugeren') + '?')) return;
-    btn.disabled = true;
-    rpc('admin_set_approved', { p_user_id: x.user_id, p_approved: approved }).then(function () {
-      x.approved = approved;
-      renderAccess();
-      if (state.ov) { renderBadges(state.ov); renderAttention(state.ov, state.ed); }
-    }).catch(function (e) {
-      btn.disabled = false;
-      showError('Kunne ikke ændre adgang: ' + (e.message || e));
-    });
-  }
-
-  function setAccessFilter(all) {
-    state.accessAll = all;
-    $('users-all').setAttribute('aria-pressed', String(all));
-    $('users-pending').setAttribute('aria-pressed', String(!all));
-    renderAccess();
-  }
-
   function renderUsers(ov) {
-    if (state.access) { renderAccess(); return; }
     var u = ov.recent_users || [];
     fill('admin-users', u.length
       ? table(['E-mail', 'Oprettet', 'Sidst logget ind', 'Via'], u.map(function (x) {
@@ -1159,13 +1106,6 @@
           edge(session.access_token).catch(function (e) {
             showError('Edge-data kunne ikke hentes: ' + (e.message || e)); return null;
           }),
-          rpc('admin_list_users').catch(function (e) {
-            // PGRST202: funktionen findes ikke - privat-site-SQL'en er ikke kørt.
-            if (!(e && (e.code === 'PGRST202' || /admin_list_users/.test(e.message || '')))) {
-              showError('Brugerlisten kunne ikke hentes: ' + (e.message || e));
-            }
-            return null;
-          }),
           rpc('admin_job_runs', { p_days: 14 }).catch(function (e) {
             showError('Kørselshistorikken kunne ikke hentes: ' + (e.message || e)); return null;
           }),
@@ -1176,8 +1116,7 @@
         ]).then(function (r) {
           var ov = r[0] || {};
           var ed = r[2];
-          state.access = Array.isArray(r[3]) ? r[3] : null;
-          state.runs = r[4];
+          state.runs = r[3];
           state.ov = ov;
           state.ed = ed;
           state.feedback = r[1] || [];
@@ -1193,10 +1132,10 @@
           renderEdge(ed);
           renderTables(ov);
           renderUsers(ov);
-          state.traffic = r[5];
-          renderTraffic(r[5]);
-          renderTrafficTile(r[5]);
-          renderApp(r[8]);
+          state.traffic = r[4];
+          renderTraffic(r[4]);
+          renderTrafficTile(r[4]);
+          renderApp(r[7]);
           $('admin-stamp').textContent = 'Opdateret ' + when(ov.generated_at || new Date().toISOString());
         });
       }, function (e) {
@@ -1273,8 +1212,6 @@
     });
     $('fb-open').addEventListener('click', function () { setFilter(false); });
     $('fb-all').addEventListener('click', function () { setFilter(true); });
-    $('users-pending').addEventListener('click', function () { setAccessFilter(false); });
-    $('users-all').addEventListener('click', function () { setAccessFilter(true); });
     Array.prototype.forEach.call(document.querySelectorAll('#stats-period [data-days]'), function (b) {
       b.addEventListener('click', function () { setStatsDays(Number(b.getAttribute('data-days'))); });
     });
