@@ -1,3 +1,16 @@
+-- VÆRN (sikkerhedstjek runde 3): denne fil genskaber åbne tælle- eller
+-- opskrift-funktioner uden nøgletjekket fra supabase-server-rpc-gate.sql.
+-- Er værnet allerede sat op, stopper filen her, før noget ændres. Skal den
+-- alligevel køres, så start med linjen SET madshopper.rerun_ok = 'on'; og kør
+-- supabase-server-rpc-gate.sql og supabase-security-round3.sql bagefter.
+DO $$
+BEGIN
+  IF to_regprocedure('private.server_call_ok()') IS NOT NULL
+     AND coalesce(current_setting('madshopper.rerun_ok', true), '') <> 'on' THEN
+    RAISE EXCEPTION 'Værnet mod åbne tællere er sat op. Se kommentaren øverst i filen. Intet er ændret.';
+  END IF;
+END $$;
+
 -- Kør i Supabase SQL Editor, én gang. Efter supabase-cart-increment.sql,
 -- supabase-cart-increment-throttle.sql, supabase-dev-tables.sql og
 -- supabase-admin.sql (bruger cart_events(_dev), cart_popularity(_dev) og

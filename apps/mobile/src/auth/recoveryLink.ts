@@ -54,8 +54,21 @@ export function parseSignupLink(url: string): RecoveryLink | null {
   return parseTypedAuthLink(url, 'signup');
 }
 
+/**
+ * Login-links må kun komme ind gennem appens egne schemes. Et https-link
+ * (madshopper.dk åbner også appen via App Links) er aldrig et ægte
+ * callback fra Supabase og kan bære en fremmeds tokens (sikkerhedstjek
+ * runde 3). exp/exps er Expo Go under udvikling.
+ */
+const AUTH_LINK_SCHEMES = ['madshopper:', 'madshopper-test:', 'exp:', 'exps:'];
+
+export function isAppSchemeUrl(url: string): boolean {
+  const lower = url.trim().toLowerCase();
+  return AUTH_LINK_SCHEMES.some((scheme) => lower.startsWith(scheme));
+}
+
 function parseTypedAuthLink(url: string, wanted: 'recovery' | 'signup'): RecoveryLink | null {
-  if (!url) return null;
+  if (!url || !isAppSchemeUrl(url)) return null;
   let params: URLSearchParams;
   try {
     params = paramsFrom(url);
@@ -63,9 +76,7 @@ function parseTypedAuthLink(url: string, wanted: 'recovery' | 'signup'): Recover
     return null;
   }
 
-  const type = params.get('type');
-  const matches = type === wanted || url.includes(`type=${wanted}`);
-  if (!matches) return null;
+  if (params.get('type') !== wanted) return null;
 
   const error = params.get('error_description') || params.get('error');
   if (error) return { kind: 'error', message: decodeURIComponent(error.replace(/\+/g, ' ')) };
