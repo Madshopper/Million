@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 {# App-designet C2 (Feature 'design_c2'): klassen slår C2-reglerne i
    styles.css til. Altid til på dev.madshopper.dk. #}
-<html lang="da"{% if design_c2_enabled %} class="c2"{% endif %}>
+<html lang="da"{% if design_c2_enabled or halloween_logo_enabled %} class="{{ 'c2' if design_c2_enabled }}{{ ' ' if design_c2_enabled and halloween_logo_enabled }}{{ 'halloween' if halloween_logo_enabled }}"{% endif %}>
 
 <head>
   <meta charset="UTF-8">

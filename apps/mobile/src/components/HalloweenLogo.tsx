@@ -9,7 +9,7 @@
  * altid til. Ikonet på hjemmeskærmen skifter ikke.
  */
 import React, { useSyncExternalStore } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
 let enabled = false;
@@ -45,6 +45,27 @@ export function HalloweenLogo({ size = 30 }: { size?: number }) {
       importantForAccessibility="no-hide-descendants"
     >
       <SvgXml xml={XML} width={size} height={size} />
+    </View>
+  );
+}
+
+/** Halloween-baggrunden: flagermus, græskar, spøgelser, stjerner og slik, svagt
+ * bag forsidens indhold. Samme mønster som webbens
+ * static/images/halloween-baggrund.svg. */
+const BG_XML =
+  '<svg width="100%" height="100%"><defs><pattern id="hw" width="345" height="345" patternUnits="userSpaceOnUse">' +
+  '<g opacity=".22" transform="scale(1.5)"><g transform="translate(18 26) rotate(-10) scale(1.6)"><path fill="#7c3aed" d="M0 0q2-2.6 4.4-1.2q.5-1.4 1.6-1.6l.6 1 .6-1q1.1.2 1.6 1.6q2.4-1.4 4.4 1.2q-2-.3-2.6 1q-1-1-2 0l-2 1.6-2-1.6q-1-1-2 0Q2-.3 0 0z"/></g><g transform="translate(150 40) scale(1.5)"><rect x="-.6" y="-5.6" width="1.2" height="2.4" rx=".5" fill="#65a30d"/><ellipse cx="-2.2" cy="0" rx="3" ry="4" fill="#ea580c"/><ellipse cx="2.2" cy="0" rx="3" ry="4" fill="#ea580c"/><ellipse cx="0" cy="0" rx="3" ry="4.3" fill="#f97316"/><path d="M-2.4-1l.9-1.4.9 1.4zM.6-1l.9-1.4.9 1.4zM-2.6 1.2q2.6 2 5.2 0q-2.6 1-5.2 0z" fill="#7c2d12"/></g><g transform="translate(84 104) rotate(-8) scale(1.6)"><path d="M-4 5V-1a4 4 0 0 1 8 0v6l-1.3-1.2-1.4 1.2-1.3-1.2-1.3 1.2-1.4-1.2z" fill="#c4b5fd"/><circle cx="-1.4" cy="-.6" r=".7" fill="#4c1d95"/><circle cx="1.4" cy="-.6" r=".7" fill="#4c1d95"/></g><g transform="translate(158 150) rotate(12) scale(1.2)"><path fill="#7c3aed" d="M0 0q2-2.6 4.4-1.2q.5-1.4 1.6-1.6l.6 1 .6-1q1.1.2 1.6 1.6q2.4-1.4 4.4 1.2q-2-.3-2.6 1q-1-1-2 0l-2 1.6-2-1.6q-1-1-2 0Q2-.3 0 0z"/></g><path transform="translate(116 22) scale(1.2)" d="M0-3l.9 2.1 2.1.9-2.1.9L0 3l-.9-2.1L-3 0l2.1-.9z" fill="#f59e0b"/><path transform="translate(40 160) scale(1)" d="M0-3l.9 2.1 2.1.9-2.1.9L0 3l-.9-2.1L-3 0l2.1-.9z" fill="#f59e0b"/><g transform="translate(196 96) rotate(25) scale(1.3)"><path d="M-5-2.2l2.4 2.2-2.4 2.2zM5-2.2L2.6 0 5 2.2z" fill="#fb923c"/><circle r="2.6" fill="#f97316"/><path d="M-1.6-1.6l3.2 3.2" stroke="#fff" stroke-width=".8"/></g><g transform="translate(28 92) scale(1.0)"><rect x="-.6" y="-5.6" width="1.2" height="2.4" rx=".5" fill="#65a30d"/><ellipse cx="-2.2" cy="0" rx="3" ry="4" fill="#ea580c"/><ellipse cx="2.2" cy="0" rx="3" ry="4" fill="#ea580c"/><ellipse cx="0" cy="0" rx="3" ry="4.3" fill="#f97316"/><path d="M-2.4-1l.9-1.4.9 1.4zM.6-1l.9-1.4.9 1.4zM-2.6 1.2q2.6 2 5.2 0q-2.6 1-5.2 0z" fill="#7c2d12"/></g><g transform="translate(190 192) rotate(10) scale(1.1)"><path d="M-4 5V-1a4 4 0 0 1 8 0v6l-1.3-1.2-1.4 1.2-1.3-1.2-1.3 1.2-1.4-1.2z" fill="#c4b5fd"/><circle cx="-1.4" cy="-.6" r=".7" fill="#4c1d95"/><circle cx="1.4" cy="-.6" r=".7" fill="#4c1d95"/></g><path transform="translate(212 150) scale(0.9)" d="M0-3l.9 2.1 2.1.9-2.1.9L0 3l-.9-2.1L-3 0l2.1-.9z" fill="#f59e0b"/><g transform="translate(96 196) rotate(-4) scale(1.0)"><path fill="#7c3aed" d="M0 0q2-2.6 4.4-1.2q.5-1.4 1.6-1.6l.6 1 .6-1q1.1.2 1.6 1.6q2.4-1.4 4.4 1.2q-2-.3-2.6 1q-1-1-2 0l-2 1.6-2-1.6q-1-1-2 0Q2-.3 0 0z"/></g></g></pattern></defs>' +
+  '<rect width="100%" height="100%" fill="url(#hw)"/></svg>';
+
+export function HalloweenBackground() {
+  return (
+    <View
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <SvgXml xml={BG_XML} width="100%" height="100%" />
     </View>
   );
 }

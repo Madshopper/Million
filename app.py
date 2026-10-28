@@ -1904,11 +1904,13 @@ _FEATURES = (
     },
     {
         'key': 'halloween_logo',
-        'name': 'Halloween-logo',
+        'name': 'Halloween-tema (logo og baggrund)',
         'env': 'HALLOWEEN_LOGO_ENABLED',
         'desc': 'Et lille spøgelse i logoets kurv, der blinker, rækker tunge '
                 'og holder en græskar-slikspand (forslag C3, Kalle '
-                '27-10-2026). Kurven og den grønne farve er som altid. '
+                '27-10-2026), og en svag baggrund med flagermus, græskar og '
+                'spøgelser (Kalle 28-10-2026). Kurven og den grønne farve er '
+                'som altid. '
                 'Midlertidigt: slå det fra igen efter Halloween, så kommer '
                 'det normale logo tilbage.',
         'app': 'MadShopper Test har det med det samme. Butiksappen får det '
@@ -1920,8 +1922,13 @@ _FEATURES = (
                      'skjult), i menuen og i bunden af siden.'},
             {'kind': 'web', 'name': 'Ikonet i browserfanen',
              'desc': 'Spøgelset i det lille ikon i fanen.'},
+            {'kind': 'web', 'name': 'Baggrunden på hjemmesiden',
+             'desc': 'Svage flagermus, græskar, spøgelser, stjerner og slik '
+                     'bag indholdet på alle sider.'},
             {'kind': 'app', 'name': 'Logoet i appen',
              'desc': 'Spøgelset ved "MadShopper" øverst på forsiden.'},
+            {'kind': 'app', 'name': 'Baggrunden i appen',
+             'desc': 'Samme svage mønster bag forsidens indhold.'},
         ),
     },
     {

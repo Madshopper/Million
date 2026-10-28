@@ -6932,6 +6932,13 @@ html.c2 header .logo-icon--halloween {
   display: flex;
 }
 
+/* Svag Halloween-baggrund bag indholdet (samme Feature). Kortene har egen
+   bund, så mønstret ses kun i mellemrummene og svagt bag overskrifterne. */
+html.halloween body {
+  background-image: url('/static/images/halloween-baggrund.svg');
+  background-attachment: fixed;
+}
+
 html.c2 .logo-text {
   color: var(--c2-text);
   font-weight: 800;
