@@ -134,8 +134,10 @@ const config = {
   // kurven; app._FEATURES 'swipe' udgives på hjemmesiden, når den er ude.
   // 1.0.5 har design C2, tilbudsavis pr. butik og "Lagt i kurven"; de tre
   // udgives på hjemmesiden, når 1.0.5 er i App Store (Kalle 22-10-2026).
+  // 1.0.6 er Halloween-udgaven: kun spøgelses-logoet og baggrunden på
+  // forsiden (Feature 'halloween_logo', Kalle 28-10-2026).
   // Opskrifterne er ikke med (EXPO_PUBLIC_RECIPES_ENABLED er kun sat i testappen).
-  version: '1.0.5',
+  version: '1.0.6',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',

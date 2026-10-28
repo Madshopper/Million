@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 {# App-designet C2 (Feature 'design_c2'): klassen slår C2-reglerne i
    styles.css til. Altid til på dev.madshopper.dk. #}
-<html lang="da"{% if design_c2_enabled %} class="c2"{% endif %}>
+<html lang="da"{% if design_c2_enabled or halloween_logo_enabled %} class="{{ 'c2' if design_c2_enabled }}{{ ' ' if design_c2_enabled and halloween_logo_enabled }}{{ 'halloween' if halloween_logo_enabled }}"{% endif %}>
 
 <head>
   <meta charset="UTF-8">
@@ -36,7 +36,8 @@
        ALDRIG ?v= selv her - scripts/test-cache-bust.py fejler på det. HTML
        sendes med Cache-Control: no-store, så browseren henter frisk HTML (og
        nye hash-links) uden hard refresh. -->
-  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  {# Halloween-logoet (Feature 'halloween_logo') også i browserfanen. #}
+  <link rel="icon" href="{{ url_for('static', filename='favicon-halloween.svg' if halloween_logo_enabled else 'favicon.svg') }}" type="image/svg+xml">
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
@@ -134,6 +135,7 @@
   <header>
     <div class="header-top">
       <a href="{{ url_for('home') }}" class="logo-link">
+        {% if halloween_logo_enabled %}{% with logo_uid='top' %}{% include 'partials/halloween_logo.html' %}{% endwith %}{% else %}
         <div class="logo-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">
@@ -142,6 +144,7 @@
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
           </svg>
         </div>
+        {% endif %}
         <span class="logo-text">MadShopper</span>
       </a>
 
@@ -235,12 +238,14 @@
   <nav id="nav-menu" class="nav-menu">
     <div class="nav-header">
       <a href="{{ url_for('home') }}" class="logo-link">
+        {% if halloween_logo_enabled %}{% with logo_uid='nav' %}{% include 'partials/halloween_logo.html' %}{% endwith %}{% else %}
         <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round">
             <circle cx="9" cy="21" r="1" />
             <circle cx="20" cy="21" r="1" />
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
           </svg></div>
+        {% endif %}
         <span class="logo-text">MadShopper</span>
       </a>
       <button class="close-button" onclick="toggleMenu()" aria-label="Luk menu">&#x2715;</button>
@@ -819,6 +824,7 @@
   <footer>
     <div class="footer-inner">
       <div class="footer-brand">
+        {% if halloween_logo_enabled %}{% with logo_uid='foot' %}{% include 'partials/halloween_logo.html' %}{% endwith %}{% else %}
         <div class="logo-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">
@@ -827,6 +833,7 @@
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
           </svg>
         </div>
+        {% endif %}
         <span class="footer-brand-name">MadShopper</span>
       </div>
       <nav class="footer-links" aria-label="Footer navigation">

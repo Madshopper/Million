@@ -37,6 +37,11 @@ import { recipesEnabled } from '../config/env';
 import { setServerPushEnabled } from '../push/push';
 import { setServerSwipeEnabled } from '../cart/swipeFlag';
 import { setServerCartToastEnabled } from '../cart/CartToast';
+import {
+  HalloweenBackground,
+  setServerHalloweenLogoEnabled,
+  useHalloweenLogoEnabled,
+} from '../components/HalloweenLogo';
 import { setServerMejeriNavnEnabled } from '../categories/categories';
 import { setServerStatsEnabled } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
@@ -54,6 +59,7 @@ type HomeRow =
 export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
+  const halloween = useHalloweenLogoEnabled();
   const { user } = useAuth();
   // queryLabels (ikke selectedLabels): debouncet 300 ms som webben, saa et
   // hurtigt til-/fravalg af flere butikker i filter-arket giver ÉT /api/home-
@@ -123,6 +129,7 @@ export function HomeScreen() {
         setServerStatsEnabled(data.stats_enabled);
         setServerSwipeEnabled(data.swipe_enabled);
         setServerCartToastEnabled(data.kurv_besked_enabled);
+        setServerHalloweenLogoEnabled(data.halloween_logo_enabled);
         setServerMejeriNavnEnabled(data.mejeri_navn_enabled);
         setServerLokationEnabled(data.lokation_enabled);
         setOfferStores(data.butiksaviser_enabled ? data.offer_stores || [] : []);
@@ -203,6 +210,7 @@ export function HomeScreen() {
 
   return (
     <View style={{ height: listHeight, backgroundColor: colors.bg }}>
+      {halloween ? <HalloweenBackground /> : null}
       <FlatList
         style={{ height: listHeight }}
         data={rows}
