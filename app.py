@@ -212,6 +212,8 @@ _EDGE_ENV_VARS = (
     'DESIGN_C2_ENABLED',
     # Kun på staging: lille besked når en vare lægges i kurven (_FEATURES 'kurv_besked').
     'KURV_BESKED_ENABLED',
+    # Kun på staging: spøgelset i logoet til Halloween (_FEATURES 'halloween_logo').
+    'HALLOWEEN_LOGO_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -538,6 +540,8 @@ def _inject_site_meta():
         'swipe_enabled': _feature_enabled('swipe'),
         # "Lagt i kurven"-beskeden (Feature-panelet 'kurv_besked').
         'kurv_besked_enabled': _feature_enabled('kurv_besked'),
+        # Spøgelset i logoet til Halloween (Feature-panelet 'halloween_logo').
+        'halloween_logo_enabled': _feature_enabled('halloween_logo'),
         # "Køl & Mejeri" i kategorimenuen (Feature-panelet 'mejeri_navn').
         'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
         # Butikslogoer med tilbudsavis på forsiden (Feature-panelet 'butiksaviser').
@@ -1896,6 +1900,28 @@ _FEATURES = (
              'desc': 'Samme besked lige over fanerne i bunden, også ved + og '
                      'swipe inde i kurven. VoiceOver og '
                      'TalkBack siger som før hvilken vare der blev lagt i.'},
+        ),
+    },
+    {
+        'key': 'halloween_logo',
+        'name': 'Halloween-logo',
+        'env': 'HALLOWEEN_LOGO_ENABLED',
+        'desc': 'Et lille spøgelse i logoets kurv, der blinker, rækker tunge '
+                'og holder en græskar-slikspand (forslag C3, Kalle '
+                '27-10-2026). Kurven og den grønne farve er som altid. '
+                'Midlertidigt: slå det fra igen efter Halloween, så kommer '
+                'det normale logo tilbage.',
+        'app': 'MadShopper Test har det med det samme. Butiksappen får det '
+               'først med en ny App Store-version. Ikonet på telefonens '
+               'hjemmeskærm skifter ikke.',
+        'parts': (
+            {'kind': 'web', 'name': 'Logoet på hjemmesiden',
+             'desc': 'I toppen (også i det nye design, hvor kurven ellers er '
+                     'skjult), i menuen og i bunden af siden.'},
+            {'kind': 'web', 'name': 'Ikonet i browserfanen',
+             'desc': 'Spøgelset i det lille ikon i fanen.'},
+            {'kind': 'app', 'name': 'Logoet i appen',
+             'desc': 'Spøgelset ved "MadShopper" øverst på forsiden.'},
         ),
     },
     {
@@ -5823,6 +5849,8 @@ def api_home():
             'swipe_enabled': _feature_enabled('swipe'),
             # "Lagt i kurven"-beskeden: appen viser den samtidig med webben.
             'kurv_besked_enabled': _feature_enabled('kurv_besked'),
+            # Halloween-logoet: appen skifter logo samtidig med webben.
+            'halloween_logo_enabled': _feature_enabled('halloween_logo'),
             # "Køl & Mejeri": appen skifter kategorinavn samtidig med webben.
             'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
             # Tilbudsavis pr. butik: appen viser logoerne, når den er udgivet.

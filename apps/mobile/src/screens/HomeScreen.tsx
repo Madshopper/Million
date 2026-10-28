@@ -37,6 +37,7 @@ import { recipesEnabled } from '../config/env';
 import { setServerPushEnabled } from '../push/push';
 import { setServerSwipeEnabled } from '../cart/swipeFlag';
 import { setServerCartToastEnabled } from '../cart/CartToast';
+import { setServerHalloweenLogoEnabled } from '../components/HalloweenLogo';
 import { setServerMejeriNavnEnabled } from '../categories/categories';
 import { setServerStatsEnabled } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
@@ -123,6 +124,7 @@ export function HomeScreen() {
         setServerStatsEnabled(data.stats_enabled);
         setServerSwipeEnabled(data.swipe_enabled);
         setServerCartToastEnabled(data.kurv_besked_enabled);
+        setServerHalloweenLogoEnabled(data.halloween_logo_enabled);
         setServerMejeriNavnEnabled(data.mejeri_navn_enabled);
         setServerLokationEnabled(data.lokation_enabled);
         setOfferStores(data.butiksaviser_enabled ? data.offer_stores || [] : []);
