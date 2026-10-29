@@ -6914,6 +6914,31 @@ html.c2 header .logo-icon {
   display: none;
 }
 
+/* Halloween-logoet (Feature 'halloween_logo') har sin egen grønne bund og
+   fylder hele firkanten. Det vises også i C2-toppen: med spøgelset ligner det
+   ikke længere kurv-knappen. */
+.logo-icon--halloween {
+  background: none;
+  overflow: hidden;
+}
+
+.logo-icon--halloween svg,
+.footer-brand .logo-icon--halloween svg {
+  width: 100%;
+  height: 100%;
+}
+
+html.c2 header .logo-icon--halloween {
+  display: flex;
+}
+
+/* Svag Halloween-baggrund bag indholdet (samme Feature). Kortene har egen
+   bund, så mønstret ses kun i mellemrummene og svagt bag overskrifterne. */
+html.halloween body {
+  background-image: url('/static/images/halloween-baggrund.svg');
+  background-attachment: fixed;
+}
+
 html.c2 .logo-text {
   color: var(--c2-text);
   font-weight: 800;

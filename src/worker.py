@@ -589,6 +589,7 @@ class Env(Protocol):
     LOKATION_ENABLED: str
     DESIGN_C2_ENABLED: str
     KURV_BESKED_ENABLED: str
+    HALLOWEEN_LOGO_ENABLED: str
     STAGING_ACCESS_SECRET: str
     STAGING_APP_KEY: str
     # Admin: D1-budget og Trafik-fanen (app.py::_cf_graphql). EdgeKit udleverer
