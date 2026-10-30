@@ -917,7 +917,7 @@ function parsePricesFromProductCard(productElement) {
         const raw = productElement.dataset[`${key}Price`];
         if (raw !== undefined && raw !== '') {
             const p = parseFloat(String(raw).replace(',', '.'));
-            if (!Number.isNaN(p)) storePrices[label] = p;
+            if (!Number.isNaN(p) && p > 0) storePrices[label] = p;
         }
     });
 
@@ -925,7 +925,7 @@ function parsePricesFromProductCard(productElement) {
     const remaRaw = productElement.dataset.remaPrice;
     if (remaRaw !== undefined && remaRaw !== '') {
         const p = parseFloat(String(remaRaw).replace(',', '.'));
-        if (!Number.isNaN(p)) storePrices['Rema 1000'] = p;
+        if (!Number.isNaN(p) && p > 0) storePrices['Rema 1000'] = p;
     }
 
     return { storePrices, mainPrice };
@@ -1627,7 +1627,10 @@ function updateCartDisplay() {
                 }
                 itemStores[idx] = new Set();
                 for (const [label, p] of Object.entries(prices)) {
-                    if (p != null && !isNaN(p)) {
+                    // Pris 0 = butikken fører ikke varen (data-rema-price="0" på
+                    // kort uden Rema-match). Talt med gjorde den Rema til
+                    // "billigst" med 4 af 5 varer manglende.
+                    if (p != null && !isNaN(p) && Number(p) > 0) {
                         storeTotals[label] = (storeTotals[label] || 0) + Number(p) * item.quantity;
                         storeCovered[label] = (storeCovered[label] || 0) + 1;
                         itemStores[idx].add(label);
