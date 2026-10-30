@@ -6605,7 +6605,10 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
 .avis-page .product-weight,
 .avis-page .product-kg-price { display: none; }
 
-.avis-page .sale-badge {
+/* html.c2-udgaven med, ellers vinder html.c2 .sale-badge (top/left 8px) og
+   mærkatet strækkes over hele billedet som en stor gul pille. */
+.avis-page .sale-badge,
+html.c2 .avis-page .sale-badge {
   top: auto;
   left: auto;
   bottom: 6px;
@@ -6700,7 +6703,8 @@ body[data-theme="dark"] .avis-page::before { opacity: 0.1; filter: grayscale(1) 
   .avis-page .product-price .price-main { font-size: 1.05rem; padding: 1px 7px 2px; }
   .avis-page .add-to-cart-btn { width: 34px; height: 34px; }
   .avis-page .add-to-cart-btn svg { width: 16px; height: 16px; }
-  .avis-page .sale-badge { font-size: 0.62rem; padding: 4px 7px; bottom: 2px; right: 2px; }
+  .avis-page .sale-badge,
+  html.c2 .avis-page .sale-badge { font-size: 0.62rem; padding: 4px 7px; bottom: 2px; right: 2px; }
   .avis-page-foot { padding-top: 4px; font-size: 0.76rem; white-space: nowrap; }
   .avis-page-foot a { overflow: hidden; text-overflow: ellipsis; }
 }
