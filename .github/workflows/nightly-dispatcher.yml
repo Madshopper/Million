@@ -138,7 +138,9 @@ jobs:
           DAG=$(TZ=Europe/Copenhagen date +%u)
           dage_for() {
             case "$1" in
-              scraper-Bilka.yml) echo "5 6" ;;
+              # Bilka sætter mange almindelige priser ned midt i ugen: 39
+              # ændrede priser tirsdag, 331 onsdag og 480 torsdag 29-10-2026.
+              scraper-Bilka.yml) echo "5 6 3" ;;
               # Netto- og Føtex-katalog inkl. ugens tilbud (siden #83):
               # hver nat. Med kun fre-søn viste Netto tirsdag 13-10-2026
               # stadig 200 avisvarer, som Netto selv ikke længere havde på

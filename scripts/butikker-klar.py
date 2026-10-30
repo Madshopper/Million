@@ -10,6 +10,10 @@ butikkernes egne data og sammenligner med det, vi har gemt:
   pris end den, vi gemte i går (på en almindelig dag er det ca. 0 %).
 - Butikkens katalog skal være helt: Nettos søgeindeks var halvt tomt
   lørdag 24-10-2026 kl. 08:30 (2.536 af 4.622 varer) midt i skiftet.
+- Bilka og Føtex skal være synkroniseret i dag: deres avisvarer skifter ved
+  midnat, men de øvrige priser kommer først, når Salling genindlæser hele
+  indekset om morgenen (fredag 30-10-2026: Bilka kl. 07:03, Føtex kl. 07:39;
+  1.500 priser i hver butik blev sat ned dér, efter vores hentning kl. 06:13).
 
 Skrivebudget og hentning startes ikke herfra; scriptet skriver kun
 `klar=true|false` til GITHUB_OUTPUT. Afgøres af `butikker-klar.yml`.
@@ -70,15 +74,19 @@ def _algolia(index, params):
 
 
 def salling_nu(butik):
-    """(antal varer i hele indekset, {ean: pris} for avisvarerne)."""
+    """(antal varer i hele indekset, {ean: pris} for avisvarerne, tidspunktet
+    hvor den ældste avisvare sidst blev synkroniseret eller None)."""
     index = SALLING[butik]
     total = _algolia(index, {"params": "hitsPerPage=0"}).get("nbHits", 0)
-    tilbud = {}
+    tilbud, synk = {}, []
     for page in range(10):
         j = _algolia(index, {"params": f"hitsPerPage=1000&page={page}"
                                        "&filters=isInCurrentLeaflet:true",
-                             "attributesToRetrieve": ["gtin", "storeData"]})
+                             "attributesToRetrieve": ["gtin", "storeData",
+                                                      "last_syncronized"]})
         for h in j.get("hits") or []:
+            if h.get("last_syncronized"):
+                synk.append(h["last_syncronized"])
             priser = [v.get("price") for v in (h.get("storeData") or {}).values()
                       if v and v.get("price")]
             if h.get("gtin") and priser:
@@ -87,7 +95,7 @@ def salling_nu(butik):
                 tilbud[str(h["gtin"])] = sorted(p / 100 for p in priser)
         if page + 1 >= j.get("nbPages", 0):
             break
-    return total, tilbud
+    return total, tilbud, (min(synk) if synk else None)
 
 
 def dagrofa_nu(butik):
@@ -106,21 +114,35 @@ def dagrofa_nu(butik):
         # Multikøb gemmes med normalprisen; dem kan vi ikke bruge her.
         if p.get("sku") and 0 < rabat < normal and int(p.get("discountAmount") or 0) <= 1:
             tilbud[str(p["sku"])] = [rabat]
-    return j.get("total", 0), tilbud
+    return j.get("total", 0), tilbud, None
+
+
+def synk_i_dag(synk):
+    """Er Sallings indeks genindlæst i dag (dansk tid)? Netto og Dagrofa har
+    intet tidspunkt; dér afgør prisskiftet alene."""
+    if synk is None:
+        return True
+    dk = ZoneInfo("Europe/Copenhagen")
+    return datetime.fromtimestamp(synk, dk).date() == datetime.now(dk).date()
 
 
 def klar(butik):
     gemte = gemt(butik)
-    total, tilbud = (salling_nu if butik in SALLING else dagrofa_nu)(butik)
+    total, tilbud, synk = (salling_nu if butik in SALLING else dagrofa_nu)(butik)
     faelles = [e for e in tilbud if e in gemte]
     nye = [e for e in faelles
            if all(abs(gemte[e] - p) > 0.01 for p in tilbud[e])]
     andel = len(nye) / len(faelles) if faelles else 0.0
     helt = total >= len(gemte)
-    ok = helt and len(faelles) >= MIN_VARER and andel >= MIN_SKIFT
+    i_dag = synk_i_dag(synk)
+    ok = helt and i_dag and len(faelles) >= MIN_VARER and andel >= MIN_SKIFT
+    synk_txt = ""
+    if synk is not None:
+        synk_txt = ", synkroniseret " + datetime.fromtimestamp(
+            synk, ZoneInfo("Europe/Copenhagen")).strftime("%d-%m %H:%M")
     print(f"{butik}: {total} varer hos butikken (gemt {len(gemte)}), "
           f"{len(tilbud)} tilbud, {len(nye)} af {len(faelles)} med ny pris "
-          f"({andel:.0%}) -> {'klar' if ok else 'ikke klar'}")
+          f"({andel:.0%}){synk_txt} -> {'klar' if ok else 'ikke klar'}")
     return ok
 
 
