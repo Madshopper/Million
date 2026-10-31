@@ -2340,6 +2340,16 @@ def product_available_at_active_stores(product: dict, active_stores: set | None)
     return False
 
 
+# Butikker hvor vi ved præcis hvilke varer der er i ugens avis (Sallings
+# isInCurrentLeaflet, gemt som tilbud='Avis' af *_katalog.py; Meny/Spar/Min
+# Købmand fra deres egen iPaper-avis i dagrofa_scraper.py). For dem tæller
+# kun avisvarerne: deres øvrige tilbud (Skarp pris, webkampagner, multikøb,
+# butikkens egne rabatter) gav Føtex over 2.000 og Meny 830 "avisvarer"
+# (Kalle 10-10 og 14-10-2026). De andre butikkers tilbud er i forvejen
+# ugens tilbud. Bruges af app.py og scripts/seed-d1.py (offer_ids_v1).
+AVIS_LEAFLET_STORES = frozenset({'bilka', 'foetex', 'netto', 'meny', 'spar', 'mk'})
+
+
 def offer_group_key(product: dict, store_key: str, label: str) -> str | None:
     """Nøglen for det tilbud, varen hører til hos store_key, eller None (varen
     er sit eget tilbud). Ét tilbud i avisen ("Tapas") dækker ofte mange varer:

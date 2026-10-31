@@ -15,6 +15,7 @@ import urllib.parse
 import bisect
 
 from app_support import (
+    AVIS_LEAFLET_STORES,
     configure_logging, is_price_db_enabled, set_db_available, db_available,
     rate_limit, api_limiter, cart_event_limiter, _client_ip, search_product_ids,
     product_matches_query, product_matches_query_fuzzy, search_match_score, logger,
@@ -1312,7 +1313,7 @@ def _popular_product_ids(limit: int = 60) -> list[str]:
 
 
 def _d1_listing(base_where: list, base_params: list, args, page: int,
-                per_page: int, active_stores: set | None):
+                per_page: int, active_stores: set | None, default_order: str = ""):
     """SQL-pagineret produktliste - henter kun én side ad gangen fra D1."""
     where = list(base_where)
     params = list(base_params)
@@ -1385,6 +1386,8 @@ def _d1_listing(base_where: list, base_params: list, args, page: int,
             " ORDER BY CASE WHEN weight_g IS NULL OR weight_g <= 0 THEN 1 ELSE 0 END ASC,"
             " eff_price / weight_g ASC"
         )
+    if not order:
+        order = default_order
 
     # Uden filtre er antallet kendt fra seedet (_d1_stats) - sparer en
     # COUNT-scanning pr. kold kategori-/tilbudsside.
@@ -4210,14 +4213,8 @@ def _build_sale_listing(active_stores, args, page: int):
     return page_items, page, total_pages, total
 
 
-# Butikker hvor vi ved præcis hvilke varer der er i ugens avis (Sallings
-# isInCurrentLeaflet, gemt som tilbud='Avis' af *_katalog.py; Meny/Spar/Min
-# Købmand fra deres egen iPaper-avis i dagrofa_scraper.py). For dem tæller
-# kun avisvarerne: deres øvrige tilbud (Skarp pris, webkampagner, multikøb,
-# butikkens egne rabatter) gav Føtex over 2.000 og Meny 830 "avisvarer"
-# (Kalle 10-10 og 14-10-2026). De andre butikkers tilbud er i forvejen
-# ugens tilbud.
-_AVIS_LEAFLET_STORES = frozenset({'bilka', 'foetex', 'netto', 'meny', 'spar', 'mk'})
+# Butikker med kendt ugeavis: se app_support.AVIS_LEAFLET_STORES.
+_AVIS_LEAFLET_STORES = AVIS_LEAFLET_STORES
 
 
 def _as_store_offer(product: dict, store_key: str, label: str,
@@ -4325,6 +4322,47 @@ def _offer_savings(product: dict, store_key: str, label: str) -> float:
         return 0.0
 
 
+_OFFER_IDS_KV_KEY = 'offer_ids_v1'
+_NO_OFFER_IDS = object()
+
+
+def _store_offer_ids(store_key: str, leaflet: bool) -> list | None:
+    """Butikkens tilbud, ét id pr. tilbud, valgt af scripts/seed-d1.py med
+    samme regel som _store_offer_sql/_store_offer_key_sql (KV offer_ids_v1).
+    Med listen læser en side kun de varer den viser (id IN (...), ét
+    PK-opslag pr. vare) i stedet for at gennemgå alle ~5.800 tilbudsvarer to
+    gange: ~14.000 rows_read pr. forespørgsel, og crawlere sprængte D1's 5
+    mio. pr. døgn på to timer 31-10-2026. None = ukendt (nøglen mangler,
+    eller den er fra en anden regel end butikken bruger nu), så kalderen
+    bruger den gamle SQL."""
+    if not _IS_EDGE:
+        return None
+    try:
+        data = g.get('_offer_ids', _NO_OFFER_IDS)
+    except RuntimeError:
+        data = _NO_OFFER_IDS
+        in_request = False
+    else:
+        in_request = True
+    if data is _NO_OFFER_IDS:
+        data = _kv_get_json(_OFFER_IDS_KV_KEY)
+        if in_request:
+            g._offer_ids = data
+    entry = data.get(store_key) if isinstance(data, dict) else None
+    if not isinstance(entry, dict) or entry.get('rule') != ('a' if leaflet else 'o'):
+        return None
+    ids = entry.get('ids')
+    if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+        return None
+    return ids
+
+
+def _sql_id_list(ids: list) -> str:
+    """id'erne som SQL-tekstværdier. D1 tillader højst 100 bundne
+    parametre, så de skrives ind (citationstegn fordoblet)."""
+    return ",".join("'" + i.replace("'", "''") + "'" for i in ids)
+
+
 def _build_store_avis(store_key: str) -> dict:
     """Én butiks tilbudsavis (Feature 'butiksaviser'): "Ugens bedste tilbud"
     og et afsnit pr. kategori med de største besparelser først, samt antal
@@ -4339,12 +4377,16 @@ def _build_store_avis(store_key: str) -> dict:
     counts = {}
     if _use_d1():
         cond, savings = _store_offer_sql(store_key, leaflet)
+        # Kendte tilbud fra seedet (offer_ids_v1): kun de rækker læses.
+        offer_ids = _store_offer_ids(store_key, leaflet)
+        source = ("id IN (" + _sql_id_list(offer_ids) + ")"
+                  if offer_ids else "is_sale = 1")
         # Ét kort pr. tilbud (o): den variant der sparer mest. Afsnittet og
         # antallet følger den variant, så hvert tilbud tælles én gang.
-        rows = _d1_rows(
+        rows = [] if offer_ids == [] else _d1_rows(
             "WITH v AS (SELECT id, data, category, " + savings + " AS sv, "
             + _store_offer_key_sql(store_key) + " AS ok"
-            " FROM products WHERE is_sale = 1),"
+            " FROM products WHERE " + source + "),"
             " o AS (SELECT data, category, sv,"
             " ROW_NUMBER() OVER (PARTITION BY ok ORDER BY sv DESC, id) AS orn"
             " FROM v WHERE sv IS NOT NULL),"
@@ -4573,21 +4615,32 @@ def _build_store_offer_listing(store_key: str, args, page: int):
         # `is_sale = 1` skal stå bogstaveligt, så det partielle indeks bruges
         # (seed-d1.py); json_extract afgøres i D1, hvis CPU ikke tæller mod
         # workerens. Stien bygges kun af nøgler fra _STORE_CONFIGS.
-        cond, savings = _store_offer_sql(store_key, leaflet)
-        # Ét kort pr. tilbud, samme valg som avisen (_build_store_avis).
-        one_per_offer = (
-            "id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER"
-            " (PARTITION BY ok ORDER BY sv DESC, id) AS orn FROM"
-            " (SELECT id, " + savings + " AS sv, " + _store_offer_key_sql(store_key)
-            + " AS ok FROM products WHERE is_sale = 1 AND " + cond + "))"
-            " WHERE orn = 1)"
-        )
-        where, params = ["is_sale = 1", cond, one_per_offer], [label, label, label]
+        offer_ids = _store_offer_ids(store_key, leaflet)
+        if offer_ids is not None:
+            # Seedet har valgt ét id pr. tilbud (offer_ids_v1): COUNT og
+            # siden læser kun de varer, ikke alle tilbudsvarer. ORDER BY rowid
+            # giver samme rækkefølge som den gamle vej (tilbudsindekset).
+            where = ["id IN (" + _sql_id_list(offer_ids) + ")"] if offer_ids else ["0"]
+            params = []
+        else:
+            cond, savings = _store_offer_sql(store_key, leaflet)
+            # Ét kort pr. tilbud, samme valg som avisen (_build_store_avis).
+            one_per_offer = (
+                "id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER"
+                " (PARTITION BY ok ORDER BY sv DESC, id) AS orn FROM"
+                " (SELECT id, " + savings + " AS sv, " + _store_offer_key_sql(store_key)
+                + " AS ok FROM products WHERE is_sale = 1 AND " + cond + "))"
+                " WHERE orn = 1)"
+            )
+            where, params = ["is_sale = 1", cond, one_per_offer], [label, label, label]
         if category:
-            where.append("category = ?")
+            # "+category" med id-listen: ellers vælger D1 kategori-indekset
+            # og læser hele kategorien i stedet for de få tilbud.
+            where.append("+category = ?" if offer_ids is not None else "category = ?")
             params.append(category)
         raw_page, total_pages, page = _d1_listing(
             where, params, args, page, per_page, None,
+            default_order=" ORDER BY rowid" if offer_ids is not None else "",
         )
         source = filter_products_by_stores(raw_page, None)
     else:
