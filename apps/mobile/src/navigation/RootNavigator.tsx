@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Pressable, View } from 'react-native';
-import { Text, fontStyle } from '../theme/Typography';
+import { Text, cardShadow, fontStyle } from '../theme/Typography';
 import {
   NavigationContainer,
   createNavigationContainerRef,
@@ -166,6 +166,30 @@ function BackHeaderButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+/** Rund hvid tilbage-knap over opskriftens billede (C2, 31-10-2026). */
+function RoundBackButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel="Tilbage"
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...cardShadow(colors.shadow),
+      }}
+    >
+      <Ionicons name="chevron-back" size={22} color={colors.text} />
+    </Pressable>
+  );
+}
+
 type TabIconName = React.ComponentProps<typeof Ionicons>['name'];
 
 function tabIcon(focused: boolean, active: TabIconName, inactive: TabIconName): TabIconName {
@@ -291,6 +315,15 @@ function MainTabs() {
           options={({ navigation }) => ({
             title: 'Opskrifter',
             tabBarLabel: tabLabel('Opskrifter'),
+            // C2: overskriften til venstre på baggrunden, som forsiden.
+            headerTitle: () => (
+              <Text style={{ fontSize: 21, fontWeight: '800', letterSpacing: -0.3, color: colors.text }}>
+                Opskrifter
+              </Text>
+            ),
+            headerTitleAlign: 'left',
+            headerStyle: { backgroundColor: colors.bg },
+            headerShadowVisible: false,
             tabBarIcon: ({ color, focused }) => (
             <TabIcon focused={focused} color={color} active="restaurant" inactive="restaurant-outline" />
           ),
@@ -401,7 +434,15 @@ export function RootNavigator() {
           <Stack.Screen
             name="RecipeDetail"
             component={RecipeDetailScreen}
-            options={{ title: 'Opskrift' }}
+            options={({ navigation }) => ({
+              title: 'Opskrift',
+              // C2: billedet går helt op, og kun en rund tilbage-knap ligger over.
+              headerTransparent: true,
+              headerTitle: '',
+              headerShadowVisible: false,
+              headerStyle: { backgroundColor: 'transparent' },
+              headerLeft: () => <RoundBackButton onPress={() => navigation.goBack()} />,
+            })}
           />
         )}
         <Stack.Screen name="Sco" component={ScoScreen} options={{ title: 'Find billigste' }} />

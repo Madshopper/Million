@@ -39,6 +39,10 @@ export const lightColors = {
   warningMuted: '#FEF3C7',
   // Version C (18-10-2026): ét neutralt grå bag antalsvælgeren i kurven.
   stepperBg: '#F2F4EF',
+  // Sporet bag et segment (to faner som én pille), og den tomme kant på en
+  // afkrydsning (opskriftens "Har jeg"). Opskrifter i C2, 31-10-2026.
+  segmentBg: '#ECEEE8',
+  checkBorder: '#C9CFC3',
   // Fast hvid på de faste grønne flader (vinderkort, besparelses-banner) og
   // den lidt lysere boks inde i vinderkortet.
   onPrimary: '#FFFFFF',
@@ -78,6 +82,8 @@ export const darkColors = {
   warning: '#F5B94D',
   warningMuted: '#3A2E12',
   stepperBg: '#374151',
+  segmentBg: '#0B1220',
+  checkBorder: '#4B5563',
   onPrimary: '#FFFFFF',
   onPrimarySoft: 'rgba(255,255,255,0.14)',
   bannerBg: '#047857',

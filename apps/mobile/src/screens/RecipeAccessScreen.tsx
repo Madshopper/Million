@@ -70,7 +70,7 @@ export function RecipeAccessScreen() {
             style={[styles.btn, { backgroundColor: colors.primary, marginTop: 12 }]}
             accessibilityRole="button"
           >
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Til opskrifterne</Text>
+            <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Til opskrifterne</Text>
           </Pressable>
           {s.available ? (
             <Pressable
@@ -92,7 +92,7 @@ export function RecipeAccessScreen() {
             style={[styles.btn, { backgroundColor: colors.primary }]}
             accessibilityRole="button"
           >
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Log ind</Text>
+            <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>Log ind</Text>
           </Pressable>
         </View>
       ) : !s.available ? (
@@ -121,9 +121,9 @@ export function RecipeAccessScreen() {
             accessibilityState={{ disabled: !canBuy || s.busy, busy: s.busy }}
           >
             {s.busy ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Få adgang for {s.price} pr. måned</Text>
+              <Text style={{ color: colors.onPrimary, fontWeight: '700', fontSize: 16 }}>Få adgang for {s.price} pr. måned</Text>
             )}
           </Pressable>
         </View>

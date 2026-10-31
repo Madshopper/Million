@@ -11,56 +11,65 @@
     <p><a href="/">Til forsiden</a></p>
     {% else %}
 
+    {% set sale_pct = ((snapshot.ingredients_on_sale_count / snapshot.total_ingredient_count * 100) | round(0, 'floor') | int) if (snapshot and snapshot.total_ingredient_count and snapshot.ingredients_on_sale_count) else 0 %}
     <div class="recipe-hero">
-      {% if recipe.image_url %}
-      <div class="recipe-hero-image-wrap">
+      {# C2 (31-10-2026): billedet går kant til kant med en rund tilbage-knap
+         og den gule tilbuds-pille på billedet; resten ligger på et ark ovenpå. #}
+      <div class="recipe-hero-image-wrap{% if not recipe.image_url %} recipe-hero-image-wrap--empty{% endif %}">
+        {% if recipe.image_url %}
         <img src="{{ recipe.image_url }}" alt="{{ recipe.title }}" class="recipe-hero-image" loading="lazy">
+        {% elif feature_enabled('design_c2') %}
+        <span class="rc-ph recipe-hero-ph" data-ms-icon="restaurant-outline"></span>
+        {% else %}
+        <img src="{{ url_for('static', filename='images/opskrift-standard.svg') }}" alt="" class="recipe-hero-image recipe-hero-image--ph">
+        {% endif %}
+        <a href="/opskrifter" class="recipe-back" aria-label="Tilbage til opskrifterne" onclick="if (history.length > 1 && document.referrer.indexOf(location.host) !== -1) { history.back(); return false; }">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        </a>
+        {% if sale_pct > 0 %}<span class="recipe-hero-sale">{{ sale_pct }}% af varerne på tilbud</span>{% endif %}
       </div>
-      {% endif %}
       <div class="recipe-hero-info">
         <h1 class="recipe-title">{{ recipe.title }}</h1>
         <div class="recipe-pills">
-          {% if locked %}
-          <span class="recipe-pill">{{ recipe.servings or 4 }} personer</span>
-          {% else %}
-          <div class="recipe-pill recipe-servings-stepper" id="recipeServingsStepper" data-base-servings="{{ recipe.servings or 4 }}">
-            <button type="button" class="recipe-servings-btn" id="recipeServingsMinus" aria-label="Færre personer">−</button>
-            <span><span id="recipeServingsValue">{{ recipe.servings or 4 }}</span> personer</span>
-            <button type="button" class="recipe-servings-btn" id="recipeServingsPlus" aria-label="Flere personer">+</button>
-          </div>
-          {% endif %}
-          {% if recipe.total_time_minutes %}<span class="recipe-pill">{{ recipe.total_time_minutes }} min</span>{% endif %}
-          {% if snapshot and snapshot.ingredients_on_sale_count %}
-          <span class="recipe-pill recipe-pill--sale">{{ snapshot.ingredients_on_sale_count }} ingredienser på tilbud</span>
+          {% if recipe.total_time_minutes %}<span class="recipe-pill recipe-pill--time"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{ recipe.total_time_minutes }} min</span>{% endif %}
+          {% if locked %}<span class="recipe-pill">{{ recipe.servings or 4 }} personer</span>{% endif %}
+          {% if recipe.source_name or recipe.source_url %}
+          <span class="recipe-source">
+            Opskrift fra
+            {# Kun http(s)-links bliver til et link: et javascript:-link fra en brugeropskrift må aldrig kunne klikkes (sikkerhedstjek runde 3). #}
+            {% if (recipe.source_url and recipe.source_url.lower().startswith(('http://', 'https://'))) %}<a href="{{ recipe.source_url }}" rel="nofollow noopener" target="_blank">{{ recipe.source_name or recipe.source_url }}</a>{% else %}{{ recipe.source_name or 'en bruger' }}{% endif %}
+          </span>
           {% endif %}
         </div>
-        {% if recipe.source_name or recipe.source_url %}
-        <div class="recipe-source">
-          Opskrift fra
-          {# Kun http(s)-links bliver til et link: et javascript:-link fra en brugeropskrift må aldrig kunne klikkes (sikkerhedstjek runde 3). #}
-          {% if (recipe.source_url and recipe.source_url.lower().startswith(('http://', 'https://'))) %}<a href="{{ recipe.source_url }}" rel="nofollow noopener" target="_blank">{{ recipe.source_name or recipe.source_url }}</a>{% else %}{{ recipe.source_name or 'en bruger' }}{% endif %}
-        </div>
-        {% endif %}
 
         <div class="recipe-cta-card">
-          <div class="recipe-cta-price">
-            {% if snapshot and snapshot.cheapest_total_price %}
-            <span class="recipe-cta-amount" id="recipeCtaAmount">{{ "%.2f"|format(snapshot.cheapest_total_price) }} kr</span>
-            <span class="recipe-cta-label">for hele opskriften, billigste butik pr. vare</span>
-            {% else %}
-            <span class="recipe-cta-label">Prisen kunne ikke beregnes endnu</span>
-            {% endif %}
+          {% if not locked %}
+          <div class="recipe-cta-top">
+            <span class="recipe-cta-for">Ingredienser til</span>
+            <div class="recipe-servings-stepper" id="recipeServingsStepper" data-base-servings="{{ recipe.servings or 4 }}">
+              <button type="button" class="recipe-servings-btn" id="recipeServingsMinus" aria-label="Færre personer">−</button>
+              <span aria-live="polite"><span id="recipeServingsValue">{{ recipe.servings or 4 }}</span> personer</span>
+              <button type="button" class="recipe-servings-btn" id="recipeServingsPlus" aria-label="Flere personer">+</button>
+            </div>
           </div>
-          {% if snapshot and not locked %}
-          <div class="recipe-cta-match">{{ snapshot.matched_ingredient_count }} af {{ snapshot.total_ingredient_count }} ingredienser fundet i vores prissammenligning</div>
           {% endif %}
+          <div class="recipe-cta-price">
+            <span class="recipe-cta-logo" id="recipeCtaLogo" hidden></span>
+            <div class="recipe-cta-text">
+              {% if snapshot and not locked %}
+              <span class="recipe-cta-match" id="recipeCtaMatch">{{ snapshot.matched_ingredient_count }} af {{ snapshot.total_ingredient_count }} varer fundet</span>
+              {% endif %}
+              {% if snapshot and snapshot.cheapest_total_price %}
+              <span class="recipe-cta-amount" id="recipeCtaAmount">ca. {{ ("%.2f"|format(snapshot.cheapest_total_price)).replace('.', ',') }} kr</span>
+              {% else %}
+              <span class="recipe-cta-label" id="recipeCtaAmount">Prisen kunne ikke beregnes endnu</span>
+              {% endif %}
+            </div>
+          </div>
           {% if not locked %}
           <button type="button" class="recipe-add-all-btn" id="recipeAddAllBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-              <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
-            </svg>
-            Læg fundne varer i kurv
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <span id="recipeAddAllLabel">Læg fundne varer i kurven</span>
           </button>
           {% endif %}
         </div>
@@ -81,12 +90,17 @@
     </section>
     {% else %}
     <section class="recipe-section">
-      <h2>Ingredienser</h2>
+      <div class="recipe-section-head"><h2>Ingredienser</h2><span class="recipe-section-hint">Tryk på det, du har</span></div>
       <ul class="recipe-ingredient-list" id="recipeIngredientList">
         {% for ing in ingredients %}
         <li class="recipe-ingredient{% if not ing.matched_product %} recipe-ingredient--unmatched{% endif %}"
             data-ingredient-id="{{ ing.id }}"
             {% if ing.matched_product %}data-overlay-id="product{{ ing.matched_product.id }}" style="cursor:pointer;"{% endif %}>
+          {# "Har jeg" (C2): man har varen i forvejen. Den trækkes fra prisen og
+             lægges ikke i kurven. Gemmes kun i browseren (localStorage). #}
+          <button type="button" class="recipe-have" aria-pressed="false" aria-label="Har jeg: {{ ing.raw_text }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>
+          </button>
           {% if ing.matched_product %}
           <img src="{{ ing.matched_product.image }}" alt="" class="recipe-ingredient-thumb" loading="lazy">
           {% else %}
@@ -99,10 +113,13 @@
               ({{ ing.matched_product.unit_measure }} {{ ing.matched_product.name }} · {{ "%.2f"|format(ing.matched_product.price) }} kr)
               {% if ing.matched_product.is_sale %}<span class="recipe-ingredient-sale-tag">Tilbud</span>{% endif %}
             </span>
+            <span class="recipe-ingredient-sub">{{ ing.matched_product.name }}{% if ing.matched_product.unit_measure %} {{ ing.matched_product.unit_measure }}{% endif %} · {{ ing.matched_product.store }}</span>
             {% else %}
             <span class="recipe-ingredient-nomatch">Ikke fundet i prissammenligningen</span>
             {% endif %}
           </div>
+          <span class="recipe-ingredient-price{% if ing.matched_product and ing.matched_product.is_sale %} is-sale{% endif %}">{% if ing.matched_product %}{{ ("%.2f"|format(ing.matched_product.price)).replace('.', ',') }}{% else %}Ikke fundet{% endif %}</span>
+          <span class="recipe-ingredient-have-label">Har jeg</span>
         </li>
         {% endfor %}
       </ul>
@@ -134,44 +151,6 @@
       {% endfor %}
     </div>
 
-    {% if recipe.nutrition_source %}
-    <section class="recipe-section">
-      <h2>Næringsindhold</h2>
-      <div class="recipe-nutrition-box">
-        <div class="recipe-nutrition-row">
-          {% if recipe.nutrition_source.calories %}<span><strong>{{ recipe.nutrition_source.calories }}</strong> energi</span>{% endif %}
-          {% if recipe.nutrition_source.protein %}<span><strong>{{ recipe.nutrition_source.protein }}</strong> protein</span>{% endif %}
-          {% if recipe.nutrition_source.fat %}<span><strong>{{ recipe.nutrition_source.fat }}</strong> fedt</span>{% endif %}
-          {% if recipe.nutrition_source.carbohydrate %}<span><strong>{{ recipe.nutrition_source.carbohydrate }}</strong> kulhydrat</span>{% endif %}
-        </div>
-        <p class="recipe-nutrition-note">
-          Ifølge kilden{% if recipe.nutrition_source.serving_size %}, pr. {{ recipe.nutrition_source.serving_size }}{% endif %}.
-        </p>
-      </div>
-    </section>
-    {% elif recipe.nutrition_estimate %}
-    <section class="recipe-section">
-      <h2>Næringsindhold</h2>
-      <div class="recipe-nutrition-box" id="recipeNutritionBox"
-           data-base-kcal="{{ recipe.nutrition_estimate.kcal }}"
-           data-base-protein="{{ recipe.nutrition_estimate.protein }}"
-           data-base-fedt="{{ recipe.nutrition_estimate.fedt }}"
-           data-base-kulhydrat="{{ recipe.nutrition_estimate.kulhydrat }}">
-        <div class="recipe-nutrition-row">
-          <span><strong id="recipeNutritionKcal">{{ recipe.nutrition_estimate.kcal }}</strong> kcal</span>
-          <span><strong id="recipeNutritionProtein">{{ recipe.nutrition_estimate.protein }}</strong> g protein</span>
-          <span><strong id="recipeNutritionFedt">{{ recipe.nutrition_estimate.fedt }}</strong> g fedt</span>
-          <span><strong id="recipeNutritionKulhydrat">{{ recipe.nutrition_estimate.kulhydrat }}</strong> g kulhydrat</span>
-        </div>
-        <p class="recipe-nutrition-note">
-          Estimat for hele opskriften, baseret på {{ recipe.nutrition_estimate.contributing_ingredient_count }} af
-          {{ recipe.nutrition_estimate.total_ingredient_count }} ingredienser - kan afvige fra det faktiske indhold,
-          er mest tænkt som et udgangspunkt.
-        </p>
-      </div>
-    </section>
-    {% endif %}
-
     {% if recipe.instructions %}
     <section class="recipe-section">
       <h2>Fremgangsmåde</h2>
@@ -184,7 +163,45 @@
     {% elif (recipe.source_url and recipe.source_url.lower().startswith(('http://', 'https://'))) %}
     <section class="recipe-section">
       <h2>Fremgangsmåde</h2>
-      <p><a href="{{ recipe.source_url }}" rel="nofollow noopener" target="_blank">Se hele fremgangsmåden hos {{ recipe.source_name or 'kilden' }} →</a></p>
+      <p><a href="{{ recipe.source_url }}" rel="nofollow noopener" target="_blank">Se hele fremgangsmåden hos {{ recipe.source_name or 'kilden' }}</a></p>
+    </section>
+    {% endif %}
+
+    {# Næring (C2): fire små felter. Kildens egne tal vises som de står. #}
+    {% if recipe.nutrition_source %}
+    {% set ns = recipe.nutrition_source %}
+    <section class="recipe-section">
+      <div class="recipe-section-head"><h2>Næring{% if ns.serving_size %} pr. {{ ns.serving_size }}{% endif %}</h2></div>
+      <div class="recipe-nutrition-box">
+        <div class="recipe-nutrition-row">
+          {% if ns.calories %}<span class="rn-tile"><strong>{{ ns.calories }}</strong> <em>Energi</em></span>{% endif %}
+          {% if ns.protein %}<span class="rn-tile"><strong>{{ ns.protein }}</strong> <em>Protein</em></span>{% endif %}
+          {% if ns.fat %}<span class="rn-tile"><strong>{{ ns.fat }}</strong> <em>Fedt</em></span>{% endif %}
+          {% if ns.carbohydrate %}<span class="rn-tile"><strong>{{ ns.carbohydrate }}</strong> <em>Kulhydrat</em></span>{% endif %}
+        </div>
+        <p class="recipe-nutrition-note">Ifølge kilden.</p>
+      </div>
+    </section>
+    {% elif recipe.nutrition_estimate %}
+    <section class="recipe-section">
+      <div class="recipe-section-head"><h2>Næring for hele opskriften</h2><span class="recipe-section-hint">Estimat</span></div>
+      <div class="recipe-nutrition-box" id="recipeNutritionBox"
+           data-base-kcal="{{ recipe.nutrition_estimate.kcal }}"
+           data-base-protein="{{ recipe.nutrition_estimate.protein }}"
+           data-base-fedt="{{ recipe.nutrition_estimate.fedt }}"
+           data-base-kulhydrat="{{ recipe.nutrition_estimate.kulhydrat }}">
+        <div class="recipe-nutrition-row">
+          <span class="rn-tile"><strong><b id="recipeNutritionKcal">{{ recipe.nutrition_estimate.kcal }}</b> kcal</strong> <em>Energi</em></span>
+          <span class="rn-tile"><strong><b id="recipeNutritionProtein">{{ recipe.nutrition_estimate.protein }}</b> g</strong> <em>Protein</em></span>
+          <span class="rn-tile"><strong><b id="recipeNutritionFedt">{{ recipe.nutrition_estimate.fedt }}</b> g</strong> <em>Fedt</em></span>
+          <span class="rn-tile"><strong><b id="recipeNutritionKulhydrat">{{ recipe.nutrition_estimate.kulhydrat }}</b> g</strong> <em>Kulhydrat</em></span>
+        </div>
+        <p class="recipe-nutrition-note">
+          Estimat for hele opskriften, baseret på {{ recipe.nutrition_estimate.contributing_ingredient_count }} af
+          {{ recipe.nutrition_estimate.total_ingredient_count }} ingredienser. Det kan afvige fra det faktiske indhold
+          og er mest tænkt som et udgangspunkt.
+        </p>
+      </div>
     </section>
     {% endif %}
     {% endif %}
@@ -192,6 +209,14 @@
   </div>
 </div>
 
+{% if recipe and not recipe.image_url %}
+<script src="{{ url_for('static', filename='js/ms-icons.js') }}"></script>
+<script>
+  document.querySelectorAll('[data-ms-icon]').forEach(function (el) {
+    el.innerHTML = window.MSIcon(el.getAttribute('data-ms-icon'), 64);
+  });
+</script>
+{% endif %}
 {% if recipe and not locked %}
 <script type="application/json" id="recipe-ingredients-data">
   {{ ingredients | tojson }}
@@ -228,11 +253,13 @@
         // nødvendigvis serverens oprindelige match, hvis personer-tallet er
         // ændret og en anden pakkestørrelse er billigst for den mængde.
         const items = Object.values(ingredientsById)
-          .filter(function (ing) { return ing.currentProduct; })
+          .filter(function (ing) { return ing.currentProduct && !haveIds[ing.id]; })
           .map(function (ing) {
             return Object.assign({}, ing.currentProduct, { quantity: ing.currentUnits || 1 });
           });
         addRecipeToCart(items, btn);
+        // Knappen får sin gamle tekst tilbage efter 2 s; tal og "Har jeg" følger med.
+        setTimeout(function () { rerender(); }, 2100);
       });
     }
 
@@ -240,10 +267,44 @@
     // match (data-overlay-id opdateres af render()/renderIngredientMatch
     // nedenfor, når personer-skalering skifter til en anden kandidat-pakke).
     document.querySelectorAll('#recipeIngredientList .recipe-ingredient').forEach(function (li) {
-      li.addEventListener('click', function () {
+      li.addEventListener('click', function (e) {
+        const haveBtn = e.target.closest('.recipe-have');
+        if (haveBtn) {
+          e.stopPropagation();
+          toggleHave(li.dataset.ingredientId);
+          return;
+        }
         if (li.dataset.overlayId) openOverlay(li.dataset.overlayId);
       });
     });
+
+    // "Har jeg" (C2, 31-10-2026): gemt pr. opskrift i browseren, samme
+    // regel som appens src/recipes/have.ts. Varen trækkes fra prisen og
+    // lægges ikke i kurven.
+    const HAVE_KEY = 'ms_recipe_have_v1';
+    const RECIPE_ID = String({{ recipe.id }});
+    let haveIds = {};
+    try {
+      const all = JSON.parse(localStorage.getItem(HAVE_KEY) || '{}') || {};
+      (all[RECIPE_ID] || []).forEach(function (id) { haveIds[id] = true; });
+    } catch (e) { haveIds = {}; }
+    function saveHave() {
+      try {
+        const all = JSON.parse(localStorage.getItem(HAVE_KEY) || '{}') || {};
+        const ids = Object.keys(haveIds).map(Number);
+        delete all[RECIPE_ID];
+        if (ids.length) all[RECIPE_ID] = ids;
+        const keys = Object.keys(all);
+        keys.slice(0, Math.max(0, keys.length - 60)).forEach(function (k) { delete all[k]; });
+        localStorage.setItem(HAVE_KEY, JSON.stringify(all));
+      } catch (e) { /* privat vindue */ }
+    }
+    let rerender = function () {};
+    function toggleHave(id) {
+      if (haveIds[id]) delete haveIds[id]; else haveIds[id] = true;
+      saveHave();
+      rerender();
+    }
 
     // Personer-stepper: skalerer ingrediensmængderne, og genvurderer hvilken
     // kandidat-pakke der er billigst for den NYE mængde (fx en stor pakke der
@@ -309,6 +370,8 @@
         if (p.is_sale) matchEl.insertAdjacentHTML('beforeend', saleTag);
       }
       if (img && p.image) img.src = p.image;
+      const subEl = li.querySelector('.recipe-ingredient-sub');
+      if (subEl) subEl.textContent = [p.name, p.unit_measure].filter(Boolean).join(' ') + timesLabel + ' · ' + p.store;
       li.dataset.overlayId = 'product' + p.id; // "åbn produkt" følger den nu viste pakke
     }
 
@@ -317,6 +380,8 @@
       minusBtn.disabled = currentServings <= 1;
       const scale = currentServings / baseServings;
       let total = 0;
+      let needed = 0, found = 0, foundCost = 0, haveCost = 0;
+      const stores = {};
 
       document.querySelectorAll('#recipeIngredientList .recipe-ingredient').forEach(function (li) {
         const ing = ingredientsById[li.dataset.ingredientId];
@@ -357,15 +422,58 @@
           lineCost = ing.matched_product.price; // uskalerbar linje/scale=1 - fast pris
         }
         if (lineCost !== null) total += lineCost;
+
+        const owned = !!haveIds[ing.id];
+        li.classList.toggle('is-have', owned);
+        const haveBtn = li.querySelector('.recipe-have');
+        if (haveBtn) haveBtn.setAttribute('aria-pressed', owned ? 'true' : 'false');
+        const priceEl = li.querySelector('.recipe-ingredient-price');
+        if (priceEl && lineCost !== null) priceEl.textContent = lineCost.toFixed(2).replace('.', ',');
+        if (owned) {
+          if (lineCost !== null) haveCost += lineCost;
+        } else {
+          needed += 1;
+          if (lineCost !== null) {
+            found += 1;
+            foundCost += lineCost;
+            if (ing.currentProduct) stores[ing.currentProduct.store] = true;
+          }
+        }
       });
 
       // Ved scale=1 vises serverens egen snapshot-pris uændret (den kan afvige
       // ganske lidt fra klient-summen, da snapshottet ser på ALLE butikkers
       // priser pr. ingrediens, mens matched_product kun er kortets forside-
       // pris) - kun ved faktisk skalering erstattes den af klient-summen.
-      if (ctaAmountEl && total > 0 && scale !== 1) {
-        ctaAmountEl.textContent = total.toFixed(2).replace('.', ',') + ' kr';
+      const anyHave = Object.keys(haveIds).length > 0;
+      let shown = null;
+      if (anyHave) shown = found > 0 ? foundCost : null;
+      else if (total > 0 && scale !== 1) shown = total;
+      if (ctaAmountEl && (anyHave || scale !== 1)) {
+        ctaAmountEl.textContent = shown !== null ? 'ca. ' + shown.toFixed(2).replace('.', ',') + ' kr' : 'Pris ukendt';
       }
+      // Billigste butik: kun når alle de varer, man mangler, ligger i samme
+      // butik (som appen). Ellers vises kun prisen.
+      const storeNames = Object.keys(stores);
+      const one = storeNames.length === 1 ? storeNames[0] : null;
+      const matchEl = document.getElementById('recipeCtaMatch');
+      // Uden ingredienslinjer beholdes serverens tal.
+      if (matchEl && needed > 0) {
+        matchEl.textContent = (one ? 'Billigst i ' + one + ', ' : '') + found + ' af ' + needed + ' varer' + (one ? '' : ' fundet');
+      }
+      const logoEl = document.getElementById('recipeCtaLogo');
+      if (logoEl) {
+        if (one && typeof c2StoreLogo === 'function') {
+          logoEl.innerHTML = c2StoreLogo(one);
+          logoEl.hidden = false;
+        } else {
+          logoEl.hidden = true;
+        }
+      }
+      const addLabel = document.getElementById('recipeAddAllLabel');
+      if (addLabel && needed > 0) addLabel.textContent = 'Læg ' + found + (found === 1 ? ' vare' : ' varer') + ' i kurven';
+      const addBtn = document.getElementById('recipeAddAllBtn');
+      if (addBtn) addBtn.disabled = found === 0;
 
       // Næringsestimatet skalerer lineært med scale: alle bidragende
       // ingrediensers mængder ganges med samme faktor, så summen gør det
@@ -395,6 +503,7 @@
       render();
     });
 
+    rerender = render;
     render();
   });
 </script>

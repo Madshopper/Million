@@ -10,24 +10,35 @@ butiksfiltrering eller åbne en produkt-overlay med forkerte data ved klik.
 #}
 {% macro recipe_card(recipe, clickable=True) %}
 {% set tag = 'a' if clickable else 'div' %}
+{#- C2 (31-10-2026): tid-pille i billedet, "x af y varer fundet" og pris som
+    hyldeskilt med "ca." og "/ 4 pers.". Uden design C2 som før. -#}
+{%- set c2 = feature_enabled('design_c2') -%}
 <{{ tag }} {% if clickable %}href="/opskrift/{{ recipe.id }}" {% endif %}class="recipe-card{{ '' if clickable else ' recipe-card--teaser' }}" id="recipe{{ recipe.id }}">
   <div class="product-image-container">
     {% if clickable and recipe.sale_ratio and recipe.sale_ratio > 0 %}
     <span class="sale-badge">{{ (recipe.sale_ratio * 100) | round(0, 'floor') | int }}% på tilbud</span>
     {% endif %}
     <img src="{{ recipe.image_url or url_for('static', filename='images/opskrift-standard.svg') }}" alt="{{ recipe.title }}" class="product-image" loading="lazy">
+    {% if c2 and clickable and recipe.total_time_minutes %}
+    <span class="rc-time"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{ recipe.total_time_minutes }} min</span>
+    {% endif %}
   </div>
   <div class="product-content">
     <h3>{{ recipe.title }}</h3>
     {% if clickable and recipe.total_ingredient_count %}
-    <div class="product-weight">{{ recipe.matched_ingredient_count }}/{{ recipe.total_ingredient_count }} ingredienser fundet</div>
+    <div class="product-weight">{% if c2 %}{{ recipe.matched_ingredient_count }} af {{ recipe.total_ingredient_count }} varer fundet{% else %}{{ recipe.matched_ingredient_count }}/{{ recipe.total_ingredient_count }} ingredienser fundet{% endif %}</div>
     {% endif %}
   </div>
   <div class="product-footer">
     <div class="product-price">
       {% if clickable %}
         {% if recipe.cheapest_total_price %}
+        {% if c2 %}
+        {% set _s = "%.2f"|format(recipe.cheapest_total_price) %}
+        <div class="price-main price"><span class="rc-ca">ca.</span><span class="c2-kr">{{ _s.split('.')[0] }}</span><span class="c2-hide">.</span><sup class="c2-ore">{{ _s.split('.')[1] }}</sup><span class="c2-hide"> kr</span><span class="rc-per">/ {{ recipe.servings if (recipe.servings and recipe.servings > 0) else 4 }} pers.</span></div>
+        {% else %}
         <div class="price-main price">~{{ "%.2f"|format(recipe.cheapest_total_price) }} kr</div>
+        {% endif %}
         {% else %}
         <div class="price-main price">Pris ukendt</div>
         {% endif %}

@@ -42,46 +42,47 @@ export function switchPeriod(p: MealPrefs, period: BudgetPeriod): MealPrefs {
 }
 export const MAX_PEOPLE = 8;
 
-export type Choice = { key: string; label: string; icon: string };
+/** `icon` er et Ionicons-navn (ingen emoji i opskrift-delen, C2 31-10-2026).
+ * `short` er en kortere tekst til de små køkken-felter. */
+export type Choice = { key: string; label: string; icon: string; short?: string };
 
 export const MOODS: Choice[] = [
-  { key: 'hurtig', label: 'Hurtige retter', icon: '⏱️' },
-  { key: 'let', label: 'Lav kalorie', icon: '🥗' },
-  { key: 'familie', label: 'Familievenlig', icon: '👨‍👩‍👧' },
-  { key: 'sund', label: 'Sund og mættende', icon: '🥦' },
-  { key: 'takeaway', label: 'Hjemmelavet takeaway', icon: '🍕' },
-  { key: 'protein', label: 'Proteinrig', icon: '💪' },
+  { key: 'hurtig', label: 'Hurtige retter', icon: 'timer-outline' },
+  { key: 'let', label: 'Lav kalorie', icon: 'leaf-outline' },
+  { key: 'familie', label: 'Familievenlig', icon: 'people-outline' },
+  { key: 'sund', label: 'Sund og mættende', icon: 'heart-outline' },
+  { key: 'takeaway', label: 'Hjemmelavet takeaway', icon: 'bag-handle-outline' },
+  { key: 'protein', label: 'Proteinrig', icon: 'barbell-outline' },
 ];
 
 export const DIETS: Choice[] = [
-  { key: 'vegansk', label: 'Vegansk', icon: '🥑' },
-  { key: 'vegetar', label: 'Vegetar', icon: '🥕' },
-  { key: 'pescetar', label: 'Pescetar', icon: '🐟' },
-  { key: 'glutenfri', label: 'Glutenfri', icon: '🌾' },
-  { key: 'maelkefri', label: 'Mælkefri', icon: '🥛' },
+  { key: 'vegansk', label: 'Vegansk', icon: 'leaf-outline' },
+  { key: 'vegetar', label: 'Vegetar', icon: 'nutrition-outline' },
+  { key: 'pescetar', label: 'Pescetar', icon: 'fish-outline' },
+  { key: 'glutenfri', label: 'Glutenfri', icon: 'ban-outline' },
+  { key: 'maelkefri', label: 'Mælkefri', icon: 'water-outline' },
 ];
 
-export const POPULAR: [string, string][] = [
-  ['Hvidløg', '🧄'], ['Æg', '🥚'], ['Løg', '🧅'], ['Soja', '🍶'],
-  ['Mælk', '🥛'], ['Citron', '🍋'], ['Ingefær', '🫚'], ['Gulerod', '🥕'],
-  ['Tomat', '🍅'], ['Svampe', '🍄'], ['Græsk yoghurt', '🥣'], ['Peanuts', '🥜'],
-  ['Kylling', '🍗'], ['Kartoffel', '🥔'], ['Fløde', '🧈'], ['Agurk', '🥒'],
-  ['Koriander', '🌿'], ['Fisk', '🐟'], ['Chili', '🌶️'], ['Ost', '🧀'],
+/** "Populære" ingredienser i "Er der noget du vil undgå?": kun tekst. */
+export const POPULAR: string[] = [
+  'Hvidløg', 'Æg', 'Løg', 'Soja', 'Mælk', 'Citron', 'Ingefær', 'Gulerod',
+  'Tomat', 'Svampe', 'Græsk yoghurt', 'Peanuts', 'Kylling', 'Kartoffel', 'Fløde', 'Agurk',
+  'Koriander', 'Fisk', 'Chili', 'Ost',
 ];
 
 export const KITCHEN: Choice[] = [
-  { key: 'ovn', label: 'Ovn', icon: '♨️' },
-  { key: 'kogeplade', label: 'Kogeplade', icon: '🍳' },
-  { key: 'airfryer', label: 'Airfryer', icon: '🍟' },
-  { key: 'mikroovn', label: 'Mikroovn', icon: '📟' },
-  { key: 'blender', label: 'Blender eller foodprocessor', icon: '🥤' },
-  { key: 'stavblender', label: 'Stavblender', icon: '🪄' },
-  { key: 'roeremaskine', label: 'Røremaskine', icon: '🎂' },
-  { key: 'haandmixer', label: 'Håndmixer', icon: '🥣' },
-  { key: 'grill', label: 'Grill', icon: '🔥' },
-  { key: 'slowcooker', label: 'Slowcooker eller trykkoger', icon: '🍲' },
-  { key: 'elkedel', label: 'Elkedel', icon: '🫖' },
-  { key: 'broedrister', label: 'Brødrister', icon: '🍞' },
+  { key: 'ovn', label: 'Ovn', icon: 'flame-outline' },
+  { key: 'kogeplade', label: 'Kogeplade', icon: 'grid-outline' },
+  { key: 'airfryer', label: 'Airfryer', icon: 'thermometer-outline' },
+  { key: 'mikroovn', label: 'Mikroovn', icon: 'tv-outline' },
+  { key: 'blender', label: 'Blender eller foodprocessor', short: 'Blender', icon: 'beaker-outline' },
+  { key: 'stavblender', label: 'Stavblender', icon: 'color-wand-outline' },
+  { key: 'roeremaskine', label: 'Røremaskine', icon: 'cog-outline' },
+  { key: 'haandmixer', label: 'Håndmixer', icon: 'git-merge-outline' },
+  { key: 'grill', label: 'Grill', icon: 'bonfire-outline' },
+  { key: 'slowcooker', label: 'Slowcooker eller trykkoger', short: 'Slowcooker', icon: 'time-outline' },
+  { key: 'elkedel', label: 'Elkedel', icon: 'cafe-outline' },
+  { key: 'broedrister', label: 'Brødrister', icon: 'albums-outline' },
 ];
 
 /** Udstyr der kan klare det samme (stavblender purerer, håndmixer kan det
