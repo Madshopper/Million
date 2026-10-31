@@ -45,7 +45,7 @@ from app_support import (  # noqa: E402
     is_organic, is_lactose_free, parse_weight_to_grams,
     normalize_name, _PLACEHOLDER_IMGS,
     is_non_food_name, is_age_restricted, is_rema_tobacco_id, store_match_names,
-    offer_group_key,
+    offer_group_key, AVIS_LEAFLET_STORES,
 )
 from updater import get_search_flavor_keywords  # noqa: E402
 
@@ -356,6 +356,7 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
                    1 if (sale_price is not None or p.get("/product/is_any_sale")) else 0)
         if is_sale:
             _count_store_offers(stats, p)
+            _pick_store_offers(stats, p, pid, offer_keys)
     if postings is not None and rowid is not None:
         _add_postings(postings, search_text, rowid)
     return (
@@ -433,6 +434,94 @@ def _count_row(stats: dict, category: str, subcategory: str, is_sale: int) -> No
 
 
 _D1_STATS_KV_KEY = "d1_stats_v1"
+
+# --- Tilbudslister pr. butik i KV (læses af app.py::_store_offer_ids) -------
+#
+# /tilbud/<butik> fandt "ét kort pr. tilbud" med en vinduesfunktion over alle
+# ~5.800 tilbudsvarer, to gange pr. side (COUNT + SELECT): ~14.000 læste
+# rækker pr. forespørgsel. 31-10-2026 gennemgik to crawlere (CA og US) alle
+# kombinationer af afsnit, side og sortering, og ~180 sider sprængte de 5 mio.
+# rows_read på to timer. Her vælges de samme varer én gang pr. seed, med
+# samme regel som SQL'en (app.py::_store_offer_sql/_store_offer_key_sql), og
+# siden henter dem bagefter med id IN (...): ét PK-opslag pr. vare.
+_OFFER_IDS_KV_KEY = "offer_ids_v1"
+# D1 tillader højst 100 KB SQL pr. forespørgsel; større lister (fx Bilkas
+# alle tilbud, hvis avisen mangler) udelades, så app.py bruger den gamle vej.
+_OFFER_IDS_MAX = 1500
+
+
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _store_offer_savings(p: dict, key: str, label: str, leaflet: bool):
+    """Besparelsen som app.py::_store_offer_sql regner den, eller None hvis
+    varen ikke er et tilbud hos butikken efter den regel."""
+    if p.get("/product/store") == label and (
+            p.get("/product/own_avis") == 1 if leaflet else (
+                p.get("/product/sale_price") is not None
+                or p.get("/product/own_sale") == 1)):
+        sale, price = _num(p.get("/product/sale_price")), _num(p.get("/product/price"))
+        if sale is not None and price is not None and price > sale and price:
+            return 1.0 - sale / price
+        return 0.0
+    m = (p.get("/product/store_matches") or {}).get(key)
+    if isinstance(m, dict) and m.get("in_avis" if leaflet else "is_sale") == 1:
+        price, normal = _num(m.get("price")), _num(m.get("normal_price"))
+        if price is not None and normal is not None and normal > price and normal:
+            return 1.0 - price / normal
+        return 0.0
+    return None
+
+
+def _pick_store_offers(stats: dict, p: dict, pid: str, offer_keys: dict) -> None:
+    """Behold pr. butik, regel og tilbudsnøgle den vare der sparer mest (ved
+    lighed laveste id), præcis som ROW_NUMBER() OVER (PARTITION BY ok ORDER
+    BY sv DESC, id) i app.py."""
+    picks = stats.setdefault("_offer_picks", {})
+    for key, cfg in _STORE_CONFIGS.items():
+        for leaflet in ((False, True) if key in AVIS_LEAFLET_STORES else (False,)):
+            sv = _store_offer_savings(p, key, cfg["label"], leaflet)
+            if sv is None:
+                continue
+            ok = offer_keys.get(key) or pid
+            best = picks.setdefault((key, leaflet), {})
+            cur = best.get(ok)
+            if cur is None or sv > cur[0] or (sv == cur[0] and pid < cur[1]):
+                best[ok] = (sv, pid)
+
+
+def build_offer_ids(stats: dict) -> dict:
+    """{butik: {"rule": "a"|"o", "ids": [...]}} med den regel app.py::
+    _avis_leaflet vælger: avisvarer når butikken har en kendt avis, ellers
+    alle tilbud."""
+    picks = stats.get("_offer_picks", {})
+    avis = stats.get("avis_counts", {})
+    out = {}
+    for key in _STORE_CONFIGS:
+        leaflet = key in AVIS_LEAFLET_STORES and int(avis.get(key) or 0) > 0
+        ids = sorted(pid for _sv, pid in picks.get((key, leaflet), {}).values())
+        if len(ids) > _OFFER_IDS_MAX:
+            print(f"  {key}: {len(ids)} tilbud, for mange til offer_ids_v1 (bruger SQL)")
+            continue
+        out[key] = {"rule": "a" if leaflet else "o", "ids": ids}
+    return out
+
+
+def write_offer_ids(offer_ids: dict) -> None:
+    """Fejler blødt: uden nøglen bruger app.py den gamle SQL."""
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+        json.dump(offer_ids, f, separators=(",", ":"), ensure_ascii=False)
+        path = f.name
+    try:
+        _kv_all(["key", "put", _OFFER_IDS_KV_KEY, f"--path={path}"])
+    except Exception as e:
+        print(f"  advarsel: kunne ikke skrive {_OFFER_IDS_KV_KEY}: {e}")
+    finally:
+        os.unlink(path)
 
 # --- Søgeindeks i KV (læses af app.py::_sidx_search) -----------------------
 #
@@ -978,6 +1067,9 @@ def main() -> int:
 
     print("Skriver D1-optællinger til KV (d1_stats_v1) ...")
     write_d1_stats(stats)
+
+    print("Skriver tilbudslister pr. butik til KV (offer_ids_v1) ...")
+    write_offer_ids(build_offer_ids(stats))
 
     print("Forudberegner forside-data (sale/køl/favoritter) ...")
     write_home_data(build_home_data(products))
