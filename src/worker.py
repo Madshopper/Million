@@ -217,6 +217,41 @@ _CACHEABLE_QUERY_PARAMS = frozenset({
     "kategori",
 })
 
+# Værdierne normaliseres også (_canonical_query_value): app.py læser dem kun
+# som de her typer, så "sort=xyz", "organic=1" og "page=0" rendrer præcis som
+# en tom værdi, og "min_price=10.0" som "10". Uden det kunne en crawler lave
+# uendeligt mange cache-nøgler til samme side (31-10-2026 gik to crawlere
+# /tilbud/<butik> igennem og sprængte D1's 5 mio. rows_read). Nøglen beholdes
+# med tom værdi, fordi /tilbud/<butik> skelner på om parameteret findes.
+_SORT_VALUES = frozenset({"relevance", "price-asc", "price-desc", "kg-price-asc", "name-asc"})
+_BOOL_PARAMS = frozenset({"organic", "lactose", "sale"})
+_FLOAT_PARAMS = frozenset({"min_price", "max_price", "min_weight", "max_weight"})
+
+
+def _canonical_query_value(key: str, value: str) -> str:
+    if key == "sort":
+        return value if value in _SORT_VALUES else ""
+    if key in _BOOL_PARAMS:
+        return "true" if value == "true" else ""
+    v = value.strip()
+    if key == "page":
+        # app.py: request.args.get('page', 1, type=int), og side < 1 er side 1.
+        try:
+            n = int(v)
+        except ValueError:
+            return ""
+        return str(n) if n > 1 else ""
+    if key in _FLOAT_PARAMS:
+        try:
+            f = float(v)
+        except ValueError:
+            return ""
+        if f != f or f in (float("inf"), float("-inf")):
+            return value
+        return str(int(f)) if f == int(f) else repr(f)
+    return value
+
+
 # Single-flight for cache-miss renders pr. isolate. Uden dette renderer N
 # samtidige requests til samme kolde URL N gange i parallel - præcis det
 # mønster der giver Error 1101 efter deploy (cache_version-bump + CDN-purge)
@@ -897,7 +932,8 @@ class Default(WSGI[Env]):
         ver = await self._cache_version()
         parsed = urlparse(str(request.url))
         kept = sorted(
-            (k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True)
+            (k, _canonical_query_value(k, v))
+            for k, v in parse_qsl(parsed.query, keep_blank_values=True)
             if k in _CACHEABLE_QUERY_PARAMS
         )
         query = urlencode(kept)
