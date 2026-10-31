@@ -21,7 +21,7 @@ export type RootStackParamList = {
   };
   Cart: undefined;
   ProductDetail: { product: import('../api/types').Product };
-  RecipeDetail: { recipeId: number };
+  RecipeDetail: { recipeId: number; diets?: string[] };
   Sco: undefined;
   Route: undefined;
   Auth: undefined;

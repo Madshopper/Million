@@ -36,41 +36,42 @@
     return Math.min(b.max, Math.max(b.min, Math.round(v / b.step) * b.step));
   }
 
+  // Ikonerne er Ionicons-navne (static/js/ms-icons.js), samme som appen.
+  // Ingen emoji i opskrift-delen (C2, 31-10-2026).
   var MOODS = [
-    { key: 'hurtig', label: 'Hurtige retter', icon: '⏱️' },
-    { key: 'let', label: 'Lav kalorie', icon: '🥗' },
-    { key: 'familie', label: 'Familievenlig', icon: '👨‍👩‍👧' },
-    { key: 'sund', label: 'Sund og mættende', icon: '🥦' },
-    { key: 'takeaway', label: 'Hjemmelavet takeaway', icon: '🍕' },
-    { key: 'protein', label: 'Proteinrig', icon: '💪' }
+    { key: 'hurtig', label: 'Hurtige retter', icon: 'timer-outline' },
+    { key: 'let', label: 'Lav kalorie', icon: 'leaf-outline' },
+    { key: 'familie', label: 'Familievenlig', icon: 'people-outline' },
+    { key: 'sund', label: 'Sund og mættende', icon: 'heart-outline' },
+    { key: 'takeaway', label: 'Hjemmelavet takeaway', icon: 'bag-handle-outline' },
+    { key: 'protein', label: 'Proteinrig', icon: 'barbell-outline' }
   ];
   var DIETS = [
-    { key: 'vegansk', label: 'Vegansk', icon: '🥑' },
-    { key: 'vegetar', label: 'Vegetar', icon: '🥕' },
-    { key: 'pescetar', label: 'Pescetar', icon: '🐟' },
-    { key: 'glutenfri', label: 'Glutenfri', icon: '🌾' },
-    { key: 'maelkefri', label: 'Mælkefri', icon: '🥛' }
+    { key: 'vegansk', label: 'Vegansk', icon: 'leaf-outline' },
+    { key: 'vegetar', label: 'Vegetar', icon: 'nutrition-outline' },
+    { key: 'pescetar', label: 'Pescetar', icon: 'fish-outline' },
+    { key: 'glutenfri', label: 'Glutenfri', icon: 'ban-outline' },
+    { key: 'maelkefri', label: 'Mælkefri', icon: 'water-outline' }
   ];
+  // "Populære" ingredienser: kun tekst.
   var POPULAR = [
-    ['Hvidløg', '🧄'], ['Æg', '🥚'], ['Løg', '🧅'], ['Soja', '🍶'],
-    ['Mælk', '🥛'], ['Citron', '🍋'], ['Ingefær', '🫚'], ['Gulerod', '🥕'],
-    ['Tomat', '🍅'], ['Svampe', '🍄'], ['Græsk yoghurt', '🥣'], ['Peanuts', '🥜'],
-    ['Kylling', '🍗'], ['Kartoffel', '🥔'], ['Fløde', '🧈'], ['Agurk', '🥒'],
-    ['Koriander', '🌿'], ['Fisk', '🐟'], ['Chili', '🌶️'], ['Ost', '🧀']
+    'Hvidløg', 'Æg', 'Løg', 'Soja', 'Mælk', 'Citron', 'Ingefær', 'Gulerod',
+    'Tomat', 'Svampe', 'Græsk yoghurt', 'Peanuts', 'Kylling', 'Kartoffel', 'Fløde', 'Agurk',
+    'Koriander', 'Fisk', 'Chili', 'Ost'
   ];
   var KITCHEN = [
-    { key: 'ovn', label: 'Ovn', icon: '♨️' },
-    { key: 'kogeplade', label: 'Kogeplade', icon: '🍳' },
-    { key: 'airfryer', label: 'Airfryer', icon: '🍟' },
-    { key: 'mikroovn', label: 'Mikroovn', icon: '📟' },
-    { key: 'blender', label: 'Blender eller foodprocessor', icon: '🥤' },
-    { key: 'stavblender', label: 'Stavblender', icon: '🪄' },
-    { key: 'roeremaskine', label: 'Røremaskine', icon: '🎂' },
-    { key: 'haandmixer', label: 'Håndmixer', icon: '🥣' },
-    { key: 'grill', label: 'Grill', icon: '🔥' },
-    { key: 'slowcooker', label: 'Slowcooker eller trykkoger', icon: '🍲' },
-    { key: 'elkedel', label: 'Elkedel', icon: '🫖' },
-    { key: 'broedrister', label: 'Brødrister', icon: '🍞' }
+    { key: 'ovn', label: 'Ovn', icon: 'flame-outline' },
+    { key: 'kogeplade', label: 'Kogeplade', icon: 'grid-outline' },
+    { key: 'airfryer', label: 'Airfryer', icon: 'thermometer-outline' },
+    { key: 'mikroovn', label: 'Mikroovn', icon: 'tv-outline' },
+    { key: 'blender', label: 'Blender eller foodprocessor', short: 'Blender', icon: 'beaker-outline' },
+    { key: 'stavblender', label: 'Stavblender', icon: 'color-wand-outline' },
+    { key: 'roeremaskine', label: 'Røremaskine', icon: 'cog-outline' },
+    { key: 'haandmixer', label: 'Håndmixer', icon: 'git-merge-outline' },
+    { key: 'grill', label: 'Grill', icon: 'bonfire-outline' },
+    { key: 'slowcooker', label: 'Slowcooker eller trykkoger', short: 'Slowcooker', icon: 'time-outline' },
+    { key: 'elkedel', label: 'Elkedel', icon: 'cafe-outline' },
+    { key: 'broedrister', label: 'Brødrister', icon: 'albums-outline' }
   ];
   // Udstyr der kan klare det samme: en stavblender kan purere, og en
   // håndmixer kan det meste af en røremaskines arbejde.
@@ -172,25 +173,46 @@
              eligible: eligible.length, overBudget: overBudget };
   }
 
-  // --- Visning ---------------------------------------------------------------
+  // --- Visning (design C2, 31-10-2026: samme udseende som appens
+  // MealPlanWizard/MealPlanView; stilen ligger under html.c2 i styles.css) --
 
   var state = { recipes: [], prefs: null, step: 0, root: null, hooks: {} };
+  var OPTIONAL = ['diets', 'blocked'];
+  var MAX_MOODS = 3;
+  var QUICK_BUDGET = { uge: [300, 500, 750, 1000], maaned: [1500, 2000, 3000, 4000] };
 
+  function ic(name, size, cls) { return window.MSIcon ? window.MSIcon(name, size, cls) : ''; }
   function kr(n) { return n.toFixed(2).replace('.', ',') + ' kr'; }
   function krRound(n) { return Math.round(n).toLocaleString('da-DK') + ' kr'; }
 
   function card(item, selected, group) {
     return '<button type="button" class="mp-card' + (selected ? ' is-selected' : '') +
       '" data-group="' + group + '" data-key="' + esc(item.key) + '" aria-pressed="' + selected + '">' +
-      '<span class="mp-card-icon" aria-hidden="true">' + item.icon + '</span>' +
+      '<span class="mp-card-icon">' + ic(item.icon, 22) + '</span>' +
       '<span class="mp-card-label">' + esc(item.label) + '</span>' +
-      '<span class="mp-check" aria-hidden="true">✓</span></button>';
+      (selected ? '<span class="mp-check">' + ic('checkmark', 14) + '</span>' : '') + '</button>';
+  }
+
+  function quick(label, selected, attrs) {
+    return '<button type="button" class="mp-quick' + (selected ? ' is-selected' : '') + '" ' + attrs +
+      ' aria-pressed="' + selected + '">' + esc(label) + '</button>';
   }
 
   function stepHtml(name, p) {
     if (name === 'people') {
+      var unit = p.people === 1 ? 'person' : 'personer';
       return head('Hvem laver du mad til?', 'Så passer mængder og priser til jer.') +
-        counter('👥', 'Personer', p.people === 1 ? 'person' : 'personer', p.people, 'people', 1, PEOPLE_MAX);
+        '<div class="mp-bigcard">' + '<span class="mp-bigcard-icon">' + ic('people-outline', 34) + '</span>' +
+        '<div class="mp-counter-row">' +
+        '<button type="button" class="mp-round" data-act="people-" aria-label="Færre personer"' + (p.people <= 1 ? ' disabled' : '') + '>' + ic('remove', 28) + '</button>' +
+        '<div class="mp-counter-mid" aria-live="polite"><span class="mp-huge">' + p.people + '</span><span class="mp-muted">' + unit + '</span></div>' +
+        '<button type="button" class="mp-round mp-round--dark" data-act="people+" aria-label="Flere personer"' + (p.people >= PEOPLE_MAX ? ' disabled' : '') + '>' + ic('add', 28) + '</button>' +
+        '</div></div>' +
+        '<div class="mp-smallhead">Hurtigt valg</div><div class="mp-quickrow">' +
+        [1, 2, 3, 4, 5].map(function (n) {
+          return quick(n === 5 ? '5+' : String(n), n === 5 ? p.people >= 5 : p.people === n, 'data-people="' + n + '"');
+        }).join('') + '</div>' +
+        '<p class="mp-note">Du kan altid ændre antallet i madplanen, fx når I får gæster.</p>';
     }
     if (name === 'budget') {
       var b = BUDGET[p.budgetPeriod];
@@ -199,58 +221,70 @@
         return '<button type="button" class="mp-seg-btn' + (on ? ' is-selected' : '') + '" data-period="' + key +
           '" aria-pressed="' + on + '">' + label + '</button>';
       };
-      return head('Hvad er dit madbudget?', 'Træk til det beløb du gerne vil bruge.') +
+      return head('Hvad er dit madbudget?', 'Træk til det beløb, du gerne vil bruge.') +
         '<div class="mp-seg" role="group" aria-label="Budget pr.">' + seg('uge', 'Om ugen') + seg('maaned', 'Om måneden') + '</div>' +
-        '<div class="mp-budget"><span class="mp-big" id="mpBudgetVal">' + krRound(p.budget) + '</span>' +
-        '<span class="mp-muted">' + b.label + '</span></div>' +
+        '<div class="mp-budgetcard"><div class="mp-budget-amount"><span class="mp-huge" id="mpBudgetVal">' +
+        Math.round(p.budget).toLocaleString('da-DK') + '</span><span class="mp-budget-kr">kr</span></div>' +
+        '<div class="mp-budget-sub" id="mpBudgetSub">' + budgetSub(p) + '</div>' +
         '<input type="range" class="mp-range" id="mpBudget" min="' + b.min + '" max="' + b.max +
-        '" step="' + b.step + '" value="' + p.budget + '" aria-label="Budget ' + b.label + '">' +
-        '<div class="mp-range-labels"><span>' + krRound(b.min) + '</span><span>' + krRound(b.max) + '</span></div>';
+        '" step="' + b.step + '" value="' + p.budget + '" aria-label="Budget ' + b.label + '" style="--pct:' + budgetPct(p) + '%">' +
+        '<div class="mp-range-labels"><span>' + krRound(b.min) + '</span><span>' + krRound(b.max) + '</span></div></div>' +
+        '<div class="mp-quickrow mp-quickrow--budget">' +
+        QUICK_BUDGET[p.budgetPeriod].map(function (v) {
+          var val = clampBudget(v, p.budgetPeriod);
+          return quick(krRound(val), p.budget === val, 'data-budget="' + val + '"');
+        }).join('') + '</div>';
     }
     if (name === 'moods') {
-      return head('Hvad har du lyst til?', 'Vælg op til 3.') + '<div class="mp-grid">' +
-        MOODS.map(function (m) { return card(m, p.moods.indexOf(m.key) !== -1, 'moods'); }).join('') + '</div>';
+      return head('Hvad har du lyst til?', 'Vælg op til 3. Vi blander retterne efter det.') + '<div class="mp-grid">' +
+        MOODS.map(function (m) { return card(m, p.moods.indexOf(m.key) !== -1, 'moods'); }).join('') + '</div>' +
+        '<p class="mp-note" aria-live="polite">' + p.moods.length + ' af ' + MAX_MOODS + ' valgt</p>';
     }
     if (name === 'diets') {
       return head('Har du særlige kostbehov?', 'Spring over, hvis du spiser alt.') + '<div class="mp-grid">' +
         DIETS.map(function (d) { return card(d, p.diets.indexOf(d.key) !== -1, 'diets'); }).join('') + '</div>';
     }
     if (name === 'blocked') {
+      var isOn = function (n) { return p.blocked.some(function (b) { return fold(b) === fold(n); }); };
       var chosen = p.blocked.map(function (b) {
-        return '<button type="button" class="mp-chip is-selected" data-unblock="' + esc(b) +
-          '" aria-label="Fjern ' + esc(b) + '">' + esc(b) + ' <span aria-hidden="true">×</span></button>';
+        return '<button type="button" class="mp-darkpill" data-unblock="' + esc(b) +
+          '" aria-label="Fjern ' + esc(b) + '">' + esc(b) + '<span class="mp-darkpill-x">' + ic('close', 14) + '</span></button>';
       }).join('');
-      return head('Er der noget du vil undgå?', 'Søg efter ingredienser, der ikke skal med i dine madplaner. Fjern en igen for at tillade den.') +
-        '<div class="mp-search"><input type="text" id="mpBlockSearch" placeholder="Søg ingredienser..." autocomplete="off" aria-label="Søg ingredienser">' +
-        '<div class="mp-suggest" id="mpSuggest"></div></div>' +
-        (chosen ? '<div class="mp-chips">' + chosen + '</div>' : '') +
-        '<h3 class="mp-sub">Populære</h3><div class="mp-pop">' +
-        POPULAR.map(function (x) {
-          var on = p.blocked.some(function (b) { return fold(b) === fold(x[0]); });
-          return '<button type="button" class="mp-pop-item' + (on ? ' is-selected' : '') + '" data-block="' + esc(x[0]) +
-            '" aria-pressed="' + on + '"><span class="mp-pop-icon" aria-hidden="true">' + x[1] + '</span>' + esc(x[0]) + '</button>';
+      return head('Er der noget, du vil undgå?', 'Vi bruger dem ikke i dine madplaner. Fjern en igen for at tillade den.') +
+        '<div class="mp-search">' + ic('search', 20) +
+        '<input type="text" id="mpBlockSearch" placeholder="Søg efter en ingrediens" autocomplete="off" aria-label="Søg efter en ingrediens"></div>' +
+        '<div class="mp-chips mp-suggest" id="mpSuggest"></div>' +
+        (chosen ? '<div class="mp-smallhead">Undgår du (' + p.blocked.length + ')</div><div class="mp-chips">' + chosen + '</div>' : '') +
+        '<div class="mp-smallhead">Populære</div><div class="mp-chips">' +
+        POPULAR.filter(function (n) { return !isOn(n); }).map(function (n) {
+          return '<button type="button" class="mp-addpill" data-block="' + esc(n) + '" aria-label="Undgå ' + esc(n) + '">' +
+            ic('add', 16) + esc(n) + '</button>';
         }).join('') + '</div>';
     }
     // kitchen
-    return head('Hvad har du i køkkenet?', 'Vælg det udstyr du har.') + '<div class="mp-kitchen">' +
+    return head('Hvad har du i køkkenet?', 'Vælg det udstyr, du har. Så foreslår vi kun retter, du kan lave.') + '<div class="mp-kitchen">' +
       KITCHEN.map(function (k) {
         var on = p.kitchen.indexOf(k.key) !== -1;
-        return '<button type="button" class="mp-chip' + (on ? ' is-selected' : '') + '" data-group="kitchen" data-key="' + k.key +
-          '" aria-pressed="' + on + '"><span aria-hidden="true">' + k.icon + '</span> ' + esc(k.label) + '</button>';
+        return '<button type="button" class="mp-kcell' + (on ? ' is-selected' : '') + '" data-group="kitchen" data-key="' + k.key +
+          '" aria-pressed="' + on + '" aria-label="' + esc(k.label) + '">' + ic(k.icon, 30) +
+          '<span>' + esc(k.short || k.label) + '</span>' +
+          (on ? '<span class="mp-check mp-check--small">' + ic('checkmark', 12) + '</span>' : '') + '</button>';
       }).join('') + '</div>';
   }
 
-  // Én række med ikon, tekst og plus/minus (antal personer, aftener).
-  function counter(icon, label, unit, value, key, min, max) {
-    return '<div class="mp-counter"><span class="mp-counter-icon" aria-hidden="true">' + icon + '</span>' +
-      '<div class="mp-counter-text"><strong>' + esc(label) + '</strong><span class="mp-muted">' + value + ' ' + esc(unit) + '</span></div>' +
-      '<button type="button" class="mp-round" data-act="' + key + '-" aria-label="Færre ' + esc(label.toLowerCase()) + '"' + (value <= min ? ' disabled' : '') + '>−</button>' +
-      '<span class="mp-counter-val" aria-live="polite">' + value + '</span>' +
-      '<button type="button" class="mp-round mp-round--dark" data-act="' + key + '+" aria-label="Flere ' + esc(label.toLowerCase()) + '"' + (value >= max ? ' disabled' : '') + '>+</button></div>';
+  function budgetPct(p) {
+    var b = BUDGET[p.budgetPeriod];
+    return Math.round(Math.min(1, Math.max(0, (p.budget - b.min) / (b.max - b.min))) * 100);
+  }
+
+  function budgetSub(p) {
+    var perDay = Math.round(weeklyBudget(p) / Math.max(1, p.people) / 7);
+    return BUDGET[p.budgetPeriod].label + ' · ca. ' + perDay + ' kr pr. person pr. dag';
   }
 
   function head(title, sub) {
-    return '<h2 class="mp-title">' + esc(title) + '</h2><p class="mp-muted mp-subtitle">' + esc(sub) + '</p>';
+    return '<div class="mp-steplabel">Trin ' + (state.step + 1) + ' af ' + STEPS.length + '</div>' +
+      '<h2 class="mp-title">' + esc(title) + '</h2><p class="mp-subtitle">' + esc(sub) + '</p>';
   }
 
   // Nyt trin = start øverst i spørgsmålet, ikke midt på siden.
@@ -262,14 +296,19 @@
   function renderWizard() {
     var p = state.prefs, name = STEPS[state.step];
     var last = state.step === STEPS.length - 1;
-    var pct = Math.round(((state.step + 1) / STEPS.length) * 100);
+    var canBack = state.step > 0 || p.done;
+    var bars = STEPS.map(function (s, i) {
+      return '<span class="' + (i <= state.step ? 'is-on' : '') + '"></span>';
+    }).join('');
     state.root.innerHTML =
       '<div class="mp-wizard" role="region" aria-label="Spørgsmål til din madplan">' +
-      '<div class="mp-top"><button type="button" class="mp-back" data-act="back" aria-label="Tilbage"' +
-      (state.step === 0 && !p.done ? ' style="visibility:hidden"' : '') + '>‹</button>' +
-      '<div class="mp-progress" role="progressbar" aria-valuenow="' + (state.step + 1) + '" aria-valuemin="1" aria-valuemax="' + STEPS.length +
-      '"><span style="width:' + pct + '%"></span></div>' +
-      '<span class="mp-muted mp-count">' + (state.step + 1) + '/' + STEPS.length + '</span></div>' +
+      '<div class="mp-top"><div class="mp-top-side">' +
+      (canBack ? '<button type="button" class="mp-back" data-act="back" aria-label="Tilbage">' + ic('chevron-back', 22) + '</button>' : '') +
+      '</div><div class="mp-progress" role="progressbar" aria-valuenow="' + (state.step + 1) + '" aria-valuemin="1" aria-valuemax="' +
+      STEPS.length + '" aria-label="Trin ' + (state.step + 1) + ' af ' + STEPS.length + '">' + bars + '</div>' +
+      '<div class="mp-top-side mp-top-side--right">' +
+      (OPTIONAL.indexOf(name) !== -1 ? '<button type="button" class="mp-skip" data-act="skip">Spring over</button>' : '') +
+      '</div></div>' +
       '<div class="mp-body">' + stepHtml(name, p) + '</div>' +
       '<button type="button" class="mp-next" data-act="next"' +
       (name === 'kitchen' && !p.kitchen.length ? ' disabled' : '') + '>' +
@@ -281,10 +320,15 @@
   function bindBudget() {
     var input = document.getElementById('mpBudget');
     var val = document.getElementById('mpBudgetVal');
+    var sub = document.getElementById('mpBudgetSub');
     input.addEventListener('input', function () {
       state.prefs.budget = parseInt(input.value, 10) || BUDGET[state.prefs.budgetPeriod].min;
-      val.textContent = krRound(state.prefs.budget);
+      val.textContent = Math.round(state.prefs.budget).toLocaleString('da-DK');
+      sub.textContent = budgetSub(state.prefs);
+      input.style.setProperty('--pct', budgetPct(state.prefs) + '%');
     });
+    // Hurtigvalgene følger med, når man slipper skyderen.
+    input.addEventListener('change', renderWizard);
   }
 
   function allIngredientNames() {
@@ -311,7 +355,7 @@
       // Det man selv skriver kan altid vælges, også uden træf i opskrifterne.
       if (!hits.some(function (h) { return fold(h) === q; })) hits.unshift(input.value.trim());
       box.innerHTML = hits.map(function (h) {
-        return '<button type="button" class="mp-suggest-item" data-block="' + esc(h) + '">' + esc(h) + '</button>';
+        return '<button type="button" class="mp-addpill" data-block="' + esc(h) + '">' + ic('add', 16) + esc(h) + '</button>';
       }).join('');
     });
     input.addEventListener('keydown', function (e) {
@@ -336,6 +380,15 @@
     return true;
   }
 
+  function next() {
+    var p = state.prefs;
+    if (state.step < STEPS.length - 1) { state.step++; renderWizard(); return toTop(); }
+    p.done = true;
+    savePrefs(p);
+    renderLoading();
+    return toTop();
+  }
+
   function onClick(e) {
     var t = e.target.closest('button');
     if (!t || !state.root.contains(t)) return;
@@ -345,15 +398,9 @@
     if (act === 'people+') { p.people = Math.min(PEOPLE_MAX, p.people + 1); return renderWizard(); }
     if (act === 'back') {
       if (state.step > 0) { state.step--; renderWizard(); return toTop(); }
-      return renderPlan();  // "Ret mine svar" fortrudt: tilbage til planen
+      return renderPlan();  // "Ret svar" fortrudt: tilbage til planen
     }
-    if (act === 'next') {
-      if (state.step < STEPS.length - 1) { state.step++; renderWizard(); return toTop(); }
-      p.done = true;
-      savePrefs(p);
-      renderLoading();
-      return toTop();
-    }
+    if (act === 'next' || act === 'skip') return next();
     if (act === 'plan-people-' || act === 'plan-people+') {
       p.people = Math.min(PEOPLE_MAX, Math.max(1, p.people + (act === 'plan-people+' ? 1 : -1)));
       savePrefs(p);
@@ -370,10 +417,12 @@
       savePrefs(p);
       return renderPlan();
     }
+    if (t.hasAttribute('data-people')) { p.people = parseInt(t.getAttribute('data-people'), 10); return renderWizard(); }
+    if (t.hasAttribute('data-budget')) { p.budget = parseInt(t.getAttribute('data-budget'), 10); return renderWizard(); }
     var group = t.getAttribute('data-group');
     if (group) {
       var key = t.getAttribute('data-key');
-      if (group === 'moods' && !toggleIn(p.moods, key, 3)) {
+      if (group === 'moods' && !toggleIn(p.moods, key, MAX_MOODS)) {
         flash(t);
         return;
       }
@@ -401,42 +450,45 @@
     el.classList.add('mp-shake');
   }
 
-  // MadShoppers egen "tænker"-skærm: tre trin der krydses af, så man kan se
-  // hvad der sker (opskrifter, priser, budget).
+  // "Vi laver din madplan": en ring drejer, og tre linjer krydses af.
   function renderLoading() {
-    var steps = ['Finder opskrifter der passer til jer', 'Tjekker priserne i butikkerne', 'Holder planen inden for budgettet'];
+    var p = state.prefs;
+    var steps = ['Finder retter, der passer til jer', 'Tjekker priserne i butikkerne', 'Holder planen inden for budgettet'];
     state.root.innerHTML = '<div class="mp-loading" role="status">' +
-      '<div class="mp-loading-icon" aria-hidden="true">🛒</div>' +
-      '<h2 class="mp-title">Vi laver din madplan</h2><ul class="mp-checklist">' +
-      steps.map(function (t, i) { return '<li style="animation-delay:' + (i * 0.35) + 's">' + esc(t) + '</li>'; }).join('') +
-      '</ul></div>';
+      '<div class="mp-loading-circle"><span class="mp-loading-ring"></span>' + ic('restaurant-outline', 52) + '</div>' +
+      '<h2 class="mp-title">Vi laver din madplan</h2>' +
+      '<p class="mp-loading-sub">' + p.people + (p.people === 1 ? ' person' : ' personer') + ' · ' +
+      krRound(p.budget) + ' ' + BUDGET[p.budgetPeriod].label + '</p>' +
+      '<ul class="mp-checklist">' +
+      steps.map(function (t, i) {
+        return '<li class="' + (i ? 'is-waiting' : 'is-current') + '"><span class="mp-cl-mark">' + ic('checkmark', 15) + '</span>' + esc(t) + '</li>';
+      }).join('') + '</ul></div>';
+    var items = state.root.querySelectorAll('.mp-checklist li');
+    function mark(n) {
+      Array.prototype.forEach.call(items, function (li, i) {
+        li.className = i < n ? 'is-done' : i === n ? 'is-current' : 'is-waiting';
+      });
+    }
+    setTimeout(function () { mark(1); }, 450);
+    setTimeout(function () { mark(2); }, 900);
     setTimeout(renderPlan, 1400);
   }
 
-  var MOOD_LABEL = {};
-  MOODS.forEach(function (m) { MOOD_LABEL[m.key] = m; });
-
-  // Opskrifter uden billede får en farvet flade med en ret-emoji, så kortene
-  // ikke står grå. Farve og emoji følger id'et, så de ikke skifter.
-  var PLACEHOLDER = ['🍲', '🥘', '🍝', '🥗', '🌮', '🍛'];
-
-  function mealCard(x, i, p) {
+  function mealRow(x, i, p) {
     var r = x.r, pinned = p.pinned.indexOf(r.id) !== -1;
-    var tags = r.plan.moods.filter(function (m) { return p.moods.indexOf(m) !== -1; }).slice(0, 2)
-      .map(function (m) { return '<span class="mp-tag">' + MOOD_LABEL[m].icon + ' ' + esc(MOOD_LABEL[m].label) + '</span>'; }).join('');
     var img = r.image_url
       ? '<img src="' + esc(r.image_url) + '" alt="" loading="lazy">'
-      : '<span class="mp-ph mp-ph-' + (r.id % 4) + '" aria-hidden="true">' + PLACEHOLDER[r.id % PLACEHOLDER.length] + '</span>';
-    return '<article class="mp-mcard' + (pinned ? ' is-pinned' : '') + '" style="animation-delay:' + (i * 0.06) + 's">' +
-      '<a class="mp-mcard-link" href="/opskrift/' + r.id + '" aria-label="' + DAYS[i] + ': ' + esc(r.title) + ', ca. ' + kr(x.price) + '">' +
-      '<div class="mp-mcard-img' + (r.image_url ? ' has-img' : '') + '">' + img +
-      '<span class="mp-mcard-day">' + DAYS[i] + '</span>' +
-      '<span class="mp-mcard-price">ca. ' + krRound(x.price) + '</span></div>' +
-      '<div class="mp-mcard-body"><h3>' + esc(r.title) + '</h3>' +
-      (tags ? '<div class="mp-tags">' + tags + '</div>' : '') + '</div></a>' +
-      '<button type="button" class="mp-mcard-pin' + (pinned ? ' is-selected' : '') + '" data-act="pin" data-id="' + r.id +
+      : '<span class="mp-ph">' + ic('restaurant-outline', 30) + '</span>';
+    var time = r.total_time_minutes ? ' · ' + r.total_time_minutes + ' min' : '';
+    return '<div class="mp-row">' +
+      '<a class="mp-row-link" href="/opskrift/' + r.id + '" aria-label="' + DAYS[i] + ': ' + esc(r.title) + ', ca. ' + kr(x.price) + '">' +
+      '<span class="mp-row-img">' + img + '</span><span class="mp-row-text">' +
+      '<span class="mp-row-day">' + DAYS[i] + '</span>' +
+      '<span class="mp-row-title">' + esc(r.title) + '</span>' +
+      '<span class="mp-row-meta">ca. ' + krRound(x.price) + time + '</span></span></a>' +
+      '<button type="button" class="mp-pin' + (pinned ? ' is-selected' : '') + '" data-act="pin" data-id="' + r.id +
       '" aria-pressed="' + pinned + '" aria-label="' + (pinned ? 'Lås op: ' : 'Lås: ') + esc(r.title) + '">' +
-      (pinned ? '🔒' : '🔓') + '</button></article>';
+      ic(pinned ? 'lock-closed' : 'lock-open-outline', 18) + '</button></div>';
   }
 
   function renderPlan() {
@@ -454,37 +506,31 @@
         : 'Ingen af vores opskrifter passer til dine svar endnu. Der kommer flere opskrifter løbende.';
     } else if (n < DAYS.length) {
       note = 'Vi fandt ' + n + (n === 1 ? ' ret' : ' retter') +
-        ' der passer til dine svar og dit budget. Der kommer flere opskrifter løbende.';
+        ', der passer til dine svar og dit budget. Der kommer flere opskrifter løbende.';
     }
-    // Ugens 7 dage som prikker: fyldt = der er en ret den dag.
-    var dots = DAYS.map(function (d, i) {
-      return '<span class="mp-dot' + (i < n ? ' is-on' : '') + '" title="' + d + '">' + d.charAt(0) + '</span>';
-    }).join('');
     state.root.innerHTML =
       '<section class="mp-plan" aria-label="Din madplan">' +
-      '<div class="mp-hero' + (over ? ' is-over' : '') + '">' +
-      '<div class="mp-hero-top"><span class="mp-hero-kicker">Ugens madplan</span>' +
-      '<button type="button" class="mp-hero-edit" data-act="edit">✏️ Ret svar</button></div>' +
-      '<div class="mp-hero-main">' +
-      '<div class="mp-ring" style="--pct:' + pct + '" role="img" aria-label="' + pct + ' procent af budgettet brugt">' +
-      '<div class="mp-ring-in"><strong>' + pct + '%</strong><span>af budget</span></div></div>' +
-      '<div class="mp-hero-text"><div class="mp-hero-price">' + krRound(plan.total) + '</div>' +
-      '<div class="mp-hero-sub">for ' + n + (n === 1 ? ' ret' : ' retter') + ' · budget ' + krRound(week) + '</div>' +
-      (p.budgetPeriod === 'maaned' ? '<div class="mp-hero-sub">Ugens del af ' + krRound(p.budget) + ' om måneden</div>' : '') +
-      (n ? '<div class="mp-hero-left">' + (over ? '⚠️ ' + krRound(-left) + ' over budget' : '🎉 ' + krRound(left) + ' tilbage') + '</div>' : '') +
-      '</div></div>' +
-      '<div class="mp-hero-foot">' +
+      '<div class="mp-banner' + (over ? ' is-over' : '') + '">' +
+      '<div class="mp-banner-top"><span class="mp-kicker">Ugens madplan · ' + n + (n === 1 ? ' ret' : ' retter') + '</span>' +
+      '<button type="button" class="mp-edit" data-act="edit">' + ic('pencil', 13) + 'Ret svar</button></div>' +
+      '<div class="mp-amount"><span class="mp-amount-big">' + krRound(plan.total) + '</span>' +
+      '<span class="mp-amount-of">af ' + krRound(week) + ' om ugen</span></div>' +
+      (p.budgetPeriod === 'maaned' ? '<div class="mp-amount-of">Ugens del af ' + krRound(p.budget) + ' om måneden</div>' : '') +
+      '<div class="mp-bar" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100" aria-label="' +
+      pct + ' procent af budgettet brugt"><span style="width:' + pct + '%"></span></div>' +
+      '<div class="mp-banner-foot">' +
+      (n ? '<span class="mp-left">' + (over ? krRound(-left) + ' over budget' : krRound(left) + ' tilbage') + '</span>' : '<span></span>') +
       // Antal personer kan skrues direkte her (fx ved gæster) uden at svare på
       // alle spørgsmålene igen. Det nye antal bliver standarden.
-      '<div class="mp-guests"><button type="button" class="mp-mini" data-act="plan-people-" aria-label="Færre personer"' + (p.people <= 1 ? ' disabled' : '') + '>−</button>' +
-      '<span aria-live="polite">👥 <strong>' + p.people + '</strong> ' + (p.people === 1 ? 'person' : 'personer') + '</span>' +
-      '<button type="button" class="mp-mini" data-act="plan-people+" aria-label="Flere personer"' + (p.people >= PEOPLE_MAX ? ' disabled' : '') + '>+</button></div>' +
-      '<div class="mp-dots" aria-hidden="true">' + dots + '</div></div></div>' +
-      (note ? '<p class="mp-note">' + esc(note) + '</p>' : '') +
-      (n ? '<p class="mp-muted mp-hint">Tryk 🔓 på de retter du vil beholde, og bland resten.</p>' : '') +
-      '<div class="mp-meals">' + plan.meals.map(function (x, i) { return mealCard(x, i, p); }).join('') + '</div>' +
-      '<button type="button" class="mp-shuffle" data-act="regen">🎲 Bland ugen</button>' +
-      '<p class="mp-muted mp-hint">Prisen er for hele pakker i den billigste butik. Har du noget i forvejen, bliver det billigere.</p>' +
+      '<div class="mp-people"><button type="button" data-act="plan-people-" aria-label="Færre personer"' + (p.people <= 1 ? ' disabled' : '') + '>−</button>' +
+      '<span aria-live="polite">' + p.people + ' ' + (p.people === 1 ? 'person' : 'personer') + '</span>' +
+      '<button type="button" data-act="plan-people+" aria-label="Flere personer"' + (p.people >= PEOPLE_MAX ? ' disabled' : '') + '>+</button></div>' +
+      '</div></div>' +
+      '<div class="mp-sectionhead"><h2>Denne uge</h2>' + (n ? '<span>Lås dem, du vil beholde</span>' : '') + '</div>' +
+      (note ? '<p class="mp-note mp-note--top">' + esc(note) + '</p>' : '') +
+      (n ? '<div class="mp-list">' + plan.meals.map(function (x, i) { return mealRow(x, i, p); }).join('') + '</div>' : '') +
+      '<button type="button" class="mp-shuffle" data-act="regen">' + ic('shuffle', 20) + 'Bland ugen</button>' +
+      '<p class="mp-hint">Prisen er for hele pakker i den billigste butik. Har du noget i forvejen, bliver det billigere.</p>' +
       '</section>';
     if (state.hooks.onPlan) state.hooks.onPlan();
   }

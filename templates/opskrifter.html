@@ -7,10 +7,14 @@
   <div class="container-category">
     <h1 class="category-title">Opskrifter</h1>
 
-    {% if recipe_access %}
-    {# Madplan: spørgsmål første gang + planen (static/js/madplan.js) #}
-    <div id="madplanRoot" class="mp-root"></div>
-    {% else %}
+    {# C2 (31-10-2026): to faner som i appen. Uden design C2 er fanerne
+       skjult (.rc-tabs), og madplanen står over listen som før. #}
+    <div class="rc-tabs" role="tablist" id="recipeTabs">
+      <button type="button" role="tab" class="rc-tab" data-tab="plan" aria-selected="false">Min madplan</button>
+      <button type="button" role="tab" class="rc-tab" data-tab="all" aria-selected="false">Alle opskrifter</button>
+    </div>
+
+    {% set paywall %}
     {# Betaling for opskrifter (app.py::_recipe_access_ok). Listen er åben,
        opskriften selv og madplanen kræver abonnement. #}
     <section class="recipe-section recipe-paywall" data-session-retry>
@@ -21,9 +25,19 @@
         <a class="recipe-paywall-link" href="https://apps.apple.com/app/id6812713857" target="_blank" rel="noopener">Hent appen</a>
       </div>
     </section>
+    {% endset %}
+
+    <div id="recipesPlanTab">
+    {% if recipe_access %}
+    {# Madplan: spørgsmål første gang + planen (static/js/madplan.js) #}
+    <div id="madplanRoot" class="mp-root"></div>
+    {% else %}
+    <div class="rc-plan-paywall">{{ paywall }}</div>
     {% endif %}
+    </div>
 
     <div id="recipesListSection">
+    {% if not recipe_access %}{{ paywall }}{% endif %}
     <h2 class="mp-list-title">Alle opskrifter</h2>
     <div class="recipe-search-bar">
       <span class="recipe-search-icon">
@@ -33,8 +47,10 @@
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
       </span>
-      <input type="text" id="recipeSearchInput" placeholder="Søg efter opskrifter..." autocomplete="off">
+      <input type="text" id="recipeSearchInput" placeholder="Søg efter opskrifter..." autocomplete="off" aria-label="Søg i opskrifterne">
     </div>
+    <div class="rc-filters" id="recipeFilters"></div>
+    <div class="rc-sectionhead"><h2>Billigst denne uge</h2><span>Med ugens tilbud</span></div>
 
     <div class="products" id="recipesGrid"></div>
     <p id="recipesEmptyState" class="recipes-empty-state" style="display:none;">Ingen opskrifter matcher din søgning.</p>
@@ -42,6 +58,7 @@
   </div>
 </div>
 
+<script src="{{ url_for('static', filename='js/ms-icons.js') }}"></script>
 {% if recipe_access %}<script src="{{ url_for('static', filename='js/madplan.js') }}"></script>{% endif %}
 <script>
   document.addEventListener('DOMContentLoaded', function () {
@@ -67,19 +84,41 @@
     // Egne opskrifter (data/egne_opskrifter.json) har intet foto.
     const RECIPE_PLACEHOLDER_IMG = {{ url_for('static', filename='images/opskrift-standard.svg') | tojson }};
 
+    function icon(name, size) { return window.MSIcon ? window.MSIcon(name, size) : ''; }
+
+    // Pris som hyldeskilt (C2): kroner store, ører hævet. Den skjulte "." og
+    // " kr" gør, at teksten stadig læses som "64.85 kr" (samme mønster som
+    // varekortene, templates/macros/product_card.html::c2_price).
+    function shelfPrice(v) {
+      const parts = v.toFixed(2).split('.');
+      return '<span class="c2-kr">' + parts[0] + '</span><span class="c2-hide">.</span><sup class="c2-ore">' +
+        parts[1] + '</sup><span class="c2-hide"> kr</span>';
+    }
+
     function renderRecipeCard(r) {
       const saleBadge = r.sale_ratio > 0
         ? '<span class="sale-badge">' + Math.floor(r.sale_ratio * 100) + '% på tilbud</span>'
         : '';
+      const time = r.total_time_minutes
+        ? '<span class="rc-time">' + icon('time-outline', 12) + r.total_time_minutes + ' min</span>'
+        : '';
+      const people = r.servings && r.servings > 0 ? r.servings : 4;
       const priceHtml = r.cheapest_total_price
-        ? '<div class="price-main price">~' + r.cheapest_total_price.toFixed(2) + ' kr</div>'
-        : '<div class="price-main price">Pris ukendt</div>';
+        ? '<div class="price-main price"><span class="rc-ca">ca.</span>' + shelfPrice(r.cheapest_total_price) +
+          '<span class="rc-per">/ ' + people + ' pers.</span></div>'
+        : '<div class="price-main price rc-unknown">Pris ukendt</div>';
       const matchHtml = r.total_ingredient_count
-        ? '<div class="product-weight">' + r.matched_ingredient_count + '/' + r.total_ingredient_count + ' ingredienser fundet</div>'
+        ? '<div class="product-weight">' + r.matched_ingredient_count + ' af ' + r.total_ingredient_count + ' varer fundet</div>'
         : '';
       return '<a href="/opskrift/' + r.id + '" class="recipe-card" id="recipe' + r.id + '">' +
         '<div class="product-image-container">' + saleBadge +
-        '<img src="' + escapeHtml(r.image_url || RECIPE_PLACEHOLDER_IMG) + '" alt="' + escapeHtml(r.title) + '" class="product-image" loading="lazy"></div>' +
+        // Uden foto: bestik-ikonet som i appen (C2); ellers standardbilledet.
+        (r.image_url
+          ? '<img src="' + escapeHtml(r.image_url) + '" alt="' + escapeHtml(r.title) + '" class="product-image" loading="lazy">'
+          : (window.__C2_ON && window.MSIcon
+            ? '<span class="rc-ph">' + icon('restaurant-outline', 40) + '</span>'
+            : '<img src="' + escapeHtml(RECIPE_PLACEHOLDER_IMG) + '" alt="' + escapeHtml(r.title) + '" class="product-image" loading="lazy">')) +
+        time + '</div>' +
         '<div class="product-content"><h3>' + escapeHtml(r.title) + '</h3>' + matchHtml + '</div>' +
         '<div class="product-footer"><div class="product-price">' + priceHtml + '</div></div></a>';
     }
@@ -92,10 +131,45 @@
       emptyState.style.display = list.length === 0 ? 'block' : 'none';
     }
 
+    // Lyst-filtret (C2): "Alle" + de lyst-mærker, der findes i opskrifterne.
+    const MOOD_FILTERS = [
+      ['hurtig', 'Hurtige retter'], ['let', 'Lav kalorie'], ['familie', 'Familievenlig'],
+      ['sund', 'Sund og mættende'], ['takeaway', 'Hjemmelavet takeaway'], ['protein', 'Proteinrig']
+    ];
+    const filtersEl = document.getElementById('recipeFilters');
+    let mood = null;
+    function renderFilters() {
+      const present = MOOD_FILTERS.filter(function (m) {
+        return allRecipes.some(function (r) { return r.plan && r.plan.moods && r.plan.moods.indexOf(m[0]) !== -1; });
+      });
+      if (!present.length) { filtersEl.innerHTML = ''; return; }
+      filtersEl.innerHTML = [[null, 'Alle']].concat(present).map(function (m) {
+        const on = mood === m[0];
+        return '<button type="button" class="rc-filter' + (on ? ' is-selected' : '') + '" data-mood="' + (m[0] || '') +
+          '" aria-pressed="' + on + '">' + m[1] + '</button>';
+      }).join('');
+    }
+    filtersEl.addEventListener('click', function (e) {
+      const b = e.target.closest('button[data-mood]');
+      if (!b) return;
+      mood = b.getAttribute('data-mood') || null;
+      renderFilters();
+      applySearch();
+    });
+
+    // "Billigst denne uge": sorteret efter prisen fra listen (ingen nye kald).
+    function byPrice(a, b) {
+      const pa = a.cheapest_total_price == null ? Infinity : a.cheapest_total_price;
+      const pb = b.cheapest_total_price == null ? Infinity : b.cheapest_total_price;
+      return pa - pb;
+    }
+
     function applySearch() {
       const q = input.value.trim().toLowerCase();
-      if (!q) { render(allRecipes); return; }
-      render(allRecipes.filter(function (r) { return (r.title || '').toLowerCase().includes(q); }));
+      render(allRecipes.filter(function (r) {
+        return (!q || (r.title || '').toLowerCase().includes(q)) &&
+          (!mood || (r.plan && r.plan.moods && r.plan.moods.indexOf(mood) !== -1));
+      }).sort(byPrice));
     }
 
     // Ét ekstra forsøg ved fejl. Cloudflares Python-runtime kan afvise en
@@ -113,7 +187,9 @@
         })
         .then(function (data) {
           allRecipes = (data && data.recipes) || [];
-          render(allRecipes);
+          input.placeholder = 'Søg i ' + allRecipes.length + ' opskrifter';
+          renderFilters();
+          applySearch();
           startMadplan();
         })
         .catch(function () {
@@ -128,15 +204,42 @@
         });
     }
 
-    // Første gang: spørgsmålene fylder siden, og listen kommer frem, når
-    // planen er lavet. Bagefter står planen øverst over listen.
+    // Faner (C2): "Min madplan" og "Alle opskrifter". Første gang fylder
+    // spørgsmålene siden uden faner; bagefter starter siden på madplanen.
+    // Uden adgang starter den på listen. Uden design C2 er fanerne skjult i
+    // CSS, og madplanen står over listen som før.
     const listSection = document.getElementById('recipesListSection');
+    const planTab = document.getElementById('recipesPlanTab');
+    const tabs = document.getElementById('recipeTabs');
+    function showTab(name) {
+      planTab.classList.toggle('rc-hidden', name !== 'plan');
+      listSection.classList.toggle('rc-hidden', name !== 'all');
+      tabs.querySelectorAll('.rc-tab').forEach(function (t) {
+        const on = t.getAttribute('data-tab') === name;
+        t.classList.toggle('is-selected', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    }
+    tabs.addEventListener('click', function (e) {
+      const t = e.target.closest('.rc-tab');
+      if (t) showTab(t.getAttribute('data-tab'));
+    });
+    showTab('all');
+
     function startMadplan() {
       if (!window.MadPlan || !allRecipes.length || !document.getElementById('madplanRoot')) return;
       const hasPlan = window.MadPlan.init(document.getElementById('madplanRoot'), allRecipes, {
-        onPlan: function () { listSection.style.display = ''; }
+        onPlan: function () {
+          listSection.style.display = '';
+          tabs.classList.remove('rc-hidden');
+          showTab('plan');
+        }
       });
-      if (!hasPlan) listSection.style.display = 'none';
+      if (!hasPlan) {
+        listSection.style.display = 'none';
+        tabs.classList.add('rc-hidden');
+        showTab('plan');
+      }
     }
 
     loadRecipes(1);

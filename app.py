@@ -1971,6 +1971,11 @@ _FEATURES = (
             {'kind': 'web', 'name': 'Mørk tilstand',
              'desc': 'Blågrå farver som den gamle mørke tilstand '
                      '(22-10-2026), dæmpede billedfelter.'},
+            {'kind': 'web', 'name': 'Opskrifter og madplan',
+             'desc': 'Faner "Min madplan" og "Alle opskrifter", nye '
+                     'opskriftskort, ny opskriftsside med "Har jeg" (trækkes '
+                     'fra prisen, gemt i browseren) og guiden i C2. Kun '
+                     'synlig hvor opskrifterne er slået til (31-10-2026).'},
             {'kind': 'app', 'name': 'Design C2 i appen',
              'desc': 'Findes allerede på MadShopper Test (PR #123), med de '
                      'samme blågrå mørke farver som hjemmesiden (22-10-2026).'},
@@ -2182,8 +2187,8 @@ _PROJECTS = (
         'desc': 'Videre fra version C, så appen ser mindre generisk ud: lille '
                 'gul "Spar"-pille, aviser som runde logoer, seneste '
                 'søgninger i Søg, "Handl i 2 butikker" og "Glemt '
-                'noget?" i kurven (19-10-2026). Hjemmesiden har fået det '
-                'samme bag funktionen "Nyt udseende på hjemmesiden (C2)".',
+                'noget?" i kurven (19-10-2026), opskrifter og madplan '
+                '(31-10-2026). Hjemmesiden har fået det samme bag funktionen "Nyt udseende på hjemmesiden (C2)".',
         'parts': (
             {'done': True, 'name': 'Forside',
              'desc': 'Søgefelt, kompakt besparelse, aviser denne uge og '
@@ -2203,6 +2208,11 @@ _PROJECTS = (
              'desc': 'Bygget på hjemmesiden bag funktionen "Nyt udseende på '
                      'hjemmesiden (C2)". Slået til på dev-siden, udgives '
                      'herfra.'},
+            {'done': True, 'name': 'Opskrifter og madplan',
+             'desc': 'Madplan, alle opskrifter, opskriftssiden og guiden i '
+                     'C2 uden emoji, plus "Har jeg": tryk på en ingrediens du '
+                     'har, så trækkes den fra prisen og kurven (31-10-2026). '
+                     'Samme på dev-siden.'},
         ),
     },
     {
