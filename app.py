@@ -1642,7 +1642,9 @@ _FEATURES = (
                 'et månedligt abonnement, købt i appen. Mens den er under '
                 'udvikling, vises opskrifterne kun som "Kommer snart" på '
                 'forsiden. Udgiv først, når Apple har godkendt abonnementet '
-                '(docs/abonnement.md).',
+                '(docs/abonnement.md), og efter at edge-funktionen '
+                'recipe-access er lagt op igen med sikkerhedsrettelsen fra '
+                '26-10-2026.',
         'app': 'Appen viser først opskrifterne, når der er lavet en ny '
                'version af den med opskrifter slået til.',
         'parts': (
@@ -1686,6 +1688,22 @@ _FEATURES = (
             {'kind': 'job', 'name': 'Fornyelse og opsigelse',
              'desc': 'Apple giver selv besked, når abonnementet fornyes, '
                      'stoppes eller refunderes (edge-funktionen recipe-access).'},
+            {'kind': 'web', 'name': 'Nyt udseende (C2)',
+             'desc': 'Faner "Min madplan" og "Alle opskrifter", nye '
+                     'opskriftskort, ny opskriftsside og guiden i C2 uden '
+                     'emoji (PR #172, 31-10-2026). Samme i appen på '
+                     'MadShopper Test.'},
+            {'kind': 'web', 'name': '"Har jeg"',
+             'desc': 'Tryk på en ingrediens du har, så trækkes den fra prisen '
+                     'og kurven. Gemmes kun i browseren eller på telefonen '
+                     '(31-10-2026).'},
+            {'kind': 'job', 'name': 'Sikkerhedsrettelsen i betalingen',
+             'desc': 'Edge-funktionen recipe-access skal lægges op igen '
+                     '(supabase functions deploy recipe-access '
+                     '--no-verify-jwt), før opskrifterne udgives.'},
+            {'kind': 'idea', 'name': 'Kostbehov på opskriftssiden (web)',
+             'desc': 'Appens opskriftsside viser kostbehov som små piller, '
+                     'hjemmesidens gør ikke endnu.'},
             {'kind': 'idea', 'name': 'Madplan: gem svar på kontoen',
              'desc': 'Så svarene følger med mellem telefon og computer.'},
             {'kind': 'idea', 'name': 'Madplan: læg hele ugen i kurven',
@@ -1914,11 +1932,16 @@ _FEATURES = (
                 '27-10-2026), og en svag baggrund med flagermus, græskar og '
                 'spøgelser (Kalle 28-10-2026). Kurven og den grønne farve er '
                 'som altid. '
-                'Midlertidigt: slå det fra igen efter Halloween, så kommer '
-                'det normale logo tilbage.',
+                'Parkeret til Halloween 2027 (Kalle 28-10-2026): slå det til '
+                'omkring 10-10-2027 og fra igen efter 5-11. Vejledning i '
+                'projektmappen halloween/VEJLEDNING.md. Kan ikke fjernes fra '
+                'panelet, fordi det skal kunne slås til og fra hvert år.',
         'app': 'MadShopper Test har det med det samme. Butiksappen får det '
-               'først med en ny App Store-version. Ikonet på telefonens '
+               'med den første App Store-version efter 28-10-2026 (1.0.6 er '
+               'bygget, men ikke sendt til Apple). Ikonet på telefonens '
                'hjemmeskærm skifter ikke.',
+        # Kommer igen hvert år: må ikke gøres permanent fra panelet.
+        'seasonal': True,
         'parts': (
             {'kind': 'web', 'name': 'Logoet på hjemmesiden',
              'desc': 'I toppen (også i det nye design, hvor kurven ellers er '
@@ -1994,8 +2017,8 @@ _PROJECTS = (
         'key': 'app_store',
         'name': 'Appen i Google Play',
         'status': 'waiting',
-        'desc': 'iPhone-appen er i App Store (version 1.0.4 siden '
-                '18-10-2026). Android-appen mangler de konti og trin, kun '
+        'desc': 'iPhone-appen er i App Store (version 1.0.5 siden '
+                '22-10-2026). Android-appen mangler de konti og trin, kun '
                 'du kan klare, før den kan udgives.',
         'parts': (
             {'done': True, 'name': 'Appen bygget',
@@ -2245,6 +2268,121 @@ _PROJECTS = (
             {'done': False, 'name': 'Byg 1.0.5 og send til Apple',
              'desc': 'Bygges på Mac\'en som dk.madshopper.app (ikke test). '
                      'Du sender den selv til godkendelse.'},
+        ),
+    },
+    {
+        'key': 'app_1_0_6',
+        'name': 'Næste app-version i App Store (1.0.6)',
+        'status': 'waiting',
+        'desc': 'Bygget og lagt i TestFlight 28-10-2026, men ikke sendt til '
+                'Apple. Du bestemmer selv, hvornår den skal ud.',
+        'parts': (
+            {'done': True, 'name': 'Versionsnummer 1.0.6',
+             'desc': 'Sat i apps/mobile/app.config.js.'},
+            {'done': True, 'name': 'Halloween-temaet med, men slukket',
+             'desc': 'Så det kan slås til fra panelet i 2027 uden en ny '
+                     'version.'},
+            {'done': False, 'name': 'Send til Apple',
+             'desc': 'Byg-knappen store-ios-build.yml i GitHub, derefter App '
+                     'Store Connect. Du trykker selv på send.'},
+        ),
+    },
+    {
+        'key': 'd1_robotter',
+        'name': 'Robotter og D1-grænsen',
+        'status': 'doing',
+        'desc': 'Lørdag 31-10-2026 gik D1-grænsen for læste rækker (5 mio. '
+                'om dagen) i stå, fordi robotter gennemgik tilbudssiderne '
+                'med skiftende adresser. Søgning virkede ikke resten af '
+                'døgnet. Rettet tre steder.',
+        'parts': (
+            {'done': True, 'name': 'Tilbudssiderne læser kun deres egne varer',
+             'desc': 'I stedet for alle ca. 5.800 tilbudsvarer hver gang '
+                     '(PR #169).'},
+            {'done': True, 'name': 'Meningsløse adresser giver ingen ny side',
+             'desc': 'Skiftende værdier i adressen bruger den samme gemte side '
+                     '(PR #170).'},
+            {'done': True, 'name': 'Fartgrænse i Cloudflare',
+             'desc': 'Højst 12 forespørgsler pr. 10 sekunder pr. IP på tilbud '
+                     'og søgning, ellers blokeret i 10 sekunder (gratis).'},
+            {'done': False, 'name': 'Målt efter nattens opdatering',
+             'desc': 'Den første rettelse virker først efter nattens seed. Tjek '
+                     'læste rækker søndag 01-11-2026.'},
+        ),
+    },
+    {
+        'key': 'avis_dage',
+        'name': 'Ugens tilbud på de rigtige dage',
+        'status': 'doing',
+        'desc': 'Hver butik hentes kun på sin avis-dag, så tidligt som '
+                'muligt (Kalle 26-10-2026). Fredag og lørdag venter vi, til '
+                'butikkernes nye uge er ude.',
+        'parts': (
+            {'done': True, 'name': 'Vent på den nye uge fre og lør',
+             'desc': 'butikker-klar.yml tjekker hvert 30. minut og starter '
+                     'senest kl. 09:00 (PR #152).'},
+            {'done': True, 'name': 'Spar, Min Købmand, Lidl, ABC og Bilka',
+             'desc': 'Hentes de dage deres avis skifter (PR #153, #164, '
+                     '#165, #167). Coop og 365 kun aviser der gælder nu '
+                     '(PR #155).'},
+            {'done': True, 'name': 'Første fredag tjekket',
+             'desc': '30-10-2026: Meny, Spar og Min Købmand passede. Bilka og '
+                     'Føtex var ikke færdige med at skifte kl. 06:11, så ca. '
+                     '1.500 nye tilbud manglede til lørdag.'},
+            {'done': False, 'name': 'Strammere tjek for Bilka og Føtex',
+             'desc': 'Sallings eget "ny avis"-flag passer ikke, så '
+                     'butikker-klar.py skal tjekke på en anden måde. Foreslået '
+                     '30-10-2026.'},
+            {'done': False, 'name': 'Netto-kataloget halvtomt',
+             'desc': '31-10-2026 gav Sallings varekatalog kun 836 Netto-varer '
+                     '(før 4.549). Vi gemte ikke de halve data, så sidste uges '
+                     'priser står. Prøves igen søndag nat.'},
+        ),
+    },
+    {
+        'key': 'some',
+        'name': 'Videoer på sociale medier',
+        'status': 'doing',
+        'desc': 'En video hver mandag og torsdag kl. 19.30 på Facebook, '
+                'Instagram og TikTok, lagt op af sig selv (Kalle 26-10-2026). '
+                'Første video mandag 02-11-2026.',
+        'parts': (
+            {'done': True, 'name': '11 videoer i det nye design',
+             'desc': 'Inkl. velkomstvideoen, priser fra 30-10-2026. Musik og '
+                     'lyd lavet af os selv, så ingen ophavsret.'},
+            {'done': True, 'name': 'Facebook-side og Instagram',
+             'desc': 'Oprettet 30-10-2026.'},
+            {'done': True, 'name': 'Automatisk opslag',
+             'desc': 'some-post.yml tager den ældste video i some/koe/ med nået '
+                     'dato (PR #171).'},
+            {'done': False, 'name': 'Nøglen til Meta',
+             'desc': 'GitHub-secret META_PAGE_TOKEN. Vejledning i '
+                     'projektmappen some/claude-chrome-meta-noegle.md.'},
+            {'done': False, 'name': 'TikTok',
+             'desc': 'Kræver at TikTok godkender adgang; indtil da kun private '
+                     'opslag.'},
+            {'done': False, 'name': 'Nye videoer fra 07-12-2026',
+             'desc': 'De 11 videoer rækker til start december.'},
+        ),
+    },
+    {
+        'key': 'sikkerhed_okt',
+        'name': 'Sikkerhedstjek oktober 2026',
+        'status': 'waiting',
+        'desc': 'Cloudflares sikkerhedstjek er kørt tre gange (18-26 '
+                'oktober). Næsten alt er rettet og kørt i Supabase.',
+        'parts': (
+            {'done': True, 'name': 'Runde 1 og 2 rettet',
+             'desc': 'Opskrifterne låst, tællingerne kræver serverens nøgle '
+                     '(PR #126).'},
+            {'done': True, 'name': 'Runde 3 rettet',
+             'desc': 'Login, app-links, kurv, prisalarmer og workflows '
+                     '(PR #156). SQL kørt 26-10-2026.'},
+            {'done': False, 'name': 'recipe-access lagt op igen',
+             'desc': 'Skal ske før opskrifterne udgives (se Opskrifter).'},
+            {'done': False, 'name': 'Testappens nøgle',
+             'desc': 'STAGING_APP_KEY ligger i testappens opdateringer hos '
+                     'Expo. Tjek hvem der kan se kanalen, eller skift nøglen.'},
         ),
     },
     {
@@ -5355,6 +5493,7 @@ def _admin_features_list(flags: dict) -> list:
             'live': entry.get('on') is True,
             'changed_at': entry.get('at'),
             'forced_here': _feature_forced(f['key']),
+            'seasonal': bool(f.get('seasonal')),
         })
     return out
 
@@ -5415,6 +5554,8 @@ def admin_features():
         problem = None
         if current.get('permanent') is True:
             problem = 'Funktionen er permanent og kan ikke ændres.'
+        elif permanent and _FEATURE_KEYS[key].get('seasonal'):
+            problem = 'Funktionen kommer igen hvert år og kan ikke fjernes fra panelet.'
         elif permanent and current.get('on') is not True:
             problem = 'Funktionen skal være udgivet, før den kan fjernes fra panelet.'
         if problem:

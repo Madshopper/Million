@@ -854,7 +854,7 @@
           onclick: function () { askFeature(f, f.live ? 'hide' : 'publish'); }
         }));
         // Først når den er udgivet: fjern fra panelet = permanent.
-        if (f.live) {
+        if (f.live && !f.seasonal) {
           btns.push(el('button', {
             type: 'button', class: 'adm-btn',
             text: 'Fjern fra panelet',
