@@ -2019,6 +2019,32 @@ _PROJECTS = (
         ),
     },
     {
+        'key': 'some_posting',
+        'name': 'Videoer på Facebook og Instagram',
+        'status': 'waiting',
+        'desc': 'Mandag og torsdag kl. 19.30 poster et job selv den næste '
+                'video fra mappen some/koe/ som Reel på Facebook-siden og '
+                'Instagram (some/README.md). 11 videoer ligger klar til '
+                '7. december.',
+        'parts': (
+            {'done': True, 'name': 'Facebook-side og Instagram oprettet',
+             'desc': 'Kalle oprettede dem 30-10-2026.'},
+            {'done': True, 'name': '11 videoer med tekster i køen',
+             'desc': 'Nyt design, priser fra 30-10-2026. Første er '
+                     'velkomstvideoen mandag 2. november.'},
+            {'done': True, 'name': 'Jobbet der poster',
+             'desc': 'Startes af madshopper-uptime mandag og torsdag kl. 19.30. '
+                     'Poster aldrig det samme to gange.'},
+            {'done': False, 'name': 'Nøgle fra Meta i GitHub',
+             'desc': 'Kalle laver en gratis udvikler-app hos Meta og gemmer '
+                     'sidenøglen som META_PAGE_TOKEN. Uden den poster jobbet '
+                     'intet.'},
+            {'done': False, 'name': 'TikTok',
+             'desc': 'Kræver at TikTok godkender adgangen, før et program må '
+                     'poste offentligt.'},
+        ),
+    },
+    {
         'key': 'admin_app_stats',
         'name': 'Appens tal i admin',
         'status': 'doing',
