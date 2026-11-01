@@ -2271,46 +2271,6 @@ _PROJECTS = (
         ),
     },
     {
-        'key': 'app_1_0_6',
-        'name': 'Næste app-version i App Store (1.0.6)',
-        'status': 'waiting',
-        'desc': 'Bygget og lagt i TestFlight 28-10-2026, men ikke sendt til '
-                'Apple. Du bestemmer selv, hvornår den skal ud.',
-        'parts': (
-            {'done': True, 'name': 'Versionsnummer 1.0.6',
-             'desc': 'Sat i apps/mobile/app.config.js.'},
-            {'done': True, 'name': 'Halloween-temaet med, men slukket',
-             'desc': 'Så det kan slås til fra panelet i 2027 uden en ny '
-                     'version.'},
-            {'done': False, 'name': 'Send til Apple',
-             'desc': 'Byg-knappen store-ios-build.yml i GitHub, derefter App '
-                     'Store Connect. Du trykker selv på send.'},
-        ),
-    },
-    {
-        'key': 'd1_robotter',
-        'name': 'Robotter og D1-grænsen',
-        'status': 'doing',
-        'desc': 'Lørdag 31-10-2026 gik D1-grænsen for læste rækker (5 mio. '
-                'om dagen) i stå, fordi robotter gennemgik tilbudssiderne '
-                'med skiftende adresser. Søgning virkede ikke resten af '
-                'døgnet. Rettet tre steder.',
-        'parts': (
-            {'done': True, 'name': 'Tilbudssiderne læser kun deres egne varer',
-             'desc': 'I stedet for alle ca. 5.800 tilbudsvarer hver gang '
-                     '(PR #169).'},
-            {'done': True, 'name': 'Meningsløse adresser giver ingen ny side',
-             'desc': 'Skiftende værdier i adressen bruger den samme gemte side '
-                     '(PR #170).'},
-            {'done': True, 'name': 'Fartgrænse i Cloudflare',
-             'desc': 'Højst 12 forespørgsler pr. 10 sekunder pr. IP på tilbud '
-                     'og søgning, ellers blokeret i 10 sekunder (gratis).'},
-            {'done': False, 'name': 'Målt efter nattens opdatering',
-             'desc': 'Den første rettelse virker først efter nattens seed. Tjek '
-                     'læste rækker søndag 01-11-2026.'},
-        ),
-    },
-    {
         'key': 'avis_dage',
         'name': 'Ugens tilbud på de rigtige dage',
         'status': 'doing',
@@ -2363,26 +2323,6 @@ _PROJECTS = (
                      'opslag.'},
             {'done': False, 'name': 'Nye videoer fra 07-12-2026',
              'desc': 'De 11 videoer rækker til start december.'},
-        ),
-    },
-    {
-        'key': 'sikkerhed_okt',
-        'name': 'Sikkerhedstjek oktober 2026',
-        'status': 'waiting',
-        'desc': 'Cloudflares sikkerhedstjek er kørt tre gange (18-26 '
-                'oktober). Næsten alt er rettet og kørt i Supabase.',
-        'parts': (
-            {'done': True, 'name': 'Runde 1 og 2 rettet',
-             'desc': 'Opskrifterne låst, tællingerne kræver serverens nøgle '
-                     '(PR #126).'},
-            {'done': True, 'name': 'Runde 3 rettet',
-             'desc': 'Login, app-links, kurv, prisalarmer og workflows '
-                     '(PR #156). SQL kørt 26-10-2026.'},
-            {'done': False, 'name': 'recipe-access lagt op igen',
-             'desc': 'Skal ske før opskrifterne udgives (se Opskrifter).'},
-            {'done': False, 'name': 'Testappens nøgle',
-             'desc': 'STAGING_APP_KEY ligger i testappens opdateringer hos '
-                     'Expo. Tjek hvem der kan se kanalen, eller skift nøglen.'},
         ),
     },
     {
