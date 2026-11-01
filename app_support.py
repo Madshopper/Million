@@ -2111,6 +2111,24 @@ def pretty_display_name(value: str) -> str:
     return out
 
 
+# Ingen fødevare koster under 1 kr pr. kilo/liter. En kilopris dér er en
+# enhedsfejl (pris delt med gram i stedet for kilo): Yoggi 1 kg til 9,95 kr
+# stod som "0,01 kr pr. kilo" på forsiden (GitHub-issue #159). Der er bevidst
+# ingen øvre grænse: safran koster over 30.000 kr/kg.
+MIN_PLAUSIBLE_KG_PRICE = 1.0
+
+
+def plausible_kg_price(value):
+    """Kiloprisen som tal, eller None når den mangler eller ikke kan passe."""
+    try:
+        kg = float(value) if value is not None and value != '' else None
+    except (TypeError, ValueError):
+        return None
+    if kg is None or kg != kg or kg < MIN_PLAUSIBLE_KG_PRICE:
+        return None
+    return kg
+
+
 def product_to_display_dict(
     product: dict,
     *,
@@ -2151,7 +2169,7 @@ def product_to_display_dict(
         # egen weight_g-kolonne (brugt til SQL-filtrering) alligevel havde den.
         'weight_g': weight_g,
         'stk_count': product.get('/product/stk_count') or parse_stk_count(unit_measure),
-        'price_per_kg': product.get('/product/price_per_kg'),
+        'price_per_kg': plausible_kg_price(product.get('/product/price_per_kg')),
         'store_matches': product.get('/product/store_matches', {}),
         'cheaper_at': product.get('/product/cheaper_at'),
         'cheapest_at': product.get('/product/cheapest_at'),
@@ -2273,11 +2291,7 @@ def _serialize_store_match(match: dict) -> dict:
     """Ét store_matches-entry til native JSON (docs/native-app.md §3.2)."""
     if not isinstance(match, dict):
         return {}
-    kg = match.get('kg_price')
-    try:
-        kg_price = float(kg) if kg is not None and kg != '' else None
-    except (TypeError, ValueError):
-        kg_price = None
+    kg_price = plausible_kg_price(match.get('kg_price'))
     price = match.get('price')
     normal = match.get('normal_price')
     try:
@@ -2342,11 +2356,7 @@ def product_to_api_dict(display: dict) -> dict:
     }
 
     image = str(display.get('image_url') or '')
-    kg = display.get('price_per_kg')
-    try:
-        kg_price = float(kg) if kg is not None and kg != '' else None
-    except (TypeError, ValueError):
-        kg_price = None
+    kg_price = plausible_kg_price(display.get('price_per_kg'))
 
     return {
         'id': str(display.get('id') or ''),
