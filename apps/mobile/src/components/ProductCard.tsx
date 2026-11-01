@@ -20,6 +20,7 @@ import { cardShadow } from '../theme/Typography';
 import { ShelfPrice } from './ShelfPrice';
 import { QuantityStepper } from './QuantityStepper';
 import { joinLabel, spokenKr } from '../a11y/speech';
+import { krNum } from '../format/kr';
 
 type Props = {
   product: Product;
@@ -71,7 +72,7 @@ function cartItemFrom(product: Product, catalog: ReturnType<typeof useStoreCatal
     image: product.image,
     category: product.category || 'Andre varer',
     unitMeasure: product.unit_measure,
-    kgPrice: product.kg_price != null ? `${product.kg_price.toFixed(2)} kr/kg` : '',
+    kgPrice: product.kg_price != null ? `${krNum(product.kg_price)} kr/kg` : '',
     multiDeal: product.multi_deal || undefined,
   };
 }
@@ -346,7 +347,7 @@ function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
       image: product.image,
       category: product.category || 'Andre varer',
       unitMeasure: product.unit_measure,
-      kgPrice: product.kg_price != null ? `${product.kg_price.toFixed(2)} kr/kg` : '',
+      kgPrice: product.kg_price != null ? `${krNum(product.kg_price)} kr/kg` : '',
       multiDeal: product.multi_deal || undefined,
     });
     setAdded(true);
@@ -463,7 +464,7 @@ function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
       ) : null}
       {product.kg_price != null && product.kg_price > 0 ? (
         <Text style={[styles.kgPrice, { color: colors.textMuted }]} numberOfLines={1}>
-          {product.kg_price.toFixed(2)} kr/kg
+          {krNum(product.kg_price)} kr/kg
         </Text>
       ) : null}
       {/* Samme betingelse som webben: `{% if not product.store_matches %}`.
@@ -482,31 +483,31 @@ function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
             <>
               {product.is_sale && product.normal_price > product.price ? (
                 <Text style={[styles.original, { color: colors.textMuted }]}>
-                  Før {product.normal_price.toFixed(2)} kr
+                  Før {krNum(product.normal_price)} kr
                 </Text>
               ) : null}
               <View style={styles.priceTag}>
-                <Text style={styles.priceTagText}>{product.price.toFixed(2)} kr</Text>
+                <Text style={styles.priceTagText}>{krNum(product.price)} kr</Text>
               </View>
             </>
           ) : product.is_sale ? (
             <>
               <Text style={[styles.original, { color: colors.textMuted }]}>
-                {product.normal_price.toFixed(2)} kr
+                {krNum(product.normal_price)} kr
               </Text>
               <Text
                 style={[styles.price, styles.dealPrice, { color: colors.dealInk }]}
               >
-                {product.price.toFixed(2)} kr
+                {krNum(product.price)} kr
               </Text>
             </>
           ) : shownOnSale ? (
             <Text style={[styles.price, styles.dealPrice, { color: colors.dealInk }]}>
-              {product.price.toFixed(2)} kr
+              {krNum(product.price)} kr
             </Text>
           ) : (
             <Text style={[styles.price, { color: colors.text }]}>
-              {product.price.toFixed(2)} kr
+              {krNum(product.price)} kr
             </Text>
           )}
         </View>

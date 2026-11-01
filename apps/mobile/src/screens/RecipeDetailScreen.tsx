@@ -31,6 +31,7 @@ import { StoreLogo } from '../stores/storeLogos';
 import { DIETS } from '../recipes/mealPlan';
 import { displayTotal, haveSummary, toggleHave } from '../recipes/have';
 import { loadHave, saveHave } from '../recipes/haveStore';
+import { krNum } from '../format/kr';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecipeDetail'>;
 
@@ -212,7 +213,7 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
         image: matchProduct.image,
         category: matchProduct.category || 'Andre varer',
         unitMeasure: matchProduct.unit_measure,
-        kgPrice: matchProduct.kg_price != null ? `${matchProduct.kg_price.toFixed(2)} kr/kg` : '',
+        kgPrice: matchProduct.kg_price != null ? `${krNum(matchProduct.kg_price)} kr/kg` : '',
         multiDeal: matchProduct.multi_deal || undefined,
         quantity: units,
       });

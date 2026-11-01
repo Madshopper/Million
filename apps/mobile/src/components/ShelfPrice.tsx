@@ -3,10 +3,8 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '../theme/Typography';
 import { spokenKr } from '../a11y/speech';
 
-/** "22,45 kr" med komma (skrift og tale ens). */
-export function kr(value: number): string {
-  return `${value.toFixed(2).replace('.', ',')} kr`;
-}
+/** "22,45 kr" med komma (skrift og tale ens). Bor nu i format/kr.ts. */
+export { kr } from '../format/kr';
 
 /**
  * Pris som et hyldeskilt (version C): kroner store, ører små og hævet,

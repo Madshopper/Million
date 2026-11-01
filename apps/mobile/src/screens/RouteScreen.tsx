@@ -9,6 +9,7 @@ import { StoreChip } from '../components/StoreChip';
 import { joinLabel, spokenKr } from '../a11y/speech';
 import { RouteOrder } from '../components/RouteOrder';
 import { useLokationEnabled } from '../location/nearby';
+import { krNum } from '../format/kr';
 
 export function RouteScreen() {
   const { colors } = useTheme();
@@ -76,11 +77,11 @@ export function RouteScreen() {
       >
         <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Rutens total</Text>
         <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 22, marginTop: 4 }}>
-          {route.routeTotal.toFixed(2)} kr
+          {krNum(route.routeTotal)} kr
         </Text>
         {route.savings > 0.05 && route.singleCheapest ? (
           <Text style={{ color: colors.badge, marginTop: 6, fontWeight: '600' }}>
-            Du sparer {route.savings.toFixed(2)} kr i forhold til kun {route.singleCheapest.name}
+            Du sparer {krNum(route.savings)} kr i forhold til kun {route.singleCheapest.name}
           </Text>
         ) : null}
       </View>
@@ -107,7 +108,7 @@ export function RouteScreen() {
             accessibilityLabel={`${g.store}, ${spokenKr(g.subtotal)}`}
           >
             <StoreChip store={g.store} size="md" />
-            <Text style={{ color: colors.text, fontWeight: '700' }}>{g.subtotal.toFixed(2)} kr</Text>
+            <Text style={{ color: colors.text, fontWeight: '700' }}>{krNum(g.subtotal)} kr</Text>
           </View>
           {g.items.map((ri, idx) => (
             <View
@@ -128,11 +129,11 @@ export function RouteScreen() {
                   {ri.displayName}
                 </Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  {ri.item.quantity} × {ri.price.toFixed(2)} kr
+                  {ri.item.quantity} × {krNum(ri.price)} kr
                 </Text>
               </View>
               <Text style={{ color: colors.text, fontWeight: '600' }}>
-                {(ri.price * ri.item.quantity).toFixed(2)} kr
+                {krNum(ri.price * ri.item.quantity)} kr
               </Text>
             </View>
           ))}

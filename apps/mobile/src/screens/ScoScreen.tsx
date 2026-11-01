@@ -27,6 +27,7 @@ import { useStoreCatalog } from '../stores/StoreCatalogContext';
 import { useTheme } from '../theme/ThemeContext';
 import { StoreDot } from '../components/StoreChip';
 import { joinLabel, spokenKr } from '../a11y/speech';
+import { krNum } from '../format/kr';
 
 /** Dedup pr. app-session — spejler web's `_comparedProductIds`. */
 const comparedProductIds = new Set<string>();
@@ -251,7 +252,7 @@ export function ScoScreen() {
                 Dækning: {s.coverage}/{s.totalItems}
               </Text>
               <Text style={[styles.storePrice, { color: colors.text }]}>
-                {s.totalPrice.toFixed(2)} kr
+                {krNum(s.totalPrice)} kr
               </Text>
             </Pressable>
           );
@@ -297,7 +298,7 @@ export function ScoScreen() {
                       <Text style={{ color: colors.textMuted, fontSize: 12 }}>Ikke tilgængelig her</Text>
                       {alt ? (
                         <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                          Alternativ: {alt.alt_name} · {alt.alt_price.toFixed(2)} kr
+                          Alternativ: {alt.alt_name} · {krNum(alt.alt_price)} kr
                         </Text>
                       ) : null}
                     </View>
@@ -337,11 +338,11 @@ export function ScoScreen() {
                   {m.name}
                 </Text>
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                  {m.quantity} × {m.price.toFixed(2)} kr
+                  {m.quantity} × {krNum(m.price)} kr
                 </Text>
               </View>
               <Text style={{ color: colors.text, fontWeight: '700' }}>
-                {(m.price * m.quantity).toFixed(2)} kr
+                {krNum(m.price * m.quantity)} kr
               </Text>
             </View>
           ))}
@@ -355,7 +356,7 @@ export function ScoScreen() {
               Total hos {active.name}
             </Text>
             <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 20, marginTop: 4 }}>
-              {active.totalPrice.toFixed(2)} kr
+              {krNum(active.totalPrice)} kr
             </Text>
             <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
               (uden accepterede alternativers pris)
