@@ -278,6 +278,36 @@ def _field_matches_term(field: str, term: str) -> bool:
     return any(_token_matches_term(tok, term) for tok in field.split())
 
 
+# Ord der gør det næste ord til en beskrivelse af en ANDEN vare: "Perfekt
+# med mælk formalet kaffe" er kaffe, "Tun i olie" er tun. Står søgeordet lige
+# efter et af dem, er varen ikke det man søgte efter.
+_SEARCH_MODIFIER_WORDS = frozenset({'med', 'm', 'uden', 'u', 'til', 'i'})
+
+
+def _name_term_points(tokens: list[str], term: str) -> int:
+    """Hvor godt ét søgeord rammer et navn. 0 = intet træf.
+
+    Dansk sætter hovedordet SIDST i sammensatte ord: "sødmælk" og "letmælk"
+    ER mælk, mens "mælkesnitte" og "mælkechokolade" kun er lavet med mælk.
+    Før 01-11-2026 scorede et forled (70) højere end et hovedord (50), og et
+    løst ord i en beskrivelse ("Perfekt med mælk formalet kaffe") lige så
+    højt som en ægte vare, så søgningen "mælk" viste kondenseret mælk og
+    kaffe øverst og letmælk/sødmælk først på side 1's anden halvdel
+    (GitHub-issue #161)."""
+    best = 0
+    for i, tok in enumerate(tokens):
+        if tok == term:
+            pts = 55 if i > 0 and tokens[i - 1] in _SEARCH_MODIFIER_WORDS else 100
+        elif tok.endswith(term) and len(tok) - len(term) >= 3:
+            pts = 100   # hovedord i et sammensat ord: sødmælk, juleøl, flødeost
+        elif tok.startswith(term):
+            pts = 60    # forled: mælkesnitte, ostehaps
+        else:
+            continue
+        best = max(best, pts)
+    return best
+
+
 def search_match_score(product: dict, query: str) -> int:
     """Højere = bedre relevans. Bruges til at sortere autocomplete/søgeresultater."""
     terms = [t for t in normalize_name(query).split() if t]
@@ -288,18 +318,15 @@ def search_match_score(product: dict, query: str) -> int:
     # Samme folding som _token_matches_term, så "maelk" ikke bare FINDER de
     # rigtige varer, men også scorer dem som et rigtigt match.
     terms = [_fold(t) for t in terms]
-    tokens = [_fold(t) for t in (name + ' ' + brand).split()]
+    name_tokens = [_fold(t) for t in name.split()]
+    brand_tokens = [_fold(t) for t in brand.split()]
     score = 0
     for term in terms:
-        best = 0
-        for tok in tokens:
-            if tok == term:
-                best = max(best, 100)
-            elif tok.startswith(term):
-                best = max(best, 70)
-            elif tok.endswith(term) and len(tok) - len(term) >= 3:
-                best = max(best, 50)
-        score += best
+        # Mærke-feltet tæller halvt: Rema lægger en hel beskrivelse dér
+        # ("REMA 1000, ØKO MÆLKEFRI" på en leverpostej), så et træf i mærket
+        # siger meget mindre om varen end et træf i navnet.
+        score += max(_name_term_points(name_tokens, term),
+                     _name_term_points(brand_tokens, term) // 2)
 
     # Kategori-prior: et søgeord som "mælk" beskriver en VARETYPE, og den type
     # hører til en bestemt kategori. Uden dette afgjorde tiebreakeren (korteste
@@ -318,8 +345,11 @@ def search_match_score(product: dict, query: str) -> int:
     if expected and str(product.get('category', '')) == expected:
         score += 40
 
-    # Kortere navne først ved lige score (mere specifik titel)
-    return score * 1000 - min(len(name), 999)
+    # Ved lige score: varer som flere butikker fører først (almindelig
+    # letmælk før kondenseret mælk), derefter kortere navne (mere specifik).
+    matches = product.get('store_matches')
+    stores = min(len(matches), 9) if isinstance(matches, (dict, list)) else 0
+    return score * 1000 + stores * 100 - min(len(name), 99)
 
 
 def store_match_names(store_matches) -> str:
