@@ -317,7 +317,7 @@ export function HomeScreen() {
                   <View style={styles.savingsContent}>
                     <Text style={[styles.savingsLabel, { color: colors.bannerSoft }]}>Personlig besparelse</Text>
                     <Text style={[styles.savingsLogin, { color: colors.onPrimary }]}>
-                      Log ind for at tracke besparelse
+                      Log ind for at følge din besparelse
                     </Text>
                   </View>
                   <View style={[styles.savingsBadge, { backgroundColor: colors.onPrimary }]}>

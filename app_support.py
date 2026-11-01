@@ -2076,6 +2076,32 @@ def clean_display_text(value) -> str:
     return '' if text.lower() in _JUNK_TEXT_VALUES else text
 
 
+# Forkortelser der skal blive ved med at stå med store bogstaver, når et
+# navn i rene versaler gøres pænt.
+_KEEP_UPPER_WORDS = frozenset({'UHT', 'BBQ', 'XL', 'XXL', 'XS', 'DK', 'USA', 'EU', 'IPA', 'DIY', 'TV'})
+
+
+def pretty_display_name(value: str) -> str:
+    """Navne skrevet med rene versaler ("MÆLKESNITTE", "ALPRO NATUREL") vises
+    som almindelig tekst ("Mælkesnitte", "Alpro naturel"), som kurven i
+    forvejen gjorde (stripStoreBrand i script.js og appen). Navne med små
+    bogstaver røres ikke, for dér har butikken selv valgt (GitHub-issue #163).
+    Kun til visning: matchning og søgning bruger det rå navn."""
+    text = str(value or '')
+    letters = [c for c in text if c.isalpha()]
+    if len(letters) < 2 or any(c.islower() for c in letters):
+        return text
+    words = []
+    for word in text.split(' '):
+        core = word.strip('.,:;()!?')
+        words.append(word if core in _KEEP_UPPER_WORDS else word.lower())
+    out = ' '.join(words)
+    for i, c in enumerate(out):
+        if c.isalpha():
+            return out[:i] + c.upper() + out[i + 1:]
+    return out
+
+
 def product_to_display_dict(
     product: dict,
     *,
@@ -2097,12 +2123,12 @@ def product_to_display_dict(
             weight_g = None
     result = {
         'id': str(product.get('/product/id', '')),
-        'name': name_str,
+        'name': pretty_display_name(name_str),
         'price': float(product.get('/product/price', 0)),
         'sale_price': float(sale_price) if sale_price is not None else None,
         'description': clean_display_text(product.get('/product/description', '')),
         'category': str(ptype),
-        'brand': clean_display_text(product.get('/product/brand', '')),
+        'brand': pretty_display_name(clean_display_text(product.get('/product/brand', ''))),
         'image_url': str(product.get('/product/imageLink', '')),
         'rema_image': product.get('/product/rema_image', ''),
         'is_sale': is_sale,

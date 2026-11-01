@@ -6016,7 +6016,7 @@ def api_home():
             # Personlige tal hentes client-side via JWT (edge-cache må ikke indeholde dem).
             'personal_savings': {
                 'available': False,
-                'message': 'Log ind for at tracke besparelse',
+                'message': 'Log ind for at følge din besparelse',
             },
         })
     except Exception as e:

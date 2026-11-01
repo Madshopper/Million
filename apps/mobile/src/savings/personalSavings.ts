@@ -16,7 +16,7 @@ export type PersonalSavings = {
   message: string;
 };
 
-const LOGIN_MSG = 'Log ind for at tracke besparelse';
+const LOGIN_MSG = 'Log ind for at følge din besparelse';
 
 export function emptySavings(loggedIn: boolean): PersonalSavings {
   return {
@@ -42,7 +42,8 @@ function parsePayload(data: unknown): PersonalSavings | null {
     prev_amount: Number(d.prev_amount) || 0,
     prev_month_key: String(d.prev_month_key || ''),
     show_prev: Boolean(d.show_prev),
-    message: String(d.message || ''),
+    // Ældre udgaver af RPC'en i Supabase siger stadig "tracke" (issue #163).
+    message: String(d.message || '').replace('tracke besparelse', 'følge din besparelse'),
   };
 }
 
