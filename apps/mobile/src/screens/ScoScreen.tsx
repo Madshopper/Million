@@ -185,7 +185,11 @@ export function ScoScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
       <Text style={{ color: colors.textMuted, marginBottom: 12 }}>
-        Sammenligning af {topStores.length} butikker for din kurv
+        {/* Samme tal som kurven ("sammenlignet i 14 butikker"): her vises kun
+            de billigste, så sig hvor mange der blev sammenlignet (issue #160). */}
+        {result.stores.length > topStores.length
+          ? `De ${topStores.length} billigste af ${result.stores.length} butikker for din kurv`
+          : `Sammenligning af ${topStores.length} butikker for din kurv`}
       </Text>
 
       {/* Skærmen fandtes allerede (RouteScreen + cart/butiksrute.ts, 1:1-port
