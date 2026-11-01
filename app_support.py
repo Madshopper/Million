@@ -1955,6 +1955,9 @@ _BILKA_CATEGORY_RULES_COMPILED = [
 ]
 
 
+_DRY_YEAST_RE = re.compile(r'tør\s*gær|gærpulver|instant\s*gær|tørret\s+gær|gær,?\s+tør\b')
+
+
 def unify_category(raw_cat, product_name='', brand=''):
     """Maps any store category or product name to a standard website category.
 
@@ -1986,6 +1989,12 @@ def unify_category(raw_cat, product_name='', brand=''):
 
     if 'lolly' in name or 'frys-selv' in name or 'ispind' in name:
         return CAT_FROST
+
+    # Tørgær er en bagevare, ikke en kølevare. Butikkerne lægger den tit
+    # sammen med frisk gær under køl, så butikkens egen kategori må ikke
+    # vinde her (GitHub-issue #162). Frisk gær bliver på køl.
+    if _DRY_YEAST_RE.search(name):
+        return CAT_BROED_KAGER
 
     if 'kiosk' in raw and name:
         _kiosk_drink = ('cola', 'sodavand', 'juice', 'energidrik', 'energy drink', 'øl', 'vin', 'cider', 'vand', 'saft', 'iste', 'ice tea', 'sportsdrik', 'kombucha', 'drik', 'lemonade', 'shots', 'smoothie', 'frugtdrik', 'breezer', 'kokosvand')
