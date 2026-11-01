@@ -533,7 +533,11 @@ export function CartScreen() {
             joinLabel([
               store.name,
               spokenKr(store.totalPrice),
-              extra && extra.shared > 0 && extra.diff > 0 ? `${spokenKr(extra.diff)} dyrere` : null,
+              store.coverage < store.totalItems
+                ? `mangler ${store.totalItems - store.coverage} ${store.totalItems - store.coverage === 1 ? 'vare' : 'varer'}`
+                : extra && extra.shared > 0 && extra.diff > 0
+                  ? `${spokenKr(extra.diff)} dyrere`
+                  : null,
             ]),
           ),
         ])}
@@ -577,10 +581,14 @@ export function CartScreen() {
                 </Text>
                 <Text style={[styles.runnerTotal, { color: colors.onPrimary }]}>{kr(store.totalPrice)}</Text>
                 <Text style={[styles.runnerExtra, { color: colors.bannerSoft }]}>
-                  {extra && extra.shared > 0 && extra.diff > 0
-                    ? `+${extra.diff.toFixed(2).replace('.', ',')}`
-                    : store.coverage < store.totalItems
-                      ? `mangler ${store.totalItems - store.coverage}`
+                  {/* En butik der mangler varer, er ikke "dyrere": dens total er
+                      lavere, fordi varerne mangler. Vis det først, som web gør
+                      (renderC2Cart i script.js), ellers stod Spar til 51,90 kr
+                      som "+11,90" ved siden af Bilkas 63,75 kr (issue #160). */}
+                  {store.coverage < store.totalItems
+                    ? `mangler ${store.totalItems - store.coverage}`
+                    : extra && extra.shared > 0 && extra.diff > 0
+                      ? `+${extra.diff.toFixed(2).replace('.', ',')}`
                       : ''}
                 </Text>
               </View>

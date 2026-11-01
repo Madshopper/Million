@@ -272,3 +272,19 @@ målt igen med en 19-scenariers kurv-suite på desktop og mobil.
 | Valgt butik uden for kataloget gav `undefined.push` | **Begge** | Kun katalog-butikker tælles (`sco.ts` + `script.js`) |
 | Én `/api/cart-event` pr. **forskellig** vare - 10 varer = 10 kald, 429 fra 21. vare/min pr. IP | **Begge** | Køen samler alle varer i ét kald (maks. 50, maks. 3 s ventetid); web sender resten ved `pagehide` |
 | Kurv-badget læste localStorage direkte og viste 0 ved blokeret/fuld lagring | Web | Læser kurven i hukommelsen, som listen og sammenligningen |
+
+## 8. Rettet 01-11-2026 (Thomas' screenshot-gennemgang, issues #157-#163)
+
+| Fund | Platform | Rettelse |
+|---|---|---|
+| #161 Søgningen "mælk" gav kondenseret mælk og kaffe øverst, letmælk/sødmælk først efter 30 andre | **Begge** (`/api/search`) | `app_support.search_match_score`: hovedordet i et sammensat ord (sødmælk) tæller som et helt ord, forled (mælkesnitte) mindre, et ord efter "med/i/til/uden" (beskrivelse) mindre, mærkefeltet halvt, og ved lige score kommer varer som flere butikker fører først |
+| #159 Kilopris "0,01 kr pr. kilo" | **Begge** | Kilopris under 1 kr er ukendt (`app_support.plausible_kg_price`, også i `updater.sanitize_kg_price`) |
+| #162 Tørgær under Køl & Mejeri | **Begge** | `unify_category`: tørgær går til Brød & Kager (Bagning), uanset butikkens egen kategori. Frisk gær bliver på køl |
+| #163 Varenavne i versaler ("MÆLKESNITTE") | **Begge** | `app_support.pretty_display_name` i `product_to_display_dict`: kun navne og mærker uden små bogstaver, forkortelser som UHT bevares |
+| #163 "Log ind for at tracke besparelse" | **Begge** | "Log ind for at følge din besparelse", også når den ældre RPC i Supabase sender den gamle tekst |
+| #160 Kurven viste en billigere butik der mangler varer som "+11,90" | App | "mangler N" vises først, som web. Find billigste siger "De 3 billigste af 14 butikker" |
+| #158 Ingredienser med `<b>` og `<br>` som tekst | App | `format/ingredients.ts`: fed for allergener, linjeskift, andre tags væk (samme regler som web) |
+| #157 Priser med punktum ("63.75 kr") | App | Fælles `format/kr.ts` (`kr`, `krNum`) brugt på alle skærme |
+
+Opskrifternes "Kommer snart"-teaser på forsiden (sidste punkt i #163) er
+bevidst beholdt: Kalle valgte den 02-10-2026 (PR #26) og låste den 18-10-2026.

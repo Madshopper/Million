@@ -37,6 +37,8 @@ import { joinLabel, spokenKr } from '../a11y/speech';
 import type { RootStackParamList } from '../navigation/types';
 import type { Product, StoreInfo } from '../api/types';
 import { StackScreenBody } from '../components/ScreenBody';
+import { krNum } from '../format/kr';
+import { ingredientParts } from '../format/ingredients';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetail'>;
 
@@ -371,7 +373,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
       image: product.image,
       category: product.category || 'Andre varer',
       unitMeasure: product.unit_measure,
-      kgPrice: product.kg_price != null ? `${product.kg_price.toFixed(2)} kr/kg` : '',
+      kgPrice: product.kg_price != null ? `${krNum(product.kg_price)} kr/kg` : '',
       multiDeal: product.multi_deal || undefined,
       quantity: qty,
     });
@@ -437,17 +439,17 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         {product.is_sale ? (
           <>
             <Text style={[styles.original, { color: colors.textMuted }]}>
-              {product.normal_price.toFixed(2)} kr
+              {krNum(product.normal_price)} kr
             </Text>
             <Text
               style={[styles.price, { color: colors.dealInk }]}
             >
-              {product.price.toFixed(2)} kr
+              {krNum(product.price)} kr
             </Text>
           </>
         ) : (
           <Text style={[styles.price, { color: colors.text }]}>
-            {product.price.toFixed(2)} kr
+            {krNum(product.price)} kr
           </Text>
         )}
       </View>
@@ -537,11 +539,11 @@ export function ProductDetailScreen({ route, navigation }: Props) {
               ) : null}
             </View>
             <Text style={{ color: i === 0 ? colors.badge : colors.text, marginTop: 2 }}>
-              {c.price.toFixed(2)} kr
-              {i === 0 ? ' · Billigst' : ` · +${(c.price - comparisons[0].price).toFixed(2)} kr`}
+              {krNum(c.price)} kr
+              {i === 0 ? ' · Billigst' : ` · +${krNum(c.price - comparisons[0].price)} kr`}
             </Text>
             {c.kgPrice != null ? (
-              <Text style={{ color: colors.textMuted, fontSize: 12 }}>{c.kgPrice.toFixed(2)} kr/kg</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12 }}>{krNum(c.kgPrice)} kr/kg</Text>
             ) : null}
             {c.multiDeal ? (
               <Text style={{ color: colors.textMuted, marginTop: 2 }}>{c.multiDeal}</Text>
@@ -669,7 +671,18 @@ export function ProductDetailScreen({ route, navigation }: Props) {
           {nutrition.ingredients ? (
             <>
               <Text style={{ color: colors.text, fontWeight: '600', marginTop: 10 }}>Ingredienser</Text>
-              <Text style={{ color: colors.textMuted, marginTop: 4 }}>{nutrition.ingredients}</Text>
+              {/* Butikkernes HTML: <b> fed (allergener), <br> linjeskift (issue #158). */}
+              <Text style={{ color: colors.textMuted, marginTop: 4 }}>
+                {ingredientParts(nutrition.ingredients).map((part, i) =>
+                  part.bold ? (
+                    <Text key={i} style={{ fontWeight: '700', color: colors.text }}>
+                      {part.text}
+                    </Text>
+                  ) : (
+                    part.text
+                  ),
+                )}
+              </Text>
             </>
           ) : null}
           <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 10 }}>

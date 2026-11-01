@@ -115,7 +115,7 @@ BEGIN
       'prev_amount', 0,
       'prev_month_key', '',
       'show_prev', false,
-      'message', 'Log ind for at tracke besparelse'
+      'message', 'Log ind for at følge din besparelse'
     );
   END IF;
 
@@ -221,7 +221,7 @@ BEGIN
       'prev_amount', 0,
       'prev_month_key', '',
       'show_prev', false,
-      'message', 'Log ind for at tracke besparelse'
+      'message', 'Log ind for at følge din besparelse'
     );
   END IF;
 
@@ -406,7 +406,7 @@ BEGIN
       'prev_amount', 0,
       'prev_month_key', '',
       'show_prev', false,
-      'message', 'Log ind for at tracke besparelse'
+      'message', 'Log ind for at følge din besparelse'
     );
   END IF;
 
@@ -501,7 +501,7 @@ BEGIN
       'prev_amount', 0,
       'prev_month_key', '',
       'show_prev', false,
-      'message', 'Log ind for at tracke besparelse'
+      'message', 'Log ind for at følge din besparelse'
     );
   END IF;
 

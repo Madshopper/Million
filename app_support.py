@@ -278,6 +278,36 @@ def _field_matches_term(field: str, term: str) -> bool:
     return any(_token_matches_term(tok, term) for tok in field.split())
 
 
+# Ord der gør det næste ord til en beskrivelse af en ANDEN vare: "Perfekt
+# med mælk formalet kaffe" er kaffe, "Tun i olie" er tun. Står søgeordet lige
+# efter et af dem, er varen ikke det man søgte efter.
+_SEARCH_MODIFIER_WORDS = frozenset({'med', 'm', 'uden', 'u', 'til', 'i'})
+
+
+def _name_term_points(tokens: list[str], term: str) -> int:
+    """Hvor godt ét søgeord rammer et navn. 0 = intet træf.
+
+    Dansk sætter hovedordet SIDST i sammensatte ord: "sødmælk" og "letmælk"
+    ER mælk, mens "mælkesnitte" og "mælkechokolade" kun er lavet med mælk.
+    Før 01-11-2026 scorede et forled (70) højere end et hovedord (50), og et
+    løst ord i en beskrivelse ("Perfekt med mælk formalet kaffe") lige så
+    højt som en ægte vare, så søgningen "mælk" viste kondenseret mælk og
+    kaffe øverst og letmælk/sødmælk først på side 1's anden halvdel
+    (GitHub-issue #161)."""
+    best = 0
+    for i, tok in enumerate(tokens):
+        if tok == term:
+            pts = 55 if i > 0 and tokens[i - 1] in _SEARCH_MODIFIER_WORDS else 100
+        elif tok.endswith(term) and len(tok) - len(term) >= 3:
+            pts = 100   # hovedord i et sammensat ord: sødmælk, juleøl, flødeost
+        elif tok.startswith(term):
+            pts = 60    # forled: mælkesnitte, ostehaps
+        else:
+            continue
+        best = max(best, pts)
+    return best
+
+
 def search_match_score(product: dict, query: str) -> int:
     """Højere = bedre relevans. Bruges til at sortere autocomplete/søgeresultater."""
     terms = [t for t in normalize_name(query).split() if t]
@@ -288,18 +318,15 @@ def search_match_score(product: dict, query: str) -> int:
     # Samme folding som _token_matches_term, så "maelk" ikke bare FINDER de
     # rigtige varer, men også scorer dem som et rigtigt match.
     terms = [_fold(t) for t in terms]
-    tokens = [_fold(t) for t in (name + ' ' + brand).split()]
+    name_tokens = [_fold(t) for t in name.split()]
+    brand_tokens = [_fold(t) for t in brand.split()]
     score = 0
     for term in terms:
-        best = 0
-        for tok in tokens:
-            if tok == term:
-                best = max(best, 100)
-            elif tok.startswith(term):
-                best = max(best, 70)
-            elif tok.endswith(term) and len(tok) - len(term) >= 3:
-                best = max(best, 50)
-        score += best
+        # Mærke-feltet tæller halvt: Rema lægger en hel beskrivelse dér
+        # ("REMA 1000, ØKO MÆLKEFRI" på en leverpostej), så et træf i mærket
+        # siger meget mindre om varen end et træf i navnet.
+        score += max(_name_term_points(name_tokens, term),
+                     _name_term_points(brand_tokens, term) // 2)
 
     # Kategori-prior: et søgeord som "mælk" beskriver en VARETYPE, og den type
     # hører til en bestemt kategori. Uden dette afgjorde tiebreakeren (korteste
@@ -318,8 +345,11 @@ def search_match_score(product: dict, query: str) -> int:
     if expected and str(product.get('category', '')) == expected:
         score += 40
 
-    # Kortere navne først ved lige score (mere specifik titel)
-    return score * 1000 - min(len(name), 999)
+    # Ved lige score: varer som flere butikker fører først (almindelig
+    # letmælk før kondenseret mælk), derefter kortere navne (mere specifik).
+    matches = product.get('store_matches')
+    stores = min(len(matches), 9) if isinstance(matches, (dict, list)) else 0
+    return score * 1000 + stores * 100 - min(len(name), 99)
 
 
 def store_match_names(store_matches) -> str:
@@ -1925,6 +1955,9 @@ _BILKA_CATEGORY_RULES_COMPILED = [
 ]
 
 
+_DRY_YEAST_RE = re.compile(r'tør\s*gær|gærpulver|instant\s*gær|tørret\s+gær|gær,?\s+tør\b')
+
+
 def unify_category(raw_cat, product_name='', brand=''):
     """Maps any store category or product name to a standard website category.
 
@@ -1956,6 +1989,12 @@ def unify_category(raw_cat, product_name='', brand=''):
 
     if 'lolly' in name or 'frys-selv' in name or 'ispind' in name:
         return CAT_FROST
+
+    # Tørgær er en bagevare, ikke en kølevare. Butikkerne lægger den tit
+    # sammen med frisk gær under køl, så butikkens egen kategori må ikke
+    # vinde her (GitHub-issue #162). Frisk gær bliver på køl.
+    if _DRY_YEAST_RE.search(name):
+        return CAT_BROED_KAGER
 
     if 'kiosk' in raw and name:
         _kiosk_drink = ('cola', 'sodavand', 'juice', 'energidrik', 'energy drink', 'øl', 'vin', 'cider', 'vand', 'saft', 'iste', 'ice tea', 'sportsdrik', 'kombucha', 'drik', 'lemonade', 'shots', 'smoothie', 'frugtdrik', 'breezer', 'kokosvand')
@@ -2046,6 +2085,50 @@ def clean_display_text(value) -> str:
     return '' if text.lower() in _JUNK_TEXT_VALUES else text
 
 
+# Forkortelser der skal blive ved med at stå med store bogstaver, når et
+# navn i rene versaler gøres pænt.
+_KEEP_UPPER_WORDS = frozenset({'UHT', 'BBQ', 'XL', 'XXL', 'XS', 'DK', 'USA', 'EU', 'IPA', 'DIY', 'TV'})
+
+
+def pretty_display_name(value: str) -> str:
+    """Navne skrevet med rene versaler ("MÆLKESNITTE", "ALPRO NATUREL") vises
+    som almindelig tekst ("Mælkesnitte", "Alpro naturel"), som kurven i
+    forvejen gjorde (stripStoreBrand i script.js og appen). Navne med små
+    bogstaver røres ikke, for dér har butikken selv valgt (GitHub-issue #163).
+    Kun til visning: matchning og søgning bruger det rå navn."""
+    text = str(value or '')
+    letters = [c for c in text if c.isalpha()]
+    if len(letters) < 2 or any(c.islower() for c in letters):
+        return text
+    words = []
+    for word in text.split(' '):
+        core = word.strip('.,:;()!?')
+        words.append(word if core in _KEEP_UPPER_WORDS else word.lower())
+    out = ' '.join(words)
+    for i, c in enumerate(out):
+        if c.isalpha():
+            return out[:i] + c.upper() + out[i + 1:]
+    return out
+
+
+# Ingen fødevare koster under 1 kr pr. kilo/liter. En kilopris dér er en
+# enhedsfejl (pris delt med gram i stedet for kilo): Yoggi 1 kg til 9,95 kr
+# stod som "0,01 kr pr. kilo" på forsiden (GitHub-issue #159). Der er bevidst
+# ingen øvre grænse: safran koster over 30.000 kr/kg.
+MIN_PLAUSIBLE_KG_PRICE = 1.0
+
+
+def plausible_kg_price(value):
+    """Kiloprisen som tal, eller None når den mangler eller ikke kan passe."""
+    try:
+        kg = float(value) if value is not None and value != '' else None
+    except (TypeError, ValueError):
+        return None
+    if kg is None or kg != kg or kg < MIN_PLAUSIBLE_KG_PRICE:
+        return None
+    return kg
+
+
 def product_to_display_dict(
     product: dict,
     *,
@@ -2067,12 +2150,12 @@ def product_to_display_dict(
             weight_g = None
     result = {
         'id': str(product.get('/product/id', '')),
-        'name': name_str,
+        'name': pretty_display_name(name_str),
         'price': float(product.get('/product/price', 0)),
         'sale_price': float(sale_price) if sale_price is not None else None,
         'description': clean_display_text(product.get('/product/description', '')),
         'category': str(ptype),
-        'brand': clean_display_text(product.get('/product/brand', '')),
+        'brand': pretty_display_name(clean_display_text(product.get('/product/brand', ''))),
         'image_url': str(product.get('/product/imageLink', '')),
         'rema_image': product.get('/product/rema_image', ''),
         'is_sale': is_sale,
@@ -2086,7 +2169,7 @@ def product_to_display_dict(
         # egen weight_g-kolonne (brugt til SQL-filtrering) alligevel havde den.
         'weight_g': weight_g,
         'stk_count': product.get('/product/stk_count') or parse_stk_count(unit_measure),
-        'price_per_kg': product.get('/product/price_per_kg'),
+        'price_per_kg': plausible_kg_price(product.get('/product/price_per_kg')),
         'store_matches': product.get('/product/store_matches', {}),
         'cheaper_at': product.get('/product/cheaper_at'),
         'cheapest_at': product.get('/product/cheapest_at'),
@@ -2208,11 +2291,7 @@ def _serialize_store_match(match: dict) -> dict:
     """Ét store_matches-entry til native JSON (docs/native-app.md §3.2)."""
     if not isinstance(match, dict):
         return {}
-    kg = match.get('kg_price')
-    try:
-        kg_price = float(kg) if kg is not None and kg != '' else None
-    except (TypeError, ValueError):
-        kg_price = None
+    kg_price = plausible_kg_price(match.get('kg_price'))
     price = match.get('price')
     normal = match.get('normal_price')
     try:
@@ -2277,11 +2356,7 @@ def product_to_api_dict(display: dict) -> dict:
     }
 
     image = str(display.get('image_url') or '')
-    kg = display.get('price_per_kg')
-    try:
-        kg_price = float(kg) if kg is not None and kg != '' else None
-    except (TypeError, ValueError):
-        kg_price = None
+    kg_price = plausible_kg_price(display.get('price_per_kg'))
 
     return {
         'id': str(display.get('id') or ''),

@@ -5739,7 +5739,7 @@ function _bindAuthShareHooks() {
         _authBootstrapDone = true;
         _stopSharedCart(true);
         updateListsBadge();
-        renderPersonalSavingsWidget({ available: false, message: 'Log ind for at tracke besparelse' });
+        renderPersonalSavingsWidget({ available: false, message: 'Log ind for at følge din besparelse' });
         // Undgaa at naeste bruger paa samme (delte) udstyr arver denne brugers
         // in-memory anti-spam-state - se kommentarer ved _comparedProductIds/_savingsSignature.
         _comparedProductIds.clear();
@@ -5776,7 +5776,8 @@ function renderPersonalSavingsWidget(data) {
 
     if (!data.available) {
         var isError = !!data.error;
-        var msg = data.message || 'Log ind for at tracke besparelse';
+        // Ældre udgaver af RPC'en i Supabase siger stadig "tracke" (issue #163).
+        var msg = String(data.message || 'Log ind for at følge din besparelse').replace('tracke besparelse', 'følge din besparelse');
         el.classList.add('savings-widget--login');
         el.innerHTML =
             '<div class="savings-icon" aria-hidden="true">' +
@@ -5836,12 +5837,12 @@ async function loadPersonalSavingsWidget() {
     var el = document.getElementById('personalSavingsWidget');
     if (!el) return;
     if (!_authUser()) {
-        renderPersonalSavingsWidget({ available: false, message: 'Log ind for at tracke besparelse' });
+        renderPersonalSavingsWidget({ available: false, message: 'Log ind for at følge din besparelse' });
         return;
     }
     var sb = _sbClient();
     if (!sb) {
-        renderPersonalSavingsWidget({ available: false, message: 'Log ind for at tracke besparelse' });
+        renderPersonalSavingsWidget({ available: false, message: 'Log ind for at følge din besparelse' });
         return;
     }
     try {

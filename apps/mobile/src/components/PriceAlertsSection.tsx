@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import { env } from '../config/env';
 import { spokenKr } from '../a11y/speech';
+import { krNum } from '../format/kr';
 
 type PriceAlert = {
   id: string;
@@ -165,7 +166,7 @@ export function PriceAlertsSection() {
                 {a.product_name || 'Ukendt vare'}
               </Text>
               <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                Giver besked ved {Number(a.target_price).toFixed(2)} kr eller lavere
+                Giver besked ved {krNum(Number(a.target_price))} kr eller lavere
               </Text>
             </View>
             <Pressable

@@ -20,6 +20,7 @@ from app_support import (
     DEFAULT_HTTP_HEADERS, _STORE_CONFIGS, format_price,
     normalize_name, fuzzy_score, rapid_ratio,
     parse_weight_to_grams, parse_stk_count, weights_compatible,
+    plausible_kg_price,
     ean_looks_valid, ean_key, eans_conflict,
     _PLACEHOLDER_IMGS,
     CAT_ANDET, CAT_FROST, CAT_FRUGT_GROENT, unify_category, is_age_restricted,
@@ -562,6 +563,10 @@ def sanitize_kg_price(price, ppk, weight_g, context: str = ''):
     Prisen er det kunden betaler og står på hylden; den rører vi ikke. En
     kg-pris der ikke passer, smides væk, så den hverken vises eller
     snyder kg-pris-gaten i matchingen."""
+    if ppk is not None and plausible_kg_price(ppk) is None:
+        logger.warning("kg-pris under 1 kr droppes: %s %.2f kr (kg-pris %s)",
+                       context or '(ukendt vare)', price, ppk)
+        return None
     if price > 0 and ppk is not None and weight_g is not None and weight_g > 0:
         expected_price = ppk * (weight_g / 1000.0)
         if expected_price > 0 and (price > expected_price * 2.5 or price < expected_price * 0.3):
