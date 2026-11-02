@@ -2047,6 +2047,29 @@ _PROJECTS = (
         ),
     },
     {
+        'key': 'social_post',
+        'name': 'Videoer på Facebook og Instagram',
+        'status': 'waiting',
+        'desc': 'Mandag og torsdag kl. 19.30 poster MadShopper selv næste '
+                'video fra social/koe/ på Facebook og Instagram, altid begge '
+                'steder eller intet. Se social/README.md.',
+        'parts': (
+            {'done': True, 'name': 'Instagram klar',
+             'desc': 'Professionel konto, koblet til Facebook-siden og '
+                     'totrinsbekræftelse slået til (31-10-2026).'},
+            {'done': True, 'name': 'Programmet bygget',
+             'desc': 'scripts/social-post.py og social-post.yml, startet '
+                     'kl. 19.30 af uptime-workeren.'},
+            {'done': False, 'name': 'Nøglen META_PAGE_TOKEN i GitHub',
+             'desc': 'Kræver en Meta-udviklerkonto. Kalles sms-kode kommer '
+                     'aldrig frem, så en anden admin på siden laver den.'},
+            {'done': False, 'name': 'Prøvekørsel',
+             'desc': 'Start social-post.yml med Prøvekørsel under Actions.'},
+            {'done': False, 'name': 'Første video i køen',
+             'desc': 'Video + tekst med samme navn i social/koe/.'},
+        ),
+    },
+    {
         'key': 'admin_app_stats',
         'name': 'Appens tal i admin',
         'status': 'doing',

@@ -1,0 +1,72 @@
+name: Post video (Facebook + Instagram)
+
+# Poster næste video fra social/koe/ på Facebook-siden MadShopper og
+# Instagram @madshopper.dk, altid begge eller ingen (scripts/social-post.py).
+#
+# Ingen egen cron: GitHub-cron kommer 1-4 timer for sent. uptime-worker/
+# (Cloudflare, hvert 5. minut) starter den mandag og torsdag kl. 19.30 dansk
+# tid (startSocial i uptime-worker/worker.js). Manuel start kører altid.
+# Kræver GitHub-secret META_PAGE_TOKEN; uden den stopper kørslen grønt.
+
+on:
+  workflow_dispatch:
+    inputs:
+      proevekoersel:
+        description: 'Prøvekørsel: tjek video, tekst og nøgle, men post intet'
+        type: boolean
+        default: false
+
+concurrency:
+  group: social-post
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installer requests
+        run: pip install 'requests>=2.31'
+
+      - name: Post næste video
+        id: post
+        env:
+          META_PAGE_TOKEN: ${{ secrets.META_PAGE_TOKEN }}
+        run: |
+          if [ "${{ inputs.proevekoersel }}" = "true" ]; then
+            python3 scripts/social-post.py --dry-run
+          else
+            python3 scripts/social-post.py
+          fi
+
+      # Kører også når posteringen fejlede, så en video der kom ud på
+      # Facebook alene stadig flyttes til social/udgivet/ og ikke postes igen.
+      - name: Gem at videoen er udgivet
+        if: ${{ always() && inputs.proevekoersel != true }}
+        run: |
+          if [ -z "$(git status --porcelain social)" ]; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A social
+          git commit -m "Video udgivet på Facebook/Instagram [skip ci]"
+          # Nogen kan have pushet imens; læg committen oven på.
+          for i in 1 2 3; do
+            git pull --rebase -q origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep 5
+          done
+          echo "::error::Kunne ikke gemme at videoen er udgivet. Flyt den selv til social/udgivet/, før næste kørsel."
+          exit 1
