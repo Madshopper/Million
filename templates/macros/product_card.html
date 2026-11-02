@@ -99,7 +99,12 @@
   </div>
   <div class="product-footer">
     <div class="product-price">
-      {% if product.is_sale %}
+      {% if product.is_sale and product.sale_price is none %}
+      {# Tilbud uden førpris (fx Nettos multikøb i tilbudsavisen, force_sale):
+         kun én pris, gul. Uden dette gav '%.2f'|format(None) en 500 på hele
+         /tilbud/<butik> (Netto, Lidl, Løvbjerg, ABC, 02-11-2026). #}
+      <div class="price-sale price sale">{% if c2 %}{{ c2_price(product.price) }}{% else %}{{ "%.2f"|format(product.price) }} kr{% endif %}</div>
+      {%- elif product.is_sale %}
       <div class="price-original price original">{% if c2 %}{{ ("%.2f"|format(product.price)).replace('.', ',') }}{% else %}{{ "%.2f"|format(product.price) }}{% endif %} kr</div>
       <div class="price-sale price sale">{% if c2 %}{{ c2_price(product.sale_price) }}{% else %}{{ "%.2f"|format(product.sale_price) }} kr{% endif %}</div>
       {%- elif feature_enabled('tilbud_gul') and (product.store_matches[product.cheapest_at].is_sale if product.cheapest_at in product.store_matches else (product.cheapest_at == 'rema' and product.rema_is_sale)) %}
