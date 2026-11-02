@@ -96,8 +96,26 @@ jobs:
               echo "::error::$wf: seneste koersel er $ALDER_TIMER timer gammel ($URL) - koerte den slet ikke i nat?"
               FEJL=1
             elif [ "$STATUS" = "completed" ] && [ "$KONKLUSION" != "success" ]; then
-              echo "::error::$wf: seneste koersel endte som '$KONKLUSION' - $URL"
-              FEJL=1
+              # En butik der fejler ÉN gang, retter sig som regel selv næste
+              # gang den hentes, og butikken beholder imens sine gamle data
+              # (Netto-kilden var halv 31-10, Apple svarede 500 02-11-2026).
+              # Kalle 02-11-2026: kun rødt når der er noget at rette. Rødt
+              # derfor først, når butikken har fejlet to kørsler i træk; én
+              # fejl bliver en advarsel i kørslen. cache-updater og
+              # build-nutrition er altid røde: uden dem står hele sitet stille.
+              FORRIGE=""
+              case "$wf" in
+                scraper-*)
+                  FORRIGE=$(gh run list --workflow "$wf" -R "${{ github.repository }}" \
+                    --limit 2 --json conclusion --jq '.[1].conclusion // ""')
+                  ;;
+              esac
+              if [ "$FORRIGE" = "success" ]; then
+                echo "::warning::$wf: seneste koersel endte som '$KONKLUSION', men den forrige lykkedes - roedt foerst hvis den ogsaa fejler naeste gang - $URL"
+              else
+                echo "::error::$wf: seneste koersel endte som '$KONKLUSION' - $URL"
+                FEJL=1
+              fi
             else
               echo "$wf: ok (alder ${ALDER_TIMER}t, $KONKLUSION/$STATUS)"
             fi
