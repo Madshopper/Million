@@ -108,7 +108,17 @@ def asc(path: str, params: dict | None = None, method: str = "GET",
     if body is not None:
         headers["Content-Type"] = "application/json"
         data = json.dumps(body).encode()
-    return request(url, method=method, headers=headers, body=data)
+    status, raw = request(url, method=method, headers=headers, body=data)
+    # Apple svarer af og til 500/503 på et enkelt opslag (02-11-2026: én side
+    # af analytics-listen), og det gav en rød kørsel. Et GET prøves derfor
+    # igen to gange med pause; et POST gentages ikke (kunne oprette dobbelt).
+    for wait in (10, 30):
+        if method != "GET" or status < 500:
+            break
+        log(f"  Apple svarede {status}, prøver igen om {wait} s")
+        time.sleep(wait)
+        status, raw = request(url, method=method, headers=headers, body=data)
+    return status, raw
 
 
 def asc_json(path: str, params: dict | None = None) -> dict:
