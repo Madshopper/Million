@@ -6943,6 +6943,13 @@ html.halloween body {
   background-attachment: fixed;
 }
 
+/* Jule-baggrunden (Feature 'jul_tema'). Logoet genbruger
+   .logo-icon--halloween-reglerne ovenfor (egen grøn bund, fylder firkanten). */
+html.jul body {
+  background-image: url('/static/images/jul-baggrund.svg');
+  background-attachment: fixed;
+}
+
 html.c2 .logo-text {
   color: var(--c2-text);
   font-weight: 800;

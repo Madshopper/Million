@@ -9,18 +9,21 @@ import { lookupPostcode, useLokationEnabled } from '../location/nearby';
 import { loadStoreLocations, savedPostcode } from '../location/storage';
 import type { RootStackParamList } from '../navigation/types';
 import { HalloweenLogo, useHalloweenLogoEnabled } from './HalloweenLogo';
+import { JulLogo, useJulTemaEnabled } from './JulLogo';
 
 /**
  * Forsidens top til venstre: kun "MadShopper". Det grønne kurv-ikon er
  * fjernet (Kalle 21-10-2026), så kurv-knappen til højre er den eneste kurv.
- * Til Halloween står spøgelses-logoet foran (Feature 'halloween_logo').
+ * Til Halloween står spøgelses-logoet foran (Feature 'halloween_logo'), til
+ * jul nissen (Feature 'jul_tema'). Er begge tændt, vinder Halloween.
  */
 export function HomeHeaderTitle() {
   const { colors } = useTheme();
   const halloween = useHalloweenLogoEnabled();
+  const jul = useJulTemaEnabled();
   return (
     <View style={styles.titleRow} accessible accessibilityRole="header" accessibilityLabel="MadShopper">
-      {halloween ? <HalloweenLogo size={26} /> : null}
+      {halloween ? <HalloweenLogo size={26} /> : jul ? <JulLogo size={26} /> : null}
       <Text style={[styles.title, { color: colors.text }]}>MadShopper</Text>
     </View>
   );

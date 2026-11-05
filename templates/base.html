@@ -1,7 +1,11 @@
 <!DOCTYPE html>
 {# App-designet C2 (Feature 'design_c2'): klassen slår C2-reglerne i
    styles.css til. Altid til på dev.madshopper.dk. #}
-<html lang="da"{% if design_c2_enabled or halloween_logo_enabled %} class="{{ 'c2' if design_c2_enabled }}{{ ' ' if design_c2_enabled and halloween_logo_enabled }}{{ 'halloween' if halloween_logo_enabled }}"{% endif %}>
+{# Halloween- og jule-temaet (Features 'halloween_logo' / 'jul_tema') sætter
+   hver sin klasse til baggrunden. Er begge tændt, vinder Halloween. #}
+{% set _season = 'halloween' if halloween_logo_enabled else ('jul' if jul_tema_enabled else '') %}
+{% set _html_class = ((['c2'] if design_c2_enabled else []) + ([_season] if _season else []))|join(' ') %}
+<html lang="da"{% if _html_class %} class="{{ _html_class }}"{% endif %}>
 
 <head>
   <meta charset="UTF-8">
@@ -36,8 +40,8 @@
        ALDRIG ?v= selv her - scripts/test-cache-bust.py fejler på det. HTML
        sendes med Cache-Control: no-store, så browseren henter frisk HTML (og
        nye hash-links) uden hard refresh. -->
-  {# Halloween-logoet (Feature 'halloween_logo') også i browserfanen. #}
-  <link rel="icon" href="{{ url_for('static', filename='favicon-halloween.svg' if halloween_logo_enabled else 'favicon.svg') }}" type="image/svg+xml">
+  {# Halloween- og jule-logoet (Features 'halloween_logo' / 'jul_tema') også i browserfanen. #}
+  <link rel="icon" href="{{ url_for('static', filename=('favicon-halloween.svg' if _season == 'halloween' else ('favicon-jul.svg' if _season == 'jul' else 'favicon.svg'))) }}" type="image/svg+xml">
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
@@ -135,7 +139,7 @@
   <header>
     <div class="header-top">
       <a href="{{ url_for('home') }}" class="logo-link">
-        {% if halloween_logo_enabled %}{% with logo_uid='top' %}{% include 'partials/halloween_logo.html' %}{% endwith %}{% else %}
+        {% if _season == 'halloween' %}{% with logo_uid='top' %}{% include 'partials/halloween_logo.html' %}{% endwith %}{% elif _season == 'jul' %}{% with logo_uid='top' %}{% include 'partials/jul_logo.html' %}{% endwith %}{% else %}
         <div class="logo-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">
@@ -238,7 +242,7 @@
   <nav id="nav-menu" class="nav-menu">
     <div class="nav-header">
       <a href="{{ url_for('home') }}" class="logo-link">
-        {% if halloween_logo_enabled %}{% with logo_uid='nav' %}{% include 'partials/halloween_logo.html' %}{% endwith %}{% else %}
+        {% if _season == 'halloween' %}{% with logo_uid='nav' %}{% include 'partials/halloween_logo.html' %}{% endwith %}{% elif _season == 'jul' %}{% with logo_uid='nav' %}{% include 'partials/jul_logo.html' %}{% endwith %}{% else %}
         <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round">
             <circle cx="9" cy="21" r="1" />
@@ -824,7 +828,7 @@
   <footer>
     <div class="footer-inner">
       <div class="footer-brand">
-        {% if halloween_logo_enabled %}{% with logo_uid='foot' %}{% include 'partials/halloween_logo.html' %}{% endwith %}{% else %}
+        {% if _season == 'halloween' %}{% with logo_uid='foot' %}{% include 'partials/halloween_logo.html' %}{% endwith %}{% elif _season == 'jul' %}{% with logo_uid='foot' %}{% include 'partials/jul_logo.html' %}{% endwith %}{% else %}
         <div class="logo-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
             stroke-linejoin="round">

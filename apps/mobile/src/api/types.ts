@@ -114,6 +114,8 @@ export type HomeResponse = {
   kurv_besked_enabled?: boolean;
   /** Er Halloween-logoet slået til i Feature-panelet? */
   halloween_logo_enabled?: boolean;
+  /** Er jule-temaet (nissen i logoet) slået til i Feature-panelet? */
+  jul_tema_enabled?: boolean;
   mejeri_navn_enabled?: boolean;
   /** Er "Tilbudsavis pr. butik" udgivet i Feature-panelet? */
   butiksaviser_enabled?: boolean;
