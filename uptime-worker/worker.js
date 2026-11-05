@@ -430,6 +430,35 @@ export async function startMorning(env, scheduledTime = Date.now()) {
   }
 }
 
+// SoMe-posting (Kalle 31-10-2026): mandag og torsdag kl. 19.30 dansk tid
+// starter workeren .github/workflows/some-post.yml, som poster den ældste
+// video i some/koe/, hvis dato er nået. Samme grund som morgenens hentning:
+// GitHubs cron kommer 1-4 timer for sent. KV-nøglen husker den danske dato,
+// så det sker én gang pr. dag; fejler kaldet, prøver næste tick igen indtil
+// kl. 22. En dublet stoppes af workflowets concurrency og af at en postet
+// video flyttes ud af køen.
+const SOME_KEY = "some_post_v1";
+const SOME_DAYS = new Set(["Mon", "Thu"]);
+const SOME_AT = { hour: 19, minute: 30 };
+const SOME_URL = `${GH_API}/some-post.yml/dispatches`;
+
+export async function startSomePost(env, scheduledTime = Date.now()) {
+  if (!env.GH_DISPATCH_TOKEN) return null;
+  const dk = danishParts(scheduledTime);
+  if (!SOME_DAYS.has(dk.weekday)) return null;
+  const minutes = dk.hour * 60 + dk.minute;
+  if (minutes < SOME_AT.hour * 60 + SOME_AT.minute || dk.hour >= 22) return null;
+  if ((await env.STATE.get(SOME_KEY)) === dk.date) return null;
+  await env.STATE.put(SOME_KEY, dk.date);
+  try {
+    await dispatch(env, SOME_URL, {});
+    return "some-post startet";
+  } catch (err) {
+    await env.STATE.delete(SOME_KEY);
+    throw err;
+  }
+}
+
 async function dispatch(env, url, inputs) {
   const res = await fetch(url, {
     method: "POST",
@@ -447,6 +476,10 @@ export default {
     ctx.waitUntil(startMorning(env, event.scheduledTime).then(
       (r) => r && console.log("morgen:", r),
       (err) => console.error("morgen: kunne ikke starte nightly-dispatcher:", String(err)),
+    ));
+    ctx.waitUntil(startSomePost(env, event.scheduledTime).then(
+      (r) => r && console.log("some:", r),
+      (err) => console.error("some: kunne ikke starte some-post:", String(err)),
     ));
     ctx.waitUntil(check(env, event.scheduledTime).then((r) => {
       const failing = Object.keys(r.down);

@@ -1,0 +1,75 @@
+name: SoMe-posting
+
+# Poster næste video fra some/koe/ på Facebook-siden og Instagram
+# (scripts/some-post.py, some/README.md). Kalle 31-10-2026: videoerne skal
+# ud af sig selv mandag og torsdag kl. 19.30, uden at han gør noget.
+#
+# Startes af madshopper-uptime (uptime-worker/worker.js::startSomePost) mandag
+# og torsdag kl. 19.30 dansk tid. GitHubs egen cron kommer 1-4 timer for sent,
+# derfor ingen schedule her. Manuel start poster med det samme, hvis en video
+# i køen har nået sin dato.
+on:
+  workflow_dispatch:
+    inputs:
+      kun_tjek:
+        description: 'Tjek kun køen, post intet'
+        type: boolean
+        default: false
+
+# Aldrig to på samme tid: begge kunne ellers poste den samme video.
+concurrency:
+  group: some-post
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Installer
+        run: |
+          pip install -q "requests>=2.31"
+          sudo apt-get install -y -qq ffmpeg >/dev/null
+
+      - name: Post næste video
+        env:
+          META_PAGE_TOKEN: ${{ secrets.META_PAGE_TOKEN }}
+          KUN_TJEK: ${{ inputs.kun_tjek }}
+        run: |
+          if [ "$KUN_TJEK" = "true" ]; then
+            python scripts/some-post.py --check
+          else
+            python scripts/some-post.py
+          fi
+
+      # Også når en platform fejlede: status.json husker hvad der ER postet,
+      # så næste kørsel ikke poster det igen.
+      - name: Gem status i repoet
+        if: always() && inputs.kun_tjek != true
+        run: |
+          if [ -z "$(git status --porcelain -- some/)" ]; then
+            echo "Intet nyt at gemme."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A some/
+          git commit -q -m "SoMe: video postet [skip ci]"
+          for i in 1 2 3 4; do
+            git pull --rebase -q origin "${GITHUB_REF_NAME}" && git push -q origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep $((i * 5))
+          done
+          echo "Kunne ikke gemme status i repoet" >&2
+          exit 1
