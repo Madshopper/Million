@@ -6,11 +6,12 @@
  * "Reducer bevægelse" slået til.
  */
 import React from 'react';
-import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { useTheme } from '../theme/ThemeContext';
 
-const GARLAND_XML = '<svg width="100%" height="40"><defs><pattern id="g" width="160" height="40" patternUnits="userSpaceOnUse"><g transform="scale(1.3333)"><rect x="28.4" y="9.6" width="3.2" height="3" rx=".6" fill="#9ca3af"/><ellipse cx="30" cy="16.0" rx="3.3" ry="4.4" fill="#dc2626"/><ellipse cx="28.9" cy="14.6" rx=".9" ry="1.5" fill="#fff" opacity=".55"/><rect x="58.4" y="12" width="3.2" height="3" rx=".6" fill="#9ca3af"/><ellipse cx="60" cy="18.4" rx="3.3" ry="4.4" fill="#f59e0b"/><ellipse cx="58.9" cy="17" rx=".9" ry="1.5" fill="#fff" opacity=".55"/><rect x="88.4" y="9.6" width="3.2" height="3" rx=".6" fill="#9ca3af"/><ellipse cx="90" cy="16.0" rx="3.3" ry="4.4" fill="#3b82f6"/><ellipse cx="88.9" cy="14.6" rx=".9" ry="1.5" fill="#fff" opacity=".55"/><path d="M0 4Q60 24 120 4" fill="none" stroke="#14532d" stroke-width="6.4" stroke-linecap="round"/><path d="M0 4Q60 24 120 4" fill="none" stroke="#16a34a" stroke-width="4.6" stroke-dasharray="1.6 2.2"/><path d="M0 4Q60 24 120 4" fill="none" stroke="#4ade80" stroke-width="1.6" stroke-dasharray="1 4" opacity=".8"/><g transform="translate(0 4)"><path d="M0 0c-3-3.6-7.4-3-6.4-.4.6 1.6 3.8 1.4 6.4.4Zm0 0c3-3.6 7.4-3 6.4-.4-.6 1.6-3.8 1.4-6.4.4Z" fill="#dc2626"/><path d="M0 0l-3 6.2M0 0l3 6.2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round"/><circle r="1.6" fill="#b91c1c"/></g><g transform="translate(120 4)"><path d="M0 0c-3-3.6-7.4-3-6.4-.4.6 1.6 3.8 1.4 6.4.4Zm0 0c3-3.6 7.4-3 6.4-.4-.6 1.6-3.8 1.4-6.4.4Z" fill="#dc2626"/><path d="M0 0l-3 6.2M0 0l3 6.2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round"/><circle r="1.6" fill="#b91c1c"/></g></g></pattern></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>';
+/** Én bue af girlanden (120 x 30, sløjfe i begge ender). */
+const GARLAND_SWAG = '<rect x="28.4" y="9.6" width="3.2" height="3" rx=".6" fill="#9ca3af"/><ellipse cx="30" cy="16.0" rx="3.3" ry="4.4" fill="#dc2626"/><ellipse cx="28.9" cy="14.6" rx=".9" ry="1.5" fill="#fff" opacity=".55"/><rect x="58.4" y="12" width="3.2" height="3" rx=".6" fill="#9ca3af"/><ellipse cx="60" cy="18.4" rx="3.3" ry="4.4" fill="#f59e0b"/><ellipse cx="58.9" cy="17" rx=".9" ry="1.5" fill="#fff" opacity=".55"/><rect x="88.4" y="9.6" width="3.2" height="3" rx=".6" fill="#9ca3af"/><ellipse cx="90" cy="16.0" rx="3.3" ry="4.4" fill="#3b82f6"/><ellipse cx="88.9" cy="14.6" rx=".9" ry="1.5" fill="#fff" opacity=".55"/><path d="M0 4Q60 24 120 4" fill="none" stroke="#14532d" stroke-width="6.4" stroke-linecap="round"/><path d="M0 4Q60 24 120 4" fill="none" stroke="#16a34a" stroke-width="4.6" stroke-dasharray="1.6 2.2"/><path d="M0 4Q60 24 120 4" fill="none" stroke="#4ade80" stroke-width="1.6" stroke-dasharray="1 4" opacity=".8"/><g transform="translate(0 4)"><path d="M0 0c-3-3.6-7.4-3-6.4-.4.6 1.6 3.8 1.4 6.4.4Zm0 0c3-3.6 7.4-3 6.4-.4-.6 1.6-3.8 1.4-6.4.4Z" fill="#dc2626"/><path d="M0 0l-3 6.2M0 0l3 6.2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round"/><circle r="1.6" fill="#b91c1c"/></g><g transform="translate(120 4)"><path d="M0 0c-3-3.6-7.4-3-6.4-.4.6 1.6 3.8 1.4 6.4.4Zm0 0c3-3.6 7.4-3 6.4-.4-.6 1.6-3.8 1.4-6.4.4Z" fill="#dc2626"/><path d="M0 0l-3 6.2M0 0l3 6.2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round"/><circle r="1.6" fill="#b91c1c"/></g>';
 const SNOW_LIGHT = '<svg width="100%" height="100%"><defs><pattern id="s" width="300" height="300" patternUnits="userSpaceOnUse"><g fill="#93c5fd" opacity=".75"><circle cx="97.1" cy="45.3" r="2.0"/><circle cx="21.7" cy="160.8" r="1.6"/><circle cx="17.4" cy="152.2" r="1.2"/><circle cx="130.1" cy="21.0" r="1.3"/><circle cx="127.4" cy="248.1" r="1.3"/><circle cx="67.0" cy="188.2" r="2.3"/><circle cx="173.1" cy="119.0" r="2.4"/><circle cx="14.0" cy="257.5" r="1.5"/><circle cx="43.3" cy="35.3" r="1.6"/><circle cx="244.8" cy="54.2" r="1.9"/><circle cx="191.7" cy="111.7" r="1.9"/><circle cx="18.8" cy="17.9" r="1.4"/><circle cx="204.1" cy="128.3" r="1.6"/><circle cx="175.7" cy="136.0" r="1.6"/><circle cx="238.3" cy="209.7" r="1.5"/><circle cx="172.3" cy="157.6" r="2.3"/><circle cx="218.8" cy="86.4" r="2.4"/><circle cx="35.4" cy="125.4" r="2.1"/><circle cx="45.6" cy="146.7" r="1.2"/><circle cx="200.5" cy="229.4" r="1.9"/><circle cx="262.6" cy="94.1" r="2.0"/><circle cx="178.3" cy="174.0" r="1.7"/></g></pattern></defs><rect width="100%" height="100%" fill="url(#s)"/></svg>';
 const SNOW_DARK = '<svg width="100%" height="100%"><defs><pattern id="s" width="300" height="300" patternUnits="userSpaceOnUse"><g fill="#ffffff" opacity=".55"><circle cx="97.1" cy="45.3" r="2.0"/><circle cx="21.7" cy="160.8" r="1.6"/><circle cx="17.4" cy="152.2" r="1.2"/><circle cx="130.1" cy="21.0" r="1.3"/><circle cx="127.4" cy="248.1" r="1.3"/><circle cx="67.0" cy="188.2" r="2.3"/><circle cx="173.1" cy="119.0" r="2.4"/><circle cx="14.0" cy="257.5" r="1.5"/><circle cx="43.3" cy="35.3" r="1.6"/><circle cx="244.8" cy="54.2" r="1.9"/><circle cx="191.7" cy="111.7" r="1.9"/><circle cx="18.8" cy="17.9" r="1.4"/><circle cx="204.1" cy="128.3" r="1.6"/><circle cx="175.7" cy="136.0" r="1.6"/><circle cx="238.3" cy="209.7" r="1.5"/><circle cx="172.3" cy="157.6" r="2.3"/><circle cx="218.8" cy="86.4" r="2.4"/><circle cx="35.4" cy="125.4" r="2.1"/><circle cx="45.6" cy="146.7" r="1.2"/><circle cx="200.5" cy="229.4" r="1.9"/><circle cx="262.6" cy="94.1" r="2.0"/><circle cx="178.3" cy="174.0" r="1.7"/></g></pattern></defs><rect width="100%" height="100%" fill="url(#s)"/></svg>';
 const SNOW_BIG_LIGHT = '<svg width="100%" height="100%"><defs><pattern id="b" width="420" height="420" patternUnits="userSpaceOnUse"><g fill="#93c5fd" opacity=".6"><circle cx="190.0" cy="235.1" r="4.1"/><circle cx="195.6" cy="213.3" r="3.5"/><circle cx="77.6" cy="215.0" r="3.6"/><circle cx="333.1" cy="39.5" r="3.1"/><circle cx="38.1" cy="340.1" r="3.7"/><circle cx="17.6" cy="412.5" r="4.1"/><circle cx="274.6" cy="258.5" r="2.9"/><circle cx="6.3" cy="221.9" r="2.7"/><circle cx="79.9" cy="101.6" r="2.6"/><circle cx="194.9" cy="185.0" r="3.9"/></g></pattern></defs><rect width="100%" height="100%" fill="url(#b)"/></svg>';
@@ -24,11 +25,24 @@ const hidden = {
 };
 
 /** Girlanden øverst i forsidens liste: hænger under toppen og ruller væk med
- * indholdet, så den aldrig ligger hen over varerne. */
+ * indholdet, så den aldrig ligger hen over varerne. Antallet af buer passer
+ * til skærmens bredde, så den starter og slutter med en sløjfe i hver side
+ * (Kalle 05-11-2026). */
 export function JulGarland() {
+  const { width } = useWindowDimensions();
+  const count = Math.max(1, Math.ceil(width / 160));
+  const scale = width / count / 120;
+  const height = Math.round(30 * scale);
+  const xml = React.useMemo(() => {
+    let swags = '';
+    for (let i = 0; i < count; i += 1) {
+      swags += `<g transform="translate(${i * 120} 0)">${GARLAND_SWAG}</g>`;
+    }
+    return `<svg viewBox="0 0 ${count * 120} 30" width="${width}" height="${height}">${swags}</svg>`;
+  }, [count, width, height]);
   return (
-    <View style={styles.garland} pointerEvents="none" {...hidden}>
-      <SvgXml xml={GARLAND_XML} width="100%" height={40} />
+    <View style={{ height }} pointerEvents="none" {...hidden}>
+      <SvgXml xml={xml} width={width} height={height} />
     </View>
   );
 }
@@ -100,6 +114,5 @@ export function JulSnowDrift() {
 }
 
 const styles = StyleSheet.create({
-  garland: { height: 40 },
   drift: { height: 48, marginTop: 24 },
 });

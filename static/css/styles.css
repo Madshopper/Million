@@ -7009,7 +7009,10 @@ html.jul body > main::before {
   content: '';
   display: block;
   height: 40px;
-  background: url('/static/images/jul-girlande.svg') repeat-x 0 0 / 160px 40px;
+  /* round: buerne strækkes lidt, så et helt antal passer i bredden, og
+     girlanden slutter med en sløjfe i højre side ligesom den starter. */
+  background: url('/static/images/jul-girlande.svg') 0 0 / 160px 40px;
+  background-repeat: round no-repeat;
   pointer-events: none;
 }
 
