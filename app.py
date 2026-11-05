@@ -1985,8 +1985,14 @@ _FEATURES = (
             {'kind': 'web', 'name': 'Baggrunden på hjemmesiden',
              'desc': 'Svage nissehuer, gaver, slikstokke, snefnug og stjerner '
                      'bag indholdet på alle sider.'},
+            {'kind': 'web', 'name': 'Girlande, sne og snebunke på hjemmesiden',
+             'desc': 'Girlande under toppen, sne der falder langsomt bag '
+                     'indholdet og en snebunke oven på bunden.'},
             {'kind': 'app', 'name': 'Logoet i appen',
              'desc': 'Nissen ved "MadShopper" øverst på forsiden.'},
+            {'kind': 'app', 'name': 'Girlande, sne og snebunke i appen',
+             'desc': 'Girlande under toppen af forsiden, langsom sne bag '
+                     'indholdet og en snebunke nederst i listen.'},
             {'kind': 'app', 'name': 'Baggrunden i appen',
              'desc': 'Samme svage mønster bag forsidens indhold.'},
         ),
