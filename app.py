@@ -1928,40 +1928,6 @@ _FEATURES = (
         ),
     },
     {
-        'key': 'halloween_logo',
-        'name': 'Halloween-tema (logo og baggrund)',
-        'env': 'HALLOWEEN_LOGO_ENABLED',
-        'desc': 'Et lille spøgelse i logoets kurv, der blinker, rækker tunge '
-                'og holder en græskar-slikspand (forslag C3, Kalle '
-                '27-10-2026), og en svag baggrund med flagermus, græskar og '
-                'spøgelser (Kalle 28-10-2026). Kurven og den grønne farve er '
-                'som altid. '
-                'Parkeret til Halloween 2027 (Kalle 28-10-2026): slå det til '
-                'omkring 10-10-2027 og fra igen efter 5-11. Vejledning i '
-                'projektmappen halloween/VEJLEDNING.md. Kan ikke fjernes fra '
-                'panelet, fordi det skal kunne slås til og fra hvert år.',
-        'app': 'MadShopper Test har det med det samme. Butiksappen får det '
-               'med den første App Store-version efter 28-10-2026 (1.0.6 er '
-               'bygget, men ikke sendt til Apple). Ikonet på telefonens '
-               'hjemmeskærm skifter ikke.',
-        # Kommer igen hvert år: må ikke gøres permanent fra panelet.
-        'seasonal': True,
-        'parts': (
-            {'kind': 'web', 'name': 'Logoet på hjemmesiden',
-             'desc': 'I toppen (også i det nye design, hvor kurven ellers er '
-                     'skjult), i menuen og i bunden af siden.'},
-            {'kind': 'web', 'name': 'Ikonet i browserfanen',
-             'desc': 'Spøgelset i det lille ikon i fanen.'},
-            {'kind': 'web', 'name': 'Baggrunden på hjemmesiden',
-             'desc': 'Svage flagermus, græskar, spøgelser, stjerner og slik '
-                     'bag indholdet på alle sider.'},
-            {'kind': 'app', 'name': 'Logoet i appen',
-             'desc': 'Spøgelset ved "MadShopper" øverst på forsiden.'},
-            {'kind': 'app', 'name': 'Baggrunden i appen',
-             'desc': 'Samme svage mønster bag forsidens indhold.'},
-        ),
-    },
-    {
         'key': 'jul_tema',
         'name': 'Jule-tema (logo og baggrund)',
         'env': 'JUL_TEMA_ENABLED',
@@ -2165,23 +2131,6 @@ _PROJECTS = (
         ),
     },
     {
-        'key': 'dagrofa_backup',
-        'name': 'Reservevej for Spar, Meny og Min Købmand',
-        'status': 'waiting',
-        'desc': 'Priserne hentes fra butikkernes egen vareliste. Svigter den, '
-                'går en reservevej direkte til hver kategoris adresse på '
-                'butikkens hjemmeside. Færdig og merget 10-10-2026 (PR #92), '
-                'så den kan markeres som færdig.',
-        'parts': (
-            {'done': True, 'name': 'Varelisten henter alle varer igen',
-             'desc': 'Rettet 07-10-2026: før manglede ca. 400 varer hos Spar '
-                     'og Min Købmand, og natten fejlede.'},
-            {'done': True, 'name': 'Reservevejen virker igen',
-             'desc': 'Rettet 10-10-2026 og prøvet på alle tre butikker: '
-                     'samme antal varer pr. kategori som varelisten.'},
-        ),
-    },
-    {
         'key': 'tilbud_direkte',
         'name': 'Ugens tilbud direkte fra butikkerne',
         'status': 'waiting',
@@ -2202,80 +2151,6 @@ _PROJECTS = (
              'desc': 'Hentes stadig via Tjek. Mail sendt til Coop '
                      '10-10-2026; venter på svar. Tjek giver ingen førpris, '
                      'så deres tilbud står som "Tilbud" og ikke "Spar xx%".'},
-        ),
-    },
-    {
-        'key': 'nat_hurtigere',
-        'name': 'Opdatering så tidligt som muligt',
-        'status': 'doing',
-        'desc': 'Cloudflare starter hentningen af butikkerne kl. 01:05 '
-                '(sommertid 02:05). Fredag og lørdag venter den, til '
-                'butikkernes nye uge er ude, og starter senest kl. 09:00.',
-        'parts': (
-            {'done': True, 'name': 'Siden opdateres lige efter butikkerne',
-             'desc': 'Cache-opdateringen starter, når hentningen er færdig.'},
-            {'done': True, 'name': 'Start kl. 00:01 fra Cloudflare',
-             'desc': 'Merget 10-10-2026 (PR #88).'},
-            {'done': False, 'name': 'Vent på ugens nye tilbud fre og lør',
-             'desc': 'Netto lørdag 17-10 og 24-10 og Bilka, Føtex, Meny, Spar '
-                     'og Min Købmand fredag 23-10-2026 viste sidste uges '
-                     'tilbud, fordi de skifter på et tidspunkt der varierer. '
-                     'butikker-klar.yml tjekker hvert 30. minut.'},
-            {'done': False, 'name': 'Første morgener tjekket',
-             'desc': 'Sammenlign butikkernes priser med siden efter en fredag og en lørdag.'},
-        ),
-    },
-    {
-        'key': 'app_design_c',
-        'name': 'Nyt udseende i appen (version C)',
-        'status': 'doing',
-        'desc': 'Ny skrift, runde kort med butikslogo og rundt gult '
-                'tilbudsmærke, "Køb igen" på forsiden og kurven med den '
-                'billigste butik øverst. Kun appen; hjemmesiden får det ikke '
-                'nu (18-10-2026).',
-        'parts': (
-            {'done': True, 'name': 'Bygget',
-             'desc': 'Forside, produktkort, kurv og bundmenu, lys og mørk.'},
-            {'done': True, 'name': 'På MadShopper Test',
-             'desc': 'Merget og sendt til testappen 18-10-2026 (PR #119).'},
-            {'done': False, 'name': 'Med i næste App Store-version',
-             'desc': 'App 1.0.4 i App Store har det ikke. Butiksappen får det '
-                     'først med et nyt build (se "Næste app-version").'},
-        ),
-    },
-    {
-        'key': 'app_design_c2',
-        'name': 'Nyt app-design (C2)',
-        'status': 'doing',
-        'desc': 'Videre fra version C, så appen ser mindre generisk ud: lille '
-                'gul "Spar"-pille, aviser som runde logoer, seneste '
-                'søgninger i Søg, "Handl i 2 butikker" og "Glemt '
-                'noget?" i kurven (19-10-2026), opskrifter og madplan '
-                '(31-10-2026). Hjemmesiden har fået det samme bag funktionen "Nyt udseende på hjemmesiden (C2)".',
-        'parts': (
-            {'done': True, 'name': 'Forside',
-             'desc': 'Søgefelt, kompakt besparelse, aviser denne uge og '
-                     '"Ugens største fald".'},
-            {'done': True, 'name': 'Søgning',
-             'desc': 'Seneste søgninger, kun gemt på telefonen. "Køb igen" '
-                     'kun i kurven (21-10-2026).'},
-            {'done': True, 'name': 'Produktkort',
-             'desc': 'Lille gul "Spar"-pille, butikslogo og kun kg-pris.'},
-            {'done': True, 'name': 'Kurv',
-             'desc': 'Vinderkort, "Handl i 2 butikker" og "Glemt noget?".'},
-            {'done': True, 'name': 'Bundmenu',
-             'desc': 'Lysegrøn pille bag den aktive fane, grønt tal på kurven.'},
-            {'done': True, 'name': 'Mørk tilstand',
-             'desc': 'Kun farver fra appens tema, ingen faste farver.'},
-            {'done': True, 'name': 'Web',
-             'desc': 'Bygget på hjemmesiden bag funktionen "Nyt udseende på '
-                     'hjemmesiden (C2)". Slået til på dev-siden, udgives '
-                     'herfra.'},
-            {'done': True, 'name': 'Opskrifter og madplan',
-             'desc': 'Madplan, alle opskrifter, opskriftssiden og guiden i '
-                     'C2 uden emoji, plus "Har jeg": tryk på en ingrediens du '
-                     'har, så trækkes den fra prisen og kurven (31-10-2026). '
-                     'Samme på dev-siden.'},
         ),
     },
     {
@@ -2376,6 +2251,48 @@ _PROJECTS = (
 )
 _PROJECT_KEYS = {p['key']: p for p in _PROJECTS}
 _PROJECTS_KV_KEY = 'projects_v1'
+# Parkerede sæson-temaer: står ikke i Feature-panelet og er slukket overalt
+# (også på dev), men koden ligger klar. Halloween fjernet fra panelet efter
+# Kalles ønske 05-11-2026. Omkring 10-10-2027: flyt posten tilbage i
+# _FEATURES (og sæt HALLOWEEN_LOGO_LINE i scripts/build-pages.sh for dev),
+# så kan den slås til i panelet igen.
+_PARKED_FEATURES = (
+    {
+        'key': 'halloween_logo',
+        'name': 'Halloween-tema (logo og baggrund)',
+        'env': 'HALLOWEEN_LOGO_ENABLED',
+        'desc': 'Et lille spøgelse i logoets kurv, der blinker, rækker tunge '
+                'og holder en græskar-slikspand (forslag C3, Kalle '
+                '27-10-2026), og en svag baggrund med flagermus, græskar og '
+                'spøgelser (Kalle 28-10-2026). Kurven og den grønne farve er '
+                'som altid. '
+                'Parkeret til Halloween 2027 (Kalle 28-10-2026): slå det til '
+                'omkring 10-10-2027 og fra igen efter 5-11. Vejledning i '
+                'projektmappen halloween/VEJLEDNING.md. Kan ikke fjernes fra '
+                'panelet, fordi det skal kunne slås til og fra hvert år.',
+        'app': 'MadShopper Test har det med det samme. Butiksappen får det '
+               'med den første App Store-version efter 28-10-2026 (1.0.6 er '
+               'bygget, men ikke sendt til Apple). Ikonet på telefonens '
+               'hjemmeskærm skifter ikke.',
+        # Kommer igen hvert år: må ikke gøres permanent fra panelet.
+        'seasonal': True,
+        'parts': (
+            {'kind': 'web', 'name': 'Logoet på hjemmesiden',
+             'desc': 'I toppen (også i det nye design, hvor kurven ellers er '
+                     'skjult), i menuen og i bunden af siden.'},
+            {'kind': 'web', 'name': 'Ikonet i browserfanen',
+             'desc': 'Spøgelset i det lille ikon i fanen.'},
+            {'kind': 'web', 'name': 'Baggrunden på hjemmesiden',
+             'desc': 'Svage flagermus, græskar, spøgelser, stjerner og slik '
+                     'bag indholdet på alle sider.'},
+            {'kind': 'app', 'name': 'Logoet i appen',
+             'desc': 'Spøgelset ved "MadShopper" øverst på forsiden.'},
+            {'kind': 'app', 'name': 'Baggrunden i appen',
+             'desc': 'Samme svage mønster bag forsidens indhold.'},
+        ),
+    },
+)
+
 _FEATURE_KEYS = {f['key']: f for f in _FEATURES}
 _FEATURES_KV_KEY = 'features_v1'
 # Samme levetid som workerens cache_version-memo (src/worker.py).

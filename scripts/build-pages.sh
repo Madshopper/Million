@@ -78,7 +78,7 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   DESIGN_C2_LINE='DESIGN_C2_ENABLED = "1"'
   # "Lagt i kurven"-beskeden (app.py::_FEATURES 'kurv_besked') er altid til på dev.
   KURV_BESKED_LINE='KURV_BESKED_ENABLED = "1"'
-  # Halloween-logoet (app.py::_FEATURES 'halloween_logo') er slukket på dev
+  # Halloween-logoet (app.py::_PARKED_FEATURES 'halloween_logo') er slukket på dev
   # (Kalle 05-11-2026: jule-temaet skal ses dér nu). Sæt den tilbage til
   # HALLOWEEN_LOGO_ENABLED = "1" omkring 10-10-2027, så Halloween kan tjekkes
   # på dev før det tændes i produktion.
