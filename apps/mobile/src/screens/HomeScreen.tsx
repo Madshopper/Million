@@ -220,7 +220,8 @@ export function HomeScreen() {
         style={{ height: listHeight }}
         data={rows}
         keyExtractor={(item) => item.key}
-        contentContainerStyle={{ paddingTop: !halloween && jul ? 30 : 4, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingTop: !halloween && jul ? 0 : 4, paddingBottom: !halloween && jul ? 0 : 40 }}
+        ListHeaderComponent={!halloween && jul ? <JulGarland /> : null}
         ListFooterComponent={!halloween && jul ? <JulSnowDrift /> : null}
         scrollEnabled
         bounces
@@ -447,7 +448,6 @@ export function HomeScreen() {
           );
         }}
       />
-      {!halloween && jul ? <JulGarland /> : null}
       <CategoriesDrawer
         visible={catsOpen}
         onClose={() => setCatsOpen(false)}
