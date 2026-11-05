@@ -2154,35 +2154,22 @@ _PROJECTS = (
         ),
     },
     {
-        'key': 'app_1_0_5',
-        'name': 'Næste app-version i App Store (1.0.5)',
+        'key': 'app_next',
+        'name': 'Næste app-version i App Store',
         'status': 'waiting',
-        'desc': 'Det her ligger klar på MadShopper Test, men den rigtige app '
-                'får det først, når 1.0.5 er bygget på Mac\'en og godkendt af '
-                'Apple. Butiksappen henter ikke opdateringer over nettet.',
+        'desc': '1.0.5 er i App Store siden 22-10-2026. 1.0.6 (med det '
+                'parkerede Halloween-tema) er på TestFlight, men ikke sendt '
+                'til Apple (Kalle 05-11-2026). Jule-temaet kom bagefter, så '
+                'butiksappen får det først med et nyt build.',
         'parts': (
-            {'done': True, 'name': 'Nyt design (version C og C2)',
-             'desc': 'Forside, søgning, varekort, kurv og bundmenu '
-                     '(PR #119, #123, #129).'},
-            {'done': True, 'name': '"Spar xx%" på tilbudsmærket',
-             'desc': 'Samme regel som hjemmesiden, hvor det allerede er ude '
-                     '(PR #133, 21-10-2026).'},
-            {'done': True, 'name': 'Hurtigere søgning',
-             'desc': 'Ingen kø mens man skriver, kortere ventetid, og svar '
-                     'huskes (PR #134, 21-10-2026). Kun appen; hjemmesiden '
-                     'havde ikke problemet.'},
-            {'done': True, 'name': '"Lagt i kurven"-beskeden',
-             'desc': 'Vises først, når funktionen "Besked når en vare lægges '
-                     'i kurven" er udgivet her (PR #132). Sker af sig selv, '
-                     'når 1.0.5 er i App Store.'},
-            {'done': True, 'name': 'Tilbudsavis pr. butik',
-             'desc': 'Udgives af sig selv, når 1.0.5 er i App Store. '
-                     'Opskrifter og madplan er IKKE med (Kalle 22-10-2026).'},
-            {'done': True, 'name': 'Versionsnummer 1.0.5',
-             'desc': 'Sat i apps/mobile/app.config.js (22-10-2026).'},
-            {'done': False, 'name': 'Byg 1.0.5 og send til Apple',
-             'desc': 'Bygges på Mac\'en som dk.madshopper.app (ikke test). '
-                     'Du sender den selv til godkendelse.'},
+            {'done': True, 'name': '1.0.6 bygget og på TestFlight',
+             'desc': 'Bygget 28-10-2026. Har ikke jule-temaet.'},
+            {'done': False, 'name': 'Nyt build med jule-temaet',
+             'desc': 'Bygges med store-ios-build.yml fra main, så nissen, '
+                     'girlanden og sneen er med.'},
+            {'done': False, 'name': 'Send til Apple omkring 20-11-2026',
+             'desc': 'Du sender den selv til godkendelse, så den er ude før '
+                     'jule-temaet tændes 29-11-2026.'},
         ),
     },
     {
