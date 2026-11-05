@@ -6943,6 +6943,96 @@ html.halloween body {
   background-attachment: fixed;
 }
 
+/* Jule-baggrunden (Feature 'jul_tema'). Logoet genbruger
+   .logo-icon--halloween-reglerne ovenfor (egen grøn bund, fylder firkanten). */
+html.jul body {
+  background-image: url('/static/images/jul-baggrund.svg');
+  background-attachment: fixed;
+}
+
+/* Jule-pynt (samme Feature, Kalle 05-11-2026): sne der falder langsomt bag
+   indholdet, en girlande der hænger under toppen og en snebunke oven på
+   bunden. Kun transform animeres (billigt for browseren), og sneen står
+   stille ved "reducer bevægelse". */
+html.jul body::before,
+html.jul body::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform;
+}
+
+html.jul body::before {
+  top: -300px;
+  background-image: url('/static/images/jul-sne-lys.svg');
+  animation: jul-sne-300 40s linear infinite;
+}
+
+html.jul body::after {
+  top: -420px;
+  background-image: url('/static/images/jul-sne-stor-lys.svg');
+  animation: jul-sne-420 34s linear infinite;
+}
+
+html.jul body[data-theme="dark"]::before {
+  background-image: url('/static/images/jul-sne-moerk.svg');
+}
+
+html.jul body[data-theme="dark"]::after {
+  background-image: url('/static/images/jul-sne-stor-moerk.svg');
+}
+
+@keyframes jul-sne-300 {
+  from { transform: translateY(0); }
+  to { transform: translateY(300px); }
+}
+
+@keyframes jul-sne-420 {
+  from { transform: translateY(0); }
+  to { transform: translateY(420px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.jul body::before,
+  html.jul body::after {
+    animation: none;
+  }
+}
+
+html.jul body > header::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: url('/static/images/jul-girlande.svg') repeat-x 0 0 / 160px 40px;
+  pointer-events: none;
+}
+
+html.jul body > footer {
+  position: relative;
+}
+
+html.jul body > footer::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 48px;
+  background: url('/static/images/jul-snebunke-lys.svg') repeat-x 0 100% / 240px 48px;
+  pointer-events: none;
+}
+
+html.jul body[data-theme="dark"] > footer::before {
+  background-image: url('/static/images/jul-snebunke-moerk.svg');
+}
+
 html.c2 .logo-text {
   color: var(--c2-text);
   font-weight: 800;

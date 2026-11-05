@@ -42,6 +42,8 @@ import {
   setServerHalloweenLogoEnabled,
   useHalloweenLogoEnabled,
 } from '../components/HalloweenLogo';
+import { JulBackground, setServerJulTemaEnabled, useJulTemaEnabled } from '../components/JulLogo';
+import { JulGarland, JulSnow, JulSnowDrift } from '../components/JulDecor';
 import { setServerMejeriNavnEnabled } from '../categories/categories';
 import { setServerStatsEnabled } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
@@ -60,6 +62,7 @@ export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const halloween = useHalloweenLogoEnabled();
+  const jul = useJulTemaEnabled();
   const { user } = useAuth();
   // queryLabels (ikke selectedLabels): debouncet 300 ms som webben, saa et
   // hurtigt til-/fravalg af flere butikker i filter-arket giver ÉT /api/home-
@@ -130,6 +133,7 @@ export function HomeScreen() {
         setServerSwipeEnabled(data.swipe_enabled);
         setServerCartToastEnabled(data.kurv_besked_enabled);
         setServerHalloweenLogoEnabled(data.halloween_logo_enabled);
+        setServerJulTemaEnabled(data.jul_tema_enabled);
         setServerMejeriNavnEnabled(data.mejeri_navn_enabled);
         setServerLokationEnabled(data.lokation_enabled);
         setOfferStores(data.butiksaviser_enabled ? data.offer_stores || [] : []);
@@ -210,12 +214,14 @@ export function HomeScreen() {
 
   return (
     <View style={{ height: listHeight, backgroundColor: colors.bg }}>
-      {halloween ? <HalloweenBackground /> : null}
+      {halloween ? <HalloweenBackground /> : jul ? <JulBackground /> : null}
+      {!halloween && jul ? <JulSnow /> : null}
       <FlatList
         style={{ height: listHeight }}
         data={rows}
         keyExtractor={(item) => item.key}
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingTop: !halloween && jul ? 30 : 4, paddingBottom: 40 }}
+        ListFooterComponent={!halloween && jul ? <JulSnowDrift /> : null}
         scrollEnabled
         bounces
         showsVerticalScrollIndicator
@@ -441,6 +447,7 @@ export function HomeScreen() {
           );
         }}
       />
+      {!halloween && jul ? <JulGarland /> : null}
       <CategoriesDrawer
         visible={catsOpen}
         onClose={() => setCatsOpen(false)}

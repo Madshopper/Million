@@ -215,6 +215,8 @@ _EDGE_ENV_VARS = (
     'KURV_BESKED_ENABLED',
     # Kun på staging: spøgelset i logoet til Halloween (_FEATURES 'halloween_logo').
     'HALLOWEEN_LOGO_ENABLED',
+    # Kun på staging: nissen i logoet til jul (_FEATURES 'jul_tema').
+    'JUL_TEMA_ENABLED',
     # Valgfri læsetoken (Account Analytics: Read) til D1-budgettet i /admin.
     'CF_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
     # Kun i produktion: nøglen bag "Se dev-siden" i /admin (_staging_link_token).
@@ -543,6 +545,8 @@ def _inject_site_meta():
         'kurv_besked_enabled': _feature_enabled('kurv_besked'),
         # Spøgelset i logoet til Halloween (Feature-panelet 'halloween_logo').
         'halloween_logo_enabled': _feature_enabled('halloween_logo'),
+        # Nissen i logoet til jul (Feature-panelet 'jul_tema').
+        'jul_tema_enabled': _feature_enabled('jul_tema'),
         # "Køl & Mejeri" i kategorimenuen (Feature-panelet 'mejeri_navn').
         'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
         # Butikslogoer med tilbudsavis på forsiden (Feature-panelet 'butiksaviser').
@@ -1953,6 +1957,42 @@ _FEATURES = (
                      'bag indholdet på alle sider.'},
             {'kind': 'app', 'name': 'Logoet i appen',
              'desc': 'Spøgelset ved "MadShopper" øverst på forsiden.'},
+            {'kind': 'app', 'name': 'Baggrunden i appen',
+             'desc': 'Samme svage mønster bag forsidens indhold.'},
+        ),
+    },
+    {
+        'key': 'jul_tema',
+        'name': 'Jule-tema (logo og baggrund)',
+        'env': 'JUL_TEMA_ENABLED',
+        'desc': 'En glad nisse i logoets kurv, der blinker og holder en '
+                'slikstok (forslag A "Nissen i kurven", Kalle 05-11-2026), og '
+                'en svag baggrund med nissehuer, gaver, slikstokke, snefnug og '
+                'stjerner. Kurven og den grønne farve er som altid. Slås til '
+                'i december og fra igen efter jul. Kan ikke fjernes fra '
+                'panelet, fordi det skal kunne slås til og fra hvert år.',
+        'app': 'MadShopper Test har det med det samme. Butiksappen får det '
+               'med den første App Store-version efter 05-11-2026. Ikonet '
+               'på telefonens hjemmeskærm skifter ikke.',
+        # Kommer igen hvert år: må ikke gøres permanent fra panelet.
+        'seasonal': True,
+        'parts': (
+            {'kind': 'web', 'name': 'Logoet på hjemmesiden',
+             'desc': 'I toppen (også i det nye design, hvor kurven ellers er '
+                     'skjult), i menuen og i bunden af siden.'},
+            {'kind': 'web', 'name': 'Ikonet i browserfanen',
+             'desc': 'Nissen i det lille ikon i fanen.'},
+            {'kind': 'web', 'name': 'Baggrunden på hjemmesiden',
+             'desc': 'Svage nissehuer, gaver, slikstokke, snefnug og stjerner '
+                     'bag indholdet på alle sider.'},
+            {'kind': 'web', 'name': 'Girlande, sne og snebunke på hjemmesiden',
+             'desc': 'Girlande under toppen, sne der falder langsomt bag '
+                     'indholdet og en snebunke oven på bunden.'},
+            {'kind': 'app', 'name': 'Logoet i appen',
+             'desc': 'Nissen ved "MadShopper" øverst på forsiden.'},
+            {'kind': 'app', 'name': 'Girlande, sne og snebunke i appen',
+             'desc': 'Girlande under toppen af forsiden, langsom sne bag '
+                     'indholdet og en snebunke nederst i listen.'},
             {'kind': 'app', 'name': 'Baggrunden i appen',
              'desc': 'Samme svage mønster bag forsidens indhold.'},
         ),
@@ -6002,6 +6042,8 @@ def api_home():
             'kurv_besked_enabled': _feature_enabled('kurv_besked'),
             # Halloween-logoet: appen skifter logo samtidig med webben.
             'halloween_logo_enabled': _feature_enabled('halloween_logo'),
+            # Jule-logoet: appen skifter logo samtidig med webben.
+            'jul_tema_enabled': _feature_enabled('jul_tema'),
             # "Køl & Mejeri": appen skifter kategorinavn samtidig med webben.
             'mejeri_navn_enabled': _feature_enabled('mejeri_navn'),
             # Tilbudsavis pr. butik: appen viser logoerne, når den er udgivet.
