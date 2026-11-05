@@ -430,6 +430,30 @@ export async function startMorning(env, scheduledTime = Date.now()) {
   }
 }
 
+// Videoer på Facebook og Instagram mandag og torsdag kl. 19.30 dansk tid
+// (Kalle, 31-10-2026). Starter .github/workflows/social-post.yml, som poster
+// næste video fra social/koe/ (begge steder eller intet). Vinduet er
+// 19:30-19:59, så et tick der fejler, prøves igen af det næste. KV-nøglen
+// husker datoen, så det sker højst én gang pr. dag.
+const SOCIAL_KEY = "social_post_v1";
+const SOCIAL_DAYS = new Set(["Mon", "Thu"]);
+const SOCIAL_URL = `${GH_API}/social-post.yml/dispatches`;
+
+export async function startSocial(env, scheduledTime = Date.now()) {
+  if (!env.GH_DISPATCH_TOKEN) return null;
+  const dk = danishParts(scheduledTime);
+  if (!SOCIAL_DAYS.has(dk.weekday) || dk.hour !== 19 || dk.minute < 30) return null;
+  if ((await env.STATE.get(SOCIAL_KEY)) === dk.date) return null;
+  await env.STATE.put(SOCIAL_KEY, dk.date);
+  try {
+    await dispatch(env, SOCIAL_URL, {});
+    return "video startet";
+  } catch (err) {
+    await env.STATE.delete(SOCIAL_KEY);
+    throw err;
+  }
+}
+
 async function dispatch(env, url, inputs) {
   const res = await fetch(url, {
     method: "POST",
@@ -447,6 +471,10 @@ export default {
     ctx.waitUntil(startMorning(env, event.scheduledTime).then(
       (r) => r && console.log("morgen:", r),
       (err) => console.error("morgen: kunne ikke starte nightly-dispatcher:", String(err)),
+    ));
+    ctx.waitUntil(startSocial(env, event.scheduledTime).then(
+      (r) => r && console.log("video:", r),
+      (err) => console.error("video: kunne ikke starte social-post:", String(err)),
     ));
     ctx.waitUntil(check(env, event.scheduledTime).then((r) => {
       const failing = Object.keys(r.down);
