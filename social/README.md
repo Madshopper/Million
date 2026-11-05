@@ -31,7 +31,7 @@ GitHub-secret med en **sidenøgle** for Facebook-siden MadShopper, der står til
 "Expires: Never" og har tilladelserne `pages_show_list`,
 `pages_read_engagement`, `pages_manage_posts`, `business_management`,
 `instagram_basic` og `instagram_content_publish`. Den laves af en, der er
-administrator på siden og har en Meta-udviklerkonto:
+administrator på siden og har en Meta-udviklerkonto (Kalle; kun han styrer siden):
 
 1. developers.facebook.com: opret appen "MadShopper Poster" (type Business),
    tilføj "Facebook Login for Business" og "Instagram". Appen bliver i

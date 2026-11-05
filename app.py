@@ -2061,8 +2061,9 @@ _PROJECTS = (
              'desc': 'scripts/social-post.py og social-post.yml, startet '
                      'kl. 19.30 af uptime-workeren.'},
             {'done': False, 'name': 'Nøglen META_PAGE_TOKEN i GitHub',
-             'desc': 'Kræver en Meta-udviklerkonto. Kalles sms-kode kommer '
-                     'aldrig frem, så en anden admin på siden laver den.'},
+             'desc': 'Kalle laver den selv (kun han styrer Facebook-siden). '
+                     'Kræver en Meta-udviklerkonto, hvor sms-koden indtil '
+                     'videre ikke er kommet frem.'},
             {'done': False, 'name': 'Prøvekørsel',
              'desc': 'Start social-post.yml med Prøvekørsel under Actions.'},
             {'done': False, 'name': 'Første video i køen',
