@@ -7003,12 +7003,11 @@ html.jul body[data-theme="dark"]::after {
   }
 }
 
-html.jul body > header::after {
+/* Girlanden hænger under toppen og ruller væk med siden (som i appen), så
+   den aldrig ligger hen over varerne. */
+html.jul body > main::before {
   content: '';
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  display: block;
   height: 40px;
   background: url('/static/images/jul-girlande.svg') repeat-x 0 0 / 160px 40px;
   pointer-events: none;
