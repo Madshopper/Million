@@ -43,6 +43,7 @@ import {
   useHalloweenLogoEnabled,
 } from '../components/HalloweenLogo';
 import { JulBackground, setServerJulTemaEnabled, useJulTemaEnabled } from '../components/JulLogo';
+import { JulGarland, JulSnow, JulSnowDrift } from '../components/JulDecor';
 import { setServerMejeriNavnEnabled } from '../categories/categories';
 import { setServerStatsEnabled } from '../stats/stats';
 import type { RootStackParamList } from '../navigation/types';
@@ -214,11 +215,13 @@ export function HomeScreen() {
   return (
     <View style={{ height: listHeight, backgroundColor: colors.bg }}>
       {halloween ? <HalloweenBackground /> : jul ? <JulBackground /> : null}
+      {!halloween && jul ? <JulSnow /> : null}
       <FlatList
         style={{ height: listHeight }}
         data={rows}
         keyExtractor={(item) => item.key}
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingTop: !halloween && jul ? 30 : 4, paddingBottom: 40 }}
+        ListFooterComponent={!halloween && jul ? <JulSnowDrift /> : null}
         scrollEnabled
         bounces
         showsVerticalScrollIndicator
@@ -444,6 +447,7 @@ export function HomeScreen() {
           );
         }}
       />
+      {!halloween && jul ? <JulGarland /> : null}
       <CategoriesDrawer
         visible={catsOpen}
         onClose={() => setCatsOpen(false)}
