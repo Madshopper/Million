@@ -1037,7 +1037,6 @@ def _term_like_patterns(term: str) -> list[str]:
 # Alt fejler åbent: mangler versionen eller en shard, eller er indekset fra en
 # anden seed end tabellen, bruges den gamle LIKE-vej.
 _SIDX_VER_KEY = 'sidx_ver'
-_SIDX_ROW_SPAN = 100_000          # skal matche scripts/seed-d1.py
 _SIDX_SUFFIX_MIN_LEN = 5          # skal matche scripts/seed-d1.py
 _SIDX_VER_TTL_S = 60.0
 _SIDX_MAX_SHARDS = 16             # parsede shards pr. isolate (~30-90 KB JSON hver)
@@ -1155,9 +1154,6 @@ def _sidx_search(tokens: list, limit: int) -> list | None:
         return None
     if not ids:
         return []
-    ver = manifest['v']
-    if not all(ver == i // _SIDX_ROW_SPAN for i in ids):
-        return None
     # Heltal vi selv har bygget - indsat direkte, fordi D1 højst tillader
     # 100 bundne parametre pr. forespørgsel.
     rows = _d1_rows(
@@ -1165,10 +1161,15 @@ def _sidx_search(tokens: list, limit: int) -> list | None:
         + ",".join(str(int(i)) for i in ids) + ")"
     )
     if len(rows) != len(ids):
-        # Tabellen er fra en anden seed (eller opslaget fejlede): indekset
-        # passer ikke. Slå versionen op igen næste gang.
+        # En vare beholder sin rowid fra nat til nat (seed-d1.py::
+        # seed_incremental), så et indeks fra i går finder stadig de fleste
+        # rækker: kun udgåede varer mangler, og dem skal søgningen alligevel
+        # ikke vise. Slå versionen op igen næste gang.
         _sidx_forget_version()
-        return None
+        if not rows:
+            # Ingen af rækkerne: tabellen er bygget helt forfra efter
+            # indekset (eller opslaget fejlede). Brug LIKE-vejen.
+            return None
     rows.sort(key=lambda r: r.get('r', 0) if isinstance(r, dict) else 0)
     out = []
     for row in rows:

@@ -6,6 +6,7 @@ queryable kolonner, så Worker'en kun henter det en side skal bruge.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import random
@@ -121,7 +122,8 @@ CREATE TABLE products_new (
   store TEXT,
   stores TEXT,
   search_text TEXT,
-  data TEXT
+  data TEXT,
+  h TEXT
 );
 """
 
@@ -269,8 +271,38 @@ def sql_str(value: str) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
 
+# Kolonnerne i den rækkefølge build_row() leverer dem. h = row_hash() af de
+# øvrige, så den inkrementelle seed (main) kan se om en vare har ændret sig
+# uden at læse andet end (rowid, id, h) fra D1.
+_COLS = ("id", "category", "subcategory", "title", "price", "eff_price", "is_sale",
+         "organic", "lactose", "weight_g", "store", "stores", "search_text", "data", "h")
+# Kolonner med et indeks (se FINALIZE). Står de uændret, sættes de ikke i
+# UPDATE'en, så indeksindgangene ikke skrives om (sparer rows_written).
+_IDX_COLS = frozenset({"category", "subcategory", "eff_price", "is_sale"})
+
+
+def row_hash(lits: list[str]) -> str:
+    """'<indekskolonner>:<hele rækken>' - to korte hashes af SQL-literalerne."""
+    idx = "\x1f".join(v for c, v in zip(_COLS, lits) if c in _IDX_COLS)
+    full = "\x1f".join(lits)
+    return (hashlib.sha1(idx.encode()).hexdigest()[:8] + ":"
+            + hashlib.sha1(full.encode()).hexdigest()[:16])
+
+
 def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = None,
                      postings: dict | None = None) -> str | None:
+    """'(rowid,id,...,h)' til INSERT."""
+    built = build_row(p, stats)
+    if not built:
+        return None
+    lits, search_text = built
+    if postings is not None and rowid is not None:
+        _add_postings(postings, search_text, rowid)
+    return "(" + ("" if rowid is None else f"{int(rowid)},") + ",".join(lits) + ")"
+
+
+def build_row(p: dict, stats: dict | None = None) -> tuple[list[str], str] | None:
+    """SQL-literaler for _COLS (inkl. h) + search_text, eller None."""
     pid = str(p.get("/product/id", "")).strip()
     if not pid or pid in ("None", "nan"):
         return None
@@ -357,27 +389,24 @@ def build_row_values(p: dict, stats: dict | None = None, rowid: int | None = Non
         if is_sale:
             _count_store_offers(stats, p)
             _pick_store_offers(stats, p, pid, offer_keys)
-    if postings is not None and rowid is not None:
-        _add_postings(postings, search_text, rowid)
-    return (
-        "("
-        + ("" if rowid is None else f"{int(rowid)},")
-        + sql_str(pid) + ","
-        + sql_str(category) + ","
-        + sql_str(subcategory) + ","
-        + sql_str(title) + ","
-        + f"{price}" + ","
-        + f"{eff_price}" + ","
-        + f"{is_sale}" + ","
-        + f"{organic}" + ","
-        + f"{lactose}" + ","
-        + ("NULL" if weight_g is None else f"{weight_g}") + ","
-        + sql_str(store) + ","
-        + sql_str(stores) + ","
-        + sql_str(search_text) + ","
-        + sql_str(data)
-        + ")"
-    )
+    lits = [
+        sql_str(pid),
+        sql_str(category),
+        sql_str(subcategory),
+        sql_str(title),
+        f"{price}",
+        f"{eff_price}",
+        f"{is_sale}",
+        f"{organic}",
+        f"{lactose}",
+        "NULL" if weight_g is None else f"{weight_g}",
+        sql_str(store),
+        sql_str(stores),
+        sql_str(search_text),
+        sql_str(data),
+    ]
+    lits.append(sql_str(row_hash(lits)))
+    return lits, search_text
 
 
 # Kør wrangler fra dist/ lokalt (har genereret wrangler.toml), ellers fra roden
@@ -532,11 +561,12 @@ def write_offer_ids(offer_ids: dict) -> None:
 # finder kandidaterne uden D1 og henter derefter kun de rækker der matcher
 # via rowid (PK-opslag, én læst række pr. vare).
 #
-# rowid = version * _SIDX_ROW_SPAN + løbenummer. Versionen står dermed i selve
-# rækken: er indekset fra en anden seed end tabellen, returnerer D1 færre
-# rækker end bedt om, og app.py falder tilbage til LIKE-søgningen. Det
-# lukker vinduet mellem tabel-swap og KV-skrivning (og KV's ~60 s
-# propagering) uden en ekstra D1-tabel eller ekstra rows_written.
+# rowid = version * _SIDX_ROW_SPAN + løbenummer for de varer der skrives ind
+# i den seed (alle ved en fuld genopbygning, kun de nye ved den inkrementelle;
+# se seed_incremental). En rowid genbruges derfor aldrig: er indekset fra en
+# anden fuld seed end tabellen, finder D1 ingen af rækkerne, og app.py falder
+# tilbage til LIKE-søgningen. Det lukker vinduet mellem tabel-swap og
+# KV-skrivning (og KV's ~60 s propagering) uden ekstra rows_written.
 #
 # Opdelt i shards efter første tegn (præfiks-opslag) og efter sidste tegn af
 # token baglæns (sammensætninger som "letmælk" for "mælk"), så en søgning kun
@@ -671,6 +701,206 @@ def run_wrangler_sql(sql: str) -> None:
         )
     finally:
         os.unlink(path)
+
+
+def d1_query(sql: str) -> list[dict]:
+    """Rækkerne fra én SELECT mod produktionens D1 (wrangler --json)."""
+    r = subprocess.run(
+        ["npx", "wrangler", "d1", "execute", DB_NAME, "--remote", "--json", f"--command={sql}"],
+        cwd=WRANGLER_CWD,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    out = json.loads(r.stdout)
+    if not (isinstance(out, list) and out):
+        return []
+    return out[0].get("results") or []
+
+
+# --- Inkrementel seed ---------------------------------------------------------
+#
+# En fuld genopbygning skriver ~4,3 rows_written pr. vare (række + PK-indeks +
+# tre indekser), ~85k af D1's 100k pr. døgn hver nat (Cloudflares 82-87 %-
+# mails). Den inkrementelle vej læser (rowid, id, h) fra D1 (~20k rows_read af
+# 5 mio.) og skriver kun forskellen: UPDATE af ændrede rækker (kun indeks-
+# kolonnerne hvis de har ændret sig), INSERT af nye og DELETE af udgåede.
+# Målt 05->06-11-2026 (fredag, ugeskifte): 37 % ændret, 640 nye, 590 væk.
+#
+# rowid: en vare beholder sin rowid fra seed til seed. Nye varer får
+# version * _SIDX_ROW_SPAN + løbenummer med denne seeds version (minuttal),
+# og altid over den højeste eksisterende, så en rowid aldrig genbruges. Bivirkning: nye varer lægger sig sidst i
+# tabelrækkefølgen (søgningens kandidatliste og /tilbud/<butik> sorterer på
+# rowid); FULL_RESEED=1 bygger tabellen helt forfra i updaterens rækkefølge.
+#
+# Den fulde vej bruges stadig når D1 ikke kan læses, når kolonnen h mangler
+# (første kørsel efter denne ændring) og ved FULL_RESEED=1.
+_DELETE_CHUNK = 500
+# Dæknings-værn (main) og grænsen for at stole på D1's nuværende tabel.
+_MIN_PRODUCTS = 8000
+_MIN_COVERAGE = 0.25
+
+
+def load_existing_rows() -> dict[str, tuple[int, str]] | None:
+    """{id: (rowid, h)} fra D1, eller None = byg tabellen forfra."""
+    try:
+        rows = d1_query("SELECT rowid AS r, id, h FROM products")
+    except Exception as e:
+        print(f"  kunne ikke læse eksisterende rækker ({e}) - fuld genopbygning")
+        return None
+    if len(rows) < _MIN_PRODUCTS:
+        print(f"  kun {len(rows)} rækker i D1 - fuld genopbygning")
+        return None
+    return {str(r["id"]): (int(r["r"]), str(r.get("h") or "")) for r in rows}
+
+
+def _prepare_rows(products: list[dict]) -> list[dict] | None:
+    """Produkterne der skal i tabellen (samme filtre som altid), unikke id'er."""
+    out: list[dict] = []
+    seen_ids: set[str] = set()
+    dupes = 0
+    placeholders = 0
+    for p in products:
+        pid = str(p.get("/product/id", "")).strip()
+        if not pid or pid in ("None", "nan"):
+            continue
+        if pid in seen_ids:
+            dupes += 1
+            continue
+        # Kort med placeholder-billede (butikslogo) frafiltreres ALTID ved
+        # visning af filter_products_by_stores i app.py - de kan aldrig ses.
+        # Men de laa i D1 og blev talt med i COUNT og i LIMIT/OFFSET, saa
+        # pagineringen fik huller: en side kunne vise 57 varer i stedet for 60,
+        # og total_pages var for hoej. ~2% af kataloget.
+        if str(p.get("/product/imageLink", "")).strip() in _PLACEHOLDER_IMGS:
+            placeholders += 1
+            continue
+        seen_ids.add(pid)
+        out.append(p)
+    if len(out) >= _SIDX_ROW_SPAN:
+        print(f"Over {_SIDX_ROW_SPAN} produkter - rowid-versionering holder ikke. Afbryder.")
+        return None
+    if placeholders:
+        print(f"  {placeholders} kort med placeholder-billede udeladt (kan alligevel ikke vises)")
+    if dupes:
+        print(f"  advarsel: sprang {dupes} duplikerede produkt-id'er over")
+    return out
+
+
+class _SqlFiles:
+    """Samler statements i filer på højst BYTES_PER_FILE til wrangler."""
+
+    def __init__(self) -> None:
+        self.files: list[str] = []
+        self._cur: list[str] = []
+        self._bytes = 0
+
+    def add(self, stmt: str) -> None:
+        if self._cur and self._bytes + len(stmt) >= BYTES_PER_FILE:
+            self.close()
+        self._cur.append(stmt)
+        self._bytes += len(stmt) + 1
+
+    def close(self) -> list[str]:
+        if self._cur:
+            self.files.append("\n".join(self._cur))
+            self._cur = []
+            self._bytes = 0
+        return self.files
+
+
+def _insert_statements(values: list[str], table: str) -> list[str]:
+    """Multi-row INSERTs under MAX_STMT_BYTES (én meget stor vare sendes solo)."""
+    prefix = f"INSERT INTO {table} (rowid,{','.join(_COLS)}) VALUES "
+    stmts: list[str] = []
+    batch: list[str] = []
+    size = 0
+    for v in values:
+        if batch and size + len(v) >= MAX_STMT_BYTES:
+            stmts.append(prefix + ",".join(batch) + ";")
+            batch, size = [], 0
+        batch.append(v)
+        size += len(v) + 1
+    if batch:
+        stmts.append(prefix + ",".join(batch) + ";")
+    return stmts
+
+
+def seed_full(rows: list[dict], stats: dict, sidx_version: int) -> dict:
+    """Bygger products_new forfra (FINALIZE swapper den ind). -> postings."""
+    print("Opretter schema ...")
+    run_wrangler_sql(SCHEMA)
+    postings: dict = {}
+    values: list[str] = []
+    for p in rows:
+        v = build_row_values(
+            p, stats, rowid=sidx_version * _SIDX_ROW_SPAN + len(values), postings=postings,
+        )
+        if v:
+            values.append(v)
+    files = _SqlFiles()
+    for stmt in _insert_statements(values, "products_new"):
+        files.add(stmt)
+    for i, sql in enumerate(files.close(), 1):
+        print(f"  skriver batch-fil #{i} ({len(sql) / 1024:.0f} KB) ...")
+        run_wrangler_sql(sql)
+    return postings
+
+
+def seed_incremental(rows: list[dict], stats: dict, sidx_version: int,
+                     existing: dict[str, tuple[int, str]]) -> tuple[dict, dict]:
+    """Beregner forskellen mod D1. Skriver intet selv - main() kører
+    'upserts' før indeksskiftet og 'deletes' til sidst."""
+    postings: dict = {}
+    upserts = _SqlFiles()
+    new_values: list[str] = []
+    seen: set[str] = set()
+    n_same = n_updated = n_updated_idx = 0
+    # Over alle eksisterende rowid'er, også hvis to seeds lander i samme minut.
+    new_base = max(sidx_version * _SIDX_ROW_SPAN,
+                   max((r for r, _h in existing.values()), default=0) + 1)
+    for p in rows:
+        built = build_row(p, stats)
+        if not built:
+            continue
+        lits, search_text = built
+        pid = str(p.get("/product/id", "")).strip()
+        seen.add(pid)
+        h = lits[-1].strip("'")
+        old = existing.get(pid)
+        if old is None:
+            rowid = new_base + len(new_values)
+            new_values.append(f"({rowid}," + ",".join(lits) + ")")
+        else:
+            rowid, old_h = old
+            if old_h == h:
+                n_same += 1
+            else:
+                idx_changed = old_h.split(":")[0] != h.split(":")[0]
+                sets = [
+                    f"{c}={v}" for c, v in zip(_COLS, lits)
+                    if c != "id" and (idx_changed or c not in _IDX_COLS)
+                ]
+                upserts.add(f"UPDATE products SET {','.join(sets)} WHERE rowid={rowid};")
+                n_updated += 1
+                n_updated_idx += idx_changed
+        _add_postings(postings, search_text, rowid)
+    for stmt in _insert_statements(new_values, "products"):
+        upserts.add(stmt)
+    gone = sorted(r for pid, (r, _h) in existing.items() if pid not in seen)
+    deletes = _SqlFiles()
+    for i in range(0, len(gone), _DELETE_CHUNK):
+        chunk = gone[i:i + _DELETE_CHUNK]
+        deletes.add(f"DELETE FROM products WHERE rowid IN ({','.join(map(str, chunk))});")
+    return postings, {
+        "upserts": upserts.close(),
+        "deletes": deletes.close(),
+        "n_same": n_same,
+        "n_updated": n_updated,
+        "n_updated_idx": n_updated_idx,
+        "n_new": len(new_values),
+        "n_deleted": len(gone),
+    }
 
 
 _HOME_KV_KEY = "home_data_v1"
@@ -959,108 +1189,47 @@ def main() -> int:
     # Supabase' app_cache - en anden sti end updateren, og derfor et separat
     # sikkerhedsnet mod at seede + bumpe cache_version med en Rema-only-cache
     # (ingen prissammenligninger) eller et kollaps i antal produkter.
-    if len(products) < 8000:
-        print(f"Kun {len(products)} produkter (forventet 8000+) - afbryder uden at seede.")
+    if len(products) < _MIN_PRODUCTS:
+        print(f"Kun {len(products)} produkter (forventet {_MIN_PRODUCTS}+) - afbryder uden at seede.")
         return 1
     matched = sum(1 for p in products if p.get("/product/store_matches"))
     coverage = matched / len(products)
-    if coverage < 0.25:
+    if coverage < _MIN_COVERAGE:
         print(
             f"Kun {coverage * 100:.1f}% af {len(products)} produkter har en "
             f"butiksmatch (forventet 50%+) - afbryder uden at seede."
         )
         return 1
 
-    print("Opretter schema ...")
-    run_wrangler_sql(SCHEMA)
-
     sidx_version = int(time.time() // 60)
-    postings: dict = {}
-
-    insert_prefix = (
-        "INSERT INTO products_new "
-        "(rowid,id,category,subcategory,title,price,eff_price,is_sale,organic,lactose,weight_g,store,stores,search_text,data) VALUES "
-    )
-
-    file_sql: list[str] = []
-    file_bytes = 0
-    batch: list[str] = []
-    batch_bytes = 0
-    total = 0
-    file_count = 0
-
-    def flush_file():
-        nonlocal file_sql, file_bytes, file_count
-        if not file_sql:
-            return
-        file_count += 1
-        print(f"  skriver batch-fil #{file_count} ({file_bytes / 1024:.0f} KB) ...")
-        run_wrangler_sql("\n".join(file_sql))
-        file_sql = []
-        file_bytes = 0
-
-    def flush_batch():
-        nonlocal batch, batch_bytes, file_bytes
-        if not batch:
-            return
-        stmt = insert_prefix + ",".join(batch) + ";"
-        file_sql.append(stmt)
-        file_bytes += len(stmt)
-        batch = []
-        batch_bytes = 0
-
-    seen_ids: set[str] = set()
+    rows = _prepare_rows(products)
+    if rows is None:
+        return 1
     stats: dict = {}
-    dupes = 0
-    placeholders = 0
 
-    for p in products:
-        pid = str(p.get("/product/id", "")).strip()
-        if not pid or pid in ("None", "nan"):
-            continue
-        if pid in seen_ids:
-            dupes += 1
-            continue
-        # Kort med placeholder-billede (butikslogo) frafiltreres ALTID ved
-        # visning af filter_products_by_stores i app.py - de kan aldrig ses.
-        # Men de laa i D1 og blev talt med i COUNT og i LIMIT/OFFSET, saa
-        # pagineringen fik huller: en side kunne vise 57 varer i stedet for 60,
-        # og total_pages var for hoej. ~2% af kataloget.
-        if str(p.get("/product/imageLink", "")).strip() in _PLACEHOLDER_IMGS:
-            placeholders += 1
-            continue
-        seen_ids.add(pid)
-        if total >= _SIDX_ROW_SPAN:
-            print(f"Over {_SIDX_ROW_SPAN} produkter - rowid-versionering holder ikke. Afbryder.")
-            return 1
-        values = build_row_values(
-            p, stats, rowid=sidx_version * _SIDX_ROW_SPAN + total, postings=postings,
-        )
-        if not values:
-            continue
-        # Én meget stor vare kan alene overstige grænsen - send den solo.
-        if batch and batch_bytes + len(values) >= MAX_STMT_BYTES:
-            flush_batch()
-            if file_bytes >= BYTES_PER_FILE:
-                flush_file()
-        batch.append(values)
-        batch_bytes += len(values) + 1
-        total += 1
-
-    flush_batch()
-    flush_file()
-
-    if placeholders:
-        print(f"  {placeholders} kort med placeholder-billede udeladt (kan alligevel ikke vises)")
-    if dupes:
-        print(f"  advarsel: sprang {dupes} duplikerede produkt-id'er over")
+    existing = None if os.environ.get("FULL_RESEED") else load_existing_rows()
+    if existing is None:
+        print("Fuld genopbygning af tabellen ...")
+        postings = seed_full(rows, stats, sidx_version)
+        incremental = None
+    else:
+        print(f"Inkrementel opdatering ({len(existing)} rækker i D1) ...")
+        postings, incremental = seed_incremental(rows, stats, sidx_version, existing)
 
     print(f"Skriver søgeindeks til KV (version {sidx_version}) ...")
     sidx_entries, sidx_manifest = build_search_shards(postings, sidx_version)
     sidx_ok = write_search_shards(sidx_entries)
 
-    print("Skifter til ny tabel (swap) ...")
-    run_wrangler_sql(FINALIZE)
+    if incremental is None:
+        print("Skifter til ny tabel (swap) ...")
+        run_wrangler_sql(FINALIZE)
+    else:
+        # Opdateringer og nye varer FØR indekset skiftes: det gamle indeks
+        # peger kun på rowid'er der stadig findes, og det nye kun på rækker
+        # der allerede er skrevet. Sletningerne kommer til allersidst.
+        print("Skriver ændrede og nye varer ...")
+        for sql in incremental["upserts"]:
+            run_wrangler_sql(sql)
 
     if sidx_ok:
         write_search_version(sidx_manifest)
@@ -1074,11 +1243,23 @@ def main() -> int:
     print("Forudberegner forside-data (sale/køl/favoritter) ...")
     write_home_data(build_home_data(products))
 
+    if incremental is not None and incremental["deletes"]:
+        print(f"Sletter {incremental['n_deleted']} udgåede varer ...")
+        for sql in incremental["deletes"]:
+            run_wrangler_sql(sql)
+
     print("Nulstiller edge-cache (cache_version) ...")
     set_cache_version()
     mark_seeded()
 
-    print(f"Færdig - {total} produkter indlæst i D1 ({file_count} batch-filer).")
+    if incremental is None:
+        print(f"Færdig - {len(rows)} produkter indlæst i D1 (fuld genopbygning).")
+    else:
+        print(
+            f"Færdig - {len(rows)} produkter i D1: {incremental['n_same']} uændrede, "
+            f"{incremental['n_updated']} opdateret ({incremental['n_updated_idx']} med "
+            f"indekskolonner), {incremental['n_new']} nye, {incremental['n_deleted']} slettet."
+        )
     return 0
 
 
