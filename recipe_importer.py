@@ -37,11 +37,12 @@ her kaldes fra en live edge-request):
       MadShoppers egne opskrifter fra data/egne_opskrifter.json, skrevet fra
       bunden ud fra almindelige retter. Den lovlige vej til flere
       opskrifter: teksten er vores, så fremgangsmåden vises på siden, og
-      der er ingen billeder fra andre (siden viser et neutralt ikon).
+      fotoet har fri licens og ligger hos os (scripts/build-recipe-photos.py).
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -342,6 +343,23 @@ _OWN_RECIPES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'da
 _OWN_SOURCE_NAME = 'MadShopper'
 
 
+# Fotos til vores egne opskrifter (scripts/build-recipe-photos.py). Fuld adresse,
+# fordi appen og dev.madshopper.dk også viser dem, og ?v=<indholds-hash>, fordi
+# /static caches i et år: en ny tegning får en ny adresse.
+_OWN_IMAGE_BASE = 'https://madshopper.dk/static/images/opskrifter/'
+_OWN_IMAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              'static', 'images', 'opskrifter')
+
+
+def own_recipe_image_url(slug: str) -> str:
+    path = os.path.join(_OWN_IMAGE_DIR, f'{slug}.webp')
+    if not os.path.exists(path):
+        return ''
+    with open(path, 'rb') as f:
+        digest = hashlib.sha256(f.read()).hexdigest()[:10]
+    return f'{_OWN_IMAGE_BASE}{slug}.webp?v={digest}'
+
+
 def load_own_recipes(path: str = _OWN_RECIPES_FILE) -> list[dict]:
     """Egne opskrifter, skrevet fra bunden af MadShopper ud fra almindelige
     retter. Her MÅ fremgangsmåden gemmes og vises: teksten er vores egen, i
@@ -387,6 +405,7 @@ def import_own_recipes(dry_run: bool = False) -> int:
             'servings': r.get('servings'),
             'total_time_minutes': r.get('total_time_minutes'),
             'instructions': r.get('instructions') or [],
+            'image_url': own_recipe_image_url(r['slug']),
         }
         recipe_id = existing.get(r['title'])
         if recipe_id is not None:
@@ -429,7 +448,6 @@ def import_own_recipes(dry_run: bool = False) -> int:
                     **fields,
                     'source_url': None,
                     'source_name': _OWN_SOURCE_NAME,
-                    'image_url': '',
                     'imported_via': 'user_manual',
                     'status': 'approved',
                     'approved_at': 'now()',
