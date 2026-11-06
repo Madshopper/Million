@@ -2,13 +2,17 @@
 """Henter og klargør fotos til MadShoppers egne opskrifter.
 
 Hver opskrift i data/egne_opskrifter.json har et "foto" med et frit
-licenseret foto fra Wikimedia Commons (Kalle 05-11-2026: "så realistiske som
-muligt", og ingen fotos vi ikke må bruge):
+licenseret foto (Kalle 05-11-2026: "så realistiske som muligt", 06-11-2026:
+"så professionelle som muligt", og ingen fotos vi ikke må bruge). Enten fra
+Wikimedia Commons:
 
     "foto": {"fil": "File:Frikadeller.jpg",
              "side": "https://commons.wikimedia.org/wiki/File:Frikadeller.jpg",
              "af": "Fotografens navn", "licens": "CC BY-SA 4.0",
              "beskaer": 0.5}
+
+eller et professionelt CC0-madfoto (rawpixel/StockSnap, fundet via Openverse),
+hvor "url" er selve billedfilen og "fil" udelades.
 
 Kun CC0, public domain, CC BY og CC BY-SA er tilladt (alle må bruges
 kommercielt, også bag abonnementet). Billedet beskæres til 4:3 ("beskaer" er
@@ -16,11 +20,14 @@ den lodrette placering af udsnittet, 0 = top, 0,5 = midt, 1 = bund), skaleres
 til 800 x 600 og gemmes som static/images/opskrifter/<slug>.webp. Kræver
 licensen kreditering (CC BY/CC BY-SA), skrives "Foto: <navn> / <licens>"
 diskret nederst i højre hjørne af selve billedet, så krediteringen følger
-billedet overalt (web, app, forside) uden en ny kolonne i databasen. Det
+billedet overalt (web, app, forside) uden en ny kolonne i databasen. CC0
+kræver intet navn og får ingen tekst. Alle fotos får samme lette
+finpudsning (kontrast, farve, skarphed), så de ligner hinanden. Det
 beskårne billede med tekst er en bearbejdning, og for CC BY-SA deles det
 under samme licens.
 
 Kør:  python3 scripts/build-recipe-photos.py            (dem der mangler)
+      python3 scripts/build-recipe-photos.py --alle      (lav alle om)
       python3 scripts/build-recipe-photos.py frikadeller (kun slugs der matcher)
 Derefter lægger `python recipe_importer.py egne` adressen på opskriften.
 """
@@ -35,12 +42,13 @@ import urllib.parse
 import urllib.error
 import urllib.request
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, 'data', 'egne_opskrifter.json')
 OUT = os.path.join(ROOT, 'static', 'images', 'opskrifter')
 W, H = 800, 600
+CACHE = os.path.expanduser('~/.cache/madshopper-opskriftfotos')
 UA = {'User-Agent': 'MadShopperRecipePhotos/1.0 (https://madshopper.dk)'}
 FRI = re.compile(r'^(CC0( 1\.0)?|Public domain|CC BY(-SA)? [0-9.]+)$', re.I)
 UDEN_KREDIT = re.compile(r'^(CC0( 1\.0)?|Public domain)$', re.I)
@@ -103,15 +111,39 @@ def beskaer(im, y_pos):
 
 
 def kredit(im, tekst):
+    # Diskret: lille hvid tekst med blød skygge, ingen boks
+    f = font(12)
     d = ImageDraw.Draw(im, 'RGBA')
-    f = font(15)
     x0, y0, x1, y1 = d.textbbox((0, 0), tekst, font=f)
-    tw, th = x1 - x0, y1 - y0
-    pad = 7
-    bx, by = W - tw - 2 * pad - 10, H - th - 2 * pad - 10
-    d.rounded_rectangle((bx, by, bx + tw + 2 * pad, by + th + 2 * pad), radius=8, fill=(0, 0, 0, 120))
-    d.text((bx + pad - x0, by + pad - y0), tekst, font=f, fill=(255, 255, 255, 235))
-    return im
+    x, y = W - (x1 - x0) - 10 - x0, H - (y1 - y0) - 8 - y0
+    skygge = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    ImageDraw.Draw(skygge).text((x, y), tekst, font=f, fill=(0, 0, 0, 200))
+    skygge = skygge.filter(ImageFilter.GaussianBlur(2))
+    im = Image.alpha_composite(im.convert('RGBA'), skygge)
+    ImageDraw.Draw(im).text((x, y), tekst, font=f, fill=(255, 255, 255, 215))
+    return im.convert('RGB')
+
+
+def finpuds(im):
+    # Samme rolige "madfoto"-look på alle: lidt kontrast, farve og skarphed
+    im = ImageOps.autocontrast(im, cutoff=0.4, preserve_tone=True)
+    im = ImageEnhance.Contrast(im).enhance(1.03)
+    im = ImageEnhance.Color(im).enhance(1.06)
+    return im.filter(ImageFilter.UnsharpMask(radius=1.4, percent=55, threshold=3))
+
+
+def hent_cachet(foto):
+    # Originalen gemmes lokalt, så en ny finpudsning ikke skal hente igen
+    os.makedirs(CACHE, exist_ok=True)
+    noegle = hashlib.sha1((foto.get('fil') or foto['url']).encode()).hexdigest()[:16]
+    sti = os.path.join(CACHE, noegle)
+    if not os.path.exists(sti):
+        data = hent_foto(foto['fil']) if foto.get('fil') else hent(foto['url'])
+        with open(sti, 'wb') as f:
+            f.write(data)
+        time.sleep(4)
+    with open(sti, 'rb') as f:
+        return f.read()
 
 
 def kort_navn(af):
@@ -121,7 +153,7 @@ def kort_navn(af):
 
 
 def main():
-    filt = sys.argv[1:]
+    filt = [a for a in sys.argv[1:] if not a.startswith('--')]
     with open(DATA, encoding='utf-8') as f:
         recipes = json.load(f)['opskrifter']
     os.makedirs(OUT, exist_ok=True)
@@ -136,15 +168,14 @@ def main():
         if not FRI.match(foto['licens'].strip()):
             raise SystemExit(f'{r["slug"]}: licensen {foto["licens"]!r} er ikke fri til kommerciel brug')
         ud = os.path.join(OUT, r['slug'] + '.webp')
-        if not filt and os.path.exists(ud):
-            continue  # allerede lavet; giv slug som argument for at lave om
-        im = Image.open(io.BytesIO(hent_foto(foto['fil']))).convert('RGB')
-        im = beskaer(im, float(foto.get('beskaer', 0.5)))
+        if not filt and os.path.exists(ud) and '--alle' not in sys.argv:
+            continue  # allerede lavet; --alle eller en slug laver om
+        im = Image.open(io.BytesIO(hent_cachet(foto))).convert('RGB')
+        im = finpuds(beskaer(im, float(foto.get('beskaer', 0.5))))
         if not UDEN_KREDIT.match(foto['licens'].strip()):
             im = kredit(im, f'Foto: {kort_navn(foto.get("af"))} / {foto["licens"]}')
         im.save(ud, 'WEBP', quality=80, method=6)
         n += 1
-        time.sleep(4)
     print(f'{n} fotos klar i {os.path.relpath(OUT, ROOT)}')
 
 
