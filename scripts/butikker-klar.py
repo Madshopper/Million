@@ -14,6 +14,7 @@ butikkernes egne data og sammenligner med det, vi har gemt:
   midnat, men de øvrige priser kommer først, når Salling genindlæser hele
   indekset om morgenen (fredag 30-10-2026: Bilka kl. 07:03, Føtex kl. 07:39;
   1.500 priser i hver butik blev sat ned dér, efter vores hentning kl. 06:13).
+  For dem afgør genindlæsningen alene, ikke prisskiftet (se klar()).
 
 Skrivebudget og hentning startes ikke herfra; scriptet skriver kun
 `klar=true|false` til GITHUB_OUTPUT. Afgøres af `butikker-klar.yml`.
@@ -135,7 +136,16 @@ def klar(butik):
     andel = len(nye) / len(faelles) if faelles else 0.0
     helt = total >= len(gemte)
     i_dag = synk_i_dag(synk)
-    ok = helt and i_dag and len(faelles) >= MIN_VARER and andel >= MIN_SKIFT
+    if synk is None:
+        # Netto og Dagrofa: intet synk-tidspunkt, så prisskiftet afgør.
+        ok = helt and len(faelles) >= MIN_VARER and andel >= MIN_SKIFT
+    else:
+        # Bilka og Føtex: Salling genindlæser hele indekset på én gang, og
+        # tidspunktet står på hver vare. Prisskiftet kan ikke bruges her:
+        # fredag 6-11-2026 havde 0 af 681 Bilka-tilbud en ny pris i forhold til
+        # onsdagens hentning, så tjekket ventede til fristen kl. 9, selvom
+        # hele Bilka var genindlæst kl. 00:49 og Føtex kl. 07:39.
+        ok = helt and i_dag and len(tilbud) >= MIN_VARER
     synk_txt = ""
     if synk is not None:
         synk_txt = ", synkroniseret " + datetime.fromtimestamp(
