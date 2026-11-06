@@ -1,5 +1,5 @@
 {
-  "_om": "MadShoppers egne opskrifter. Skrevet fra bunden af MadShopper ud fra almindelige, kendte retter: ingen tekst eller billeder er kopieret fra andre. Ingredienslinjerne er formuleret, så de matcher varerne i prissammenligningen. Importeres af recipe_importer.py (python recipe_importer.py egne).",
+  "_om": "MadShoppers egne opskrifter. Skrevet fra bunden af MadShopper ud fra almindelige, kendte danske retter: ingen tekst eller billeder er kopieret fra andre. Ingredienslinjerne er formuleret, så de matcher varerne i prissammenligningen. \"foto\" er et frit licenseret foto fra Wikimedia Commons (scripts/build-recipe-photos.py henter og beskærer det til static/images/opskrifter/<slug>.webp). Importeres af recipe_importer.py (python recipe_importer.py egne).",
   "opskrifter": [
     {
       "slug": "frikadeller-med-kartofler",
@@ -7,7 +7,7 @@
       "servings": 4,
       "total_time_minutes": 50,
       "ingredients": [
-        "500 g hakket svinekød",
+        "500 g hakket grisekød",
         "1 løg",
         "1 æg",
         "1 dl letmælk",
@@ -25,7 +25,14 @@
         "Form frikadeller med en spiseske, og brun dem i smør på en pande ved middel varme i 5 til 6 minutter på hver side, til de er gennemstegte.",
         "Tag frikadellerne af panden. Hæld fløde og 1 dl vand på panden, smuldr bouillonen i og lad sovsen koge op. Jævn evt. med lidt mel rørt ud i koldt vand.",
         "Server frikadellerne med kartofler og sovs."
-      ]
+      ],
+      "foto": {
+        "fil": "File:2023 Kotlety mielone.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:2023_Kotlety_mielone.jpg",
+        "af": "Jacek Halicki",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "spaghetti-bolognese",
@@ -52,7 +59,14 @@
         "Rør tomatpuré, hakkede tomater og oregano i. Lad sovsen simre under låg i mindst 20 minutter, og smag til med salt og peber.",
         "Kog spaghettien efter anvisningen på pakken.",
         "Server spaghettien med kødsovsen og revet parmesan."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Spaghetti Bolognese von Unico Tauberbischofsheim.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Spaghetti_Bolognese_von_Unico_Tauberbischofsheim.jpg",
+        "af": "Triplec85",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "kylling-i-karry",
@@ -77,7 +91,14 @@
         "Smelt smørret i en gryde, og steg karryen et øjeblik, så den dufter. Tilsæt løg og æble, og steg til løget er blødt.",
         "Tilsæt kyllingen og steg den, til den er hvid hele vejen rundt.",
         "Hæld kokosmælk og fløde i, og lad retten simre i ca. 10 minutter, til kyllingen er gennemstegt. Smag til med salt og peber, og server med ris."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Friday dinner - Curry chicken with bell peppers and rice - 01.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Friday_dinner_-_Curry_chicken_with_bell_peppers_and_rice_-_01.jpg",
+        "af": "Infrogmation of New Orleans",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "boller-i-karry",
@@ -85,7 +106,7 @@
       "servings": 4,
       "total_time_minutes": 50,
       "ingredients": [
-        "500 g hakket svinekød",
+        "500 g hakket grisekød",
         "1 løg",
         "1 æg",
         "3 spsk hvedemel",
@@ -104,7 +125,14 @@
         "Kog risene efter anvisningen på pakken.",
         "Smelt smørret i en gryde, og steg karryen kort. Pisk 2 spsk mel i, og spæd op med ca. 5 dl af bouillonen og fløden under omrøring.",
         "Lad sovsen koge et par minutter, læg bollerne i og varm dem igennem. Server med ris."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Boller i karry med ris og agurkesalat.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Boller_i_karry_med_ris_og_agurkesalat.jpg",
+        "af": "Nillerdk",
+        "licens": "CC BY 3.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "lasagne",
@@ -132,7 +160,14 @@
         "Tænd ovnen på 200 grader varmluft.",
         "Læg kødsovs, lasagneplader og hvid sovs i lag i et ovnfast fad, og slut med hvid sovs. Drys osten over.",
         "Bag lasagnen i ca. 40 minutter, til pladerne er møre og osten er gylden. Lad den hvile 10 minutter før servering."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Lasagne - stonesoup.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Lasagne_-_stonesoup.jpg",
+        "af": "jules / stonesoup",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "tarteletter",
@@ -156,7 +191,14 @@
         "Smelt smørret i en gryde, pisk melet i, og spæd op med aspargeslagen, fløden og bouillonen, til sovsen er tyk og jævn.",
         "Vend kylling og asparges i sovsen, og varm det godt igennem. Smag til med salt og peber.",
         "Varm tarteletterne i ovnen ved 180 grader i ca. 5 minutter, og fyld dem med stuvningen lige før servering."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Seafood Vol-au-vent.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Seafood_Vol-au-vent.jpg",
+        "af": "Richard N Horne",
+        "licens": "CC BY 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "chili-con-carne",
@@ -182,7 +224,14 @@
         "Rør chilipulver, spidskommen og tomatpuré i, og tilsæt de hakkede tomater.",
         "Skyl bønnerne, kom dem i gryden, og lad det hele simre i 20 minutter. Smag til med salt.",
         "Kog risene efter anvisningen på pakken, og server chilien med ris og en klat creme fraiche."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Bowl of chili.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Bowl_of_chili.jpg",
+        "af": "Carstor",
+        "licens": "CC BY-SA 2.5",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "pasta-med-kylling-og-broccoli",
@@ -206,7 +255,14 @@
         "Hak hvidløget, kom det på panden og steg et øjeblik. Hæld fløden på og lad det koge op.",
         "Hæld vandet fra pasta og broccoli, og vend det hele sammen med kyllingen og sovsen.",
         "Drys parmesan over og server med det samme."
-      ]
+      ],
+      "foto": {
+        "fil": "File:2020-08-30 06 01 03 Close view of Healthy Choice Cafe Steamers Grilled Chicken Marinara with Parmesan (Grilled Chicken Breast with Penne Pasta & Broccoli) in the Dulles section of Sterling, Loudoun County, Virginia.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:2020-08-30_06_01_03_Close_view_of_Healthy_Choice_Cafe_Steamers_Grilled_Chicken_Marinara_with_Parmesan_(Grilled_Chicken_Breast_with_Penne_Pasta_%26_Broccoli)_in_the_Dulles_section_of_Sterling,_Loudoun_County,_Virginia.jpg",
+        "af": "Famartin",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "flaeskesteg",
@@ -228,7 +284,14 @@
         "Skru op på 250 grader eller tænd grillen de sidste 10 til 15 minutter, så sværen popper. Hold øje, så den ikke brænder.",
         "Kog kartoflerne imens, og varm rødkålen.",
         "Si skyen fra bradepanden over i en gryde, tilsæt fløde og jævn med mel rørt ud i koldt vand. Lad stegen hvile 10 minutter, før den skæres ud."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Slow roasted belly pork with fennel salad and citrus jam - d'Arry's Verandah AUD29.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Slow_roasted_belly_pork_with_fennel_salad_and_citrus_jam_-_d%27Arry%27s_Verandah_AUD29.jpg",
+        "af": "avlxyz",
+        "licens": "CC BY-SA 2.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "biksemad",
@@ -251,7 +314,14 @@
         "Tilsæt løg og skinke, og steg videre, til løget er blødt og det hele er varmt. Smag til med salt og peber.",
         "Steg spejlæggene på en anden pande.",
         "Server biksemaden med et spejlæg på toppen og rødbeder ved siden af."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Pyttipanna.JPG",
+        "side": "https://commons.wikimedia.org/wiki/File:Pyttipanna.JPG",
+        "af": "Skivsamlare",
+        "licens": "CC BY-SA 3.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "burger",
@@ -276,7 +346,14 @@
         "Rist bollerne let på snitfladen.",
         "Skær tomat og rødløg i skiver, og skyl salaten.",
         "Saml burgerne med ketchup, mayonnaise, salat, bøf, tomat og løg."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Homemade hamburger with french fries in Argentina.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Homemade_hamburger_with_french_fries_in_Argentina.jpg",
+        "af": "Horacio Cambeiro",
+        "licens": "CC BY-SA 3.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "tacos",
@@ -300,7 +377,14 @@
         "Snit salaten, og skær tomat og agurk i tern. Hæld vandet fra majsen.",
         "Varm tortillas på en tør pande eller i ovnen.",
         "Sæt det hele på bordet, så alle selv kan fylde deres tacos med kød, grøntsager, ost, salsa og creme fraiche."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Tacos with ground beef - Massachusetts.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Tacos_with_ground_beef_-_Massachusetts.jpg",
+        "af": "Daderot",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "pandekager",
@@ -322,7 +406,14 @@
         "Smelt smørret, og rør det i dejen.",
         "Steg tynde pandekager på en varm pande, ca. 1 minut på hver side.",
         "Server med sukker og evt. syltetøj."
-      ]
+      ],
+      "foto": {
+        "fil": "File:CrepeSuzette 20220507 205653.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:CrepeSuzette_20220507_205653.jpg",
+        "af": "Ka23 13",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "lakseret-med-kartofler",
@@ -346,7 +437,14 @@
         "Kog bønnerne i letsaltet vand i 4 minutter.",
         "Hak dilden, og rør den i creme fraiche med lidt revet citronskal, salt og peber.",
         "Server laksen med kartofler, bønner og dildcreme."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Grilled Salmon (15950616571).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Grilled_Salmon_(15950616571).jpg",
+        "af": "Prayitno",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "fiskefrikadeller",
@@ -372,7 +470,14 @@
         "Rør æg, mel og fløde i, og smag til med salt, peber og lidt revet citronskal. Stil farsen koldt i 10 minutter.",
         "Form frikadeller med en spiseske, og steg dem i smør i 3 til 4 minutter på hver side.",
         "Server med kartofler, citronbåde og remoulade."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Flickr - cyclonebill - Fiskefrikadeller med kartofler og remoulade.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Flickr_-_cyclonebill_-_Fiskefrikadeller_med_kartofler_og_remoulade.jpg",
+        "af": "cyclonebill",
+        "licens": "CC BY-SA 2.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "kartoffelsuppe",
@@ -396,7 +501,14 @@
         "Tilsæt kartofler, 1 liter vand og bouillonen, og lad suppen koge i 20 minutter.",
         "Blend suppen glat, rør fløden i og smag til med salt og peber.",
         "Steg baconen sprød, og drys den over suppen ved servering."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Mmm... potato leek soup (5849815506).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Mmm..._potato_leek_soup_(5849815506).jpg",
+        "af": "jeffreyw",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "tomatsuppe",
@@ -421,7 +533,14 @@
         "Kog risene imens efter anvisningen på pakken.",
         "Blend suppen, rør fløden i og smag til med salt, peber og evt. en smule sukker.",
         "Server suppen med en skefuld ris i hver tallerken."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Tomato soup, Turkish style.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Tomato_soup,_Turkish_style.jpg",
+        "af": "E4024",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "risengrod",
@@ -442,7 +561,14 @@
         "Skru helt ned, læg låg på og lad grøden trække i 35 til 45 minutter. Rør jævnligt, så den ikke brænder på.",
         "Smag til med salt.",
         "Server med en klat smør, kanel og sukker."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Rice pudding vanilla cinnamon.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Rice_pudding_vanilla_cinnamon.jpg",
+        "af": "Rudi Riet",
+        "licens": "CC BY-SA 2.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "kyllingesalat-wraps",
@@ -466,7 +592,14 @@
         "Snit salaten, og skær agurk, tomat og peberfrugt i strimler.",
         "Varm tortillas kort på en tør pande.",
         "Smør creme fraiche på tortillaen, fordel kylling og grøntsager, og rul den sammen."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Handmade Chicken Shawarma Wrap - Lavash.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Handmade_Chicken_Shawarma_Wrap_-_Lavash.jpg",
+        "af": "Andy Li",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "hakkebof",
@@ -489,7 +622,14 @@
         "Form kødet til fire bøffer, krydr med salt og peber, og steg dem i resten af smørret 3 til 4 minutter på hver side.",
         "Tag bøfferne af, hæld fløde, 1 dl vand og bouillon på panden, og lad sovsen koge op.",
         "Server bøfferne med løg, kartofler og sovs."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Hakkebøffer bløde løg sovs kartorfler.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Hakkeb%C3%B8ffer_bl%C3%B8de_l%C3%B8g_sovs_kartorfler.jpg",
+        "af": "Nillerdk",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "stegt-flaesk",
@@ -512,7 +652,14 @@
         "Smelt smørret i en gryde, pisk melet i og spæd op med mælken lidt ad gangen. Lad sovsen koge et par minutter.",
         "Hak persillen fint, rør den i sovsen og smag til med salt og peber.",
         "Server det sprøde flæsk med kartofler og persillesovs."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Stegt flæsk med persillesovs 2.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Stegt_fl%C3%A6sk_med_persillesovs_2.jpg",
+        "af": "Nillerdk",
+        "licens": "CC BY 3.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "pizza",
@@ -536,7 +683,14 @@
         "Kog de hakkede tomater ind med oregano og lidt salt, til sovsen er tyk.",
         "Del dejen i to, rul den ud på bagepapir og fordel tomatsovs, ost, pepperoni og peberfrugt.",
         "Bag pizzaerne nederst i ovnen i 10 til 12 minutter, til bunden er sprød."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Pepperoni Pizza from Fellini’s Pizza.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Pepperoni_Pizza_from_Fellini%E2%80%99s_Pizza.jpg",
+        "af": "BullDawg2021",
+        "licens": "CC BY 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "omelet",
@@ -560,7 +714,14 @@
         "Pisk æg og mælk sammen med salt og peber.",
         "Fordel bacon og grønt i et smurt ovnfast fad, hæld æggemassen over og drys osten på.",
         "Bag omeletten i 20 til 25 minutter, til den er stivnet i midten. Server med rugbrød."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Bacon omelette (1126041315).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Bacon_omelette_(1126041315).jpg",
+        "af": "Father.Jack",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "gullasch",
@@ -586,7 +747,14 @@
         "Tilsæt hakkede tomater, 5 dl vand og bouillonen. Læg låg på og lad retten simre i ca. 1,5 time, til kødet er mørt.",
         "Kog kartoflerne de sidste 20 minutter.",
         "Smag gullaschen til med salt og peber, og server med kartofler."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Hungarian Goulash Recipe.png",
+        "side": "https://commons.wikimedia.org/wiki/File:Hungarian_Goulash_Recipe.png",
+        "af": "Valeva1010",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "stegte-ris",
@@ -610,7 +778,14 @@
         "Varm olien på en stor pande, og steg gulerødder og hvidløg i et par minutter. Tilsæt ærter og skinke.",
         "Skub grøntsagerne til siden, slå æggene ud på panden og rør dem sammen, til de stivner.",
         "Tilsæt risene og sojaen, og steg det hele sammen, til det er varmt. Drys forårsløg over."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Fried Rice 1 (Eggs & Vegetables).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Fried_Rice_1_(Eggs_%26_Vegetables).jpg",
+        "af": "Gary Dee",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "kylling-i-ovn",
@@ -633,7 +808,14 @@
         "Skær kartofler og gulerødder i grove stykker, og rødløgene i både. Vend dem i olie, timian, salt og peber, og fordel dem i en bradepande.",
         "Krydr kyllingelårene med paprika, salt og peber, og læg dem oven på grøntsagerne med skindet opad.",
         "Bag det hele i 45 til 50 minutter, til kyllingen er gennemstegt og skindet sprødt."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Muslo de \"pollo al ast\" con patatas fritas.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Muslo_de_%22pollo_al_ast%22_con_patatas_fritas.jpg",
+        "af": "Juan Emilio Prades Bel",
+        "licens": "CC BY 4.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "pasta-carbonara",
@@ -653,7 +835,14 @@
         "Pisk æg og parmesan sammen med godt med peber.",
         "Tag panden af varmen. Kom den drænede pasta på panden, hæld æggeblandingen over og vend hurtigt. Tilsæt lidt kogevand, til sovsen er cremet.",
         "Server med det samme med ekstra parmesan."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Spaghetti alla Carbonara (Madrid).JPG",
+        "side": "https://commons.wikimedia.org/wiki/File:Spaghetti_alla_Carbonara_(Madrid).JPG",
+        "af": "Tamorlan",
+        "licens": "CC BY-SA 3.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "grontsagssuppe",
@@ -679,7 +868,14 @@
         "Skyl linserne, og kom dem i gryden sammen med de hakkede tomater, 1 liter vand og bouillonen.",
         "Lad suppen koge i ca. 20 minutter, til linserne er møre. Smag til med salt og peber.",
         "Server suppen med godt brød."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Amy's lentil vegetable soup.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Amy%27s_lentil_vegetable_soup.jpg",
+        "af": "Mx. Granger",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "koldskal",
@@ -699,7 +895,14 @@
         "Pisk kærnemælken i lidt ad gangen.",
         "Smag til med citronsaft og lidt revet citronskal.",
         "Stil koldskålen på køl, og server den med kammerjunkere."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Koldskål 2.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Koldsk%C3%A5l_2.jpg",
+        "af": "Nillerdk",
+        "licens": "CC BY 3.0",
+        "beskaer": 0.5
+      }
     },
     {
       "slug": "aeblekage",
@@ -720,7 +923,2198 @@
         "Knus makronerne groft, og rist dem kort på en pande i smørret.",
         "Pisk fløden til flødeskum.",
         "Læg æblegrød, makroner og flødeskum i lag i en skål, og pynt evt. med lidt syltetøj."
-      ]
+      ],
+      "foto": {
+        "fil": "File:Canadian Apple Cake, Ehrenbach.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Canadian_Apple_Cake,_Ehrenbach.jpg",
+        "af": "Gerda Arendt",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "braendende-kaerlighed",
+      "title": "Brændende kærlighed",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "1 kg kartofler",
+        "2 dl letmælk",
+        "30 g smør",
+        "1 tsk fint salt",
+        "200 g bacon",
+        "2 løg",
+        "Rødbeder",
+        "Peber"
+      ],
+      "instructions": [
+        "Skræl kartoflerne, skær dem i stykker og kog dem møre i letsaltet vand i ca. 20 minutter.",
+        "Skær bacon i tern og løgene i tynde både. Steg baconen sprød på en pande, tag den op, og steg løgene bløde og gyldne i fedtet.",
+        "Hæld vandet fra kartoflerne, og mos dem med smør og varm mælk. Smag til med salt og peber.",
+        "Læg mosen på tallerkenerne, lav en fordybning i midten, og fyld bacon og løg i. Server med rødbeder."
+      ],
+      "foto": {
+        "fil": "File:Liver with bacon and onions, plus mashed potatoes - Boston, MA.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Liver_with_bacon_and_onions,_plus_mashed_potatoes_-_Boston,_MA.jpg",
+        "af": "Daderot",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "millionboef-med-kartoffelmos",
+      "title": "Millionbøf med kartoffelmos",
+      "servings": 4,
+      "total_time_minutes": 45,
+      "ingredients": [
+        "500 g hakket oksekød",
+        "2 løg",
+        "1 spsk rapsolie",
+        "2 spsk hvedemel",
+        "2 dl madlavningsfløde",
+        "1 oksebouillon",
+        "1 kg kartofler",
+        "2 dl letmælk",
+        "30 g smør",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Skræl kartoflerne og kog dem møre i letsaltet vand i ca. 20 minutter.",
+        "Hak løgene og svits dem bløde i olien i en gryde. Tilsæt kødet, og brun det, mens du deler det i små stykker.",
+        "Drys melet over kødet og rør rundt. Tilsæt fløde, 3 dl vand og bouillon, og lad det simre under låg i 15 minutter. Smag til med salt og peber.",
+        "Mos kartoflerne med smør og varm mælk, og smag til med salt.",
+        "Server millionbøffen med kartoffelmosen."
+      ],
+      "foto": {
+        "fil": "File:Cooking oturtma.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Cooking_oturtma.jpg",
+        "af": "E4024",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "koedtaerte-med-kartoffelmos",
+      "title": "Kødgratin med kartoffelmos",
+      "servings": 4,
+      "total_time_minutes": 60,
+      "ingredients": [
+        "500 g hakket oksekød",
+        "1 løg",
+        "2 gulerødder",
+        "1 dåse hakkede tomater",
+        "2 spsk tomatpuré",
+        "1 oksebouillon",
+        "1 kg kartofler",
+        "2 dl letmælk",
+        "30 g smør",
+        "100 g revet ost",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Skræl kartoflerne og kog dem møre i letsaltet vand. Tænd ovnen på 200 grader.",
+        "Hak løget og riv gulerødderne. Brun kødet i en gryde, tilsæt løg og gulerødder, og steg et par minutter mere.",
+        "Rør tomatpuré, hakkede tomater og bouillon i, og lad det simre i 15 minutter. Smag til med salt og peber.",
+        "Mos kartoflerne med smør og mælk. Kom kødet i et ovnfast fad, fordel mosen ovenpå, og drys med ost.",
+        "Bag retten midt i ovnen i ca. 20 minutter, til osten er gylden."
+      ],
+      "foto": {
+        "fil": "File:Shepherds pie - The Kew Greenhouse Cafe 2025-05-14.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Shepherds_pie_-_The_Kew_Greenhouse_Cafe_2025-05-14.jpg",
+        "af": "Andy Li",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "stegt-fisk-med-kartofler",
+      "title": "Stegt fisk med kartofler og smørsauce",
+      "servings": 4,
+      "total_time_minutes": 35,
+      "ingredients": [
+        "600 g rødspættefilet",
+        "1 kg kartofler",
+        "1 dl hvedemel",
+        "1 æg",
+        "1 dl rasp",
+        "75 g smør",
+        "1 citron",
+        "1 bundt persille",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog kartoflerne møre i letsaltet vand.",
+        "Dup fiskefileterne tørre. Vend dem først i mel med salt og peber, så i sammenpisket æg og til sidst i rasp.",
+        "Steg fisken i halvdelen af smørret på en pande ved middel varme, ca. 3 minutter på hver side, til den er gylden.",
+        "Smelt resten af smørret i en lille gryde, og rør hakket persille og lidt citronsaft i.",
+        "Server fisken med kartofler, smørsauce og citronbåde."
+      ],
+      "foto": {
+        "fil": "File:Fish and chips plate with peas.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Fish_and_chips_plate_with_peas.jpg",
+        "af": "Grendelkhan",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "poelser-med-kartoffelsalat",
+      "title": "Grillpølser med kartoffelsalat",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "1 kg kartofler",
+        "1 rødløg",
+        "1 bæger creme fraiche",
+        "3 spsk mayonnaise",
+        "1 spsk sennep",
+        "1 bundt purløg",
+        "8 grillpølser",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog kartoflerne møre i letsaltet vand, og lad dem køle af. Skær dem i skiver eller tern.",
+        "Rør creme fraiche, mayonnaise og sennep sammen. Smag til med salt og peber.",
+        "Hak rødløget fint og klip purløget. Vend kartoflerne forsigtigt i dressingen sammen med løg og purløg.",
+        "Steg eller grill pølserne, og server dem med kartoffelsalaten."
+      ],
+      "foto": {
+        "fil": "File:DFC 1093 Two grilled sausages served with creamy potato salad and a side of coleslaw on a white plate.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:DFC_1093_Two_grilled_sausages_served_with_creamy_potato_salad_and_a_side_of_coleslaw_on_a_white_plate.jpg",
+        "af": "PattayaPatrol",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "poelsehorn",
+      "title": "Pølsehorn",
+      "servings": 16,
+      "total_time_minutes": 75,
+      "ingredients": [
+        "25 g gær",
+        "2 dl letmælk",
+        "50 g smør",
+        "1 æg",
+        "1 tsk sukker",
+        "1 tsk fint salt",
+        "400 g hvedemel",
+        "16 cocktailpølser"
+      ],
+      "instructions": [
+        "Smelt smørret, tilsæt mælken, og lun blandingen til den er håndvarm. Rør gæren ud i den.",
+        "Tilsæt halvdelen af ægget, sukker, salt og melet lidt ad gangen, og ælt dejen smidig. Lad den hæve tildækket i 30 minutter.",
+        "Del dejen i to, rul hver del ud til en rund plade, og skær den i 8 trekanter.",
+        "Læg en pølse på den brede ende af hver trekant, og rul den sammen. Lad hornene hæve 15 minutter på en bageplade.",
+        "Pensl med resten af ægget, og bag dem ved 200 grader i 12 til 15 minutter."
+      ],
+      "foto": {
+        "fil": "File:Bowl of Pigs in a Blanket.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Bowl_of_Pigs_in_a_Blanket.jpg",
+        "af": "Johnson524",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "hoensesuppe-med-boller",
+      "title": "Hønsesuppe med boller og grønt",
+      "servings": 4,
+      "total_time_minutes": 70,
+      "ingredients": [
+        "4 kyllingeoverlår",
+        "2 hønsebouillon",
+        "3 gulerødder",
+        "1 porre",
+        "1 løg",
+        "500 g hakket grisekød",
+        "1 æg",
+        "3 spsk hvedemel",
+        "1 dl letmælk",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kom kyllingelårene i en stor gryde med 2 liter vand, bouillon og løget skåret i kvarte. Lad det simre i 40 minutter, og skum af undervejs.",
+        "Rør kødet sammen med æg, mel, mælk, salt og peber til en fast fars.",
+        "Tag kyllingen op, pil kødet af benene, og skær det i stykker. Skær gulerødder og porre i tynde skiver.",
+        "Kom grøntsagerne i suppen. Form små boller med en teske dyppet i vand, og læg dem i den simrende suppe. Kog i ca. 8 minutter, til bollerne flyder op.",
+        "Kom kyllingekødet tilbage i suppen, og smag til med salt og peber."
+      ],
+      "foto": {
+        "fil": "File:Hønsekødssuppe (8457217421).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:H%C3%B8nsek%C3%B8dssuppe_(8457217421).jpg",
+        "af": "cyclonebill",
+        "licens": "CC BY-SA 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "gule-aerter",
+      "title": "Gule ærter med flæsk og pølse",
+      "servings": 6,
+      "total_time_minutes": 120,
+      "ingredients": [
+        "500 g flækkede gule ærter",
+        "1 kg kogt hamburgerryg",
+        "4 medisterpølser",
+        "4 gulerødder",
+        "2 porrer",
+        "1 selleri",
+        "1 løg",
+        "1 tsk tørret timian",
+        "1 tsk fint salt",
+        "Sennep",
+        "Rugbrød"
+      ],
+      "instructions": [
+        "Skyl ærterne, og kog dem i 2 liter vand med det hakkede løg og timian i ca. 1 time, til de er moset. Rør jævnligt, så de ikke brænder på.",
+        "Skræl gulerødder og selleri, og skær dem i tern. Skær porrerne i skiver.",
+        "Kom grøntsagerne i suppen, og kog i 20 minutter mere. Smag til med salt.",
+        "Varm hamburgerryggen og pølserne i suppen de sidste 15 minutter.",
+        "Server suppen for sig, og kød og pølse ved siden af med sennep og rugbrød."
+      ],
+      "foto": {
+        "fil": "File:Pea soup in Loviisa.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Pea_soup_in_Loviisa.jpg",
+        "af": "JIP",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "aeggekage-med-bacon",
+      "title": "Æggekage med bacon og purløg",
+      "servings": 4,
+      "total_time_minutes": 25,
+      "ingredients": [
+        "8 æg",
+        "2 dl letmælk",
+        "2 spsk hvedemel",
+        "200 g bacon",
+        "2 tomater",
+        "1 bundt purløg",
+        "1 tsk fint salt",
+        "Peber",
+        "Rugbrød"
+      ],
+      "instructions": [
+        "Pisk æg, mælk, mel, salt og peber sammen.",
+        "Steg baconen sprød på en stor pande, tag den op, og hæld det meste af fedtet fra.",
+        "Hæld æggemassen på panden, og lad den stivne ved svag varme under låg i 10 til 12 minutter.",
+        "Fordel bacon, tomatskiver og klippet purløg over æggekagen, og server den direkte fra panden med rugbrød."
+      ],
+      "foto": {
+        "fil": "File:Frittata - Bam's Kitchen 2024-04-02.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Frittata_-_Bam%27s_Kitchen_2024-04-02.jpg",
+        "af": "Andy Li",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "pastasalat-med-kylling",
+      "title": "Pastasalat med kylling",
+      "servings": 4,
+      "total_time_minutes": 30,
+      "ingredients": [
+        "300 g pasta",
+        "400 g kyllingebryst",
+        "1 agurk",
+        "1 rød peberfrugt",
+        "1 dåse majs",
+        "1 bæger creme fraiche",
+        "2 spsk mayonnaise",
+        "1 tsk paprika",
+        "1 spsk rapsolie",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog pastaen efter anvisningen på pakken, skyl den i koldt vand og lad den dryppe af.",
+        "Krydr kyllingen med salt, peber og paprika, og steg den gennem i olien, ca. 6 minutter på hver side. Lad den køle lidt af, og skær den i strimler.",
+        "Skær agurk og peberfrugt i tern, og hæld vandet fra majsene.",
+        "Rør creme fraiche og mayonnaise sammen, og vend pasta, kylling og grøntsager i dressingen. Smag til med salt og peber."
+      ],
+      "foto": {
+        "fil": "File:Pasta salad closeup.JPG",
+        "side": "https://commons.wikimedia.org/wiki/File:Pasta_salad_closeup.JPG",
+        "af": "Brynn",
+        "licens": "CC BY-SA 3.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kyllingenuggets-i-ovn",
+      "title": "Hjemmelavede kyllingenuggets i ovn",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "600 g kyllingebryst",
+        "2 æg",
+        "2 dl rasp",
+        "1 dl hvedemel",
+        "1 tsk paprika",
+        "1 tsk fint salt",
+        "800 g kartofler",
+        "2 spsk rapsolie",
+        "Ketchup"
+      ],
+      "instructions": [
+        "Tænd ovnen på 220 grader. Skær kartoflerne i både, vend dem i olie og salt, og bag dem i 35 minutter.",
+        "Skær kyllingen i mundrette stykker. Bland mel, salt og paprika i én skål, pisk æggene i en anden, og hæld rasp i en tredje.",
+        "Vend kyllingestykkerne i mel, så i æg og til sidst i rasp, og læg dem på en bageplade med bagepapir.",
+        "Bag nuggets de sidste 15 til 18 minutter sammen med kartoflerne, til de er gyldne og gennemstegte. Server med ketchup."
+      ],
+      "foto": {
+        "fil": "File:Impossible chicken nuggets 2.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Impossible_chicken_nuggets_2.jpg",
+        "af": "Mx. Granger",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "pasta-med-tun-og-tomat",
+      "title": "Pasta med tun og tomatsauce",
+      "servings": 4,
+      "total_time_minutes": 25,
+      "ingredients": [
+        "400 g pasta",
+        "2 dåser tun i vand",
+        "1 løg",
+        "2 fed hvidløg",
+        "2 dåser hakkede tomater",
+        "1 spsk rapsolie",
+        "1 tsk oregano",
+        "1 tsk sukker",
+        "50 g revet parmesan",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog pastaen efter anvisningen på pakken.",
+        "Hak løg og hvidløg, og svits dem i olien til de er bløde.",
+        "Tilsæt hakkede tomater, oregano og sukker, og lad saucen simre i 10 minutter.",
+        "Hæld vandet fra tunen, og vend den i saucen. Smag til med salt og peber.",
+        "Vend pastaen i saucen, og server med parmesan."
+      ],
+      "foto": {
+        "fil": "File:Pasta with tuna & vegetables (5746832862).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Pasta_with_tuna_%26_vegetables_(5746832862).jpg",
+        "af": "Luca Nebuloni",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "linsebolognese",
+      "title": "Linsebolognese",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "200 g røde linser",
+        "1 løg",
+        "2 fed hvidløg",
+        "2 gulerødder",
+        "2 dåser hakkede tomater",
+        "2 spsk tomatpuré",
+        "1 grøntsagsbouillon",
+        "1 spsk rapsolie",
+        "1 tsk oregano",
+        "400 g spaghetti",
+        "50 g revet parmesan",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Hak løg og hvidløg, og riv gulerødderne. Svits det hele i olien i en gryde i 5 minutter.",
+        "Skyl linserne, og kom dem i gryden med tomatpuré, hakkede tomater, oregano, bouillon og 3 dl vand.",
+        "Lad saucen simre under låg i ca. 20 minutter, til linserne er møre. Rør af og til, og tilsæt lidt vand hvis den bliver for tyk.",
+        "Kog spaghettien imens. Smag saucen til med salt og peber, og server med parmesan."
+      ],
+      "foto": {
+        "fil": "File:Spaghetti with Meat Sauce in Plastic Container.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Spaghetti_with_Meat_Sauce_in_Plastic_Container.jpg",
+        "af": "Kyu3",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kartoffelgratin-med-skinke",
+      "title": "Kartoffelgratin med skinke",
+      "servings": 4,
+      "total_time_minutes": 70,
+      "ingredients": [
+        "1 kg kartofler",
+        "2 fed hvidløg",
+        "1/4 l piskefløde",
+        "2 dl letmælk",
+        "150 g revet ost",
+        "200 g kogt skinke",
+        "1 tsk fint salt",
+        "Peber",
+        "1 hjertesalat"
+      ],
+      "instructions": [
+        "Tænd ovnen på 200 grader. Skræl kartoflerne, og skær dem i tynde skiver.",
+        "Lun fløde og mælk med det pressede hvidløg, salt og peber.",
+        "Læg kartoffelskiverne lagvis i et smurt ovnfast fad med skinke i strimler og lidt ost mellem lagene.",
+        "Hæld fløden over, og drys resten af osten på toppen.",
+        "Bag gratinen i ca. 50 minutter, til kartoflerne er møre og toppen er gylden. Server med en grøn salat."
+      ],
+      "foto": {
+        "fil": "File:Potato gratin on stove.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Potato_gratin_on_stove.jpg",
+        "af": "Dreamyshade",
+        "licens": "CC BY-SA 3.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "torsk-i-fad-med-tomat",
+      "title": "Torsk i fad med tomat og ris",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "600 g torskefilet",
+        "1 løg",
+        "2 fed hvidløg",
+        "1 dåse hakkede tomater",
+        "1 squash",
+        "1 spsk rapsolie",
+        "1 tsk tørret timian",
+        "1 citron",
+        "300 g jasminris",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Tænd ovnen på 200 grader, og kog risene efter anvisningen på pakken.",
+        "Hak løg og hvidløg, skær squashen i tern, og svits det i olien. Tilsæt hakkede tomater og timian, og lad det simre i 5 minutter.",
+        "Hæld tomatsaucen i et ovnfast fad, og læg fisken ovenpå. Drys med salt, peber og lidt revet citronskal.",
+        "Bag retten i ca. 15 minutter, til fisken er hvid hele vejen igennem. Server med ris og citronbåde."
+      ],
+      "foto": {
+        "fil": "File:Cod in tomato sauce (Oslo).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Cod_in_tomato_sauce_(Oslo).jpg",
+        "af": "MOs810",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kylling-i-tomat-karrysauce",
+      "title": "Kylling i tomat-karrysauce",
+      "servings": 4,
+      "total_time_minutes": 35,
+      "ingredients": [
+        "600 g kyllingebryst",
+        "1 løg",
+        "2 fed hvidløg",
+        "1 spsk karry",
+        "1 tsk spidskommen",
+        "1 dåse hakkede tomater",
+        "1 dåse kokosmælk",
+        "1 spsk rapsolie",
+        "300 g jasminris",
+        "1 tsk fint salt"
+      ],
+      "instructions": [
+        "Kog risene efter anvisningen på pakken.",
+        "Skær kyllingen i tern, og brun den i olien. Tag den op.",
+        "Hak løg og hvidløg, og svits dem i gryden. Rør karry og spidskommen i, og steg et minut.",
+        "Tilsæt hakkede tomater og kokosmælk, kom kyllingen tilbage, og lad det simre i 10 minutter, til kyllingen er gennemkogt. Smag til med salt.",
+        "Server med ris."
+      ],
+      "foto": {
+        "fil": "File:Butter chicken (6032497682).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Butter_chicken_(6032497682).jpg",
+        "af": "Isabelle Hurbain-Palatin",
+        "licens": "CC BY-SA 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "woknudler-med-kylling",
+      "title": "Woknudler med kylling og grønt",
+      "servings": 4,
+      "total_time_minutes": 25,
+      "ingredients": [
+        "250 g ægnudler",
+        "400 g kyllingebryst",
+        "1 broccoli",
+        "2 gulerødder",
+        "1 rød peberfrugt",
+        "2 fed hvidløg",
+        "4 spsk sojasauce",
+        "1 spsk sukker",
+        "2 spsk rapsolie",
+        "4 forårsløg"
+      ],
+      "instructions": [
+        "Kog nudlerne efter anvisningen på pakken, og lad dem dryppe af.",
+        "Skær kyllingen i strimler, broccolien i små buketter, gulerødderne i tynde stave og peberfrugten i strimler.",
+        "Steg kyllingen i halvdelen af olien ved høj varme i en wok eller stor pande, til den er gennemstegt. Tag den op.",
+        "Steg grøntsagerne og det hakkede hvidløg i resten af olien i 3 til 4 minutter, så de stadig er sprøde.",
+        "Kom kylling og nudler tilbage, tilsæt sojasauce og sukker, og vend det hele godt. Drys med forårsløg."
+      ],
+      "foto": {
+        "fil": "File:Noodle stir fry with chicken, shrimp, and broccoli (18471621051).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Noodle_stir_fry_with_chicken,_shrimp,_and_broccoli_(18471621051).jpg",
+        "af": "jeffreyw",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kokossuppe-med-kylling",
+      "title": "Kokossuppe med kylling",
+      "servings": 4,
+      "total_time_minutes": 30,
+      "ingredients": [
+        "400 g kyllingebryst",
+        "2 dåser kokosmælk",
+        "1 hønsebouillon",
+        "1 spsk rød karrypasta",
+        "2 gulerødder",
+        "1 rød peberfrugt",
+        "150 g risnudler",
+        "1 lime",
+        "2 spsk sojasauce",
+        "4 forårsløg"
+      ],
+      "instructions": [
+        "Rør karrypastaen ud i en gryde over middel varme i et minut.",
+        "Tilsæt kokosmælk, bouillon og 5 dl vand, og bring suppen i kog.",
+        "Skær kyllingen i tynde strimler og grøntsagerne i tynde stykker. Kom dem i suppen, og lad den simre i 8 minutter.",
+        "Kom nudlerne i de sidste 4 minutter. Smag til med sojasauce og limesaft, og drys med forårsløg."
+      ],
+      "foto": {
+        "fil": "File:Tom kha gai2.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Tom_kha_gai2.jpg",
+        "af": "lydiajoy1",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "mexicansk-gryde-med-ris",
+      "title": "Mexicansk risgryde med oksekød",
+      "servings": 4,
+      "total_time_minutes": 35,
+      "ingredients": [
+        "400 g hakket oksekød",
+        "1 løg",
+        "1 rød peberfrugt",
+        "1 pose tacokrydderi",
+        "1 dåse hakkede tomater",
+        "1 dåse kidneybønner",
+        "1 dåse majs",
+        "200 g parboiled ris",
+        "1 oksebouillon",
+        "100 g revet ost",
+        "1 bæger creme fraiche"
+      ],
+      "instructions": [
+        "Brun kødet i en stor gryde. Tilsæt hakket løg og peberfrugt i tern, og steg et par minutter mere.",
+        "Rør tacokrydderiet i, og tilsæt ris, hakkede tomater, bouillon og 5 dl vand.",
+        "Lad det simre under låg i ca. 18 minutter, til risene er møre. Rør af og til, og tilsæt lidt vand hvis det bliver for tørt.",
+        "Skyl bønnerne, og vend dem i sammen med majsene. Drys med ost, og læg låget på, til osten er smeltet. Server med creme fraiche."
+      ],
+      "foto": {
+        "fil": "File:Mexican rice and beans rotated.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Mexican_rice_and_beans_rotated.jpg",
+        "af": "Maryam S.",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "fisk-i-rasp-fra-ovnen",
+      "title": "Ovnbagt fisk i rasp med kartoffelbåde",
+      "servings": 4,
+      "total_time_minutes": 45,
+      "ingredients": [
+        "600 g torskefilet",
+        "1 æg",
+        "1 dl rasp",
+        "2 spsk hvedemel",
+        "1 kg kartofler",
+        "2 spsk rapsolie",
+        "1 citron",
+        "1 tsk fint salt",
+        "Remoulade"
+      ],
+      "instructions": [
+        "Tænd ovnen på 220 grader. Skær kartoflerne i både, vend dem i olie og salt, og bag dem i ca. 35 minutter.",
+        "Skær fisken i 8 stykker. Vend dem i mel, så i sammenpisket æg og til sidst i rasp.",
+        "Læg fisken på en bageplade med bagepapir, og dryp med lidt olie.",
+        "Bag fisken de sidste 15 minutter sammen med kartoflerne. Server med remoulade og citronbåde."
+      ],
+      "foto": {
+        "fil": "File:Fish dish, Idstein.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Fish_dish,_Idstein.jpg",
+        "af": "Gerda Arendt",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "pasta-med-pesto-og-kylling",
+      "title": "Pasta med pesto og kylling",
+      "servings": 4,
+      "total_time_minutes": 25,
+      "ingredients": [
+        "400 g pasta",
+        "400 g kyllingebryst",
+        "1 glas grøn pesto",
+        "250 g cherrytomater",
+        "1 spsk rapsolie",
+        "50 g revet parmesan",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog pastaen efter anvisningen på pakken.",
+        "Skær kyllingen i tern, krydr med salt og peber, og steg den gennem i olien.",
+        "Halvér tomaterne.",
+        "Hæld vandet fra pastaen, gem en lille kop af det, og vend pastaen med pesto, kylling og tomater. Tilsæt lidt pastavand hvis det er tørt.",
+        "Server med parmesan."
+      ],
+      "foto": {
+        "fil": "File:Chicken Pesto Pasta.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Chicken_Pesto_Pasta.jpg",
+        "af": "Kunokuno",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "fyldte-peberfrugter",
+      "title": "Fyldte peberfrugter med ris og oksekød",
+      "servings": 4,
+      "total_time_minutes": 60,
+      "ingredients": [
+        "4 røde peberfrugter",
+        "300 g hakket oksekød",
+        "1 løg",
+        "100 g parboiled ris",
+        "1 dåse hakkede tomater",
+        "1 tsk paprika",
+        "1 tsk oregano",
+        "100 g revet ost",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog risene efter anvisningen på pakken. Tænd ovnen på 200 grader.",
+        "Brun kødet med det hakkede løg. Tilsæt halvdelen af tomaterne, paprika, oregano, salt og peber, og lad det simre i 5 minutter. Vend risene i.",
+        "Skær peberfrugterne over på langs, og fjern kernerne. Fyld dem med kødet, og sæt dem i et ovnfast fad.",
+        "Hæld resten af tomaterne og en halv dl vand i fadet, drys ost over peberfrugterne, og bag dem i ca. 30 minutter."
+      ],
+      "foto": {
+        "fil": "File:Quinoa stuffed peppers.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Quinoa_stuffed_peppers.jpg",
+        "af": "Mark Bonica",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "caesarsalat-med-kylling",
+      "title": "Cæsarsalat med kylling og croutoner",
+      "servings": 4,
+      "total_time_minutes": 30,
+      "ingredients": [
+        "500 g kyllingebryst",
+        "2 hjertesalater",
+        "4 skiver toastbrød",
+        "50 g revet parmesan",
+        "3 spsk mayonnaise",
+        "1 fed hvidløg",
+        "1 citron",
+        "2 spsk rapsolie",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Krydr kyllingen med salt og peber, og steg den gennem i halvdelen af olien. Lad den hvile, og skær den i skiver.",
+        "Skær brødet i tern, og rist dem sprøde på panden i resten af olien.",
+        "Rør mayonnaise med presset hvidløg, citronsaft, halvdelen af parmesanen og et par spsk vand til en dressing.",
+        "Skær salaten i grove stykker, og vend den med dressingen. Læg kylling og croutoner ovenpå, og drys med resten af osten."
+      ],
+      "foto": {
+        "fil": "File:Chicken Caesar Salad at French Market Restaurant.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Chicken_Caesar_Salad_at_French_Market_Restaurant.jpg",
+        "af": "pattyonflickr",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "laks-med-pasta-og-spinat",
+      "title": "Pasta med laks og spinat",
+      "servings": 4,
+      "total_time_minutes": 25,
+      "ingredients": [
+        "400 g pasta",
+        "400 g laksefilet",
+        "150 g baby spinat",
+        "2 dl madlavningsfløde",
+        "1 fed hvidløg",
+        "1 citron",
+        "1 spsk rapsolie",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog pastaen efter anvisningen på pakken.",
+        "Skær laksen i tern, og steg den forsigtigt i olien i 3 til 4 minutter. Tag den op.",
+        "Svits det pressede hvidløg kort, tilsæt fløden og lidt revet citronskal, og lad det koge op.",
+        "Vend spinaten i, til den falder sammen. Kom laks og pasta i, og smag til med citronsaft, salt og peber."
+      ],
+      "foto": {
+        "fil": "File:Baked salmon with marinade and pasta carbonara.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Baked_salmon_with_marinade_and_pasta_carbonara.jpg",
+        "af": "N1NJ4",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "pitabroed-med-kylling",
+      "title": "Pitabrød med kylling og tzatziki",
+      "servings": 4,
+      "total_time_minutes": 30,
+      "ingredients": [
+        "500 g kyllingebryst",
+        "8 pitabrød",
+        "1 agurk",
+        "2 tomater",
+        "1 hjertesalat",
+        "1 rødløg",
+        "1 bæger græsk yoghurt",
+        "1 fed hvidløg",
+        "1 tsk spidskommen",
+        "1 tsk paprika",
+        "1 spsk rapsolie",
+        "1 tsk fint salt"
+      ],
+      "instructions": [
+        "Skær kyllingen i strimler, krydr med spidskommen, paprika og salt, og steg den gennem i olien.",
+        "Riv halvdelen af agurken groft, pres vandet ud, og rør den med yoghurt, presset hvidløg og salt til tzatziki.",
+        "Skær resten af agurken, tomaterne og løget i tynde skiver, og snit salaten.",
+        "Lun pitabrødene, og fyld dem med salat, grøntsager, kylling og tzatziki."
+      ],
+      "foto": {
+        "fil": "File:Chicken souvlaki pita with french fries.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Chicken_souvlaki_pita_with_french_fries.jpg",
+        "af": "Breawycker",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "quesadillas",
+      "title": "Quesadillas med kylling og ost",
+      "servings": 4,
+      "total_time_minutes": 25,
+      "ingredients": [
+        "8 tortillas",
+        "400 g kyllingebryst",
+        "1 dåse kidneybønner",
+        "1 dåse majs",
+        "200 g revet ost",
+        "1 pose tacokrydderi",
+        "1 spsk rapsolie",
+        "1 glas salsa",
+        "1 bæger creme fraiche"
+      ],
+      "instructions": [
+        "Skær kyllingen i små stykker, og steg den gennem i olien med tacokrydderiet og et par spsk vand.",
+        "Skyl bønnerne, og hæld vandet fra majsene.",
+        "Fordel kylling, bønner, majs og ost på halvdelen af hver tortilla, og fold den sammen.",
+        "Steg quesadillaerne på en tør pande ved middel varme i 2 til 3 minutter på hver side, til osten er smeltet. Skær dem i trekanter, og server med salsa og creme fraiche."
+      ],
+      "foto": {
+        "fil": "File:At Long Island 2023 267.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:At_Long_Island_2023_267.jpg",
+        "af": "Mike Peel",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "burritos-med-oksekoed",
+      "title": "Burritos med oksekød og ris",
+      "servings": 4,
+      "total_time_minutes": 35,
+      "ingredients": [
+        "400 g hakket oksekød",
+        "150 g parboiled ris",
+        "1 pose tacokrydderi",
+        "1 dåse kidneybønner",
+        "1 dåse majs",
+        "8 tortillas",
+        "150 g revet ost",
+        "1 hjertesalat",
+        "1 glas salsa",
+        "1 bæger creme fraiche"
+      ],
+      "instructions": [
+        "Kog risene efter anvisningen på pakken.",
+        "Brun kødet, tilsæt tacokrydderi og 1 dl vand, og lad det simre et par minutter. Vend de skyllede bønner og majsene i.",
+        "Lun tortillaerne. Fordel ris, kød, ost, snittet salat og lidt salsa midt på hver.",
+        "Fold enderne ind, rul dem stramt sammen, og server med creme fraiche."
+      ],
+      "foto": {
+        "fil": "File:Burrito.JPG",
+        "side": "https://commons.wikimedia.org/wiki/File:Burrito.JPG",
+        "af": "samuelfernandezrivera",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "hotdogs",
+      "title": "Hjemmelavede hotdogs",
+      "servings": 4,
+      "total_time_minutes": 20,
+      "ingredients": [
+        "8 grillpølser",
+        "8 pølsebrød",
+        "1 glas syltede agurker",
+        "1 pakke ristede løg",
+        "1 løg",
+        "Ketchup",
+        "Sennep",
+        "Remoulade"
+      ],
+      "instructions": [
+        "Varm pølserne i let simrende vand i ca. 8 minutter, eller steg dem på en pande.",
+        "Hak det rå løg fint.",
+        "Lun pølsebrødene i ovnen et par minutter.",
+        "Kom en pølse i hvert brød, og pynt med ketchup, sennep, remoulade, rå og ristede løg og agurkeskiver."
+      ],
+      "foto": {
+        "fil": "File:Hot dog 01.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Hot_dog_01.jpg",
+        "af": "stu_spivack",
+        "licens": "CC BY-SA 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "moerbradgryde",
+      "title": "Mørbradgryde med champignon",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "600 g svinemørbrad",
+        "250 g champignon",
+        "1 løg",
+        "2 dl madlavningsfløde",
+        "1 spsk tomatpuré",
+        "1 tsk paprika",
+        "1 hønsebouillon",
+        "1 spsk smør",
+        "300 g jasminris",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog risene efter anvisningen på pakken.",
+        "Skær mørbraden i skiver, og brun dem i smør i en gryde. Krydr med salt og peber, og tag dem op.",
+        "Steg champignon i skiver og hakket løg i gryden, til de har taget farve.",
+        "Rør tomatpuré og paprika i, tilsæt fløde, 1 dl vand og bouillon, og kom kødet tilbage. Lad det simre i 10 minutter.",
+        "Server gryden med ris."
+      ],
+      "foto": {
+        "fil": "File:Inn, Gasthaus Heinemann in Bremke-Gleichen.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Inn,_Gasthaus_Heinemann_in_Bremke-Gleichen.jpg",
+        "af": "Nemracc",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "boeuf-stroganoff",
+      "title": "Oksekød stroganoff",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "500 g oksekød i tern",
+        "250 g champignon",
+        "1 løg",
+        "1 spsk tomatpuré",
+        "1 tsk paprika",
+        "1 bæger creme fraiche",
+        "1 oksebouillon",
+        "1 spsk smør",
+        "400 g pasta",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog pastaen efter anvisningen på pakken.",
+        "Brun kødet hurtigt i smør ved høj varme, og tag det op.",
+        "Steg hakket løg og champignon i skiver i gryden, til de er gyldne. Rør tomatpuré og paprika i.",
+        "Tilsæt 2 dl vand, bouillon og creme fraiche, og lad saucen simre i 5 minutter. Kom kødet tilbage, og varm det igennem. Smag til med salt og peber.",
+        "Server med pasta."
+      ],
+      "foto": {
+        "fil": "File:Beef Stroganoff-02 cropped.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Beef_Stroganoff-02_cropped.jpg",
+        "af": "Pittaya Sroilong",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kyllingegryde-med-champignon",
+      "title": "Kyllingegryde med champignon og ris",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "600 g kyllingeoverlår uden ben",
+        "250 g champignon",
+        "1 løg",
+        "2 gulerødder",
+        "2 dl madlavningsfløde",
+        "1 hønsebouillon",
+        "1 spsk hvedemel",
+        "1 spsk smør",
+        "300 g jasminris",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog risene efter anvisningen på pakken.",
+        "Skær kyllingen i stykker, og brun den i smør i en gryde. Krydr med salt og peber.",
+        "Tilsæt hakket løg, champignon i skiver og gulerødder i skiver, og steg et par minutter.",
+        "Drys melet over og rør rundt. Tilsæt fløde, 2 dl vand og bouillon, og lad gryden simre i 15 minutter.",
+        "Server med ris."
+      ],
+      "foto": {
+        "fil": "File:Fricassée chicken.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Fricass%C3%A9e_chicken.jpg",
+        "af": "CNEcija12345",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "hamburgerryg-med-flodekartofler",
+      "title": "Hamburgerryg med flødekartofler",
+      "servings": 4,
+      "total_time_minutes": 50,
+      "ingredients": [
+        "600 g kogt hamburgerryg",
+        "1 kg kartofler",
+        "2 dl madlavningsfløde",
+        "2 dl letmælk",
+        "1 spsk hvedemel",
+        "1 tsk stødt muskatnød",
+        "1 bundt persille",
+        "300 g frosne ærter",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog kartoflerne møre i letsaltet vand, lad dem køle lidt, og skær dem i skiver.",
+        "Pisk mel ud i mælken, og bring den i kog i en gryde sammen med fløden, mens du pisker. Smag til med salt, peber og muskatnød.",
+        "Vend kartoffelskiverne i sovsen, og varm dem igennem. Drys med hakket persille.",
+        "Skær hamburgerryggen i skiver, og varm dem på en pande eller i ovnen.",
+        "Kog ærterne et par minutter, og server dem til kød og flødekartofler."
+      ],
+      "foto": {
+        "fil": "File:02023 1239 Kassler.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:02023_1239_Kassler.jpg",
+        "af": "Silar",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "medister-med-stuvet-hvidkaal",
+      "title": "Medisterpølse med stuvet hvidkål",
+      "servings": 4,
+      "total_time_minutes": 50,
+      "ingredients": [
+        "800 g medisterpølse",
+        "1 hvidkål",
+        "30 g smør",
+        "3 spsk hvedemel",
+        "5 dl letmælk",
+        "1 tsk stødt muskatnød",
+        "1 kg kartofler",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog kartoflerne møre i letsaltet vand.",
+        "Skær hvidkålen i strimler, og kog den i letsaltet vand i ca. 8 minutter. Hæld vandet fra.",
+        "Smelt smørret, rør melet i, og pisk mælken i lidt ad gangen. Lad sovsen koge et par minutter, og smag til med salt, peber og muskatnød. Vend kålen i.",
+        "Steg medisterpølsen ved middel varme i ca. 20 minutter, mens du vender den jævnligt.",
+        "Server pølsen med kartofler og stuvet hvidkål."
+      ],
+      "foto": {
+        "fil": "File:Medisterpølse med tilbehør.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Medisterp%C3%B8lse_med_tilbeh%C3%B8r.jpg",
+        "af": "Nillerdk",
+        "licens": "CC BY 3.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "vafler",
+      "title": "Vafler med syltetøj og flødeskum",
+      "servings": 8,
+      "total_time_minutes": 30,
+      "ingredients": [
+        "250 g hvedemel",
+        "2 tsk bagepulver",
+        "2 spsk sukker",
+        "1 tsk vaniljesukker",
+        "4 dl letmælk",
+        "2 æg",
+        "75 g smør",
+        "1/4 l piskefløde",
+        "Jordbærmarmelade"
+      ],
+      "instructions": [
+        "Smelt smørret, og lad det køle lidt af.",
+        "Bland mel, bagepulver, sukker og vaniljesukker. Pisk mælk og æg i lidt ad gangen, til dejen er jævn, og rør smørret i. Lad dejen hvile 10 minutter.",
+        "Varm vaffeljernet, og bag vaflerne gyldne og sprøde.",
+        "Pisk fløden til flødeskum, og server vaflerne med flødeskum og syltetøj."
+      ],
+      "foto": {
+        "fil": "File:Waffle with strawberries.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Waffle_with_strawberries.jpg",
+        "af": "Douglas Paul Perkins",
+        "licens": "CC BY 3.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "havregrod-med-aeble",
+      "title": "Havregrød med æble og kanel",
+      "servings": 2,
+      "total_time_minutes": 10,
+      "ingredients": [
+        "2 dl havregryn",
+        "4 dl letmælk",
+        "1 æble",
+        "1 knivspids fint salt",
+        "1 tsk stødt kanel",
+        "1 spsk sukker"
+      ],
+      "instructions": [
+        "Kom havregryn, mælk og salt i en gryde, og bring det i kog under omrøring.",
+        "Lad grøden simre i 3 til 4 minutter, til den er tyk og cremet.",
+        "Riv æblet groft, og vend halvdelen i grøden.",
+        "Server med resten af æblet og et drys kanel og sukker."
+      ],
+      "foto": {
+        "fil": "File:Green apple oatmeal.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Green_apple_oatmeal.jpg",
+        "af": "Shisma",
+        "licens": "CC BY 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "grovboller",
+      "title": "Grove morgenboller",
+      "servings": 12,
+      "total_time_minutes": 120,
+      "ingredients": [
+        "25 g gær",
+        "5 dl vand",
+        "1 tsk sukker",
+        "2 tsk fint salt",
+        "2 dl havregryn",
+        "1 dl hørfrø",
+        "200 g grahamsmel",
+        "500 g hvedemel"
+      ],
+      "instructions": [
+        "Rør gæren ud i det lunkne vand med sukker.",
+        "Tilsæt salt, havregryn, hørfrø og grahamsmel, og rør hvedemelet i lidt ad gangen, til dejen slipper skålen. Den må gerne være lidt klistret.",
+        "Lad dejen hæve tildækket i ca. 1 time, eller i køleskabet natten over.",
+        "Tænd ovnen på 225 grader. Sæt 12 boller af dejen med en ske på en bageplade med bagepapir.",
+        "Bag bollerne i ca. 18 minutter, til de er gyldne og lyder hule, når man banker på bunden."
+      ],
+      "foto": {
+        "fil": "File:Home made sour dough bread.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Home_made_sour_dough_bread.jpg",
+        "af": "Tomascastelazo",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "tunsalat-paa-rugbroed",
+      "title": "Tunsalat på rugbrød",
+      "servings": 4,
+      "total_time_minutes": 15,
+      "ingredients": [
+        "2 dåser tun i vand",
+        "3 spsk mayonnaise",
+        "1 rødløg",
+        "1 dåse majs",
+        "1 citron",
+        "1 agurk",
+        "Rugbrød",
+        "Peber"
+      ],
+      "instructions": [
+        "Hæld vandet fra tun og majs.",
+        "Hak rødløget fint, og rør det sammen med tun, majs og mayonnaise. Smag til med citronsaft og peber.",
+        "Smør tunsalaten på rugbrød, og pynt med agurkeskiver."
+      ],
+      "foto": {
+        "fil": "File:Mmm... tuna salad on rye.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Mmm..._tuna_salad_on_rye.jpg",
+        "af": "jeffreyw",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "hoensesalat",
+      "title": "Hønsesalat på brød",
+      "servings": 4,
+      "total_time_minutes": 30,
+      "ingredients": [
+        "500 g kyllingebryst",
+        "200 g champignon",
+        "1 glas aspargessnitter",
+        "3 spsk mayonnaise",
+        "1 bæger creme fraiche",
+        "1 citron",
+        "100 g bacon",
+        "Brød",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog kyllingen i letsaltet vand i ca. 15 minutter, til den er gennemkogt. Lad den køle af, og skær den i små tern.",
+        "Skær champignon i skiver, og steg dem kort. Steg baconen sprød, og smuldr den.",
+        "Rør mayonnaise og creme fraiche sammen, og smag til med citronsaft, salt og peber.",
+        "Vend kylling, champignon og de afdryppede asparges i dressingen.",
+        "Server hønsesalaten på brød med bacon drysset over."
+      ],
+      "foto": {
+        "fil": "File:Chicken salad sandwich 01.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Chicken_salad_sandwich_01.jpg",
+        "af": "Lara604",
+        "licens": "CC BY-SA 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kanelsnegle",
+      "title": "Kanelsnegle",
+      "servings": 16,
+      "total_time_minutes": 90,
+      "ingredients": [
+        "25 g gær",
+        "2,5 dl letmælk",
+        "75 g smør",
+        "1 æg",
+        "50 g sukker",
+        "1 knivspids fint salt",
+        "450 g hvedemel",
+        "100 g smør",
+        "100 g brun farin",
+        "2 spsk stødt kanel"
+      ],
+      "instructions": [
+        "Smelt de 75 g smør, tilsæt mælken, og lun den håndvarm. Rør gæren ud i den.",
+        "Tilsæt æg, sukker, salt og mel, og ælt dejen smidig. Lad den hæve tildækket i 30 minutter.",
+        "Rør smørret med brun farin og kanel til fyld.",
+        "Rul dejen ud til en firkant på ca. 30 x 40 cm, smør fyldet på, og rul den sammen fra den lange side. Skær rullen i 16 skiver, og læg dem på en bageplade.",
+        "Lad sneglene hæve 20 minutter, og bag dem ved 200 grader i 10 til 12 minutter."
+      ],
+      "foto": {
+        "fil": "File:Cinnamon bun - Milfey Patisserie 2026-08-31.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Cinnamon_bun_-_Milfey_Patisserie_2026-08-31.jpg",
+        "af": "Andy Li",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "brownies",
+      "title": "Brownies",
+      "servings": 16,
+      "total_time_minutes": 45,
+      "ingredients": [
+        "200 g smør",
+        "150 g mørk chokolade",
+        "3 æg",
+        "250 g sukker",
+        "1 tsk vaniljesukker",
+        "125 g hvedemel",
+        "3 spsk kakao",
+        "1 knivspids fint salt"
+      ],
+      "instructions": [
+        "Tænd ovnen på 175 grader, og beklæd en lille bradepande med bagepapir.",
+        "Smelt smør og hakket chokolade sammen ved svag varme.",
+        "Pisk æg, sukker og vaniljesukker sammen, og rør chokoladeblandingen i.",
+        "Sigt mel, kakao og salt i, og vend det forsigtigt sammen.",
+        "Bag kagen i ca. 25 minutter, så den stadig er lidt blød i midten. Lad den køle af, før den skæres i stykker."
+      ],
+      "foto": {
+        "fil": "File:Brownies Cockaigne from Joy of Cooking.png",
+        "side": "https://commons.wikimedia.org/wiki/File:Brownies_Cockaigne_from_Joy_of_Cooking.png",
+        "af": "WhatamIdoing",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "droemmekage",
+      "title": "Drømmekage",
+      "servings": 16,
+      "total_time_minutes": 50,
+      "ingredients": [
+        "3 æg",
+        "250 g sukker",
+        "250 g hvedemel",
+        "2 tsk bagepulver",
+        "2 tsk vaniljesukker",
+        "2 dl letmælk",
+        "50 g smør",
+        "125 g smør",
+        "250 g brun farin",
+        "200 g kokosmel",
+        "1 dl letmælk"
+      ],
+      "instructions": [
+        "Tænd ovnen på 200 grader, og beklæd en lille bradepande med bagepapir.",
+        "Pisk æg og sukker luftigt. Bland mel, bagepulver og vaniljesukker, og vend det i. Smelt de 50 g smør i de 2 dl mælk, og rør det i dejen.",
+        "Hæld dejen i bradepanden, og bag den i ca. 20 minutter.",
+        "Kog de 125 g smør, brun farin, kokosmel og 1 dl mælk sammen i et par minutter.",
+        "Fordel kokosfyldet over kagen, og bag den 5 minutter mere ved 225 grader, til toppen bobler og bliver gylden."
+      ],
+      "foto": {
+        "fil": "File:Almond tosca cake Swedish Cake petit.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Almond_tosca_cake_Swedish_Cake_petit.jpg",
+        "af": "CNEcija12345",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "blaabaermuffins",
+      "title": "Muffins med blåbær",
+      "servings": 12,
+      "total_time_minutes": 35,
+      "ingredients": [
+        "2 æg",
+        "150 g sukker",
+        "100 g smør",
+        "1,5 dl letmælk",
+        "250 g hvedemel",
+        "2 tsk bagepulver",
+        "1 tsk vaniljesukker",
+        "200 g blåbær"
+      ],
+      "instructions": [
+        "Tænd ovnen på 200 grader, og sæt 12 muffinforme på en bageplade.",
+        "Smelt smørret. Pisk æg og sukker sammen, og rør smør og mælk i.",
+        "Bland mel, bagepulver og vaniljesukker, og vend det i dejen, til det lige er samlet.",
+        "Vend blåbærrene forsigtigt i, og fordel dejen i formene.",
+        "Bag muffins i ca. 18 minutter, til en kødnål kommer tør ud."
+      ],
+      "foto": {
+        "fil": "File:Blueberry muffins, whole and partial.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Blueberry_muffins,_whole_and_partial.jpg",
+        "af": "SKopp",
+        "licens": "CC BY-SA 3.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kyllingespyd-med-ris",
+      "title": "Kyllingespyd med ris og salat",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "600 g kyllingebryst",
+        "1 rød peberfrugt",
+        "1 squash",
+        "1 rødløg",
+        "3 spsk sojasauce",
+        "1 spsk honning",
+        "1 spsk rapsolie",
+        "300 g jasminris",
+        "1 agurk",
+        "1 hjertesalat"
+      ],
+      "instructions": [
+        "Rør sojasauce, honning og olie sammen. Skær kyllingen i tern, og vend den i marinaden i mindst 10 minutter.",
+        "Kog risene efter anvisningen på pakken.",
+        "Skær peberfrugt, squash og løg i stykker, og sæt dem på spyd sammen med kyllingen.",
+        "Steg eller grill spyddene i ca. 12 minutter, mens du vender dem, til kyllingen er gennemstegt.",
+        "Server med ris og en salat af salat og agurk."
+      ],
+      "foto": {
+        "fil": "File:Korean spicy chicken skewers (6325410086).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Korean_spicy_chicken_skewers_(6325410086).jpg",
+        "af": "Chloe Lim",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kebab-i-pita",
+      "title": "Kebab i pita med hakket kød",
+      "servings": 4,
+      "total_time_minutes": 30,
+      "ingredients": [
+        "500 g hakket oksekød",
+        "1 løg",
+        "2 fed hvidløg",
+        "2 tsk spidskommen",
+        "2 tsk paprika",
+        "8 pitabrød",
+        "1 hjertesalat",
+        "2 tomater",
+        "1 agurk",
+        "1 bæger græsk yoghurt",
+        "1 tsk fint salt"
+      ],
+      "instructions": [
+        "Rør kødet sammen med revet løg, presset hvidløg, krydderier og salt.",
+        "Form farsen til aflange pølser, og steg dem på en pande i ca. 10 minutter, til de er gennemstegte.",
+        "Rør yoghurt med lidt salt til en dressing, og snit salat, tomater og agurk.",
+        "Lun pitabrødene, og fyld dem med grønt, kød og dressing."
+      ],
+      "foto": {
+        "fil": "File:Lamb Kofta Pitta - T @ The Dials 2024-02-07.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Lamb_Kofta_Pitta_-_T_@_The_Dials_2024-02-07.jpg",
+        "af": "Andy Li",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "spaghetti-med-koedboller",
+      "title": "Spaghetti med kødboller i tomatsauce",
+      "servings": 4,
+      "total_time_minutes": 45,
+      "ingredients": [
+        "500 g hakket grisekød",
+        "1 æg",
+        "1 dl rasp",
+        "1 løg",
+        "2 fed hvidløg",
+        "2 dåser hakkede tomater",
+        "1 tsk oregano",
+        "1 tsk sukker",
+        "1 spsk rapsolie",
+        "400 g spaghetti",
+        "50 g revet parmesan",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Rør kødet med æg, rasp, halvdelen af det hakkede løg, salt og peber. Form små kødboller.",
+        "Brun kødbollerne i olien i en gryde, og tag dem op.",
+        "Svits resten af løget og hvidløget, tilsæt tomater, oregano og sukker, og kom kødbollerne tilbage. Lad det simre i 15 minutter.",
+        "Kog spaghettien imens, og server med kødboller, sauce og parmesan."
+      ],
+      "foto": {
+        "fil": "File:Spaghetti and meatballs 1.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Spaghetti_and_meatballs_1.jpg",
+        "af": "jeffreyw",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "pasta-med-bacon-og-aerter",
+      "title": "Cremet pasta med bacon og ærter",
+      "servings": 4,
+      "total_time_minutes": 25,
+      "ingredients": [
+        "400 g pasta",
+        "200 g bacon",
+        "300 g frosne ærter",
+        "1 løg",
+        "2 dl madlavningsfløde",
+        "50 g revet parmesan",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog pastaen efter anvisningen på pakken. Kom ærterne i de sidste 2 minutter.",
+        "Skær bacon i tern, og steg den sprød. Tilsæt hakket løg, og steg det blødt.",
+        "Hæld fløden på, og lad den koge op.",
+        "Vend pasta og ærter i saucen sammen med parmesanen, og smag til med peber."
+      ],
+      "foto": {
+        "fil": "File:Strichetti al sugo di piselli.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Strichetti_al_sugo_di_piselli.jpg",
+        "af": "GastRomagna",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "pizzasnegle-med-skinke",
+      "title": "Pizzasnegle med skinke og ost",
+      "servings": 16,
+      "total_time_minutes": 75,
+      "ingredients": [
+        "25 g gær",
+        "2,5 dl vand",
+        "2 spsk rapsolie",
+        "1 tsk fint salt",
+        "400 g hvedemel",
+        "4 spsk tomatpuré",
+        "1 tsk oregano",
+        "150 g kogt skinke",
+        "150 g revet mozzarella"
+      ],
+      "instructions": [
+        "Rør gæren ud i det lunkne vand. Tilsæt olie, salt og melet lidt ad gangen, og ælt dejen smidig. Lad den hæve tildækket i 30 minutter.",
+        "Rør tomatpuré med oregano og 2 spsk vand.",
+        "Rul dejen ud til en firkant på ca. 30 x 40 cm. Smør tomatfyldet på, og drys skinke i strimler og ost over.",
+        "Rul dejen sammen fra den lange side, og skær den i 16 skiver. Læg dem på en bageplade med bagepapir, og lad dem hæve 15 minutter.",
+        "Bag sneglene ved 220 grader i 12 til 15 minutter, til de er gyldne."
+      ],
+      "foto": {
+        "fil": "File:2023-02-18 Pizzabrötchen in Tauberbischofsheim 4.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:2023-02-18_Pizzabr%C3%B6tchen_in_Tauberbischofsheim_4.jpg",
+        "af": "Triplec85",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "nudelsuppe-med-groent",
+      "title": "Nudelsuppe med grønt og æg",
+      "servings": 4,
+      "total_time_minutes": 25,
+      "ingredients": [
+        "250 g ægnudler",
+        "2 hønsebouillon",
+        "2 gulerødder",
+        "1 broccoli",
+        "150 g baby spinat",
+        "4 æg",
+        "3 spsk sojasauce",
+        "1 ingefær",
+        "4 forårsløg"
+      ],
+      "instructions": [
+        "Kog æggene i 7 minutter, køl dem i koldt vand, og pil dem.",
+        "Bring 1,5 liter vand i kog med bouillon, revet ingefær og sojasauce.",
+        "Skær gulerødderne i tynde skiver og broccolien i små buketter, og kog dem i suppen i 3 minutter.",
+        "Tilsæt nudlerne, og kog dem efter anvisningen på pakken. Rør spinaten i til sidst.",
+        "Fordel suppen i skåle, og læg et halveret æg og forårsløg i skiver i hver."
+      ],
+      "foto": {
+        "fil": "File:Wonton egg noodle soup.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Wonton_egg_noodle_soup.jpg",
+        "af": "T.Tseng",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "bananbroed-med-havregryn",
+      "title": "Bananbrød med havregryn",
+      "servings": 10,
+      "total_time_minutes": 70,
+      "ingredients": [
+        "3 bananer",
+        "2 æg",
+        "75 g smør",
+        "75 g sukker",
+        "2 dl havregryn",
+        "200 g hvedemel",
+        "2 tsk bagepulver",
+        "1 tsk stødt kanel",
+        "1 knivspids fint salt"
+      ],
+      "instructions": [
+        "Tænd ovnen på 180 grader, og beklæd en aflang form med bagepapir.",
+        "Smelt smørret. Mos bananerne, og pisk æg, sukker og smør i.",
+        "Bland havregryn, mel, bagepulver, kanel og salt, og vend det i dejen, til det lige er samlet.",
+        "Hæld dejen i formen, og bag brødet i ca. 50 minutter, til en kødnål kommer tør ud. Lad det køle af, før det skæres."
+      ],
+      "foto": {
+        "fil": "File:Banana bread slices.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Banana_bread_slices.jpg",
+        "af": "Shisma",
+        "licens": "CC BY 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "porretaerte-med-bacon",
+      "title": "Porretærte med bacon",
+      "servings": 6,
+      "total_time_minutes": 75,
+      "ingredients": [
+        "175 g hvedemel",
+        "100 g smør",
+        "1 æg",
+        "3 porrer",
+        "150 g bacon",
+        "3 æg",
+        "2 dl madlavningsfløde",
+        "100 g revet ost",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Smuldr smørret i melet, tilsæt det ene æg og 1 spsk koldt vand, og saml dejen hurtigt. Læg den på køl i 20 minutter.",
+        "Tænd ovnen på 200 grader. Rul dejen ud, læg den i en tærteform, og prik bunden med en gaffel. Forbag den i 10 minutter.",
+        "Skær porrerne i tynde skiver og bacon i tern. Steg baconen, tilsæt porrerne, og steg dem bløde.",
+        "Pisk de 3 æg med fløde, ost, salt og peber.",
+        "Fordel porre og bacon i tærtebunden, hæld æggemassen over, og bag tærten i ca. 30 minutter, til fyldet er stivnet."
+      ],
+      "foto": {
+        "fil": "File:Quiche lorraine 04.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Quiche_lorraine_04.jpg",
+        "af": "Arnaud 25",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kartoffelmadder",
+      "title": "Kartoffelmadder med purløg og mayonnaise",
+      "servings": 4,
+      "total_time_minutes": 30,
+      "ingredients": [
+        "800 g kartofler",
+        "Rugbrød",
+        "Mayonnaise",
+        "1 bundt purløg",
+        "1 bakke karse",
+        "4 skiver bacon",
+        "1 tsk groft salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog kartoflerne møre, og lad dem køle helt af. Skræl dem, og skær dem i skiver.",
+        "Steg baconen sprød, og lad den dryppe af på et stykke køkkenrulle.",
+        "Smør rugbrødet tyndt med mayonnaise, og læg kartoffelskiverne tæt.",
+        "Pynt med en klat mayonnaise, klippet purløg, karse og bacon, og drys med salt og peber."
+      ],
+      "foto": {
+        "fil": "File:Flickr - cyclonebill - Kartoffelmad.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Flickr_-_cyclonebill_-_Kartoffelmad.jpg",
+        "af": "cyclonebill",
+        "licens": "CC BY-SA 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "polseret-med-ris",
+      "title": "Pølseret i tomat-flødesauce med ris",
+      "servings": 4,
+      "total_time_minutes": 30,
+      "ingredients": [
+        "8 wienerpølser",
+        "1 løg",
+        "2 spsk tomatpuré",
+        "1 tsk paprika",
+        "2 dl madlavningsfløde",
+        "1 dåse hakkede tomater",
+        "1 spsk rapsolie",
+        "300 g jasminris",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog risene efter anvisningen på pakken.",
+        "Skær pølserne i skiver og løget i tynde både. Steg dem i olien, til pølserne har fået farve.",
+        "Rør tomatpuré og paprika i, og tilsæt hakkede tomater og fløde.",
+        "Lad saucen simre i 10 minutter, og smag til med salt og peber. Server med ris."
+      ],
+      "foto": {
+        "fil": "File:Korvstroganoff with rice 8.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Korvstroganoff_with_rice_8.jpg",
+        "af": "Blockhaj",
+        "licens": "CC BY 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "flaeskestegssandwich",
+      "title": "Flæskestegssandwich med rødkål",
+      "servings": 4,
+      "total_time_minutes": 20,
+      "ingredients": [
+        "400 g kamsteg i skiver",
+        "4 flutes",
+        "1 glas rødkål",
+        "1 glas syltede agurker",
+        "Mayonnaise",
+        "Sennep",
+        "1 hjertesalat"
+      ],
+      "instructions": [
+        "Lun kødskiverne på en pande eller i ovnen.",
+        "Flæk brødene, og lun dem et par minutter i ovnen.",
+        "Smør brødene med mayonnaise og sennep, og læg salat, flæskesteg, rødkål og agurker i."
+      ],
+      "foto": {
+        "fil": "File:Porchetta sandwich meal deal - Social Board 2025-04-01.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Porchetta_sandwich_meal_deal_-_Social_Board_2025-04-01.jpg",
+        "af": "Andy Li",
+        "licens": "CC0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "bagte-kartofler-med-hytteost",
+      "title": "Bagte kartofler med hytteost og bacon",
+      "servings": 4,
+      "total_time_minutes": 70,
+      "ingredients": [
+        "4 store bagekartofler",
+        "1 bæger hytteost",
+        "150 g bacon",
+        "4 forårsløg",
+        "100 g revet ost",
+        "1 spsk rapsolie",
+        "1 tsk groft salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Tænd ovnen på 220 grader. Prik kartoflerne med en gaffel, gnid dem med olie og salt, og bag dem i ca. 1 time, til de er møre.",
+        "Steg baconen sprød, og smuldr den. Skær forårsløgene i tynde ringe.",
+        "Skær et kryds i hver kartoffel, og tryk den lidt op.",
+        "Fyld med hytteost, bacon, forårsløg og ost, og sæt dem i ovnen 5 minutter mere."
+      ],
+      "foto": {
+        "fil": "File:Rakor keso.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Rakor_keso.jpg",
+        "af": "Anderswe",
+        "licens": "CC BY 3.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "pastagratin-med-skinke",
+      "title": "Pastagratin med skinke og broccoli",
+      "servings": 4,
+      "total_time_minutes": 45,
+      "ingredients": [
+        "400 g pasta",
+        "200 g kogt skinke",
+        "1 broccoli",
+        "30 g smør",
+        "3 spsk hvedemel",
+        "6 dl letmælk",
+        "150 g revet ost",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Tænd ovnen på 200 grader. Kog pastaen næsten mør, og kom broccolien i små buketter i de sidste 2 minutter.",
+        "Smelt smørret, rør melet i, og pisk mælken i lidt ad gangen. Lad sovsen koge et par minutter, og rør halvdelen af osten i. Smag til med salt og peber.",
+        "Vend pasta, broccoli og skinke i strimler i sovsen, og hæld det i et ovnfast fad.",
+        "Drys med resten af osten, og bag gratinen i ca. 20 minutter, til den er gylden."
+      ],
+      "foto": {
+        "fil": "File:A Baked Pasta with Double Cheese and Ham.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:A_Baked_Pasta_with_Double_Cheese_and_Ham.jpg",
+        "af": "Peachyeung316",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "citronkage",
+      "title": "Citronkage",
+      "servings": 12,
+      "total_time_minutes": 60,
+      "ingredients": [
+        "200 g smør",
+        "200 g sukker",
+        "4 æg",
+        "200 g hvedemel",
+        "1 tsk bagepulver",
+        "2 citroner",
+        "150 g flormelis"
+      ],
+      "instructions": [
+        "Tænd ovnen på 175 grader, og smør en aflang kageform.",
+        "Rør smør og sukker luftigt, og pisk æggene i et ad gangen.",
+        "Vend mel, bagepulver og revet skal af begge citroner i.",
+        "Bag kagen i ca. 45 minutter, til en kødnål kommer tør ud.",
+        "Rør flormelis med lidt citronsaft til en tyk glasur, og fordel den over den afkølede kage."
+      ],
+      "foto": {
+        "fil": "File:Lemon drizzle and coconut and lime cake Copped Hall rackets court Epping Essex England.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Lemon_drizzle_and_coconut_and_lime_cake_Copped_Hall_rackets_court_Epping_Essex_England.jpg",
+        "af": "Acabashi",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "baergrod-med-floede",
+      "title": "Rødgrød med fløde",
+      "servings": 4,
+      "total_time_minutes": 20,
+      "ingredients": [
+        "600 g skovbær",
+        "100 g sukker",
+        "3 spsk kartoffelmel",
+        "1 tsk vaniljesukker",
+        "1/4 l piskefløde"
+      ],
+      "instructions": [
+        "Kom bærrene, sukker, vaniljesukker og 4 dl vand i en gryde, og bring det i kog.",
+        "Rør kartoffelmelet ud i 1 dl koldt vand.",
+        "Tag gryden af varmen, og rør kartoffelmelet i, mens grøden kommer et enkelt opkog. Den må ikke koge længe.",
+        "Hæld grøden i en skål, drys med lidt sukker, og lad den køle af. Server med kold fløde."
+      ],
+      "foto": {
+        "fil": "File:Rote Grütze mit Sahne.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Rote_Gr%C3%BCtze_mit_Sahne.jpg",
+        "af": "Like_the_Grand_Canyon",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "ovnbagt-pasta-med-mozzarella",
+      "title": "Ovnbagt pasta med tomat og mozzarella",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "400 g pasta",
+        "1 løg",
+        "2 fed hvidløg",
+        "2 dåser hakkede tomater",
+        "1 tsk oregano",
+        "1 tsk sukker",
+        "1 spsk rapsolie",
+        "2 kugler mozzarella",
+        "50 g revet parmesan",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Tænd ovnen på 220 grader. Kog pastaen et par minutter kortere end på pakken.",
+        "Svits hakket løg og hvidløg i olien, tilsæt tomater, oregano og sukker, og lad saucen simre i 10 minutter. Smag til med salt og peber.",
+        "Vend pastaen i saucen, og hæld det i et ovnfast fad.",
+        "Riv mozzarellaen i stykker, fordel den over pastaen, og drys med parmesan.",
+        "Bag retten i ca. 15 minutter, til osten er smeltet og gylden."
+      ],
+      "foto": {
+        "fil": "File:Pasta al Forno 01.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Pasta_al_Forno_01.jpg",
+        "af": "Blues 1911",
+        "licens": "CC BY-SA 3.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "karbonader-med-aerter-og-guleroedder",
+      "title": "Karbonader med ærter og gulerødder",
+      "servings": 4,
+      "total_time_minutes": 45,
+      "ingredients": [
+        "500 g hakket grisekød",
+        "1 æg",
+        "1 dl rasp",
+        "40 g smør",
+        "1 kg kartofler",
+        "300 g frosne ærter",
+        "4 gulerødder",
+        "30 g smør",
+        "2 spsk hvedemel",
+        "4 dl letmælk",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog kartoflerne møre i letsaltet vand.",
+        "Form kødet til 8 flade bøffer med salt og peber. Vend dem i sammenpisket æg og derefter i rasp.",
+        "Steg karbonaderne i smør ved middel varme i ca. 5 minutter på hver side, til de er gyldne og gennemstegte.",
+        "Skær gulerødderne i tern, og kog dem i 5 minutter. Tilsæt ærterne det sidste minut, og hæld vandet fra.",
+        "Smelt smørret, rør melet i, og pisk mælken i lidt ad gangen. Lad sovsen koge et par minutter, smag til, og vend ærter og gulerødder i.",
+        "Server karbonaderne med kartofler og de stuvede ærter og gulerødder."
+      ],
+      "foto": {
+        "fil": "File:Karbonader af soy4you med kartoffelsalat.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Karbonader_af_soy4you_med_kartoffelsalat.jpg",
+        "af": "Interstates",
+        "licens": "CC BY 3.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "skipperlabskovs",
+      "title": "Skipperlabskovs",
+      "servings": 4,
+      "total_time_minutes": 90,
+      "ingredients": [
+        "800 g oksekød i tern",
+        "1 kg kartofler",
+        "2 løg",
+        "4 laurbærblade",
+        "1 oksebouillon",
+        "30 g smør",
+        "1 bundt purløg",
+        "Rødbeder",
+        "Rugbrød",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Brun kødet i smør i en gryde, og tilsæt de hakkede løg.",
+        "Hæld 7 dl vand og bouillon på, tilsæt laurbærblade og 10 hele peberkorn eller lidt peber, og lad det simre under låg i ca. 1 time.",
+        "Skræl kartoflerne, skær dem i tern, og kom dem i gryden. Kog i 20 minutter, til kartoflerne er møre og begynder at falde fra hinanden.",
+        "Rør godt rundt, så kartoflerne moses lidt og gør retten tyk. Smag til med salt.",
+        "Server med en klat smør, klippet purløg, rødbeder og rugbrød."
+      ],
+      "foto": {
+        "fil": "File:Labskaus 2.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Labskaus_2.jpg",
+        "af": "Bennsenson",
+        "licens": "CC BY-SA 3.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "forloren-hare",
+      "title": "Forloren hare med kartofler og sovs",
+      "servings": 6,
+      "total_time_minutes": 90,
+      "ingredients": [
+        "750 g hakket svine- og kalvekød",
+        "1 løg",
+        "1 æg",
+        "1 dl rasp",
+        "1 dl letmælk",
+        "150 g bacon",
+        "2 dl madlavningsfløde",
+        "1 tsk ribsgelé",
+        "1 kg kartofler",
+        "1 hønsebouillon",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Tænd ovnen på 200 grader. Rør kødet sammen med revet løg, æg, rasp, mælk, salt og peber.",
+        "Form farsen til et aflangt brød i et ovnfast fad, og læg baconskiverne hen over.",
+        "Bag haren i ca. 1 time. Kog kartoflerne de sidste 25 minutter.",
+        "Hæld stegeskyen fra fadet i en gryde med fløde, bouillon og 2 dl vand, og kog sovsen op. Smag til med ribsgelé, salt og peber, og jævn evt. med lidt mel rørt ud i vand.",
+        "Skær haren i skiver, og server med kartofler og sovs."
+      ],
+      "foto": {
+        "fil": "File:MeatloafWithSauce.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:MeatloafWithSauce.jpg",
+        "af": "Renee Comet",
+        "licens": "Public domain",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "skinkeschnitzel",
+      "title": "Skinkeschnitzel med brasede kartofler og ærter",
+      "servings": 4,
+      "total_time_minutes": 40,
+      "ingredients": [
+        "4 skinkeschnitzler",
+        "1 æg",
+        "1 dl rasp",
+        "2 spsk hvedemel",
+        "50 g smør",
+        "1 kg kartofler",
+        "300 g frosne ærter",
+        "1 citron",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog kartoflerne næsten møre, skær dem i tern, og brasér dem gyldne og sprøde i halvdelen af smørret på en pande.",
+        "Bank schnitzlerne lidt tyndere mellem to stykker film. Vend dem i mel med salt og peber, så i sammenpisket æg og til sidst i rasp.",
+        "Steg schnitzlerne i resten af smørret ved middel varme i 3 til 4 minutter på hver side.",
+        "Kog ærterne et par minutter, og server dem med schnitzler, kartofler og citronbåde."
+      ],
+      "foto": {
+        "fil": "File:Authentic wiener schnitzel with potatoes and peas.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Authentic_wiener_schnitzel_with_potatoes_and_peas.jpg",
+        "af": "Lauren Stephan",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "stegt-kylling-med-agurkesalat",
+      "title": "Stegt kylling med kartofler og agurkesalat",
+      "servings": 4,
+      "total_time_minutes": 80,
+      "ingredients": [
+        "1 hel kylling",
+        "1 kg kartofler",
+        "1 agurk",
+        "1 dl lagereddike",
+        "3 spsk sukker",
+        "40 g smør",
+        "2 dl madlavningsfløde",
+        "1 hønsebouillon",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Tænd ovnen på 200 grader. Gnid kyllingen med salt, peber og lidt smør, og sæt den i et fad i ovnen i ca. 1 time, til saften er klar.",
+        "Skær agurken i tynde skiver. Rør eddike, sukker, 1 dl vand og lidt salt sammen, og hæld lagen over agurken. Stil den på køl.",
+        "Kog kartoflerne de sidste 25 minutter.",
+        "Hæld stegeskyen fra fadet i en gryde med fløde og bouillon, og kog sovsen op. Smag til med salt og peber.",
+        "Skær kyllingen ud, og server med kartofler, sovs og agurkesalat."
+      ],
+      "foto": {
+        "fil": "File:02023 0153 Roasted Chicken, Cucumber Salad and Potatoes.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:02023_0153_Roasted_Chicken,_Cucumber_Salad_and_Potatoes.jpg",
+        "af": "Silar",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "brunsviger",
+      "title": "Brunsviger",
+      "servings": 16,
+      "total_time_minutes": 75,
+      "ingredients": [
+        "25 g gær",
+        "2 dl letmælk",
+        "50 g smør",
+        "1 æg",
+        "2 spsk sukker",
+        "1 knivspids fint salt",
+        "400 g hvedemel",
+        "150 g smør",
+        "200 g brun farin",
+        "2 spsk mørk sirup"
+      ],
+      "instructions": [
+        "Smelt de 50 g smør, tilsæt mælken, og lun den håndvarm. Rør gæren ud i den.",
+        "Tilsæt æg, sukker, salt og mel, og ælt dejen smidig. Tryk den ud i en lille bradepande med bagepapir, og lad den hæve 30 minutter.",
+        "Smelt de 150 g smør med brun farin og sirup, og lad det koge kort.",
+        "Lav huller i dejen med fingrene, og fordel fyldet over.",
+        "Bag kagen ved 200 grader i ca. 20 minutter."
+      ],
+      "foto": {
+        "fil": "File:Butter cake slice.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Butter_cake_slice.jpg",
+        "af": "SKopp",
+        "licens": "CC BY-SA 3.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "aebleskiver",
+      "title": "Æbleskiver med syltetøj og flormelis",
+      "servings": 30,
+      "total_time_minutes": 45,
+      "ingredients": [
+        "250 g hvedemel",
+        "1 tsk bagepulver",
+        "1 tsk kardemomme",
+        "1 spsk sukker",
+        "1 knivspids fint salt",
+        "4 dl kærnemælk",
+        "3 æg",
+        "50 g smør",
+        "Jordbærmarmelade",
+        "Flormelis"
+      ],
+      "instructions": [
+        "Smelt smørret, og lad det køle lidt af.",
+        "Bland mel, bagepulver, kardemomme, sukker og salt. Pisk kærnemælk og æggeblommer i, og rør smørret i.",
+        "Pisk æggehviderne stive, og vend dem forsigtigt i dejen.",
+        "Varm æbleskivepanden, kom lidt smør i hvert hul, og fyld hullerne med dej. Vend æbleskiverne med en strikkepind, når undersiden er gylden, og bag dem færdige.",
+        "Server med syltetøj og flormelis."
+      ],
+      "foto": {
+        "fil": "File:Aebelskivers in New Orleans.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Aebelskivers_in_New_Orleans.jpg",
+        "af": "edenpictures",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "risalamande",
+      "title": "Risalamande med kirsebærsauce",
+      "servings": 6,
+      "total_time_minutes": 60,
+      "ingredients": [
+        "250 g grødris",
+        "1 l letmælk",
+        "1 knivspids fint salt",
+        "1 tsk vaniljesukker",
+        "2 spsk sukker",
+        "100 g mandler",
+        "1/2 l piskefløde",
+        "1 glas kirsebærsauce"
+      ],
+      "instructions": [
+        "Kog risene op i 3 dl vand under omrøring. Tilsæt mælken, og lad grøden simre under låg i ca. 35 minutter. Rør jævnligt.",
+        "Smag grøden til med salt, og lad den køle helt af i køleskabet.",
+        "Hak mandlerne groft, men gem en hel mandel.",
+        "Rør sukker, vaniljesukker og mandler i den kolde grød. Pisk fløden let, og vend den i.",
+        "Gem den hele mandel i risalamanden, og server med lun kirsebærsauce."
+      ],
+      "foto": {
+        "fil": "File:Risalamande, a Danish Christmas dessert.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Risalamande,_a_Danish_Christmas_dessert.jpg",
+        "af": "Lorie Shaull",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kogt-torsk-med-sennepssauce",
+      "title": "Kogt torsk med sennepssauce og kartofler",
+      "servings": 4,
+      "total_time_minutes": 35,
+      "ingredients": [
+        "800 g torskefilet",
+        "1 kg kartofler",
+        "30 g smør",
+        "2 spsk hvedemel",
+        "4 dl letmælk",
+        "2 spsk sennep",
+        "1 citron",
+        "1 bundt dild",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Kog kartoflerne møre i letsaltet vand.",
+        "Bring en gryde letsaltet vand med en skive citron i kog, læg fisken i, og lad den trække ved svag varme i ca. 8 minutter, til den er hvid hele vejen igennem.",
+        "Smelt smørret, rør melet i, og pisk mælken i lidt ad gangen. Lad sovsen koge et par minutter, og rør sennep i. Smag til med salt, peber og citronsaft.",
+        "Server fisken med kartofler, sennepssauce og hakket dild."
+      ],
+      "foto": {
+        "fil": "File:Kuhler Pannfisch.jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Kuhler_Pannfisch.jpg",
+        "af": "Benreis",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "kaaldolmere",
+      "title": "Kåldolmere med kartofler og brun sovs",
+      "servings": 4,
+      "total_time_minutes": 90,
+      "ingredients": [
+        "1 hvidkål",
+        "500 g hakket grisekød",
+        "1 løg",
+        "1 æg",
+        "1 dl letmælk",
+        "3 spsk hvedemel",
+        "2 dl madlavningsfløde",
+        "1 oksebouillon",
+        "1 kg kartofler",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Skær stokken ud af kålen, og kog hele hovedet i letsaltet vand i ca. 10 minutter, så bladene bliver bløde. Pil 8 store blade af.",
+        "Rør kødet med revet løg, æg, mælk, mel, salt og peber.",
+        "Læg en skefuld fars på hvert kålblad, fold siderne ind, og rul det sammen. Brun rullerne i en gryde.",
+        "Hæld fløde, bouillon og 3 dl vand på, og lad dem simre under låg i ca. 40 minutter. Kog kartoflerne imens.",
+        "Smag sovsen til, jævn den evt. med lidt mel, og server med kartofler."
+      ],
+      "foto": {
+        "fil": "File:Postna sarma (vegetarian sarma, Cuisine of Serbia).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Postna_sarma_(vegetarian_sarma,_Cuisine_of_Serbia).jpg",
+        "af": "Petar Milošević",
+        "licens": "CC BY-SA 4.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "koteletter-i-fad",
+      "title": "Koteletter i fad med champignon og ris",
+      "servings": 4,
+      "total_time_minutes": 75,
+      "ingredients": [
+        "4 koteletter",
+        "250 g champignon",
+        "1 løg",
+        "1 rød peberfrugt",
+        "1 dåse hakkede tomater",
+        "2 dl madlavningsfløde",
+        "1 tsk paprika",
+        "1 hønsebouillon",
+        "1 spsk rapsolie",
+        "300 g jasminris",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Tænd ovnen på 200 grader. Brun koteletterne på begge sider i olien, krydr med salt, peber og paprika, og læg dem i et ovnfast fad.",
+        "Steg champignon, løg og peberfrugt på panden et par minutter.",
+        "Tilsæt tomater, fløde og bouillon, og kog op. Hæld saucen over koteletterne.",
+        "Bag retten i ca. 40 minutter. Kog risene imens, og server dem til."
+      ],
+      "foto": {
+        "fil": "File:Pork Chop with sweet potato mash and mushrooms in a demerara sauce. (36249946845).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Pork_Chop_with_sweet_potato_mash_and_mushrooms_in_a_demerara_sauce._(36249946845).jpg",
+        "af": "CharmaineZoe",
+        "licens": "CC BY 2.0",
+        "beskaer": 0.5
+      }
+    },
+    {
+      "slug": "pariserboef",
+      "title": "Pariserbøf med rødbeder, kapers og æggeblomme",
+      "servings": 4,
+      "total_time_minutes": 25,
+      "ingredients": [
+        "500 g hakket oksekød",
+        "4 skiver toastbrød",
+        "40 g smør",
+        "4 æggeblommer",
+        "1 løg",
+        "1 glas kapers",
+        "1 bæger revet peberrod",
+        "Rødbeder",
+        "1 tsk fint salt",
+        "Peber"
+      ],
+      "instructions": [
+        "Form kødet til 4 bøffer, der er lige så store som brødskiverne. Krydr med salt og peber.",
+        "Rist brødet gyldent i halvdelen af smørret på en pande.",
+        "Steg bøfferne i resten af smørret ved høj varme, ca. 2 til 3 minutter på hver side, så de stadig er lyserøde indeni.",
+        "Læg en bøf på hver brødskive, og lav en lille fordybning til æggeblommen.",
+        "Server med rå løg, kapers, revet peberrod og rødbeder rundt om."
+      ],
+      "foto": {
+        "fil": "File:Pariserbøf (5992637279).jpg",
+        "side": "https://commons.wikimedia.org/wiki/File:Pariserb%C3%B8f_(5992637279).jpg",
+        "af": "Thomas Angermann",
+        "licens": "CC BY-SA 2.0",
+        "beskaer": 0.5
+      }
     }
   ]
 }

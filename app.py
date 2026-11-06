@@ -361,7 +361,10 @@ _IMG_HOSTS = (
     'https://oxzxingkbsnqzpmjtktr.supabase.co '
     # Opskrift-billeder (recipe_importer.py) - tilføj kilde-hosten når en ny
     # opskriftside importeres fra, samme princip som butiks-CDN'erne ovenfor.
-    'https://images.arla.com'
+    'https://images.arla.com '
+    # Fotos til vores egne opskrifter (scripts/build-recipe-photos.py) ligger
+    # under madshopper.dk/static og bruges også af dev og appen.
+    'https://madshopper.dk'
 )
 
 # Content-Security-Policy.
@@ -1660,8 +1663,9 @@ _FEATURES = (
              'desc': '"Lækre opskrifter" kan trykkes på i stedet for "Kommer snart".'},
             {'kind': 'web', 'name': 'Faste 10 opskrifter indtil udgivelse',
              'desc': 'Så længe opskrifter er skjult, viser forsiden på web og '
-                     'i appen kun de 10 første opskrifter som "Kommer snart" '
-                     '(18-10-2026). Når den udgives, vises de nyeste igen.'},
+                     'i appen kun 10 faste af vores egne opskrifter som "Kommer '
+                     'snart" (18-10-2026, skiftet fra Arlas 05-11-2026). Når '
+                     'den udgives, vises de nyeste igen.'},
             {'kind': 'web', 'name': 'Madplan: spørgsmål første gang',
              'desc': 'Første gang man åbner /opskrifter: hvor mange, budget '
                      'om ugen, lyst, kostbehov, ting man vil undgå og køkken. '
@@ -1674,8 +1678,15 @@ _FEATURES = (
             {'kind': 'job', 'name': 'Import af opskrifter',
              'desc': 'Kører hver morgen og tjekker nye opskrifter fra brugerne.'},
             {'kind': 'job', 'name': 'Egne opskrifter',
-             'desc': '30 opskrifter på kendte retter, skrevet af os selv, så vi '
-                     'må vise hele fremgangsmåden. Lægges ind af importen.'},
+             'desc': '100 opskrifter på kendte danske retter, skrevet af os '
+                     'selv, så vi må vise hele fremgangsmåden (30 fra '
+                     '07-10-2026, 70 fra 05-11-2026). Lægges ind af importen.'},
+            {'kind': 'web', 'name': 'Rigtige fotos til opskrifterne',
+             'desc': 'Hver egen opskrift har et rigtigt foto med fri licens '
+                     'fra Wikimedia Commons, gemt hos os selv, med fotografens '
+                     'navn i hjørnet når licensen kræver det '
+                     '(scripts/build-recipe-photos.py). Samme fotos på web og '
+                     'i appen (05-11-2026).'},
             {'kind': 'app', 'name': 'Opskrifter i appen',
              'desc': 'Fanen og opskrifterne i iPhone- og Android-appen.'},
             {'kind': 'app', 'name': 'Madplan i appen',
@@ -3954,13 +3965,14 @@ def home_index_html_redirect():
     return redirect('/', code=301)
 
 
-# De 10 opskrifter forsiden viste fra starten (de eneste godkendte før de egne
-# opskrifter kom 07-10-2026). Så længe opskrifter ikke er udgivet fra
+# 10 af vores egne opskrifter (med frit licenserede fotos). Indtil 05-11-2026
+# var det de 10 første fra Arla (id 5-15), som blev fjernet, fordi de viste
+# Arlas fotos (Kalle 05-11-2026). Så længe opskrifter ikke er udgivet fra
 # Feature-panelet, viser forsiden (web og app) KUN dem, i den her rækkefølge,
 # uanset nye opskrifter og klik (Kalle 18-10-2026). Staging har alt slået til
 # og viser den almindelige top 10. Samme liste som
 # scripts/seed-d1.py::_HOME_RECIPES_LOCKED_IDS.
-_HOME_RECIPES_LOCKED_IDS = (15, 14, 13, 12, 11, 9, 8, 7, 6, 5)
+_HOME_RECIPES_LOCKED_IDS = (16, 17, 37, 24, 36, 26, 27, 28, 22, 19)
 
 
 def _recipe_pool_live(limit: int = 10, only_ids: tuple | None = None) -> list:
