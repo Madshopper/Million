@@ -930,11 +930,11 @@ def fetch_popular_product_ids(limit: int = _HOME_FAV_LIMIT) -> list[str]:
 
 _HOME_RECIPE_LIMIT = 10
 
-# De 10 opskrifter forsiden viste fra starten (de eneste godkendte før de egne
-# opskrifter kom 07-10-2026), i den rækkefølge de stod i. Forsiden viser KUN
+# 10 af vores egne opskrifter (indtil 05-11-2026 de 10 første fra Arla, som
+# blev fjernet pga. Arlas fotos), i den rækkefølge. Forsiden viser KUN
 # dem, indtil opskrifter udgives fra Feature-panelet (Kalle 18-10-2026).
 # Samme liste som app.py::_HOME_RECIPES_LOCKED_IDS.
-_HOME_RECIPES_LOCKED_IDS = (15, 14, 13, 12, 11, 9, 8, 7, 6, 5)
+_HOME_RECIPES_LOCKED_IDS = (16, 17, 37, 24, 36, 26, 27, 28, 22, 19)
 
 
 def fetch_recipe_pool(limit: int = _HOME_RECIPE_LIMIT,
