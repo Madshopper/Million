@@ -135,24 +135,13 @@
     submitBtn.textContent = 'Sender…';
 
     try {
-      // Turnstile: bot-tjek før beskeden overhovedet sendes til /api/feedback.
+      // Turnstile: tokenet sendes med til /api/feedback, og SERVEREN spørger
+      // verificerings-workeren (app.py::_verify_turnstile_token). Et token
+      // kan kun bruges én gang: spurgte vi workeren herfra først (som før
+      // 10-11-2026), var det brugt, når serveren selv ville tjekke det.
       const tsToken = turnstileToken('feedback-turnstile-widget');
       if (!tsToken) {
         statusEl.textContent = 'Bekræft venligst at du ikke er en robot.';
-        statusEl.classList.add('error');
-        return;
-      }
-      // verify.madshopper.dk: custom domain sat op 24-08-2026, erstatter
-      // turnstile-siteverify-madshopper.kasp478g.workers.dev (eksponerede
-      // et privat kontoalias, compliance-audit GDPR-028).
-      const verifyRes = await fetch('https://verify.madshopper.dk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: tsToken }),
-      });
-      const verifyData = await verifyRes.json().catch(function () { return null; });
-      if (!verifyData || !verifyData.success) {
-        statusEl.textContent = 'Bot-tjek fejlede. Prøv igen.';
         statusEl.classList.add('error');
         return;
       }

@@ -419,15 +419,13 @@ _CSP = (
     # Supabase: REST + auth (https) og realtime (wss). Intet andet maa
     # kontaktes - det er den linje der stopper tyveri af en session.
     # challenges.cloudflare.com: Turnstile-widgetens egen netvaerkstrafik.
-    # verify.madshopper.dk: vores egen verificerings-worker (custom domain
-    # sat op 24-08-2026 - laa foer paa turnstile-siteverify-madshopper.
-    # kasp478g.workers.dev, som utilsigtet eksponerede et privat kontoalias
-    # i CSP-headeren paa hver side, se compliance-audit 19-08-2026 GDPR-028),
-    # eneste sted der faar Turnstile-tokenet at se foer signup/feedback.
+    # verify.madshopper.dk (vores verificerings-worker) staar her IKKE
+    # laengere: siden 10-11-2026 spoerger kun serveren den (signup via
+    # Supabase-hook'et, feedback via _verify_turnstile_token), aldrig
+    # browseren - et Turnstile-token kan kun bruges een gang.
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co "
     "https://accounts.google.com "
     "https://challenges.cloudflare.com https://appleid.apple.com "
-    "https://verify.madshopper.dk "
     # cloudflareinsights.com: Web Analytics-beaconens indsendelse (se script-src).
     "https://cloudflareinsights.com; "
     "frame-src https://accounts.google.com https://challenges.cloudflare.com https://appleid.apple.com; "
@@ -5540,27 +5538,54 @@ _TURNSTILE_VERIFY_URL = 'https://verify.madshopper.dk'
 
 
 def _verify_turnstile_token(token: str) -> bool:
-    """Samme verificerings-worker som klienten selv kalder (auth.js/feedback.html)
-    før signup/feedback sendes - men her server-til-server, så et rent
-    curl POST mod /api/feedback ikke kan omgå bot-tjekket ved simpelthen at
-    springe klientens JS-kald over. Fejler ÅBENT ved netværksfejl mod selve
-    verificerings-workeren (den er en ekstern afhængighed for en lav-risiko
-    feedback-formular - at blokere ALT feedback fordi DEN er nede er en
-    værre fejltilstand end at miste bot-beskyttelsen midlertidigt), men
-    LUKKET hvis token mangler eller workeren selv siger nej."""
+    """Bot-tjekket for /api/feedback, server-til-server mod vores egen
+    verificerings-worker, så et rent curl POST mod /api/feedback ikke kan
+    springe det over.
+
+    Et Turnstile-token er ENGANGS. Derfor er det KUN serveren der spørger
+    workeren: feedback.html og appens FeedbackScreen sender bare tokenet med
+    (som signup gør via Supabase-hook'et). Spurgte browseren først, var tokenet
+    brugt, når vi nåede hertil.
+
+    På edge går kaldet gennem _edge_fetch. Indtil 10-11-2026 brugte det httpx,
+    som ikke virker i Cloudflares Pyodide-runtime: kaldet kastede HVER gang,
+    faldt i "tillad alligevel" nedenfor, og bot-tjekket var reelt slået fra i
+    produktion (målt: et opdigtet token kom forbi).
+
+    Fejler ÅBENT, når workeren ikke kan nås eller selv melder en fejl (5xx):
+    den er en ekstern afhængighed for en lav-risiko formular, og at blokere
+    ALT feedback fordi DEN er nede er værre end at miste bot-beskyttelsen
+    midlertidigt (submit_feedback-RPC'en har stadig sit globale loft).
+    LUKKET hvis tokenet mangler, eller workeren har svaret nej."""
     if not token:
         return False
+    payload = {'token': token}
+    # Den besøgendes IP, ikke workerens egen: uden feltet bruger
+    # verificerings-workeren afsenderen af DETTE kald.
+    ip = _client_ip()
+    if ip and ip != 'unknown':
+        payload['remoteip'] = ip
+    body = json.dumps(payload)
+    headers = {'Content-Type': 'application/json'}
     try:
-        import httpx
-        res = httpx.post(
-            _TURNSTILE_VERIFY_URL, headers={'Content-Type': 'application/json'},
-            content=json.dumps({'token': token}), timeout=5.0,
-        )
-        data = res.json()
-        return bool(data.get('success'))
+        if _IS_EDGE:
+            data, status = _edge_fetch(
+                _TURNSTILE_VERIFY_URL, method='POST', headers=headers, body=body)
+        else:
+            import httpx
+            res = httpx.post(_TURNSTILE_VERIFY_URL, headers=headers, content=body, timeout=5.0)
+            status = res.status_code
+            try:
+                data = res.json()
+            except ValueError:
+                data = None
     except Exception as e:
         logger.warning('Turnstile-verificering kunne ikke gennemføres, tillader alligevel: %s', e)
         return True
+    if status >= 500 or not isinstance(data, dict):
+        logger.warning('Turnstile-workeren svarede %s uden afgørelse, tillader alligevel', status)
+        return True
+    return bool(data.get('success'))
 
 
 @app.route('/api/feedback', methods=['POST'])
@@ -5574,7 +5599,7 @@ def submit_feedback():
 
     turnstile_token = str(data.get('turnstile_token', '')).strip()
     if not _verify_turnstile_token(turnstile_token):
-        return jsonify(success=False, error='Bot-tjek fejlede. Prøv igen.'), 400
+        return jsonify(success=False, error='Bot-tjek fejlede. Genindlæs siden og prøv igen.'), 400
 
     feedback_type = str(data.get('type', 'feedback')).strip()[:50]
     message = str(data.get('message', '')).strip()

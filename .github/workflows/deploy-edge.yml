@@ -24,6 +24,7 @@ on:
       - 'scripts/test-security-logging.py'
       - 'scripts/test-render-exclusive.py'
       - 'scripts/test-edge-env.py'
+      - 'scripts/test-feedback-botcheck.py'
       # _routes.json og uv.lock indgaar i bundtet/oploesningen af afhaengigheder.
       # Uden dem her kunne en aendring i dem ligge udeployeret uden at nogen saa det.
       - '_routes.json'
@@ -127,6 +128,13 @@ jobs:
       # manglende linje gav ingen fejl, bare en usynlig nøgle (03-10-2026).
       - name: Test edge-env (vars appen læser er deklareret i Env)
         run: python3 scripts/test-edge-env.py
+
+      # Bot-tjekket på /api/feedback var slået fra i produktion uden at nogen
+      # så det (httpx virker ikke på edge, og kaldet faldt i "tillad
+      # alligevel"; målt 10-11-2026). Gaten kører serverens tjek som på edge
+      # og sikrer at ingen side selv bruger engangs-tokenet først.
+      - name: Test bot-tjek på feedback
+        run: python3 scripts/test-feedback-botcheck.py
 
       # Konfliktmarkører i en template blev vist som tekst på forsiden
       # 02-10-2026. Blokerer deploy hvis en merge er committet uløst.
