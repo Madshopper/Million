@@ -159,6 +159,40 @@ _STORE_LOGO_IMGS = {v['logo'] for v in _STORE_CONFIGS.values()}
 _store_caches: dict = {}
 _store_cache_lock = threading.Lock()
 
+# ── Skrald i butikkernes egne data ───────────────────────────────────────────
+# Fundet 10-11-2026 ved gennemgang af produktionscachen. Butikkernes feeds har
+# enkelte rækker, der ikke er en vare man kan vise:
+#   * Spar kalder 7 frugt- og grøntvarer "Kl 1." (kvalitetsklassen, navnet
+#     mangler i Spars eget API). Tre af dem har stregkode og blev derfor
+#     grupperet med Meny/Min Købmand - og fordi Spar var billigst, stod
+#     "Kl 1." som overskrift på kortet for økologiske citroner.
+#   * Meny har en drik, hvis navn er en stregkode ("8008863056686").
+#   * Spar har en vare til 0,01 kr ("F. F").
+# Navnet kan reddes, når en anden butik fører samme stregkode
+# (adopt_names_by_ean); ellers vises rækken ikke.
+_MIN_PLAUSIBLE_PRICE = 0.50
+_CLASS_LABEL_NAME_RE = re.compile(r'kl(?:asse)?\.?\s*(?:1|2|i|ii)\.?', re.IGNORECASE)
+_BARCODE_NAME_RE = re.compile(r'\d{8,}')
+_LETTER_RUN_RE = re.compile(r'[^\W\d_]{2,}')
+
+# store_key -> rækker med ubrugeligt navn, men med stregkode. Holdes ude af
+# butikkens lister og indekser, til adopt_names_by_ean har fundet navnet.
+_nameless_rows: dict = {}
+
+
+def is_junk_product_name(name: str) -> bool:
+    """Navnet siger ikke, hvad varen er.
+
+    Bevidst snæver: kun en kvalitetsklasse alene ("Kl 1."), en stregkode som
+    navn, eller løse bogstaver uden et eneste ord ("F. F"). Korte, rigtige
+    navne skal igennem: "Æg", "Øl", "A38 1,5 %", "1664", "Nº 5", "Àn/2"."""
+    n = (name or '').strip()
+    if not n or n.lower() in ('nan', 'none'):
+        return True
+    if _CLASS_LABEL_NAME_RE.fullmatch(n) or _BARCODE_NAME_RE.fullmatch(n):
+        return True
+    return not re.search(r'\d', n) and not _LETTER_RUN_RE.search(n)
+
 
 def load_store_comparison_data(store_key: str) -> tuple:
     """Generic loader: reads from Supabase and builds token + EAN indexes."""
@@ -194,14 +228,19 @@ def load_store_comparison_data(store_key: str) -> tuple:
                                 if not (r.get('kategori') == 'Katalog'
                                         and r.get('varenummer') in offer_skus)]
 
+                nameless = []
+                skipped_junk = 0
                 for row in all_data:
                     raw_price = row.get('pris')
                     if raw_price is None or float(raw_price) <= 0:
                         continue
                     if store_key == 'bilka' and str(row.get('producent') or '').strip().lower().startswith('deli'):
                         continue
-                    
+
                     price = float(raw_price)
+                    if price < _MIN_PLAUSIBLE_PRICE:
+                        skipped_junk += 1
+                        continue
                     weight_str = str(row.get('netto_vaegt') or '')
                     weight_g = parse_weight_to_grams(weight_str)
                     ppk = parse_kg_price(row.get('kg_price') or '')
@@ -264,6 +303,12 @@ def load_store_comparison_data(store_key: str) -> tuple:
                     multi_deal = _clean_field(row.get('multikob'))
 
                     name_str = str(row.get('navn') or '')
+                    junk_name = is_junk_product_name(name_str)
+                    if junk_name and not ean:
+                        # Hverken navn eller stregkode: intet at vise og intet
+                        # at redde navnet fra.
+                        skipped_junk += 1
+                        continue
                     # Samme rensning som multikob altid har haft. Uden den kom
                     # strengen "None" (ikke Python-None) fra producent-feltet
                     # hele vejen ud paa produktkortet som maerke - maalt paa
@@ -294,7 +339,15 @@ def load_store_comparison_data(store_key: str) -> tuple:
                         '_hash_int':   p_hash_int,
                         'ean':         ean,
                         'Kategori':    kategori_str,
+                        # Butikkens eget varenummer, også når det ikke er en
+                        # stregkode (Lidls erpNumber, Sallings artikelnummer).
+                        # Bruges kun til at skelne to kort, der ellers ville få
+                        # samme id (_disambiguate_duplicate_ids).
+                        '_sku':        ean_raw if ean_raw not in ('nan', 'None') else '',
                     }
+                    if junk_name:
+                        nameless.append(product)
+                        continue
                     # Precompute af alle matchsignaler ét sted (delt med fase
                     # 2/2b og måle-harnesset, se annotate_match_signals).
                     # Returnerer None for ikke-mad og tobak, som hverken må
@@ -306,9 +359,17 @@ def load_store_comparison_data(store_key: str) -> tuple:
                         continue
                     products.append(product)
 
+                _nameless_rows[store_key] = nameless
+                if skipped_junk or nameless:
+                    logger.info(
+                        "%s: %d række(r) uden brugbart navn eller med pris under "
+                        "%.2f kr er udeladt, %d venter på et navn fra en anden "
+                        "butik med samme stregkode",
+                        cfg['label'], skipped_junk, _MIN_PLAUSIBLE_PRICE, len(nameless))
+
             except Exception as e:
                 logger.warning("Error fetching %s from Supabase: %s", cfg['label'], e)
-                
+
         # Building indexes
         token_idx: dict = {}
         hash_list = []
@@ -432,6 +493,73 @@ def backfill_attributes_by_ean(store_data: dict) -> int:
     return filled
 
 
+def adopt_names_by_ean(store_data: dict, nameless_rows: dict | None = None) -> tuple:
+    """Giv rækker uden brugbart navn det navn, en anden butik bruger om samme
+    stregkode, og sæt dem ind i butikkens lister. Returnerer (reddet, udeladt).
+
+    EAN er en autoritativ produktidentitet, så navnet for EAN X er lige så
+    rigtigt, uanset hvilken butik der oplyser det (samme tanke som
+    backfill_attributes_by_ean). Rækken beholder sin egen butiks pris, tilbud
+    og billede - kun navn og mærke lånes. Uden det forsvandt butikkens pris fra
+    sammenligningen, eller også stod skraldenavnet som kortets overskrift, når
+    butikken var billigst (Spar "Kl 1." på økologiske citroner, 10-11-2026).
+
+    Fører ingen anden butik stregkoden, udelades rækken: en vare uden navn kan
+    hverken vises eller matches.
+
+    Rækkerne tilføjes sidst i butikkens liste, så de indeks-positioner
+    token_idx og hash_list allerede peger på, forbliver gyldige.
+    """
+    if nameless_rows is None:
+        nameless_rows = _nameless_rows
+    if not any(nameless_rows.values()):
+        return 0, 0
+
+    known: dict = {}
+    for key in DB_STORE_KEYS:
+        entry = store_data.get(key)
+        if not entry:
+            continue
+        for p in entry[0]:
+            ek = ean_key(p.get('ean'))
+            if ek and ek not in known:
+                known[ek] = (p.get('name') or '', p.get('brand') or '')
+
+    adopted = dropped = 0
+    for key, rows in nameless_rows.items():
+        entry = store_data.get(key)
+        if not entry or not rows:
+            continue
+        products, token_idx, hash_list, ean_index = entry
+        for product in rows:
+            ean = product.get('ean')
+            donor = known.get(ean_key(ean))
+            # Butikken har allerede en rigtig vare med den stregkode: så er
+            # skralderækken en dublet og må ikke forgifte den gode (se
+            # _poisoned_eans i load_store_comparison_data).
+            if not donor or ean in ean_index:
+                dropped += 1
+                continue
+            product['name'], product['brand'] = donor
+            if annotate_match_signals(
+                    product,
+                    brand_in_name=key in _BRAND_OUTSIDE_NAME_STORES,
+                    store_key=key) is None:
+                dropped += 1
+                continue
+            index = len(products)
+            products.append(product)
+            for token in product['_norm_name'].split():
+                if len(token) >= 3:
+                    token_idx.setdefault(token, set()).add(index)
+            if product.get('_hash_int') is not None:
+                hash_list.append((index, product['_hash_int']))
+            ean_index[ean] = product
+            adopted += 1
+        rows.clear()
+    return adopted, dropped
+
+
 def load_all_comparison_data() -> dict:
     """Returns {store_key: (products, token_idx)} for all DB stores."""
     results = {}
@@ -444,6 +572,11 @@ def load_all_comparison_data() -> dict:
             except Exception as e:
                 logger.error("Error loading %s concurrently: %s", key, e)
                 results[key] = ([], {}, [], {})
+
+    adopted, dropped = adopt_names_by_ean(results)
+    if adopted or dropped:
+        logger.info("Navn fra stregkode: %d række(r) uden brugbart navn fik navnet "
+                    "fra en anden butik med samme EAN, %d blev udeladt", adopted, dropped)
 
     filled = backfill_attributes_by_ean(results)
     if filled:
@@ -2746,10 +2879,72 @@ def build_store_display_products(products: list, store_key: str) -> list:
                 '/product/own_sale':                  bool(p.get('is_sale')),
                 '/product/own_avis':                  bool(p.get('in_avis')),
                 '/product/own_avis_titel':            p.get('avis_titel') or '',
+                # Kun til _disambiguate_duplicate_ids, som fjerner feltet igen.
+                _ID_HINT_KEY:                         p.get('_sku') or '',
             })
         except Exception:
             continue
     return display
+
+
+_ID_HINT_KEY = '/product/_id_hint'
+
+
+def _disambiguate_duplicate_ids(cards: list) -> list:
+    """Giv hvert kort sit eget id, når flere kort ellers ville dele ét.
+
+    Et kort uden stregkode får sit id af butik + normaliseret navn + vægt
+    (build_store_display_products). To forskellige varer i samme butik med
+    samme navn og vægt får derfor samme id, og seed-d1.py beholder kun det
+    første (id er primærnøgle), så resten aldrig når siden. Målt i
+    produktionscachen 10-11-2026: 9 id'er delt af 21 kort, så 12 kort manglede
+    på madshopper.dk - bl.a. Bilkas avistilbud "Oksemørbrad" (samme navn, vægt
+    og pris som katalogvaren), Ludvigs oksecuvette ved siden af Slagterens, og
+    Lidls smagsvarianter med ens titel ("Mogu Mogu" tre gange). De delte også
+    prishistorik: to "Kalender Lys" til 29,98 og 49,98 kr gav den dyre en
+    "laveste pris" fra den billige.
+
+    Det kort der står først (gruppen med flest butikker, ellers laveste
+    varenummer), beholder id'et uændret - det er også det kort D1 har vist
+    hidtil, så dets prishistorik, prisalarmer og plads i kurve bliver ved med
+    at passe. De øvrige får et id af det delte id + butikkens eget varenummer
+    (billed-adressen, hvis varenummeret mangler), i samme form som alle andre
+    id'er. Et id ændres altså kun for kort, der i dag slet ikke vises.
+    """
+    by_id: dict = {}
+    for card in cards:
+        by_id.setdefault(str(card.get('/product/id') or ''), []).append(card)
+
+    def hint(card: dict) -> str:
+        return (str(card.get(_ID_HINT_KEY) or '').strip()
+                or str(card.get('/product/imageLink') or '').strip())
+
+    taken = set(by_id)
+    renamed = 0
+    for pid, group in by_id.items():
+        if not pid or len(group) < 2:
+            continue
+        group.sort(key=lambda c: (-len(c.get('/product/store_matches') or {}),
+                                  str(c.get('/product/brand') or '').lower(), hint(c)))
+        prefix, _, digest = pid.rpartition('_')
+        if not prefix:
+            continue  # Rema-id (rent tal) - deles aldrig
+        for number, card in enumerate(group[1:], start=2):
+            seed = f"{pid}|{str(card.get('/product/brand') or '').lower()}|{hint(card)}"
+            new_id = f"{prefix}_{hashlib.md5(seed.encode('utf-8')).hexdigest()[:len(digest)]}"
+            while new_id in taken:
+                # To kort uden nogen forskel i mærke, varenummer og billede.
+                seed = f"{seed}|{number}"
+                new_id = f"{prefix}_{hashlib.md5(seed.encode('utf-8')).hexdigest()[:len(digest)]}"
+            taken.add(new_id)
+            card['/product/id'] = new_id
+            renamed += 1
+
+    for card in cards:
+        card.pop(_ID_HINT_KEY, None)
+    if renamed:
+        logger.info("Delte id'er: %d kort fik sit eget id (før blev de udeladt af D1)", renamed)
+    return cards
 
 
 def _display_item_to_match(p: dict) -> dict:
@@ -4686,6 +4881,7 @@ def fetch_and_parse_xml():
         final_products = deduped
 
         final_products = _merge_cards_sharing_ean(final_products)
+        final_products = _disambiguate_duplicate_ids(final_products)
 
         flush_match_trace()
 

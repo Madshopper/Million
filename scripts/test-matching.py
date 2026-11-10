@@ -802,6 +802,95 @@ def test_soegning_finder_andre_butikkers_navne_2026_10_10() -> None:
     check("'lakrids' finder den stadig ikke", not product_matches_query(dict(card), 'lakrids'))
 
 
+def test_skraldenavne_2026_11_10() -> None:
+    print("\nSkraldenavne fra butikkernes egne data (10-11-2026)")
+    from updater import adopt_names_by_ean, is_junk_product_name
+    # Spar kaldte 7 frugt- og grøntvarer "Kl 1.", Meny en drik "8008863056686",
+    # og "Kl 1." stod som overskrift på kortet for økologiske citroner.
+    for junk in ('Kl 1.', 'kl. 1', 'Klasse 1', 'Kl 2', '8008863056686', 'F. F', '', 'None'):
+        check(f"{junk!r} er ikke et varenavn", is_junk_product_name(junk))
+    # Korte, rigtige navne skal igennem - de fandtes alle i cachen samme dag.
+    for real in ('Æg', 'Øl', 'A38 1,5 %', '1664', 'Nº 5', 'Àn/2', 'IPA', 'Gin',
+                 'Klementiner', 'Kl. 1 Æbler', 'Øl 4,7%'):
+        check(f"{real!r} er et rigtigt varenavn", not is_junk_product_name(real))
+
+    def nameless(ean):
+        return {'name': 'Kl 1.', 'brand': 'Kl', 'weight': '3 stk', 'Kategori': 'Frugt Og Grønt',
+                'price': 9.0, 'ean': ean, '_hash_int': 7}
+
+    meny = {'name': 'Øko. Citroner', 'brand': 'Øko.', 'weight': '3 stk',
+            'Kategori': 'Frugt Og Grønt', 'price': 18.0, 'ean': '5701410390334',
+            '_hash_int': None}
+    annotate_match_signals(meny)
+    spar_real = {'name': 'Agurk', 'brand': '', 'weight': '1 stk', 'Kategori': 'Frugt Og Grønt',
+                 'price': 8.0, 'ean': '5701410000011', '_hash_int': None}
+    annotate_match_signals(spar_real)
+    spar_products, spar_tokens, spar_hashes, spar_eans = [spar_real], {'agurk': {0}}, [], \
+        {'5701410000011': spar_real}
+    data = {'meny': ([meny], {}, [], {'5701410390334': meny}),
+            'spar': (spar_products, spar_tokens, spar_hashes, spar_eans)}
+    known, unknown, dublet = nameless('5701410390334'), nameless('5701410999999'), \
+        nameless('5701410000011')
+    rows = {'spar': [known, unknown, dublet]}
+    adopted, dropped = adopt_names_by_ean(data, rows)
+    check("én række får navn, to udelades", (adopted, dropped) == (1, 2))
+    check("navnet kommer fra butikken med samme stregkode", known['name'] == 'Øko. Citroner')
+    check("skraldemærket følger ikke med", known['brand'] == 'Øko.')
+    check("butikkens egen pris bevares", known['price'] == 9.0)
+    check("rækken står sidst i butikkens liste", spar_products == [spar_real, known])
+    check("og kan findes på sit navn", 1 in spar_tokens.get('citroner', set()))
+    check("og på sin stregkode", spar_eans.get('5701410390334') is known)
+    check("og på sit billede", (1, 7) in spar_hashes)
+    check("eksisterende positioner er urørte", spar_tokens['agurk'] == {0})
+    check("en række uden navn må ikke overtage en rigtig vares stregkode",
+          spar_eans['5701410000011'] is spar_real)
+    check("ventelisten er tømt", rows['spar'] == [])
+
+
+def test_delte_id_2026_11_10() -> None:
+    print("\nKort der deler id får hvert sit (10-11-2026)")
+    from updater import _ID_HINT_KEY, _disambiguate_duplicate_ids, build_store_display_products
+
+    def solo(store, name, brand='', sku='', weight='', price=10.0, kategori='Kolonial'):
+        p = product(name, brand, weight, kategori, price=price)
+        p['_sku'] = sku
+        p['image'] = f'https://example/{sku or name}.png'
+        return build_store_display_products([p], store)[0]
+
+    # Lidl: tre smagsvarianter med ens titel og pris - kun varenummer og
+    # billede skiller dem.
+    def lidl():
+        return [solo('lidl', 'Mogu Mogu', sku=s) for s in ('11276807', '11276804', '11276809')]
+    cards = lidl()
+    shared = cards[0]['/product/id']
+    check("de tre kort deler id fra start", len({c['/product/id'] for c in cards}) == 1)
+    out = _disambiguate_duplicate_ids(cards)
+    ids = [c['/product/id'] for c in out]
+    check("alle tre kort bevares med hvert sit id", len(out) == 3 and len(set(ids)) == 3)
+    check("laveste varenummer beholder det oprindelige id", ids[1] == shared)
+    check("nye id'er har samme form som de gamle",
+          all(i.startswith('lidl_') and len(i) == len(shared) for i in ids))
+    check("hjælpefeltet er fjernet igen", not any(_ID_HINT_KEY in c for c in out))
+    again = [c['/product/id'] for c in _disambiguate_duplicate_ids(list(reversed(lidl())))]
+    check("samme id'er uanset rækkefølge", sorted(again) == sorted(ids))
+
+    # Bilka: Slagterens oksecuvette er grupperet med Føtex, Ludvigs står alene.
+    gruppe = solo('bilka', 'Oksecuvette', 'Slagteren', '250621', '1200 g', 239.0, 'Kød')
+    gruppe['/product/store_matches'] = {'bilka': {'price': 239.0}, 'foetex': {'price': 239.0}}
+    alene = solo('bilka', 'Oksecuvette', 'Ludvig', '251228', '1.2 kg', 249.0, 'Kød')
+    shared = gruppe['/product/id']
+    check("samme navn og vægt giver samme id", alene['/product/id'] == shared)
+    _disambiguate_duplicate_ids([alene, gruppe])
+    check("gruppen med flest butikker beholder id'et", gruppe['/product/id'] == shared)
+    check("den anden vare får sit eget", alene['/product/id'] not in ('', shared))
+
+    # Kort med hvert sit id røres ikke.
+    a, b = solo('meny', 'Agurker', sku='1'), solo('meny', 'Tomater', sku='2')
+    before = (a['/product/id'], b['/product/id'])
+    _disambiguate_duplicate_ids([a, b])
+    check("kort uden delt id beholder deres id", (a['/product/id'], b['/product/id']) == before)
+
+
 def main() -> int:
     print("=" * 62)
     print("MATCHMOTOR - REGRESSIONSTEST")
@@ -836,6 +925,8 @@ def main() -> int:
     test_rema_ordregel_2026_10_07()
     test_egne_maerker_voldgift_2026_10_10()
     test_soegning_finder_andre_butikkers_navne_2026_10_10()
+    test_skraldenavne_2026_11_10()
+    test_delte_id_2026_11_10()
     test_kendte_huller()
 
     print()
