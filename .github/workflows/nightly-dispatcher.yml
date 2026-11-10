@@ -102,13 +102,20 @@ jobs:
             SLOT=skip
           fi
           # GitHubs scraper-cron er kun sikkerhedsnet for Cloudflare-starten:
-          # er Meny (hentes hver nat) allerede startet de sidste 12 t, er
-          # natten klaret.
+          # er Meny (hentes hver nat) allerede startet i dette UTC-døgn eller
+          # de sidste 12 t, er natten klaret.
+          #
+          # Før gjaldt kun de 12 timer. Men cron'en kl. 04:31 UTC kom først
+          # kl. 13:13 (09-11-2026) og 12:52 (10-11-2026), altså over 12 timer
+          # efter nattens start kl. 00:05, og så blev dagens butikker hentet
+          # en gang til midt på dagen (2 og 6 scrapere, ca. 5 og 9
+          # GitHub-minutter) uden at siden fik noget ud af det:
+          # cache-updateren kører kun én gang pr. UTC-døgn.
           if [ "$SLOT" = "scrapers" ]; then
             SIDST=$(gh run list -R "$REPO" -w scraper-Meny.yml -L 1 \
               --json createdAt --jq '.[0].createdAt // ""' || echo "")
-            if [ -n "$SIDST" ] && \
-               [ $(( $(date +%s) - $(date -d "$SIDST" +%s) )) -lt $(( 12 * 3600 )) ]; then
+            if [ -n "$SIDST" ] && { [ "${SIDST:0:10}" = "$(date -u +%F)" ] || \
+               [ $(( $(date +%s) - $(date -d "$SIDST" +%s) )) -lt $(( 12 * 3600 )) ]; }; then
               # Hentningen er startet. Er den mindst 60 min gammel (dispatcheren
               # venter højst 40 min på scraperne), skal cache-updateren også
               # have kørt i dette UTC-døgn; ellers startes den herfra.
