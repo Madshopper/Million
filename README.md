@@ -66,7 +66,7 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: dev.madshopper.dk 
 | Løvbjerg | `scraper/webscrape_lovbjerg.py` (ugens avis-PDF fra lovbjerg.dk, læst med pdfplumber; varebilleder klippet ud af PDF'en via `scraper/avis_billeder.py`) |
 | ABC Lavpris | `scraper/webscrape_abc_lavpris.py` (avisen på abc-lavpris.dk læst med OCR/tesseract, varebilleder via `scraper/avis_billeder.py`) |
 
-Meny, Spar og Min Købmand kører på samme Dagrofa-webshopplatform, så al scraping-logik ligger samlet i `scraper/dagrofa_scraper.py` - hver butik gemmes dog stadig helt separat i Supabase. 365 Discount henter tilbudsavis via Tjek/ShopGun-API'et (samme mønster som `scraper/tjek_tilbud_scraper.py`, men med egen inline-kopi). Netto, Føtex og Lidl henter ugens tilbud fra butikkernes egne sider (Tjek bad os 09-10-2026 stoppe brugen af deres API).
+Meny, Spar og Min Købmand kører på samme Dagrofa-webshopplatform, så al scraping-logik ligger samlet i `scraper/dagrofa_scraper.py` - hver butik gemmes dog stadig helt separat i Supabase. 365 Discount henter tilbudsavis via Tjek/ShopGun-API'et med samme kode som Coop-butikkerne (`scraper/tjek_tilbud_scraper.py`). Bilka, Netto og Føtex deler Sallings kategoritræ, så reglen for hvad der er mad ligger ét sted (`scraper/salling_mad.py`); avisernes læsning af størrelse, pakker og multikøb ligger i `scraper/avis_tekst.py`. Netto, Føtex og Lidl henter ugens tilbud fra butikkernes egne sider (Tjek bad os 09-10-2026 stoppe brugen af deres API).
 
 ## Getting Started
 
@@ -365,6 +365,11 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
 # Regression test for the gates - runs in seconds, no network
 python scripts/test-matching.py
 
+# Regression test for what the scrapers decide BEFORE matching: what is food,
+# which department a product is in, and how big it is (no network). Both run
+# on every PR that touches updater.py, app_support.py or scraper/ (pr-tests.yml).
+python scripts/test-butiksdata.py
+
 # Segmented precision/recall against an EAN-verified gold set built from the
 # production cache. ALWAYS read the two segments separately: a combined number
 # is dominated by same-feed pairs, which are trivial (identical names, identical
@@ -432,7 +437,9 @@ Million/
 │   ├── scraper_utils.py     # Shared Selenium scraper utilities
 │   ├── supabase_utils.py    # Supabase sync helpers
 │   ├── dagrofa_scraper.py   # Shared scraper for Spar/Meny/Min Købmand
-│   ├── tjek_tilbud_scraper.py # Shared Tjek/ShopGun tilbudsavis-scraper
+│   ├── salling_mad.py       # Shared food rule for Bilka/Netto/Føtex (Salling's category tree)
+│   ├── avis_tekst.py        # Shared flyer rules: size, packs, multi-buy, unit price
+│   ├── tjek_tilbud_scraper.py # Shared Tjek/ShopGun tilbudsavis-scraper (Coop + 365discount)
 │   ├── *_katalog.py         # Full-catalog scrapers (Bilka, Netto, Føtex, Lidl)
 │   └── webscrape_*.py       # Per-store tilbudsavis/katalog scrapers
 ├── scripts/
@@ -451,6 +458,7 @@ Million/
 │   ├── relay-security-events.py   # D1 security events → Supabase + alarms (security-monitor.yml)
 │   ├── cf-analytics.py      # Aggregated Workers/zone metrics (error rate, CPU, 5xx) via GraphQL
 │   ├── test-matching.py / eval-matching.py  # Match-engine regression test + segmented precision/recall
+│   ├── test-butiksdata.py   # Scraper rules regression test: food/non-food, department, size
 │   ├── test-*.py / test-theme-parity.mjs    # Deploy gates and contract tests (see above)
 │   └── supabase-*.sql       # Supabase schema/grants/swap/lockdown scripts
 ├── data/
