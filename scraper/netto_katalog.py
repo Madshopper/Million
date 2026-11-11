@@ -15,62 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from supabase_utils import get_client, enrich_billede_hashes, shrink_guard_ok, fetch_existing_products, save_product_dicts, salling_offer_fields
-from keywords import is_non_food
-
-# ── Madfilter ────────────────────────────────────────────────────────────────
-_FOOD_CATEGORIES = {
-    'frugt', 'grønt', 'grøntsager', 'frugt og grønt',
-    'kød', 'fisk', 'fjerkræ', 'pålæg',
-    'mejeri', 'ost', 'æg', 'plantebaseret',
-    'brød', 'bageri', 'bagværk',
-    'drikkevarer', 'øl', 'vin', 'spiritus', 'vand', 'juice', 'kaffe', 'te',
-    'kolonial', 'konserves', 'tørvarer',
-    'frost', 'dybfrost',
-    'slik', 'snacks', 'konfekture', 'chokolade',
-    'morgenmad', 'gryn', 'cerealier',
-    'pasta', 'ris',
-    'sauce', 'krydderier', 'olier',
-    'færdigretter', 'convenience',
-    'baby', 'babyernæring', 'babymad',
-    'mad', 'fødevarer', 'dagligvarer',
-}
-
-_NON_FOOD_CATEGORIES = {
-    'non-food', 'personlig pleje', 'helse', 'husholdning',
-    'tøj', 'sko', 'sport', 'fritid', 'elektronik',
-    'blomster', 'planter', 'have', 'kæledyr',
-    'legetøj', 'hobby', 'bøger', 'magasiner',
-    'rengøring', 'vask', 'skønhed', 'beauty',
-    'dyremad',  # "dyremad" rammer 'mad' i FOOD_CATEGORIES uden denne
-    'bolig & køkken',  # gavepapir, LED-pærer, solcelle-items mv.
-    'øvrig nonfood',   # penalhuse, bolde, tights mv.
-    'leg',             # legetøj/bolde
-    'kiosk',           # medicin (allergikapsler, smertestillende mv.)
-    'byggemarked',     # brænde mv.
-}
-
-
-def _is_food_hit(hit: dict) -> bool:
-    cat = _cat(hit).lower()
-
-    # 1. Kategori-blacklist
-    if any(nf in cat for nf in _NON_FOOD_CATEGORIES):
-        return False
-
-    # 2. Keyword-filter altid - fanger ikke-mad inden for fx "Baby & børn"
-    if is_non_food(hit.get('name', '')):
-        return False
-
-    # 3. Kategori-whitelist
-    if cat and any(fc in cat for fc in _FOOD_CATEGORIES):
-        return True
-
-    # 4. Ingen kategori = godkendt (keyword-tjek er allerede sket ovenfor)
-    if not cat:
-        return True
-
-    return False
-
+from salling_mad import is_food_hit, assert_hierarchy_healthy
 
 # ── Algolia ──────────────────────────────────────────────────────────────────
 ALGOLIA_APP_ID = 'F9VBJLR1BK'
@@ -79,7 +24,7 @@ ALGOLIA_INDEX  = 'prod_NETTO_PRODUCTS'
 ALGOLIA_URL    = f'https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/{ALGOLIA_INDEX}/query'
 ALGOLIA_ATTRS  = ['name', 'isInCurrentLeaflet', 'gtin', 'objectID', 'brand', 'manufacturer',
                   'units', 'unitsOfMeasure',
-                  'categories', 'images', 'productType', 'properties',
+                  'consumerFacingHierarchy', 'categories', 'images', 'productType', 'properties',
                   'storeData']
 ALGOLIA_HEADERS = {'X-Algolia-Application-Id': ALGOLIA_APP_ID, 'X-Algolia-API-Key': ALGOLIA_KEY}
 
@@ -90,6 +35,14 @@ REF_STORES = ['7701']
 # ── Supabase ──────────────────────────────────────────────────────────────────
 BUTIK   = 'Netto'
 KATEGORI = 'Katalog'
+
+# Nettos indeks rummer også handelsenheder (kolli og hele paller) uden mål:
+# målt 11-11-2026 "Faxe Kondi" og "Pepsi Max" til 1.650 kr, "Shiraz-Cabernet"
+# 620 kr, "Carlsberg Master Brew" 564 kr, alle uden vægt og uden literpris.
+# De stod på siden som almindelige varer. En vare uden mål til 100 kr eller
+# mere udelades; de billige uden mål (Mariekiks 5 kr) er rigtige varer, hvor
+# Netto blot mangler at udfylde feltet.
+_CASE_WITHOUT_SIZE_MIN_PRICE = 100.0
 
 
 def _algolia_page(page: int) -> list[dict]:
@@ -121,18 +74,6 @@ def fetch_all_algolia() -> list[dict]:
 
     print(f'  Algolia done: {len(all_hits)} produkter hentet')
     return all_hits
-
-
-def _cat(hit: dict) -> str:
-    # '.get(key, {})' fanger kun en MANGLENDE nøgle, ikke Algolias eksplicitte
-    # 'categories': null for en produkt uden kategorisering. _cat() kaldes her
-    # ubetinget for HVERT hit i _is_food_hit() (ingen try/except omkring), så
-    # ét enkelt null-hit ville vælte hele Netto-scrapet midt i filtreringen -
-    # samme fejlklasse som fandt sted i foetex_katalog.py's _cat() (se dens
-    # kommentar), bare på et sted der rammer FØR nogen data overhovedet er
-    # bygget, i stedet for i en efterfølgende rapport.
-    cats = hit.get('categories') or {}
-    return (cats.get('lvl0') or [''])[0]
 
 
 def _norm_unit(unit: str) -> str:
@@ -177,6 +118,7 @@ def build_rows(hits: list[dict]) -> list[dict]:
     # bilka_katalog.py's build_rows for begrundelsen (fund M3).
     _hash_cache = fetch_existing_products(BUTIK)
     rows = []
+    skipped_cases = []
     for hit in hits:
         naam = (hit.get('name') or '').strip()
         ean  = str(hit.get('gtin') or '').strip()
@@ -190,6 +132,12 @@ def build_rows(hits: list[dict]) -> list[dict]:
 
         on_offer, normalpris, multikob = salling_offer_fields(hit, ref, price_ore)
         pris = round(price_ore / 100, 2)
+
+        vaegt = _weight(hit)
+        if not vaegt and pris >= _CASE_WITHOUT_SIZE_MIN_PRICE:
+            # Kolli og paller uden mål (se konstanten).
+            skipped_cases.append(f'{naam} {pris:.2f} kr')
+            continue
 
         # 'Avis' = i ugens avis (isInCurrentLeaflet). Stadig et tilbud for
         # updater.py, men kun de varer tæller i "Tilbudsavis pr. butik"
@@ -213,7 +161,7 @@ def build_rows(hits: list[dict]) -> list[dict]:
             'kategori':    KATEGORI,
             'navn':        naam,
             'producent':   producent,
-            'netto_vaegt': _weight(hit),
+            'netto_vaegt': vaegt,
             'kg_price':    _kg_price(hit, ref),
             'pris':        pris,
             'normalpris':  normalpris,
@@ -223,6 +171,8 @@ def build_rows(hits: list[dict]) -> list[dict]:
             'tilbud':      tilbud,
             'multikob':    multikob or None,
         })
+    if skipped_cases:
+        print(f'  {len(skipped_cases)} kolli/paller uden mål udeladt: ' + '; '.join(skipped_cases))
     enrich_billede_hashes(rows)
     return rows
 
@@ -231,7 +181,8 @@ def main():
     print('Starter Netto katalog scraper (Algolia)...')
 
     hits = fetch_all_algolia()
-    food_hits = [h for h in hits if h.get('gtin') and _is_food_hit(h)]
+    assert_hierarchy_healthy(hits, BUTIK)
+    food_hits = [h for h in hits if h.get('gtin') and is_food_hit(h)]
     print(f'  {len(hits)} produkter → {len(hits) - len(food_hits)} ikke-mad fjernet → {len(food_hits)} fødevarer')
 
     rows = build_rows(food_hits)

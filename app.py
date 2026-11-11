@@ -2786,7 +2786,7 @@ def filter_products_by_stores(products, active_stores):
         if is_age_restricted(title, brand, product_id=p.get('/product/id', '')):
             return False
         # Kun mad: bleer, shampoo, elektronik osv. (titel + brand)
-        if is_non_food_name(title) or is_non_food_name(brand):
+        if is_non_food_name(title, brand) or is_non_food_name(brand, title):
             return False
         bilka_brand = str((p.get('/product/store_matches') or {}).get('bilka', {}).get('brand', '')).lower().strip()
         if bilka_brand.startswith('deli'):

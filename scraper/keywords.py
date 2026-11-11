@@ -19,6 +19,10 @@ NON_FOOD_KEYWORDS = {
     'mundpleje', 'mundskyl', 'tandblegning', 'tandtrådsbøjle', 'tandkrus',
     'colgate', 'zendium', 'oral-b', 'listerine', 'signal tandpasta',
     'sæbedispenser', 'sæbeholder', 'sæbepumpe',
+    'always', 'tampax', 'lip balm', 'skin care', 'face facts', 'topz',
+    'vatpinde', 'vatrondeller', 'savon de marseille',
+    # Sallings eget mærke til pleje, baby og rengøring (ingen madvarer)
+    'hello sensitive',
     # K-beauty & skønhedsmærker
     'serum', 'cosrx', 'biodance', 'medicube', 'anua', 'cerave', 'la roche',
     'peptide', 'niacinamide', 'retinol', 'hyaluronsyre', 'hyaluron',
@@ -39,6 +43,8 @@ NON_FOOD_KEYWORDS = {
     'hundeposer', 'kattesnacks', 'kattepouch', 'hundetygge', 'kattesticks',
     'tyggestænger', 'tyggestrips', 'tyggeben', 'snackstang', 'snackstænger',
     'godbidder', 'raakraft', 'killing m.',
+    'best friend', 'sheba', 'gourmet gold', 'perfect fit',
+    'fuglebolde', 'vildfuglemix',
     # Rengøring
     'opvaskemiddel', 'vaskemiddel', 'skyllemiddel', 'opvasketabs', 'vaskekapsler',
     'vaske-middel', 'toiletrengøring', 'rengøring', 'bref', 'domestos', 'harpic',
@@ -48,10 +54,25 @@ NON_FOOD_KEYWORDS = {
     # Rengøring/vask-mærker
     'biotex', 'wonderwash', 'vanish', 'dun-let', 'lenor', 'art of the refill',
     'opvaskebørste', 'toiletbørste', 'wc-børste',
+    # 'rengøring' fanger ikke "rengøringsmiddel" (ordet skal slutte dér)
+    'rengøringsmiddel', 'afspændingsmiddel', 'toiletrens', 'wc rens', 'wc-rens',
+    'opvask', 'klorin', 'fryseposer', 'samelle',
     # Tobak & nikotin
     'tobak', 'cigaret', 'cigarillo', 'snus', 'nikotin', 'tændstik',
     'lighter', 'fyrstikker', 'nicotinell', 'nikotinplaster', 'nikotintyggegummi',
     'nikoret', 'niquitin',
+    # 'nikotin'/'cigaret' fanger ikke sammensætningerne (ordet skal slutte dér)
+    'nikotinsugetabletter', 'nikotinmundspray', 'nicorette', 'nicotinell',
+    'cerutter', 'cigaretpapir', 'cigaretfilter', 'cigarethylstre', 'rullemaskine',
+    'zyn', 'veev', 'vuse', 'iqos',
+    # Håndkøbsmedicin (Bilkas og Nettos kiosk, Dagrofas varer uden kategori)
+    'næsespray', 'otrivin', 'zymelin', 'strepsils', 'zyx', 'panodil',
+    'paracetamol', 'ibumetin', 'ipren', 'pamol', 'kodimagnyl', 'imodium',
+    'voltaren', 'benadryl', 'magnesia', 'mucomyst', 'bromhexin', 'zovir',
+    'balancid', 'treo', 'allergikapsler', 'sugetabletter', 'sugetablet',
+    'brusetabletter', 'brusetabs', 'afføringsmiddel',
+    # Kiosk
+    'skrabelod', 'krydsord', 'sudoku',
     # Papirvarer & engangsservice
     'toiletpapir', 'køkkenrulle', 'køkken rulle', 'bagepapir', 'kleenex',
     'servietter', 'papkrus', 'paptallerken', 'engangsservice', 'lambi',
@@ -69,6 +90,8 @@ NON_FOOD_KEYWORDS = {
     'fyrfadslys', 'stearinlys', 'kronelys', 'bloklys', 'levende lys',
     'duftlys', 'citronellalys', 'citronella lys', 'citronella', 'stagelys',
     'betonstage', 'lys i glas', 'havefakkel', 'fakkel',
+    'kalenderlys', 'kalender lys', 'adventslys', 'kanallys', 'dekorationslys',
+    'rillet lys', 'snoede lys', 'lyskæde',
     # Maskiner & elektronik
     'kaffemaskine', 'kaffemaskiner', 'espressomaskine', 'kapselmaskine',
     'toaster', 'brødrister', 'køleboks', 'køletaske', 'terrassevarmer',
@@ -79,6 +102,7 @@ NON_FOOD_KEYWORDS = {
     'køleskab', 'fryseskab', 'køle-fryseskab',
     'oneblade', 'barbermaskine', 'epilator', 'hårtørrer', 'glattejern',
     'headset', 'earbuds', 'høretelefoner',
+    'mikroovn', 'blender', 'energizer', 'duracell',
     # Køkkengrej & husholdning
     'stegepande', 'tørrestativ', 'termokande', 'opbevaring', 'kurv',
     'tramontina', 'smartstore', 'husholdningsprodukter',
@@ -124,6 +148,12 @@ NON_FOOD_KEYWORDS = {
     'biopejs', 'naturfyldspude', 'lampeskærm', 'vase', 'skammel',
     # Gavekort & diverse ikke-mad
     'gavekort', 'gift card',
+    # Gaveindpakning, julepynt og hobby. Bevidst IKKE 'juletræ', 'julekugle',
+    # 'julemotiv', 'gaveæske' eller 'gavesæt': de står også på chokolade og
+    # kagedåser ("Chokolade julehus m. julekugler", "Anthon Berg gaveæske").
+    'gavepapir', 'gavemærke', 'gavebånd', 'gaveetiket', 'gaveetiketter',
+    'kalendergave', 'nissehue', 'stofnisse', 'pyjamas', 'guirlande',
+    'dekorationsler', 'strømpegarn',
     # Legetøj & hobby
     # 'jumbo' alene blokerede jumbo rejer, jumbo risvafler osv. - spilmærket
     # står altid sammen med spiltypen.
@@ -147,6 +177,7 @@ NON_FOOD_KEYWORDS = {
     # Kosttilskud & sundhed
     'vitaminer', 'livol', 'gerimax', 'kosttilskud', 'proteinpulver',
     'whey protein', 'kreatin', 'collagen', 'omega-3 kapsler',
+    'fitness pharma', 'yummy gummies',
     # Forbrugerelektronik (fx Føtex sælger tv, telefoner og tilbehør)
     'samsung', 'iphone', 'ipad', 'macbook', 'airpods', 'huawei', 'xiaomi',
     'oneplus', 'hisense', 'prosonic', 'tp-link', 'tcl', 'zte',
@@ -200,6 +231,14 @@ FOOD_KEYWORDS = {
     'jordnødder', 'pistacienødder', 'snack', 'proteinbar',
     # Æg & plantebaseret
     'æg', 'tofu', 'hummus', 'dips', 'guacamole',
+    # Bake-off og andet der sælges pr. styk uden kategori i Sallings katalog
+    # (salling_mad.py): uden et mad-ord i navnet bliver stykvarer uden
+    # kategori sorteret fra sammen med julelys og hovedpinepiller.
+    'muffin', 'muffins', 'chokolademuffin', 'kanelstykke', 'kanelsnegl',
+    'kanelsnurre', 'pølsehorn', 'pizzasnegl', 'studenterbrød', 'træstamme',
+    'romkugle', 'cremebolle', 'tebirkes', 'frøsnapper', 'spandauer',
+    'berliner', 'donut', 'donuts', 'cookie', 'cookies', 'brownie',
+    'sandwich', 'baguette', 'flute', 'tyggegummi', 'gum',
 }
 
 # Extra keywords loaded at runtime from data/ text files (user-curated via review_ai_decisions.py)
@@ -223,8 +262,9 @@ FOOD_KEYWORDS |= _load_extra(_extra_food_file)
 # Eksempel: 'bh' blokerer "Bh" (bystenolder) men må IKKE blokere "Bhaji".
 #           'ovn' blokerer "Ovn" (køkkenudstyr) men må IKKE blokere "Ovnklar kylling".
 #           'spand' blokerer "Spand 10 L" men må IKKE blokere "Spandauer boller".
+#           'garn' blokerer "Garn" men må IKKE blokere "Bundgarn Porter" (øl).
 NON_FOOD_EXACT_WORDS = {
-    'bh', 'ovn', 'spand', 'pande', 'kurv',
+    'bh', 'ovn', 'spand', 'pande', 'kurv', 'garn', 'seler',
 }
 
 # ── Ordgrænse-matching ────────────────────────────────────────────────────────

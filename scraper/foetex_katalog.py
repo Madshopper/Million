@@ -15,65 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from supabase_utils import get_client, enrich_billede_hashes, shrink_guard_ok, fetch_existing_products, save_product_dicts, salling_offer_fields
-from keywords import is_non_food
-
-# Top-level kategorier fra Føtex's Algolia-hierarki der er fødevarer.
-# Whitelist er mere robust end blacklist - ukendte kategorier springes over.
-_FOOD_CATEGORIES = {
-    'frugt', 'grønt', 'grøntsager', 'frugt og grønt',
-    'kød', 'fisk', 'fjerkræ', 'pålæg',
-    'mejeri', 'ost', 'æg', 'plantebaseret',
-    'brød', 'bageri', 'bagværk',
-    'drikkevarer', 'øl', 'vin', 'spiritus', 'vand', 'juice', 'kaffe', 'te',
-    'kolonial', 'konserves', 'tørvarer',
-    'frost', 'dybfrost',
-    'slik', 'snacks', 'konfekture', 'chokolade',
-    'morgenmad', 'gryn', 'cerealier',
-    'pasta', 'ris',
-    'sauce', 'krydderier', 'olier',
-    'færdigretter', 'convenience',
-    'baby', 'babyernæring', 'babymad',
-    'sundhed', 'naturlig', 'økologisk',
-    'international', 'verden',
-    'mad', 'fødevarer', 'dagligvarer',
-}
-
-# Top-level kategorier der er 100% ikke-mad - bruges som hurtig blacklist
-_NON_FOOD_CATEGORIES = {
-    'non-food', 'personlig pleje', 'helse', 'husholdning',
-    'tøj', 'sko', 'sport', 'fritid', 'elektronik',
-    'blomster', 'planter', 'have', 'kæledyr',
-    'legetøj', 'hobby', 'bøger', 'magasiner',
-    'rengøring', 'vask',
-    'dyremad',  # "dyremad" rammer 'mad' i FOOD_CATEGORIES uden denne
-    'bolig & køkken',  # persienner, tæpper, balloner mv.
-    'leg',             # legetårne, Jungle Gym mv.
-    'kiosk',           # magasiner, tobak, medicin
-}
-
-
-def _is_food_hit(hit: dict) -> bool:
-    """Returnerer True hvis produktet er en fødevare."""
-    cat = _cat(hit).lower()
-
-    # 1. Hurtig blacklist på kategori
-    if any(nf in cat for nf in _NON_FOOD_CATEGORIES):
-        return False
-
-    # 2. Keyword-filter altid - fanger ikke-mad inden for fx "Baby & børn"
-    if is_non_food(hit.get('name', '')):
-        return False
-
-    # 3. Whitelist på kategori - kun kendte madkategorier slipper igennem
-    if cat and any(fc in cat for fc in _FOOD_CATEGORIES):
-        return True
-
-    # 4. Ukendt/tom kategori - ingen kategori, ingen keyword-match = godkendt
-    if not cat:
-        return True
-
-    # 5. Kategori er ukendt og ikke på whitelist - filtrer fra for en sikkerheds skyld
-    return False
+from salling_mad import is_food_hit, assert_hierarchy_healthy, hierarchy, FOOD_LVL0
 
 # ── Algolia ──────────────────────────────────────────────────────────────────
 ALGOLIA_APP_ID = 'F9VBJLR1BK'
@@ -125,22 +67,6 @@ def fetch_all_algolia() -> list[dict]:
 
     print(f'  Algolia done: {len(all_hits)} produkter hentet')
     return all_hits
-
-
-def _cat(hit: dict) -> str:
-    # Foetex bruger consumerFacingHierarchy (dybere hierarki end categories).
-    # '.get(key, {})' fanger kun en MANGLENDE nøgle - Algolia returnerer
-    # eksplicit 'consumerFacingHierarchy': null for produkter uden
-    # kategorisering, og default'en bruges da ikke. Det væltede
-    # print_category_report() (kaldt FØR save_product_dicts i main()) med
-    # 'NoneType' object has no attribute 'get', hvilket forhindrede 14.734
-    # allerede hentede varer i nogensinde at blive gemt.
-    hier = hit.get('consumerFacingHierarchy') or {}
-    lvl0 = hier.get('lvl0') or []
-    if lvl0:
-        return lvl0[0] if isinstance(lvl0, list) else str(lvl0)
-    cats = hit.get('categories') or {}
-    return (cats.get('lvl0') or [''])[0]
 
 
 def _norm_unit(unit: str) -> str:
@@ -243,14 +169,18 @@ def build_rows(hits: list[dict]) -> list[dict]:
 
 
 def print_category_report(hits: list[dict]):
-    """Printer unikke lvl0-kategorier og antal produkter - til at tune whitelisten."""
+    """Printer de øverste kategorier med antal hentede og antal godkendt som mad."""
     from collections import Counter
-    cats = Counter(_cat(h) or '(ingen)' for h in hits)
+    total, food = Counter(), Counter()
+    for h in hits:
+        cat = hierarchy(h)[0] or '(ingen)'
+        total[cat] += 1
+        if is_food_hit(h):
+            food[cat] += 1
     print('\n  === Kategorioversigt ===')
-    for cat, n in sorted(cats.items(), key=lambda x: -x[1]):
-        flag = '✓' if any(fc in cat.lower() for fc in _FOOD_CATEGORIES) else \
-               '✗' if any(nf in cat.lower() for nf in _NON_FOOD_CATEGORIES) else '?'
-        print(f'  {flag} {cat:45s} {n:5d} produkter')
+    for cat, n in sorted(total.items(), key=lambda x: -x[1]):
+        flag = '✓' if cat in FOOD_LVL0 else ('~' if food[cat] else '✗')
+        print(f'  {flag} {cat:45s} {n:5d} produkter, {food[cat]:5d} mad')
     print()
 
 
@@ -258,8 +188,9 @@ def main():
     print('Starter Føtex katalog scraper (Algolia)...')
 
     hits = fetch_all_algolia()
+    assert_hierarchy_healthy(hits, BUTIK)
     print_category_report(hits)
-    food_hits = [h for h in hits if h.get('gtin') and _is_food_hit(h)]
+    food_hits = [h for h in hits if h.get('gtin') and is_food_hit(h)]
     skipped_early = len(hits) - len(food_hits)
     print(f'  {len(hits)} produkter hentet → {skipped_early} ikke-mad fjernet → {len(food_hits)} fødevarer')
 

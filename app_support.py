@@ -1534,6 +1534,15 @@ _BLOCKED_NAME_FRAGMENTS = {
     'ibuprofen', 'hostesaft', 'næsespray', 'øjenråber', 'øjendråber',
     'plaster', 'forbinding', 'kompres', 'sårpleje',
     'tabletter mod', 'tabletter børn',
+    # Stod på siden 11-11-2026: Meny, Spar og Min Købmand har håndkøbsmedicin
+    # uden kategori, og Bilka har den i sin kiosk. Hentningen sorterer dem nu
+    # fra (dagrofa_scraper.py, salling_mad.py); navnene her er værn nr. to.
+    'otrivin', 'zymelin', 'strepsils', 'strepsilis', 'zyx', 'benadryl',
+    'benaday', 'alnok', 'magnesia', 'mucomyst', 'mucolysin', 'bromhexin',
+    'brohexin', 'zovir', 'voltaren', 'balancid', 'allergodil', 'benaliv',
+    'gangiden', 'afføringsmiddel', 'allergikapsler', 'sugetabletter',
+    'sugetablet', 'brusetabletter', 'brusetabs', 'hostemiddel',
+    'forkølelsessår',
     # Tobak / nikotin - også tjekket via is_age_restricted (titel+brand)
     'tobak', 'cigaret', 'cigaretter', 'cigarillo', 'cigar', 'snus', 'nikotin',
     'tændstik', 'lighter', 'fyrstikker', 'marlboro', 'winston', 'camel',
@@ -1573,6 +1582,10 @@ _BLOCKED_NAME_FRAGMENTS = {
     'støvsuger', 'støvsugerpose',
     # Lys
     'stearinlys', 'fyrfadslys', 'kronelys', 'bloklys',
+    'kalenderlys', 'adventslys', 'kanallys', 'dekorationslys', 'lyskæde',
+    # Kiosk og julepynt (Bilkas skrabelodder og krydsordsblade, avisernes pynt)
+    'skrabelod', 'krydsord', 'sudoku', 'gavepapir', 'nissehue', 'julepyjamas',
+    'strømpegarn', 'face facts', 'tampax',
     # Kosttilskud
     'vitaminer', 'kosttilskud', 'proteinpulver', 'whey protein',
 }
@@ -1653,9 +1666,42 @@ _NON_FOOD_NAME_RE = re.compile(
 )
 
 
-def is_non_food_name(name: str) -> bool:
-    """True hvis produktnavnet klart er en ikke-mad-vare (ordgrænse-match)."""
-    return bool(name) and _NON_FOOD_NAME_RE.search(str(name).lower()) is not None
+# Madvarer der bærer et ikke-mad-ord. Målt 11-11-2026 skjulte ordlisten 17
+# rigtige madvarer: "Capri Sun Multivitamin" (saft), "Dild I Potte" (friske
+# krydderurter), "Dansk Blomster Honning", "Kinder Æg M/Legetøj", en smoothie
+# med magnesium og kaffen "Gourmet Ble(nd)". Ordet er kun ikke-mad, når navnet
+# ikke samtidig siger, at det er mad.
+_NON_FOOD_UNLESS = {
+    'multivitamin': re.compile(r'capri|juice|saft|nektar|smoothie|drik'),
+    'magnesium':    re.compile(r'smoothie|juice|saft'),
+    'potte':        re.compile(r'dild|persille|purløg|basilikum|timian|rosmarin|mynte|'
+                               r'koriander|oregano|salvie|karse|citronmelisse|krydderurt'),
+    'blomster':     re.compile(r'honning'),
+    'blomst':       re.compile(r'honning'),
+    'legetøj':      re.compile(r'kinder'),
+    'sutteflaske':  re.compile(r'sukker|slik|bolsje'),
+    'ble':          re.compile(r'coffee|kaffe'),
+}
+
+
+def is_non_food_name(name: str, context: str = '') -> bool:
+    """True hvis produktnavnet klart er en ikke-mad-vare (ordgrænse-match).
+
+    `context` er varens øvrige tekst (mærket, når navnet tjekkes, og omvendt):
+    den kan frikende et ord fra _NON_FOOD_UNLESS, men aldrig selv udløse."""
+    if not name:
+        return False
+    text = str(name).lower()
+    whole = None
+    for m in _NON_FOOD_NAME_RE.finditer(text):
+        unless = _NON_FOOD_UNLESS.get(m.group(0))
+        if unless is None:
+            return True
+        if whole is None:
+            whole = f'{text} {str(context or "").lower()}'
+        if not unless.search(whole):
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -1668,7 +1714,16 @@ _REMA_TOBACCO_ID_RANGES = ((521340, 521825), (561828, 561875))
 # Tobak/nikotin i titel ELLER brand (Prince-cigaretter har brand HARDBOX)
 _TOBACCO_RE = re.compile(
     r'(?<![0-9a-zæøå])(?:'
-    r'tobak|cigaretter|cigaret|cigarillo|cigar|snus|nikotin|e-cigaret|e-cig|'
+    # Sammensætninger skal med: 'nikotin' alene fangede ikke
+    # "Nikotinsugetabletter" og "Nikotinmundspray", som stod på siden
+    # 11-11-2026 sammen med nikotinposer (Zyn, Epok, Nordic Spirit),
+    # e-cigaretter (Veev, Vuse), opvarmet tobak (IQOS, Levia), cerutter,
+    # pibetobak og cigaretpapir fra Bilkas kiosk.
+    r'[a-zæøå]*tobak|cigaret[a-zæøå]*|cigarillo[a-zæøå]*|cigar(?:er)?|'
+    r'cerut(?:ter)?|snus|nikotin[a-zæøå]*|e-cigaret|e-cig|'
+    r'nicorette|nicotinell|zyn|veev|vuse|iqos|levia|heets|terea|epok|'
+    r'nordic spirit|special dublin|petterøe|dannemann|bugler|'
+    r'rullemaskine|piberensere|'
     r'marlboro|winston|camel|pall mall|lucky strike|chesterfield|gauloises|'
     r'hardbox|softbox|softpack|blød pakke|'
     r'house of prince|virg blend|virginia blend|original blend no|'
@@ -1980,10 +2035,10 @@ def unify_category(raw_cat, product_name='', brand=''):
         return CAT_BROED_KAGER
 
     # Krav: kun mad - ingen undtagelser. Klart ikke-mad (navn) frasorteres straks.
-    if name and _NON_FOOD_NAME_RE.search(name):
+    if name and is_non_food_name(name, brand_s):
         return None
     # Brand-feltet: fang tobakspakker (HARDBOX) og babypleje (Libero/Huggies) m.m.
-    if brand_s and _NON_FOOD_NAME_RE.search(brand_s.lower()):
+    if brand_s and is_non_food_name(brand_s, name):
         if not _LU_PRINCE_COOKIE_RE.search(f'{name} {brand_s}'.lower()):
             return None
 
