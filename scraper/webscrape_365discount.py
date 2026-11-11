@@ -1,161 +1,25 @@
+"""
+365discount tilbudsavis via Tjek/ShopGun (dealer DWZE1w).
+
+365discount er Coops discountkæde, og avisen har samme form som Kvickly,
+SuperBrugsen og Brugsen. Scraperen havde tidligere sin egen ældre kopi af
+tekstlæsningen og tog derfor fejl på ting, den fælles læsning havde rettet:
+en ramme med 15-18 øl til 69 kr stod som én dåse på 33 cl, og "Actimel 8-pak"
+som 100 g. Nu bruges den fælles læsning i tjek_tilbud_scraper.py.
+"""
 import os
 import sys
-import re
-import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
-from app_support import attach_billede_hashes
-from tjek_tilbud_scraper import assert_catalogs_healthy, running_now
 from supabase_utils import save_product_dicts
-from keywords import is_non_food as _is_non_food
+from tjek_tilbud_scraper import fetch_tjek_tilbud
 
-TJEK_BASE = "https://squid-api.tjek.com"
 DISCOUNT365_DEALER_ID = "DWZE1w"
 BUTIK = "365discount"
 
-# Kataloger (Tjek API catalog labels) der er 100% ikke-mad
-_NON_FOOD_CATALOG = [
-    'sommersk', 'skønhed', 'beauty', 'non-food', 'helse og pleje',
-    'kæledyr', 'dyr og natur', 'dyremad', 'husholdning', 'rengøring',
-    'personlig pleje', 'pleje', 'tøj', 'sko', 'sport', 'fritid',
-    'elektronik', 'legetøj', 'blomster', 'have', 'haven', 'udendørs',
-    'tekstil', 'sengetøj', 'køkkengrej', 'service og bestik',
-]
-
-
-def is_food(heading: str, catalog_label: str | None) -> bool:
-    label = (catalog_label or "").lower()
-    if any(p in label for p in _NON_FOOD_CATALOG):
-        return False
-    return not _is_non_food(heading)
-
-
-def parse_description(description: str):
-    product_type = weight = kg_price = ""
-    wm = re.search(r"(\d+[.,]?\d*)\s*(kg|g|l|ml|cl|dl|stk)", description, re.IGNORECASE)
-    if wm:
-        weight = f"{wm.group(1)} {wm.group(2).lower()}"
-        product_type = description[:wm.start()].strip().strip(",| -").strip()
-    else:
-        tm = re.search(r"^[^,\.]+", description)
-        if tm:
-            product_type = tm.group(0).strip()
-    km = re.search(r"(\d+[.,]?\d*)\s*(?:kr\s*)?/\s*(kg|g|l|ml|cl|dl)", description, re.IGNORECASE)
-    if km:
-        kg_price = f"{km.group(1)} kr/{km.group(2)}"
-    return product_type, weight, kg_price
-
-
-def fetch_active_catalogs() -> list[dict]:
-    r = requests.get(
-        f"{TJEK_BASE}/v2/catalogs",
-        params={"dealer_id": DISCOUNT365_DEALER_ID, "limit": 20},
-        timeout=15,
-    )
-    r.raise_for_status()
-    return r.json()
-
-
-def fetch_all_offers(catalog_id: str) -> list[dict]:
-    offers = []
-    offset = 0
-    limit = 100
-    while True:
-        r = requests.get(
-            f"{TJEK_BASE}/v2/offers",
-            params={"catalog_id": catalog_id, "limit": limit, "offset": offset},
-            timeout=15,
-        )
-        r.raise_for_status()
-        batch = r.json()
-        if not batch:
-            break
-        offers.extend(batch)
-        if len(batch) < limit:
-            break
-        offset += limit
-    return offers
-
 
 def fetch_365discount_tilbud() -> list[dict]:
-    catalogs = running_now(fetch_active_catalogs())
-    print(f"  Fandt {len(catalogs)} aktive 365discount-kataloger")
-    _tomme_kataloger: list[str] = []
-
-    rows: list[dict] = []
-    seen: set[str] = set()
-
-    for cat in catalogs:
-        cat_id = cat["id"]
-        label = cat.get("label", cat_id)
-        run_till = cat.get("run_till", "")[:10]
-        offers = fetch_all_offers(cat_id)
-        print(f"    {label} ({run_till}): {len(offers)} tilbud")
-        # Permanente kampagne-brochurer kan have offer_count=0 i Tjeks egen
-        # metadata - kun et katalog der selv hævder tilbud, men ikke leverer
-        # nogen, er den ægte fejlsignatur.
-        if not offers and cat.get("offer_count", 0) > 0:
-            _tomme_kataloger.append(f"{label} ({run_till})")
-
-        for o in offers:
-            heading = o.get("heading", "")
-            if not heading:
-                continue
-            if not is_food(heading, label):
-                continue
-            key = f"{cat_id}|{heading}"
-            if key in seen:
-                continue
-            seen.add(key)
-
-            desc = o.get("description", "")
-            p_type, weight, kg_price = parse_description(desc)
-
-            pricing = o.get("pricing", {})
-            pris = pricing.get("price")
-            pre_price = pricing.get("pre_price")
-            # Multikøb: se kommentaren i tjek_tilbud_scraper.py. Uden dette
-            # blev "2 for 25,-" gemt som stykpris 25 kr.
-            multikob = None
-            try:
-                pieces = (o.get("quantity", {}).get("pieces") or {})
-                antal = pieces.get("from") or pieces.get("to")
-                if antal and int(antal) > 1:
-                    multikob = int(antal)
-            except (AttributeError, TypeError, ValueError):
-                multikob = None
-
-
-            img = o.get("images", {})
-            billede_url = img.get("view") or img.get("thumb") or ""
-
-            rows.append({
-                "butik":        BUTIK,
-                "kategori":     label,
-                "navn":         heading,
-                "producent":    p_type or None,
-                "netto_vaegt":  weight or None,
-                "kg_price":     kg_price or None,
-                "pris":         float(pris) if pris is not None else None,
-                "normalpris":   float(pre_price) if pre_price is not None else None,
-                "varenummer":   None,
-                "billede_url":  billede_url,
-                "billede_hash": None,
-                "tilbud":       "Ja",
-                # updater.py laeser kun multikob-kolonnen som multi-deal-
-                # signal; "enhed" blev aldrig laest af nogen.
-                "multikob":     multikob,
-            })
-
-    # Sundhedskontrol pr. avis - se assert_catalogs_healthy.
-    assert_catalogs_healthy("365discount", len(catalogs), _tomme_kataloger)
-
-    attach_billede_hashes(rows)
-    print(f"  OK: {len(rows)} 365discount tilbud hentet fra Tjek API")
-    return rows
+    return fetch_tjek_tilbud(DISCOUNT365_DEALER_ID, BUTIK)
 
 
 def main():
