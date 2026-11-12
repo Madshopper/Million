@@ -10,6 +10,8 @@ export type StoreMatch = {
   description: string;
   weight: string;
   kg_price: number | null;
+  /** "l" når kg_price er en literpris (app_support.kg_price_unit). Mangler i ældre svar. */
+  kg_unit?: 'kg' | 'l';
   multi_deal: string;
   ean: string;
   Kategori: string;
@@ -35,6 +37,11 @@ export type Product = {
   weight_g: number | null;
   stk_count: number | null;
   kg_price: number | null;
+  /** "l" når kg_price er en literpris (app_support.kg_price_unit). Mangler i ældre svar. */
+  kg_unit?: 'kg' | 'l';
+  /** Remas egen kilopris til Rema-linjen i sammenligningen. Er kortet en
+   *  anden butiks vare, er kg_price den butiks. Mangler i ældre svar. */
+  rema_kg_price?: number | null;
   multi_deal: string;
   /** Tilbudsmærkets tekst (app_support.sale_badge), fx "Spar 14% ved 5 stk"
    *  eller "Tilbud i Bilka"; null = intet mærke. Mangler i ældre svar. */

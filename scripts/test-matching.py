@@ -735,6 +735,27 @@ def test_rema_ordregel_2026_10_07() -> None:
           get_product_colours('Røde linser') == get_product_colours('Linser rød'))
 
 
+def test_enhedspris_2026_11_12() -> None:
+    """Kun kilo- og literpriser er kilopriser. Før blev "3.02 kr/stk" (æg) læst
+    som 3,02 kr/kg, både på kortet og i kg-pris-gaten (ca. 1.040 varer)."""
+    print("\nEnhedspris: stykpris er ikke en kilopris (12-11-2026)")
+    pk = updater.parse_kg_price
+    check("'79.88 kr/kg' er en kilopris", pk('79.88 kr/kg') == 79.88)
+    check("'23.75 kr/l' er en literpris", pk('23.75 kr/l') == 23.75)
+    check("'16.95 kr/liter' er en literpris", pk('16.95 kr/liter') == 16.95)
+    check("'3.02 kr/stk' (æg) er ingen kilopris", pk('3.02 kr/stk') is None)
+    check("'7.16 kr/l.bl' (liter færdigblandet) er ingen kilopris", pk('7.16 kr/l.bl') is None)
+    check("'154.90 kr/meter' er ingen kilopris", pk('154.90 kr/meter') is None)
+    check("et tal uden enhed læses stadig", pk('12.5') == 12.5 and pk(12.5) == 12.5)
+    check("saft '6 l.b' er liter færdigblandet",
+          bool(updater._BLENDED_LITRE_RE.search('6 l.b')) and bool(updater._BLENDED_LITRE_RE.search('5.1 L.B')))
+    check("'1 l' er ikke færdigblandet", not updater._BLENDED_LITRE_RE.search('1 l'))
+    from app_support import kg_price_unit
+    check("kortet skriver kr/l for '1,5 l'", kg_price_unit('1,5 l') == 'l')
+    check("... og for en kasse '24 x 33 cl'", kg_price_unit('24 x 33 cl') == 'l')
+    check("... og kr/kg for '500 g' og '10 stk'", kg_price_unit('500 g') == 'kg' and kg_price_unit('10 stk') == 'kg')
+
+
 def test_kendte_huller() -> None:
     """Huller fundet ved matchmotor-analysen 25-08-2026, endnu ikke lukket."""
     print("\nKendte huller (skal fejle nu, bestå senere)")
@@ -1085,6 +1106,7 @@ def main() -> int:
     test_delte_id_2026_11_10()
     test_kategorier_og_zoner_2026_11_12()
     test_rema_varianter_2026_11_12()
+    test_enhedspris_2026_11_12()
     test_kendte_huller()
 
     print()

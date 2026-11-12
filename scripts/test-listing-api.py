@@ -31,12 +31,12 @@ _PRODUCT_REQUIRED = {
     'is_any_sale', 'sale_end_date', 'unit_measure', 'weight_g', 'stk_count',
     'kg_price', 'multi_deal', 'is_organic', 'is_lactose_free', 'has_match',
     'has_match_rema', 'cheapest_at', 'cheaper_at', 'rema_price', 'rema_is_sale',
-    'lowest_price_30d', 'store_matches', 'sale_badge',
+    'lowest_price_30d', 'store_matches', 'sale_badge', 'kg_unit', 'rema_kg_price',
 }
 
 _MATCH_REQUIRED = {
     'name', 'price', 'normal_price', 'is_sale', 'image', 'brand',
-    'description', 'weight', 'kg_price', 'multi_deal', 'ean', 'Kategori',
+    'description', 'weight', 'kg_price', 'kg_unit', 'multi_deal', 'ean', 'Kategori',
 }
 
 _failures = 0
@@ -127,6 +127,31 @@ def test_serializer() -> None:
         fail(f'store_matches.bilka mangler: {sorted(miss_m)}')
     else:
         ok('store_matches-entry har alle felter')
+
+    # Enheden bag kiloprisen (app_support.kg_price_unit): rumfang giver literpris.
+    if api['kg_unit'] != 'kg' or match.get('kg_unit') != 'l':
+        fail(f"kg_unit: kort {api['kg_unit']!r} (1000 g), bilka {match.get('kg_unit')!r} (1 L)")
+    else:
+        ok("kg_unit: 'kg' for 1000 g, 'l' for 1 L")
+    if api['rema_kg_price'] != api['kg_price']:
+        fail(f"Rema-kort: rema_kg_price {api['rema_kg_price']} skulle være kortets {api['kg_price']}")
+    else:
+        ok('Rema-kort: rema_kg_price er kortets kilopris')
+
+    # Et kort der viser Bilkas vare: kg_price er Bilkas, Rema-linjen skal have Remas.
+    promoted = dict(_sample_raw(), **{'/product/store': 'Bilka', '/product/price_per_kg': 12.0,
+                                      '/product/rema_kg_price': 11.5})
+    api_p = product_to_api_dict(product_to_display_dict(promoted, category='Køl'))
+    if api_p['kg_price'] != 12.0 or api_p['rema_kg_price'] != 11.5:
+        fail(f"promoveret kort: kg_price {api_p['kg_price']} / rema_kg_price {api_p['rema_kg_price']}")
+    else:
+        ok('promoveret kort: Rema-linjen får Remas egen kilopris')
+    old = dict(_sample_raw(), **{'/product/store': 'Bilka', '/product/price_per_kg': 12.0})
+    api_o = product_to_api_dict(product_to_display_dict(old, category='Køl'))
+    if api_o['rema_kg_price'] is not None:
+        fail(f"promoveret kort uden Remas kilopris viste {api_o['rema_kg_price']} (Bilkas)")
+    else:
+        ok('promoveret kort uden Remas kilopris viser ingen (ikke Bilkas)')
 
 
 def test_sale_badge() -> None:

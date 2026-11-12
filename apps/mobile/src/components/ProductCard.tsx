@@ -20,7 +20,7 @@ import { cardShadow } from '../theme/Typography';
 import { ShelfPrice } from './ShelfPrice';
 import { QuantityStepper } from './QuantityStepper';
 import { joinLabel, spokenKr } from '../a11y/speech';
-import { krNum } from '../format/kr';
+import { krNum, kgUnitOf, krPerUnit, spokenPerUnit } from '../format/kr';
 
 type Props = {
   product: Product;
@@ -72,9 +72,14 @@ function cartItemFrom(product: Product, catalog: ReturnType<typeof useStoreCatal
     image: product.image,
     category: product.category || 'Andre varer',
     unitMeasure: product.unit_measure,
-    kgPrice: product.kg_price != null ? `${krNum(product.kg_price)} kr/kg` : '',
+    kgPrice: product.kg_price != null ? krPerUnit(product.kg_price, kgUnitOfProduct(product)) : '',
     multiDeal: product.multi_deal || undefined,
   };
+}
+
+/** Enheden bag kortets kilopris: fra API'et, ellers ud fra størrelsen. */
+function kgUnitOfProduct(product: Product): 'kg' | 'l' {
+  return product.kg_unit ?? kgUnitOf(product.unit_measure);
 }
 
 export function ProductCard(props: Props) {
@@ -97,9 +102,10 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
   const badge = saleBadgeText(product);
   const hasBefore = product.is_sale && product.normal_price > product.price;
   const onlyHere = Object.keys(product.store_matches || {}).length === 0;
+  const kgUnit = kgUnitOfProduct(product);
   const kgPrice =
     product.kg_price != null && product.kg_price > 0
-      ? `${product.kg_price.toFixed(2).replace('.', ',')} kr/kg`
+      ? krPerUnit(product.kg_price, kgUnit)
       : null;
 
   const add = () => {
@@ -129,7 +135,7 @@ function GridProductCard({ product, onPress, variant = 'grid' }: Props) {
     spokenBadge(badge),
     spokenKr(product.price),
     hasBefore ? `før ${spokenKr(product.normal_price)}` : null,
-    kgPrice ? `${spokenKr(product.kg_price)} pr. kilo` : null,
+    kgPrice ? `${spokenKr(product.kg_price)} ${spokenPerUnit(kgUnit)}` : null,
     onlyHere ? `kun hos ${product.store}` : `hos ${product.store}`,
     quantity > 0 ? `${quantity} i kurven` : null,
   ]);
@@ -347,7 +353,7 @@ function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
       image: product.image,
       category: product.category || 'Andre varer',
       unitMeasure: product.unit_measure,
-      kgPrice: product.kg_price != null ? `${krNum(product.kg_price)} kr/kg` : '',
+      kgPrice: product.kg_price != null ? krPerUnit(product.kg_price, kgUnitOfProduct(product)) : '',
       multiDeal: product.multi_deal || undefined,
     });
     setAdded(true);
@@ -379,7 +385,7 @@ function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
       ? `før ${spokenKr(product.normal_price)}`
       : null,
     product.kg_price != null && product.kg_price > 0
-      ? `${spokenKr(product.kg_price)} pr. kilo`
+      ? `${spokenKr(product.kg_price)} ${spokenPerUnit(kgUnitOfProduct(product))}`
       : null,
     Object.keys(product.store_matches || {}).length === 0
       ? `kun hos ${product.store}`
@@ -464,7 +470,7 @@ function AvisProductCard({ product, onPress, variant = 'grid' }: Props) {
       ) : null}
       {product.kg_price != null && product.kg_price > 0 ? (
         <Text style={[styles.kgPrice, { color: colors.textMuted }]} numberOfLines={1}>
-          {krNum(product.kg_price)} kr/kg
+          {krPerUnit(product.kg_price, kgUnitOfProduct(product))}
         </Text>
       ) : null}
       {/* Samme betingelse som webben: `{% if not product.store_matches %}`.

@@ -248,6 +248,10 @@ def load_store_comparison_data(store_key: str) -> tuple:
                     weight_str = str(row.get('netto_vaegt') or '')
                     weight_g = parse_weight_to_grams(weight_str)
                     ppk = parse_kg_price(row.get('kg_price') or '')
+                    if _BLENDED_LITRE_RE.search(weight_str):
+                        # Saft til opblanding "6 l.b": prisen er pr. liter
+                        # færdigblandet, ikke pr. liter saft som hos de andre.
+                        ppk = None
                     ppk = sanitize_kg_price(price, ppk, weight_g,
                                             context=f"{cfg['label']}: {row.get('navn')}")
                     
@@ -2917,9 +2921,27 @@ def _apply_cheapest_display(target: dict, store_key: str, match: dict) -> None:
         target['/product/product_type'] = new_type
 
 
+# Enheden bag skraberens enhedspris ("3.02 kr/stk"). Kun kilo og liter kan
+# vises som kilopris og sammenlignes på tværs af butikker.
+_UNIT_PRICE_UNIT_RE = re.compile(r'/\s*([a-zæøå.]+)\s*$', re.IGNORECASE)
+_KG_PRICE_UNITS = frozenset({'kg', 'l', 'ltr', 'liter'})
+# "6 l.b" / "5.1 L.B": liter færdigblandet (Føtex og Netto, saft til opblanding).
+_BLENDED_LITRE_RE = re.compile(r'\d\s*l\.\s*b\b', re.IGNORECASE)
+
+
 def parse_kg_price(kg_price_str):
-    """Extract numeric kr/kg value from a string like '84,62 kr/Kg'."""
+    """Extract numeric kr/kg value from a string like '84,62 kr/Kg'.
+
+    None for en pris pr. styk, meter eller liter færdigblandet ("3.02 kr/stk",
+    "154.90 kr/meter", "7.16 kr/l.bl"). Før blev tallet læst uden enheden, så
+    ca. 1.040 varer (æg, meloner, citroner, kaffefiltre) viste stykprisen som
+    "kr/kg" på kortet, og kg-pris-gaten i matchingen sammenlignede en
+    stykpris med en kilopris (målt 12-11-2026).
+    """
     if not kg_price_str or str(kg_price_str).strip() in ('nan', '', 'None'):
+        return None
+    unit_m = _UNIT_PRICE_UNIT_RE.search(str(kg_price_str).strip())
+    if unit_m and unit_m.group(1).lower().rstrip('.') not in _KG_PRICE_UNITS:
         return None
     try:
         cleaned = str(kg_price_str).replace(',', '.').replace('kr', '').replace('/kg', '').replace('/Kg', '').replace('/KG', '').strip()
@@ -3296,6 +3318,9 @@ def _merge_duplicate_into_kept(kept: dict, dup: dict) -> None:
     if not kept.get('/product/rema_price') and dup.get('/product/rema_price'):
         kept['/product/rema_price'] = dup.get('/product/rema_price')
         kept['/product/rema_is_sale'] = dup.get('/product/rema_is_sale', False)
+        kept['/product/rema_kg_price'] = (dup.get('/product/price_per_kg')
+                                          if dup.get('/product/store') == 'Rema 1000'
+                                          else dup.get('/product/rema_kg_price'))
 
 
 def _card_eans(card: dict) -> set:
@@ -3580,6 +3605,8 @@ def merge_rema_into_cache(cached, fresh_rema):
             updated['/product/rema_price'] = _rema_effective_price(fresh)
             updated['/product/rema_is_sale'] = fresh.get('/product/sale_price') is not None
             updated['/product/rema_image'] = fresh.get('/product/imageLink', '')
+            if product.get('/product/store') != 'Rema 1000':
+                updated['/product/rema_kg_price'] = fresh.get('/product/price_per_kg')
             if product.get('/product/store') == 'Rema 1000':
                 for key in (
                     '/product/price', '/product/sale_price', '/product/title',
@@ -4675,6 +4702,9 @@ def fetch_and_parse_xml():
             product['/product/cheapest_at'] = display_store
 
             if display_store != REMA_KEY:
+                # Kortet viser nu en anden butiks vare og kilopris. Remas egen
+                # gemmes til Rema-linjen i sammenligningen (app_support).
+                product['/product/rema_kg_price'] = product.get('/product/price_per_kg')
                 _apply_cheapest_display(product, display_store, matches[display_store])
             else:
                 product['/product/store'] = _STORE_CONFIGS[REMA_KEY]['label']

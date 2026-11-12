@@ -1222,6 +1222,23 @@ def parse_stk_count(weight_str) -> int | None:
         return None
 
 
+# Størrelsen slutter med et rumfang: "1,5 l", "24 x 33 cl", "250 ML", "75 cl.".
+_VOLUME_TAIL_RE = re.compile(r'\d\s*(?:ml|cl|dl|l|ltr|liter|litre|lt)\.?$')
+
+
+def kg_price_unit(weight_str) -> str:
+    """'l' når varen sælges i rumfang, ellers 'kg': enheden bag kiloprisen.
+
+    Butikkerne angiver literpris for alt, de sælger i rumfang (målt
+    12-11-2026: 8.486 af 8.491 varer med literpris har et rumfang som
+    størrelse, og ingen vare med vægt i gram har literpris), og Remas egen
+    kilopris regnes ud fra rumfanget. Kortet skrev "kr/kg" på dem alle,
+    også på en liter mælk. Hjemmesiden og appen skriver nu "kr/l".
+    """
+    s = str(weight_str or '').strip().lower().replace(',', '.')
+    return 'l' if _VOLUME_TAIL_RE.search(s) else 'kg'
+
+
 def weights_compatible(w_a: float | None, w_b: float | None, tolerance: float | None = None) -> bool:
     if w_a is None or w_b is None:
         return True
@@ -2380,6 +2397,13 @@ def product_to_display_dict(
         'weight_g': weight_g,
         'stk_count': product.get('/product/stk_count') or parse_stk_count(unit_measure),
         'price_per_kg': plausible_kg_price(product.get('/product/price_per_kg')),
+        'kg_unit': kg_price_unit(unit_measure),
+        # Remas egen kilopris til Rema-linjen i sammenligningen. På et kort,
+        # der viser en anden butiks vare (billigst dér), er price_per_kg den
+        # butiks; før stod den under Rema (ca. 550 kort, 12-11-2026).
+        'rema_kg_price': (plausible_kg_price(product.get('/product/price_per_kg'))
+                          if str(product.get('/product/store', 'Rema 1000')) == 'Rema 1000'
+                          else plausible_kg_price(product.get('/product/rema_kg_price'))),
         'store_matches': product.get('/product/store_matches', {}),
         'cheaper_at': product.get('/product/cheaper_at'),
         'cheapest_at': product.get('/product/cheapest_at'),
@@ -2522,6 +2546,7 @@ def _serialize_store_match(match: dict) -> dict:
         'description': clean_display_text(match.get('description')),
         'weight': clean_display_text(match.get('weight')),
         'kg_price': kg_price,
+        'kg_unit': kg_price_unit(match.get('weight')),
         'multi_deal': str(match.get('multi_deal') or ''),
         'ean': str(match.get('ean') or ''),
         'Kategori': str(match.get('Kategori') or ''),
@@ -2588,6 +2613,9 @@ def product_to_api_dict(display: dict) -> dict:
         'weight_g': display.get('weight_g'),
         'stk_count': display.get('stk_count'),
         'kg_price': kg_price,
+        'kg_unit': display.get('kg_unit') or kg_price_unit(display.get('unit_measure')),
+        'rema_kg_price': (plausible_kg_price(display.get('rema_kg_price')) if 'rema_kg_price' in display
+                          else kg_price if str(display.get('store') or 'Rema 1000') == 'Rema 1000' else None),
         'multi_deal': str(display.get('multi_deal') or ''),
         # Mærketeksten, så appen viser præcis det samme som hjemmesiden.
         'sale_badge': display.get('sale_badge') if 'sale_badge' in display else sale_badge(display),
@@ -2681,6 +2709,9 @@ def card_category_after_promotion(current_type, match: dict):
 
 def _promote_match_to_product(product: dict, store_key: str, match: dict) -> dict:
     out = dict(product)
+    if str(product.get('/product/store') or 'Rema 1000') == 'Rema 1000':
+        # Remas egen kilopris følger med til Rema-linjen (product_to_display_dict).
+        out['/product/rema_kg_price'] = product.get('/product/price_per_kg')
     out['/product/title'] = match['name']
     out['/product/store'] = _STORE_CONFIGS[store_key]['label']
     if match.get('is_sale'):
@@ -2711,6 +2742,9 @@ def _promote_rema_to_product(product: dict, rema_price: float) -> dict:
     out['/product/price'] = rema_price
     out['/product/sale_price'] = None
     out['/product/multi_deal'] = ''
+    if '/product/rema_kg_price' in product:
+        # Remas egen kilopris i stedet for den butiks, kortet viste før.
+        out['/product/price_per_kg'] = product.get('/product/rema_kg_price')
     rema_img = str(product.get('/product/rema_image') or '').strip()
     if rema_img and rema_img.lower() != 'nan':
         out['/product/imageLink'] = rema_img
