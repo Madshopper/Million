@@ -33,4 +33,6 @@ files = [
 ]
 
 [tool.edgekit.builder.exclude]
-modules = ["selenium", "webdriver_manager", "openpyxl", "PIL", "imagehash", "rapidfuzz"]
+modules = ["selenium", "webdriver_manager", "openpyxl", "PIL", "imagehash", "rapidfuzz",
+           # Kun offline-tilstand lokalt (MADSHOPPER_OFFLINE=1), aldrig på edge.
+           "mockdata", "mockdata.offline", "mockdata.products"]

@@ -98,6 +98,14 @@ app = Flask(
 )
 app.config['JSON_SORT_KEYS'] = False
 
+# Offline-tilstand (MADSHOPPER_OFFLINE=1, kun lokalt): mock-varer og en Supabase
+# i hukommelsen, så sitet kan køres og vises uden ét kald ud af maskinen. Se
+# docs/offline.md. Aldrig på edge.
+_OFFLINE = os.environ.get('MADSHOPPER_OFFLINE') == '1' and os.environ.get('CLOUDFLARE_WORKERS') != '1'
+if _OFFLINE:
+    from mockdata import offline as _mock
+    _mock.install(app)
+
 # Automatisk cache-busting af /static/. /static/* serveres med et års
 # "immutable" cache, så en ændret fil skal have en ny URL - ellers ser
 # browsere med den gamle i cachen aldrig ændringen (sket igen og igen med
@@ -2332,6 +2340,10 @@ def _feature_flags() -> dict:
 
 def _feature_forced(key: str) -> bool:
     f = _FEATURE_KEYS.get(key)
+    # Offline er alt slået til, ligesom på staging (MOCK_FEATURES=prod: kun det
+    # miljø-varerne slår til).
+    if _OFFLINE and f and os.environ.get('MOCK_FEATURES', 'all') == 'all':
+        return True
     return bool(f) and os.environ.get(f['env']) == '1'
 
 
@@ -2477,6 +2489,8 @@ def _table_suffix() -> str:
 
 def _supabase_available() -> bool:
     """Sandt når vi har URL + nøgle til Supabase - virker både lokalt og på edge."""
+    if _OFFLINE:
+        return True
     base, key = _supabase_rest_config()
     return bool(base and key)
 
@@ -2490,6 +2504,8 @@ def _supabase_rest(method: str, path: str, params: dict | None = None,
     Returnerer (data, status). status == 0 betyder netværks-/opsætningsfejl.
     auth_token: en indlogget brugers EGEN access-token - kaldet kører så med
     brugerens rettigheder (auth.uid()) i stedet for anon-nøglens."""
+    if _OFFLINE:
+        return _mock.supabase_rest(method, path, params, json_body)
     base, key = _supabase_rest_config()
     if not base or not key:
         return None, 0
@@ -2602,6 +2618,10 @@ def _save_local_cache_snapshot(products, search_index, ts) -> None:
 def _refresh_product_cache():
     """Load pre-computed product data and search index (KV → Supabase → lokal fil)."""
     global cached_data
+
+    if _OFFLINE:
+        _apply_cache_payload(*_mock.cache_payload())
+        return
 
     kv_payload = _kv_get_json(_KV_CACHE_KEY)
     if isinstance(kv_payload, dict):
