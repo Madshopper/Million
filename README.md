@@ -217,9 +217,27 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
   kyl→kylling, kart→kartoffel, champ→champignon, sdj→sønderjysk, ...) so
   Rema's terse feed ("HK. OKSEKØD 4-7%") can meet full store names
   ("Hakket oksekød 4-7% fedt")
-- **Type** - food category (`unify_category`); store categories are noisy (the same
-  jam sits under "Kolonial" at Rema and "Frost" at Salling), so a mismatch only
-  rejects when the name score is below 0.80
+- **Type** - food category (`classify_category`, which also says where the
+  category came from: the store's own department, a guess from the name, or a
+  default). Since 12-11-2026 Bilka, Netto and Føtex save Salling's own
+  department ("Drikkevarer > Sodavand", `salling_mad.kategori`) instead of
+  `'Katalog'`; the old name guess was wrong for almost every second product
+  (Pepsi Max under Kolonial). The gate (`type_gate_rejects`) works in zones:
+  chilled (Køl + Kød & Fisk), frozen, produce, drinks and dry goods (Kolonial +
+  Slik + Brød & Kager). A default never decides anything, and the same zone
+  always passes (Dagrofa keeps sausages under "Kød", Salling under "Mejeri &
+  køl"). When both sides are store departments and one of them is frozen or
+  produce, the pair is rejected unless brand and pack size are the same (fresh
+  vs frozen wok mix, fresh vs dried herbs). Otherwise a mismatch only rejects
+  when the name score is below 0.80 and the photos are not compatible. Measured
+  with the blind test (Meny/Spar/Min Købmand with hidden EAN must find the
+  Salling product): 166 more correct matches. The guessed categories had hidden
+  some false matches by accident, so the gates that should catch them were
+  fixed at the same time: alcohol-free written "0,0" without a percent sign,
+  Faxe Kondi "0 kalorier"/"0 Kal" as sugar-free, and the flavors jalapeño,
+  eksotisk and macadamia. A promoted cheaper store only changes the card's
+  category with its own department, never with a guess
+  (`card_category_after_promotion`)
 - **Weight** - total weight/volume (`_weight_g`); multipacks like `6 x 0.33 liter`
   are parsed as totals so a single can never matches a 6-pack. The absolute
   tolerance floor (20 g) scales down to 25% of the weight for small items, so
@@ -257,7 +275,15 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
   product form (drik/budding/...) or variant
   (øko/laktosefri/...) that the base product's own text doesn't mention. In the
   cross-store phases (2/2b) the flavor gate is symmetric since both sides are
-  terse store names. Flavor keywords require a word boundary on at least one
+  terse store names. The reverse case (Rema says øko/laktosefri/sukkerfri/
+  glutenfri, the candidate is silent) costs 0.25 of the Rema score, so the
+  variant listing wins when the store has it, and it is rejected outright when
+  the store itself writes the variant on another listing with all the
+  candidate's words (Netto's "Faxe Kondi 0 kalorier" next to "Faxe Kondi").
+  Exception for øko only: a national brand named in the Rema text that the
+  store never marks øko (Bakkedal). Since 12-11-2026. Unbranded produce skips
+  the barcode-group arbitration, because every store has its own barcode on
+  its broccoli. Flavor keywords require a word boundary on at least one
   side of the hit ('cola' no longer fires inside "chocolat"), compound suffixes
   (-smag/-fyld/-overtræk/-stang) are stripped first so "saltkaramelsmag" still
   yields caramel, and longer keywords consume their text so "hvidløg" (garlic)

@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app_support import (  # noqa: E402
     ean_looks_valid, fuzzy_score, normalize_name, parse_weight_to_grams,
 )
+import app_support  # noqa: E402
 import updater  # noqa: E402
 from updater import (  # noqa: E402
     _merge_cards_sharing_ean, annotate_match_signals,
@@ -54,10 +55,10 @@ def check(label: str, ok: bool, expect_fail: bool = False) -> None:
 
 
 def product(name, brand='', weight='', kategori='Kolonial', price=20.0, hash_int=None,
-            kg_price=None, ean=''):
+            kg_price=None, ean='', brand_in_name=False):
     p = {'name': name, 'brand': brand, 'weight': weight, 'Kategori': kategori,
          'price': price, 'kg_price': kg_price, 'ean': ean, '_hash_int': hash_int}
-    if annotate_match_signals(p) is None:
+    if annotate_match_signals(p, brand_in_name=brand_in_name) is None:
         raise AssertionError(f"{name!r} blev klassificeret som ikke-mad")
     p['_cross_match_tokens'] = cross_store_tokens(p['_norm_name'])
     return p
@@ -724,6 +725,7 @@ def test_rema_ordregel_2026_10_07() -> None:
     accept("vokalloes Rema-forkortelse", 'CHORIZO M/RGT. PAPRIKA', 'Chorizo m. røget paprika Aalbæk')
     accept("stavemaade", 'NATUREL YOGURT', 'Yoghurt naturel')
     accept("synonym sovs/sauce", 'HAKKEBØF I SOVS', 'Jaka Hakkebøf I Sauce 4Stk Jaka')
+    accept("synonym solgryn/havregryn (OTA)", 'SOLGRYN', 'Finvalsede havregryn OTA')
     accept("frugt & groent maa mangle eet ord", 'ICEBERG SALAT', 'Iceberg', produce=True)
     accept("fyldord maa mangle", 'TOMATER VEJ SELV', 'Tomater', produce=True)
 
@@ -891,6 +893,160 @@ def test_delte_id_2026_11_10() -> None:
     check("kort uden delt id beholder deres id", (a['/product/id'], b['/product/id']) == before)
 
 
+def test_kategorier_og_zoner_2026_11_12() -> None:
+    """Bilka, Netto og Føtex fik deres rigtige afdelinger 12-11-2026 (før var
+    kategorien et gæt ud fra navnet, forkert for næsten hver anden vare).
+    Type-gaten arbejder nu i zoner, og et gæt afgør ingenting. De gættede
+    kategorier havde ved et tilfælde holdt nogle falske koblinger ude, så de
+    gates der egentlig skulle fange dem, er rettet samtidig (blindtest:
+    Meny/Spar/Min Købmand med skjult stregkode mod Salling)."""
+    print("\nType-gate i zoner og butikkernes egne afdelinger (12-11-2026)")
+    rej = updater.type_gate_rejects
+    BUTIK, NAVN, GAET = (app_support.CATEGORY_FROM_STORE, app_support.CATEGORY_FROM_NAME,
+                         app_support.CATEGORY_DEFAULT)
+    check("et gæt afgør intet, heller ikke mod frost",
+          not rej('Kolonial', GAET, 'Frost', BUTIK, 0.3))
+    check("samme zone: Køl og Kød & Fisk", not rej('Køl', BUTIK, 'Kød & Fisk', BUTIK, 0.3))
+    check("samme zone: Slik og Kolonial", not rej('Slik', BUTIK, 'Kolonial', BUTIK, 0.3))
+    check("frost mod køl fra begge butikker afvises, selv med ens navne",
+          rej('Frost', BUTIK, 'Køl', BUTIK, 0.95))
+    check("frugt og grønt mod kolonial afvises, selv med foreneligt foto",
+          rej('Frugt & Grønt', BUTIK, 'Kolonial', BUTIK, 0.95, lenient=True))
+    check("... medmindre mærke og pakke er det samme",
+          not rej('Frost', BUTIK, 'Køl', BUTIK, 0.95, same_pack=lambda: True))
+    check("navnegæt mod butik i hver sin zone: et stærkt navn bærer",
+          not rej('Kolonial', NAVN, 'Køl', BUTIK, 0.85))
+    check("navnegæt mod butik i hver sin zone: et svagt navn afvises",
+          rej('Kolonial', NAVN, 'Køl', BUTIK, 0.6))
+    check("navnegæt mod butik: et foreneligt foto lemper",
+          not rej('Kolonial', NAVN, 'Køl', BUTIK, 0.6, lenient=True))
+
+    must_not_match("frisk wokblanding mod frossen (begge butikkers egne afdelinger)",
+                   product('Wokblanding', weight='400 g', kategori='Frugt Og Grønt'),
+                   product('Wokblanding', weight='400 g', kategori='Frost > Grøntsager'))
+    must_match("samme mærke og pakke må gerne stå i hver sin zone",
+               product('Jordbærmarmelade', brand='Den Gamle Fabrik', weight='400 g',
+                       kategori='Kolonial'),
+               product('Jordbærmarmelade', brand='Den Gamle Fabrik', weight='400 g',
+                       kategori='Frost > Frugt & bær'))
+    # Parret fra blindtesten, som det ser ud i virkeligheden: samme stregkode,
+    # fotos 30 bit fra hinanden, og Salling skriver mærket i et felt for sig.
+    # Før skilte "Kød & Fisk" mod "Køl" dem ad.
+    must_match("pølser: Dagrofas 'Kød' mod Sallings 'Mejeri & køl' er samme zone",
+               product('Steff Grillpølser M/Ost', brand='Steff', weight='350 GR', kategori='Kød',
+                       hash_int=0x92d06964e8ceee39),
+               product('Grillpølser m. ost 62% kød', brand='Steff Houlberg', weight='350 g',
+                       kategori='Mejeri & køl > Bacon, pølser & toppings',
+                       hash_int=0x92d0ed2f929171e6, brand_in_name=True))
+
+    must_not_match("alkoholfri skrevet '0,0' uden procenttegn mod den almindelige",
+                   product('Tuborg Classic 0,0 6-Pk Ds', brand='Tuborg', weight='198 CL',
+                           kategori='Drikkevarer'),
+                   product('Tuborg Classic', brand='Tuborg', weight='1.98 l',
+                           kategori='Drikkevarer > Øl'))
+    must_match("... og den alkoholfri finder den alkoholfri",
+               product('Tuborg Classic 0,0 6-Pk Ds', brand='Tuborg', weight='198 CL',
+                       kategori='Drikkevarer'),
+               product('Tuborg Classic 0,0% alkoholfri', brand='Tuborg', weight='1.98 l',
+                       kategori='Drikkevarer > Øl'))
+    must_not_match("'0 kalorier' er den sukkerfri udgave",
+                   product('Faxe Kondi Appelsin', brand='Faxe', weight='150 CL',
+                           kategori='Drikkevarer'),
+                   product('Faxe Kondi Appelsin 0 kalorier', brand='Faxe Kondi', weight='1.5 l',
+                           kategori='Drikkevarer > Sodavand'))
+    must_match("'0 Kal.' og '0 kalorier' er samme vare",
+               product('Faxe Kondi Appelsin 0 Kal.', brand='Faxe', weight='150 CL',
+                       kategori='Drikkevarer'),
+               product('Faxe Kondi Appelsin 0 kalorier', brand='Faxe Kondi', weight='1.5 l',
+                       kategori='Drikkevarer > Sodavand'))
+    must_not_match("tunsalat mod tunsalat m. jalapeños",
+                   product('K-Salat Tunsalat', brand='K-Salat', weight='150 GR',
+                           kategori='Pålæg Og Middagsretter'),
+                   product('Tunsalat m. jalapeños', brand='K-Salat', weight='150 g',
+                           kategori='Mejeri & køl > Pålæg'))
+    must_not_match("Faxe Kondi Eksotisk mod Faxe Kondi",
+                   product('Faxe Kondi Eksotisk', brand='Faxe', weight='33 CL',
+                           kategori='Drikkevarer'),
+                   product('Faxe Kondi', brand='Faxe Kondi', weight='0.33 l',
+                           kategori='Drikkevarer > Sodavand'))
+    must_not_match("Ferrero Rocher Macadamia mod originalen",
+                   product('Ferrero Rocher Macadamia', brand='Ferrero', weight='90 GR',
+                           kategori='Kiosk - Slik Og Snack - Chokolade'),
+                   product('Ferrero Rocher original', brand='Ferrero', weight='90 g',
+                           kategori='Slik & snacks > Chokolade'))
+    must_match("... men med 'm. macadamia & hasselnød'",
+               product('Ferrero Rocher Macadamia', brand='Ferrero', weight='90 GR',
+                       kategori='Kiosk - Slik Og Snack - Chokolade'),
+               product('Ferrero Rocher m. macadamia & hasselnød', brand='Ferrero', weight='90 g',
+                       kategori='Slik & snacks > Chokolade'))
+
+
+
+def rema_pick(title, desc, brand, weight_g, cands, kategori='Drikkevarer', price=20.0):
+    """Remas valg i én butik: navnet på den vare _find_generic_match vælger."""
+    token_idx: dict = {}
+    for i, p in enumerate(cands):
+        for t in p['_norm_name'].split():
+            if len(t) >= 3:
+                token_idx.setdefault(t, set()).add(i)
+    m = updater._find_generic_match(
+        title, desc, cands, token_idx, [], rema_brand=brand, rema_weight_g=weight_g,
+        rema_price=price, rema_category=kategori,
+        rema_type_src=app_support.CATEGORY_FROM_STORE)
+    return m['name'] if m else None
+
+
+def test_rema_varianter_2026_11_12() -> None:
+    """Remas sukkerfri og økologiske varer stod med den almindelige udgave,
+    fordi variant-gaten er ensidig (et kort butiksnavn må gerne udelade
+    "øko"). Nu vælges udgaven MED varianten, når den findes, og den
+    almindelige afvises, når butikken selv skriver varianten på en anden vare
+    med samme navn."""
+    print("\nRema: sukkerfri og økologisk (12-11-2026)")
+    plain = product('Faxe Kondi', brand='Faxe Kondi', weight='1.5 l',
+                    kategori='Drikkevarer > Sodavand')
+    zero = product('Faxe Kondi 0 kalorier', brand='Faxe Kondi', weight='1.5 l',
+                   kategori='Drikkevarer > Sodavand')
+    zero_small = product('Faxe Kondi 0 kalorier', brand='Faxe Kondi', weight='0.5 l',
+                         kategori='Drikkevarer > Sodavand')
+    check("Remas 'Faxe kondi 0 kcal' vælger '0 kalorier' frem for den almindelige",
+          rema_pick('FAXE KONDI', 'Faxe kondi 0 kcal', '0  KALORIER', 1500.0,
+                    [plain, zero]) == 'Faxe Kondi 0 kalorier')
+    check("... og den almindelige Rema-vare vælger stadig den almindelige",
+          rema_pick('FAXE KONDI', 'Faxe kondi', '', 1500.0,
+                    [plain, zero]) == 'Faxe Kondi')
+    check("butikken skriver '0 kalorier' på en anden størrelse: ingen kobling til den almindelige",
+          rema_pick('FAXE KONDI', 'Faxe kondi lemonade 0 kcal.', 'LEMONADE 0 KCAL', 1500.0,
+                    [plain, zero_small]) is None)
+    check("mærke der altid er økologisk (Bakkedal) kobles stadig",
+          rema_pick('BAKKEDAL', 'Bakkedal, økologisk', 'ØKOLOGISK', 200.0,
+                    [product('Bakkedal Smørbar', brand='Bakkedal', weight='200 GR',
+                             kategori='Mejeri')], kategori='Køl') == 'Bakkedal Smørbar')
+    check("Arla Cultura laktosefri kobles ikke med Karolines hytteost",
+          rema_pick('NATUREL', 'Arla Cultura naturel, laktosefri', 'ARLA CULTURA, LAKTOSEFRI',
+                    450.0, [product('Hytteost naturel 4% fedt', brand='Arla Karolines Køkken',
+                                    weight='450 g', kategori='Mejeri & køl > Mejeri')],
+                    kategori='Køl') is None)
+    check("Spars 'Broccoli Økol.' er økologisk", app_support.is_organic('Broccoli Økol.'))
+    check("'Hvedemel Øk' og 'Økorugmel' er økologiske",
+          app_support.is_organic('Il Fornaio Ita.Hvedemel Øk') and app_support.is_organic('Økorugmel 1 Kg.'))
+    check("'V6 Liquorice Økonomi' er ikke økologisk",
+          not app_support.is_organic('V6 Liquorice Økonomi'))
+    check("Dagrofas 'Lkf' er laktosefri", app_support.is_lactose_free('Arla Letmælk Lkf Øko'))
+
+    # Frugt og grønt uden mærke: hver butik har sin egen stregkode, så to
+    # grupper er ikke uafgjort (Remas økologiske broccoli mistede alt).
+    salling = dict(product('Broccoli øko', brand='Salling ØKO', weight='1 stk',
+                           kategori='Frugt & grønt > Grøntsager'), ean='5712870538327')
+    meny = dict(product('Øko. Broccoli', brand='Øko.', weight='500 GR',
+                        kategori='Frugt Og Grønt'), ean='5701410390266')
+    kept = updater._arbitrate_ean_clusters({'bilka': salling, 'meny': meny},
+                                           'ØKO. BROCCOLI', 'Broccoli ØKO',
+                                           'LAND/KL.: SE VAREN', rema_produce=True)
+    check("to butikkers økologiske broccoli med hver sin stregkode beholdes begge",
+          set(kept) == {'bilka', 'meny'})
+
+
 def main() -> int:
     print("=" * 62)
     print("MATCHMOTOR - REGRESSIONSTEST")
@@ -927,6 +1083,8 @@ def main() -> int:
     test_soegning_finder_andre_butikkers_navne_2026_10_10()
     test_skraldenavne_2026_11_10()
     test_delte_id_2026_11_10()
+    test_kategorier_og_zoner_2026_11_12()
+    test_rema_varianter_2026_11_12()
     test_kendte_huller()
 
     print()

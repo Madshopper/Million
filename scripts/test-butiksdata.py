@@ -64,9 +64,11 @@ _stub_if_missing(
 
 import app_support  # noqa: E402
 from app_support import (  # noqa: E402
-    CAT_BROED_KAGER, CAT_DRIKKEVARER, CAT_FRUGT_GROENT, CAT_KOLONIAL, CAT_SLIK,
-    is_age_restricted, is_non_food_name, parse_stk_count, parse_weight_to_grams,
-    unify_category,
+    CAT_BROED_KAGER, CAT_DRIKKEVARER, CAT_FROST, CAT_FRUGT_GROENT, CAT_KOED_FISK,
+    CAT_KOLONIAL, CAT_MEJERI, CAT_SLIK, CATEGORY_DEFAULT, CATEGORY_FROM_NAME,
+    CATEGORY_FROM_STORE, card_category_after_promotion, category_is_real,
+    classify_category, is_age_restricted, is_non_food_name, parse_stk_count,
+    parse_weight_to_grams, unify_category,
 )
 import avis_tekst  # noqa: E402
 import dagrofa_scraper  # noqa: E402
@@ -183,9 +185,9 @@ def test_netto_kolli():
     netto_katalog.fetch_existing_products = lambda butik: {}
     netto_katalog.enrich_billede_hashes = lambda rows: None
 
-    def nhit(name, ore, units=None, unit=None):
+    def nhit(name, ore, units=None, unit=None, tree=None):
         return {'name': name, 'gtin': str(abs(hash(name)) % 10**13).zfill(13),
-                'units': units, 'unitsOfMeasure': unit,
+                'units': units, 'unitsOfMeasure': unit, 'consumerFacingHierarchy': tree,
                 'storeData': {'7701': {'price': ore}}}
     try:
         rows = netto_katalog.build_rows([
@@ -193,6 +195,8 @@ def test_netto_kolli():
             nhit('Faxe Kondi 24 x 33 cl', 10000),      # præcis grænsen, uden mål
             nhit('Mariekiks', 500),                    # billig uden mål: rigtig vare
             nhit('Oksemørbrad', 29900, 1200, 'g'),     # dyr MED mål: rigtig vare
+            nhit('Pepsi Max 1,5 l', 2000, 1.5, 'l',
+                 {'lvl0': ['Drikkevarer'], 'lvl1': ['Drikkevarer > Sodavand']}),
         ])
     finally:
         netto_katalog.fetch_existing_products, netto_katalog.enrich_billede_hashes = saved
@@ -201,6 +205,9 @@ def test_netto_kolli():
     check("vare uden mål til præcis 100 kr udelades", 'Faxe Kondi 24 x 33 cl' not in names)
     check("billig vare uden mål bliver", 'Mariekiks' in names)
     check("dyr vare med mål bliver", 'Oksemørbrad' in names)
+    kategori = {r['navn']: r.get('kategori') for r in rows}
+    eq("rækken får Nettos egen afdeling", kategori.get('Pepsi Max 1,5 l'), 'Drikkevarer > Sodavand')
+    eq("uden afdeling står der 'Katalog'", kategori.get('Mariekiks'), 'Katalog')
 
 
 # ── Scraperens ordliste (keywords.py) ────────────────────────────────────────
@@ -466,6 +473,95 @@ def test_avis_tilbud():
           not signal(offer('Mikroovn', '700 W', 499.0, 'pcs', (1, 1), (1, 1))))
 
 
+# ── Kategorier: butikkens egen afdeling i stedet for et gæt ─────────────────
+
+def test_kategorier():
+    print("\nKategorier: salling_mad.kategori, classify_category, kortets kategori")
+    # Før 12-11-2026 gemte Bilka, Netto og Føtex 'Katalog' på alle varer, så
+    # kategorien blev gættet ud fra navnet. Gættet var forkert for næsten hver
+    # anden vare (Pepsi Max under Kolonial).
+    kat = salling_mad.kategori
+    eq("Salling: afdeling og underafdeling",
+       kat(hit('Pepsi Max', 'Drikkevarer', 'Sodavand', 'Cola')), 'Drikkevarer > Sodavand')
+    eq("Salling: kun afdeling", kat(hit('Sødmælk', 'Mejeri & køl')), 'Mejeri & køl')
+    eq("Salling: uden kategori", kat(hit('Ny vare')), 'Katalog')
+    eq("Salling: 'Not Categorized' tæller ikke", kat(hit('Ny vare', 'Not Categorized')), 'Katalog')
+    eq("Salling: hierarki = null vælter ikke",
+       kat({'name': 'x', 'consumerFacingHierarchy': None}), 'Katalog')
+
+    cc = classify_category
+    BUTIK, NAVN, GAET = CATEGORY_FROM_STORE, CATEGORY_FROM_NAME, CATEGORY_DEFAULT
+    eq("Pepsi Max med Sallings afdeling er en drikkevare",
+       cc('Drikkevarer > Sodavand', 'Pepsi Max'), (CAT_DRIKKEVARER, BUTIK))
+    eq("kaffe er en drikkevare, selv om Salling har den under Kolonial",
+       cc('Kolonial > Kaffe, te & kakao', 'Formalet kaffe'), (CAT_DRIKKEVARER, BUTIK))
+    eq("tørret frugt og bars er kolonial, ikke slik",
+       cc('Slik & snacks > Tørret frugt, frugtsnacks & bars', 'Abrikoser'), (CAT_KOLONIAL, BUTIK))
+    eq("resten af 'Slik & snacks' er slik",
+       cc('Slik & snacks > Chips, nødder & snacks', 'Kims Chips'), (CAT_SLIK, BUTIK))
+    eq("pålæg under 'Mejeri & køl' er køl", cc('Mejeri & køl > Pålæg', 'Leverpostej'),
+       (CAT_MEJERI, BUTIK))
+    eq("frost er frost", cc('Frost > Grøntsager', 'Ærter'), (CAT_FROST, BUTIK))
+    eq("kød er kød", cc('Kød & fisk > Grisekød', 'Flæskesteg'), (CAT_KOED_FISK, BUTIK))
+    eq("'Mad fra hele verden' er kolonial",
+       cc('Mad fra hele verden > Asiatisk mad', 'Kokosmælk'), (CAT_KOLONIAL, BUTIK))
+    eq("babymad er kolonial", cc('Baby & børn > Baby- & børnemad', 'Semper Grød'),
+       (CAT_KOLONIAL, BUTIK))
+    eq("bleer er ikke mad", cc('Baby & børn > Bleer', 'Bleer str. 4'), (None, ''))
+    eq("proteinbar under personlig pleje gættes ud fra navnet (ikke skjult)",
+       cc('Personlig pleje > Helse & kosttilskud', 'Barebells Salty Peanut'),
+       (CAT_KOLONIAL, GAET))
+    eq("'Katalog' (uden kategori) er kun et gæt", cc('Katalog', 'Pepsi Max'),
+       (CAT_KOLONIAL, GAET))
+    # Spar og Min Købmand kalder afdelingen noget andet end Meny. Den manglede,
+    # så 310 pakker pålæg stod under Kolonial.
+    eq("Spar/Min Købmand: 'Pålæg Og Middagsretter' er køl",
+       cc('Pålæg Og Middagsretter', 'Leverpostej'), (CAT_MEJERI, BUTIK))
+    eq("Meny: 'Pålæg Og Kølede Middagsretter' er køl",
+       cc('Pålæg Og Kølede Middagsretter', 'Leverpostej'), (CAT_MEJERI, BUTIK))
+    # Kiosk-reglerne (Remas blandede kiosk) ramte 'kiosk' midt i Dagrofas
+    # afdelingsnavne og sendte 41 slik og chips til Drikkevarer.
+    eq("Dagrofa: lakrids i kiosk-slik er slik, ikke en drikkevare",
+       cc('Kiosk - Slik Og Snack - Slik', 'Toms Pingvin Lakrids'), (CAT_SLIK, BUTIK))
+    eq("Dagrofa: chips med eddike er slik",
+       cc('Kiosk - Slik Og Snack - Chips Og Snacks', 'Kims Salt & Vinegar'), (CAT_SLIK, BUTIK))
+    eq("Dagrofa: slikkepind i slik-afdelingen er slik, ikke frost",
+       cc('Kiosk - Slik Og Snack - Slik', 'Chupa Chups Lolly'), (CAT_SLIK, BUTIK))
+    eq("avis: ispind er frost ud fra navnet", cc('Tilbudsavis', 'Magnum ispind'),
+       (CAT_FROST, NAVN))
+    eq("avis: cola er en drikkevare ud fra navnet", cc('Tilbudsavis', 'Coca-Cola'),
+       (CAT_DRIKKEVARER, NAVN))
+    eq("avis: ukendt navn er kun et gæt", cc('Tilbudsavis', 'Hakket oksekød 8-12%'),
+       (CAT_KOLONIAL, GAET))
+    eq("Rema: spiritus i kiosken er en drikkevare", cc('Kiosk', 'VODKA 37,5%')[0],
+       CAT_DRIKKEVARER)
+    eq("husholdning er ikke mad", cc('Husholdning', 'Opvaskemiddel'), (None, ''))
+
+    check("en kendt afdeling er rigtig", category_is_real('Drikkevarer > Sodavand'))
+    check("Spar/Min Købmands pålæg er en rigtig afdeling",
+          category_is_real('Pålæg Og Middagsretter'))
+    check("'Katalog' er ikke en rigtig afdeling", not category_is_real('Katalog'))
+    check("'Tilbudsavis' er ikke en rigtig afdeling", not category_is_real('Tilbudsavis'))
+    check("Remas blandede 'Kiosk' er ikke en rigtig afdeling", not category_is_real('Kiosk'))
+    check("en afdeling der afgøres af navnet, er ikke en rigtig afdeling",
+          not category_is_real('Personlig pleje > Helse & kosttilskud'))
+
+    # Når en billigere butik bliver kortets forside, må den kun skifte kortets
+    # kategori med sin egen afdeling, ikke med et gæt.
+    promo = card_category_after_promotion
+    eq("billigere butik med rigtig afdeling skifter kortets kategori",
+       promo(CAT_KOLONIAL, {'Kategori': 'Drikkevarer > Sodavand', 'name': 'Pepsi Max'}),
+       CAT_DRIKKEVARER)
+    eq("et gæt overskriver ikke kortets kategori",
+       promo(CAT_DRIKKEVARER, {'Kategori': 'Tilbudsavis', 'name': 'Pepsi Max'}), None)
+    eq("et gæt må udfylde en manglende kategori",
+       promo('', {'Kategori': 'Tilbudsavis', 'name': 'Coca-Cola'}), CAT_DRIKKEVARER)
+    eq("et gæt må erstatte 'Andre varer'",
+       promo('Andre varer', {'Kategori': 'Tilbudsavis', 'name': 'Coca-Cola'}), CAT_DRIKKEVARER)
+    eq("ikke-mad skifter aldrig kortets kategori",
+       promo(CAT_KOLONIAL, {'Kategori': 'Husholdning', 'name': 'Opvask'}), None)
+
+
 def main() -> int:
     test_salling_mad()
     test_netto_kolli()
@@ -475,6 +571,7 @@ def main() -> int:
     test_dagrofa_stoerrelse()
     test_avis_tekst()
     test_avis_tilbud()
+    test_kategorier()
 
     print()
     if fails:

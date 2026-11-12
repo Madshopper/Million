@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from supabase_utils import get_client, enrich_billede_hashes, shrink_guard_ok, fetch_existing_products, save_product_dicts, salling_offer_fields
-from salling_mad import is_food_hit, assert_hierarchy_healthy, hierarchy, FOOD_LVL0
+from salling_mad import is_food_hit, assert_hierarchy_healthy, hierarchy, kategori, FOOD_LVL0
 
 # ── Algolia ──────────────────────────────────────────────────────────────────
 ALGOLIA_APP_ID = 'F9VBJLR1BK'
@@ -35,7 +35,6 @@ REF_STORES = ['1373']
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 BUTIK    = 'Foetex'
-KATEGORI = 'Katalog'
 
 
 def _algolia_page(page: int) -> list[dict]:
@@ -147,7 +146,7 @@ def build_rows(hits: list[dict]) -> list[dict]:
 
         rows.append({
             'butik':        BUTIK,
-            'kategori':     KATEGORI,
+            'kategori':     kategori(hit),
             'navn':         naam,
             'producent':    producent,
             'netto_vaegt':  _weight(hit),

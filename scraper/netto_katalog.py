@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from supabase_utils import get_client, enrich_billede_hashes, shrink_guard_ok, fetch_existing_products, save_product_dicts, salling_offer_fields
-from salling_mad import is_food_hit, assert_hierarchy_healthy
+from salling_mad import is_food_hit, assert_hierarchy_healthy, kategori
 
 # ── Algolia ──────────────────────────────────────────────────────────────────
 ALGOLIA_APP_ID = 'F9VBJLR1BK'
@@ -34,7 +34,6 @@ REF_STORES = ['7701']
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 BUTIK   = 'Netto'
-KATEGORI = 'Katalog'
 
 # Nettos indeks rummer også handelsenheder (kolli og hele paller) uden mål:
 # målt 11-11-2026 "Faxe Kondi" og "Pepsi Max" til 1.650 kr, "Shiraz-Cabernet"
@@ -158,7 +157,7 @@ def build_rows(hits: list[dict]) -> list[dict]:
 
         rows.append({
             'butik':       BUTIK,
-            'kategori':    KATEGORI,
+            'kategori':    kategori(hit),
             'navn':        naam,
             'producent':   producent,
             'netto_vaegt': vaegt,

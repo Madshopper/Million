@@ -72,6 +72,30 @@ def hierarchy(hit: dict) -> tuple[str, frozenset]:
     return str(lvl0[0]).strip().lower(), paths
 
 
+# Rækkens kategori, når varen ingen har i kategoritræet: visningslaget
+# (app_support.unify_category) gætter så afdelingen ud fra navnet, som det
+# gjorde for alle varer, da feltet var hardkodet til dette.
+UDEN_KATEGORI = 'Katalog'
+
+
+def kategori(hit: dict) -> str:
+    """Varens plads i Sallings kategoritræ som tekst til produkter.kategori:
+    afdeling og underafdeling, fx "Kolonial > Kaffe, te & kakao".
+
+    Feltet var hardkodet til 'Katalog' for alle varer hos Bilka, Netto og
+    Føtex, så afdelingen blev gættet ud fra navnet og var forkert for næsten
+    hver anden vare (se app_support._STORE_CATEGORIES, som oversætter stien
+    til sidens kategorier). To niveauer er nok til det og holder teksten
+    kort: den følger med hver vare ud i cachen og D1."""
+    tree = hit.get('consumerFacingHierarchy') or {}
+    for key in ('lvl1', 'lvl0'):
+        values = _as_list(tree.get(key))
+        path = str(values[0]).strip() if values else ''
+        if path and not path.lower().startswith('not categorized'):
+            return path
+    return UDEN_KATEGORI
+
+
 def is_food_hit(hit: dict) -> bool:
     name = hit.get('name') or ''
     if is_non_food(name):
