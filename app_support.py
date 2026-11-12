@@ -812,6 +812,11 @@ _FLAVOR_MAP = {
     'watermelon': ('watermelon', 'melon'), 'vandmelon': ('watermelon', 'melon'),
     'drue': 'grape',  # dækker også "druer" (ordstart); "vindruer" fanges af 'vindrue'
     'skovbær': 'forestberry',
+    # "Blue Keld Bfree lemon lime" stod med Sallings "Vand m. brus brombær"
+    # (12-11-2026): brombær var ikke en smag.
+    'brombær': 'blackberry', 'blackberry': 'blackberry',
+    # Saucer: Knorrs bearnaise stod med persillesaucen i samme størrelse.
+    'bearnaise': 'bearnaise', 'hollandaise': 'hollandaise', 'persille': 'parsley',
     # "Faxe Kondi Eksotisk" er en anden smag end Faxe Kondi, og "Ferrero
     # Rocher Macadamia" en anden end originalen (blindtest 12-11-2026).
     'eksotisk': 'exotic', 'exotic': 'exotic',
@@ -1249,6 +1254,25 @@ def weights_compatible(w_a: float | None, w_b: float | None, tolerance: float | 
     return abs(w_a - w_b) <= tolerance
 
 
+# Uden fælles stregkode (Rema, aviserne og fuzzy-matchingen mellem butikkerne)
+# er vægten det eneste bevis for, at det er samme pakning. Bunden på 20 g i
+# weights_compatible er til afrunding, men under 250 g blev den til 8-25 % af
+# vægten: Katjes 80 g stod med 100 g, Pringles 165 g med 185 g og Remas
+# mandler 90 g med lakridsmandler 110 g (målt 12-11-2026). Blandt sande par
+# (samme stregkode i to butikker) lå kun 13 af 8.507 mere end 8 % fra
+# hinanden. weights_compatible bruges stadig, hvor stregkoden er beviset.
+_SAME_PACK_TOLERANCE_REL = 0.08
+_SAME_PACK_TOLERANCE_G = 2.0   # afrunding af små varer (7,5 g mod 8 g)
+
+
+def same_pack_weight(w_a: float | None, w_b: float | None) -> bool:
+    """Vægt-gaten for to varer uden fælles stregkode: højst 8 % forskel."""
+    if w_a is None or w_b is None:
+        return True
+    w_max = max(w_a, w_b)
+    return abs(w_a - w_b) <= max(_SAME_PACK_TOLERANCE_G, _SAME_PACK_TOLERANCE_REL * w_max)
+
+
 # ---------------------------------------------------------------------------
 # EAN/GTIN-validering
 # ---------------------------------------------------------------------------
@@ -1361,7 +1385,11 @@ _SUGAR_FREE_RE = re.compile(
     r'|uden sukker|\bnul suk|0% sugar'
     # "Faxe Kondi 0 kalorier" (Salling), "0 Kal." (Dagrofa), "0 kcal" (Rema).
     # Uden dem stod sukkerfri Faxe Kondi med den almindelige (12-11-2026).
-    r'|\b0\s*(?:kalorier|kalorie|kcal|kal)\b')
+    r'|\b0\s*(?:kalorier|kalorie|kcal|kal)\b'
+    # Dagrofas "Faxe Kondi Free" og "Faxe Kondi Booster Free" er de sukkerfri
+    # (Salling: "0 kalorier" og "Energidrik sukkerfri"). Kun efter Kondi:
+    # bart "free" står også på alkoholfri vin ("Free Chardonnay").
+    r'|\b(?:kondi|booster)\s+free\b')
 
 
 def is_sugar_free(name: str, desc: str = '', brand: str = '') -> bool:
@@ -1395,7 +1423,9 @@ def is_gluten_free(name: str, desc: str = '', brand: str = '') -> bool:
 # alkoholfri sat sammen med den almindelige (blindtest 12-11-2026). Et "0,0"
 # efterfulgt af "fedt" er en fedtprocent og tæller ikke.
 _ALCOHOL_FREE_RE = re.compile(
-    r'alkoholfri|alkohol fri|alcohol[- ]free|\bnul ?%|\b0[,.]0\b(?! ?%? ?fedt)')
+    r'alkoholfri|alkohol fri|alcohol[- ]free|\bnul ?%|\b0[,.]0\b(?! ?%? ?fedt)'
+    # Dagrofa: "Skovlyst Ahornbryg Alk.Fri" (12-11-2026).
+    r'|\balk\.?\s?fri\b')
 
 
 def is_alcohol_free(name: str, desc: str = '', brand: str = '') -> bool:
@@ -1405,6 +1435,20 @@ def is_alcohol_free(name: str, desc: str = '', brand: str = '') -> bool:
 
 _CAFFEINE_FREE_RE = re.compile(
     r'koffeinfri|koffein[- ]fri|uden koffein|decaffeinated|\bdecaf\b')
+
+
+# Faxe Kondi findes både som sodavand og som energidrik: "Faxe Kondi Booster"
+# hos Dagrofa, Rema og Lidl, "Energidrik" med producenten Faxe Kondi hos
+# Salling. Samme mærke, navn og størrelse, så energidrikken stod med den
+# almindelige Faxe Kondi (blindtest 12-11-2026). Kun Kondi: andre
+# energidrikke hedder bare deres mærke hos Dagrofa ("Red Bull 25 Cl").
+_KONDI_ENERGY_RE = re.compile(r'\bbooster\b|\benergidrik|\benergy\b|\bboost\b')
+
+
+def is_energy_variant(name: str, desc: str = '', brand: str = '') -> bool:
+    """True for Faxe Kondis energidrik (Booster), False for sodavanden."""
+    text = f"{name} {desc} {brand}".lower()
+    return 'kondi' in text and bool(_KONDI_ENERGY_RE.search(text))
 
 
 def is_caffeine_free(name: str, desc: str = '', brand: str = '') -> bool:

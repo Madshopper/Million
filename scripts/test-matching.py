@@ -1068,6 +1068,61 @@ def test_rema_varianter_2026_11_12() -> None:
           set(kept) == {'bilka', 'meny'})
 
 
+def test_rema_beskrivelse_2026_11_12() -> None:
+    """Remas ord må ikke kun stå i kandidatens beskrivelse, når vægten mangler."""
+    print("\nRema: ord der kun står i beskrivelsen (12-11-2026)")
+    tea = product('Grøn te m. mandarin og appelsin', brand='Salling', weight='20 stk',
+                  kategori='Kolonial > Kaffe, te & kakao')
+    check("Remas appelsinnektar kobles ikke med grøn te m. appelsin (20 breve)",
+          rema_pick('APPELSIN', 'Appelsin nektar', 'REMA 1000', 1500.0, [tea],
+                    price=16.95) is None)
+    f = updater.rema_words_only_in_descriptor
+    check("... reglen ser at appelsin kun står efter 'm.'",
+          f('appelsin', 'appelsin appelsin nektar nektar', 'grøn te m mandarin og appelsin'))
+    check("hovedordet findes hos Rema: ingen afvisning ('Yoghurt m. jordbær')",
+          not f('jordbær', 'jordbær yoghurt med jordbær', 'yoghurt m jordbær'))
+    check("ordet står foran beskrivelsen: ingen afvisning ('Laks i skiver')",
+          not f('laks i skiver', 'laks i skiver røget laks', 'laks i skiver'))
+
+
+def test_pakning_og_varianter_2026_11_12() -> None:
+    """Uden stregkode er vægten beviset for samme pakning, og Faxe Kondi
+    findes både som sodavand, sukkerfri og energidrik (blindtest 12-11-2026)."""
+    print("\nPakning og varianter uden stregkode (12-11-2026)")
+    spw = app_support.same_pack_weight
+    check("80 g mod 100 g er to pakninger", not spw(80.0, 100.0))
+    check("165 g mod 185 g er to pakninger", not spw(165.0, 185.0))
+    check("500 g mod 510 g er samme pakning (afrunding)", spw(500.0, 510.0))
+    check("7,5 g mod 8 g er samme pakning (afrunding)", spw(7.5, 8.0))
+    check("mangler vægten, afgør vægten intet", spw(None, 100.0))
+    must_not_match("Katjes Salte Fisk 80 g mod Salte fisk 100 g",
+                   product('Katjes Salte Fisk', brand='Katjes', weight='80 GR', kategori='Slik'),
+                   product('Salte fisk', brand='Katjes', weight='100 g',
+                           kategori='Slik & snacks > Vingummi & lakrids'))
+    kondi = product('Faxe Kondi', brand='Faxe Kondi', weight='0.5 l',
+                    kategori='Drikkevarer > Sodavand')
+    must_not_match("Faxe Kondi Booster mod Faxe Kondi",
+                   product('Faxe Kondi Booster', brand='Faxe', weight='50 CL', kategori='Drikkevarer'),
+                   kondi)
+    must_not_match("Faxe Kondi Free mod den almindelige Faxe Kondi",
+                   product('Faxe Kondi Free', brand='Faxe', weight='50 CL', kategori='Drikkevarer'),
+                   kondi)
+    check("'Free Chardonnay alkoholfri' er ikke sukkerfri",
+          not app_support.is_sugar_free('Free Chardonnay alkoholfri'))
+    check("Dagrofas 'Alk.Fri' er alkoholfri",
+          app_support.is_alcohol_free('Skovlyst Ahornbryg Alk.Fri'))
+    must_not_match("Skovlyst Ahornbryg Alk.Fri mod den almindelige Ahornbryg",
+                   product('Skovlyst Ahornbryg Alk.Fri', brand='Skovlyst', weight='50 CL',
+                           kategori='Drikkevarer'),
+                   product('Ahornbryg', brand='Skovlyst', weight='0.5 l',
+                           kategori='Drikkevarer > Øl'))
+    check("brombær er en smag", 'blackberry' in updater.get_product_flavors('Vand m. brus brombær'))
+    must_not_match("Knorr bearnaise 57 g mod persillesauce 60 g",
+                   product('Knorr Bearnaise Sauce 3X19', brand='Knorr', weight='57 GR', kategori='Kolonial'),
+                   product('Persillesauce', brand='Knorr', weight='60 g',
+                           kategori='Kolonial > Olie, eddike, dressing & sauce'))
+
+
 def main() -> int:
     print("=" * 62)
     print("MATCHMOTOR - REGRESSIONSTEST")
@@ -1107,6 +1162,8 @@ def main() -> int:
     test_kategorier_og_zoner_2026_11_12()
     test_rema_varianter_2026_11_12()
     test_enhedspris_2026_11_12()
+    test_rema_beskrivelse_2026_11_12()
+    test_pakning_og_varianter_2026_11_12()
     test_kendte_huller()
 
     print()

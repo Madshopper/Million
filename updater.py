@@ -19,7 +19,7 @@ from app_support import (
     build_search_index, logger,
     DEFAULT_HTTP_HEADERS, _STORE_CONFIGS, format_price,
     normalize_name, fuzzy_score, rapid_ratio,
-    parse_weight_to_grams, parse_stk_count, weights_compatible,
+    parse_weight_to_grams, parse_stk_count, weights_compatible, same_pack_weight,
     plausible_kg_price,
     ean_looks_valid, ean_key, eans_conflict,
     _PLACEHOLDER_IMGS,
@@ -32,6 +32,7 @@ from app_support import (
     _HASH_CANDIDATE_MAX_DIST,
     is_organic, is_lactose_free, is_sugar_free, is_gluten_free, is_alcohol_free,
     is_caffeine_free,
+    is_energy_variant,
     get_meat_types, meats_match as _meats_match,
     _compile_keyword_patterns, _extract_keywords,
     get_product_flavors, get_search_flavor_keywords,
@@ -619,6 +620,8 @@ def _variant_flags(name: str, desc: str = '', brand: str = '') -> tuple:
         # Nescafé Gold Koffeinfri deler vægt, mærke, navnestamme og ofte foto.
         # Målt på guldsættet: 2 færre falsk-positive, 0 tabte sande match.
         is_caffeine_free(name, desc, brand),
+        # Faxe Kondi Booster (energidrik) mod Faxe Kondi (sodavand).
+        is_energy_variant(name, desc, brand),
     )
 
 
@@ -1309,7 +1312,7 @@ def _arbitrate_ean_clusters(matches: dict, rema_title: str, rema_description: st
     return kept
 
 
-_NO_VARIANT_FLAGS = (False, False, False, False, False, False)
+_NO_VARIANT_FLAGS = (False, False, False, False, False, False, False)
 
 
 def _drop_silent_own_brand_organic(matches: dict, rema_variants: tuple) -> dict:
@@ -1435,15 +1438,15 @@ def _forms_match(base_forms: set, cand_forms: set) -> bool:
 
 
 # Indeks i _variant_flags-tuplen der skal vurderes SYMMETRISK - se
-# _variants_compatible. Alkoholfri (4) og koffeinfri (5): (øko, laktosefri,
-# sukkerfri, glutenfri, alkoholfri, koffeinfri).
+# _variants_compatible. Alkoholfri (4), koffeinfri (5) og Kondis energidrik
+# (6): (øko, laktosefri, sukkerfri, glutenfri, alkoholfri, koffeinfri, energi).
 #
 # Sukkerfri er prøvet symmetrisk 12-11-2026 og forkastet: Rema skriver
 # "sukkerfri"/"u/sukker"/"NUL sukker" på varer, hvor de andre butikker ikke
 # gør (President flødeskum, Odense marcipan, Harboe Cloudy Lemon), så rigtige
 # koblinger forsvandt. Rema-sporet foretrækker i stedet en kandidat med samme
 # flag, når der er flere at vælge imellem (_VARIANT_MISMATCH_PENALTY).
-_SYMMETRIC_VARIANT_DIMS = frozenset({4, 5})
+_SYMMETRIC_VARIANT_DIMS = frozenset({4, 5, 6})
 
 # Fradrag i Rema-sporets score, når Rema-varen har en variant (øko,
 # laktosefri, sukkerfri, glutenfri), som kandidaten ikke nævner. Gaten tillader
@@ -2114,6 +2117,44 @@ def rema_title_words_covered(rema_title_norm: str, cand_text_norm: str,
     return any(not get_product_colours(w) for w in found)
 
 
+# Ord der indleder beskrivelsen i et varenavn: "Grøn te m. mandarin og
+# appelsin", "Yoghurt med jordbær", "Sauce til pasta".
+_DESCRIPTOR_WORDS: frozenset = frozenset({'m', 'med', 'i', 'til', 'uden', 'w', 'with'})
+
+
+def rema_words_only_in_descriptor(rema_title_norm: str, rema_text_norm: str,
+                                  cand_norm: str) -> bool:
+    """Står Remas titelord kun i kandidatens beskrivelse, mens ingen af
+    kandidatens hovedord findes hos Rema?
+
+    Remas "APPELSIN" (appelsinnektar, 1,5 l) stod med Sallings "Grøn te m.
+    mandarin og appelsin" (20 breve), fordi "appelsin" findes i navnet
+    (målt 12-11-2026). Men appelsin står efter "m."; varen er grøn te.
+
+    Bruges kun når den ene side mangler vægt. Med vægt på begge sider er
+    Sallings beskrivende navne i orden ("Tyggegummi m. spearmintsmag" er
+    Stimorol Spearmint, "Smøreost m. hvidløg og urter" er Philadelphia), og
+    de andre gates dømmer. Målt på en fuld kørsel: 4 af 4.108 Rema-koblinger.
+    """
+    toks = cand_norm.split()
+    cut = next((i for i, t in enumerate(toks) if i > 0 and t in _DESCRIPTOR_WORDS), None)
+    if cut is None:
+        return False
+    head = [t for t in toks[:cut] if t.isalpha()]
+    if not head or not any(t.isalpha() for t in toks[cut + 1:]):
+        return False
+    rema_tokens = rema_text_norm.split()
+    rema_tokens += [a + b for a, b in zip(rema_tokens, rema_tokens[1:])]
+    if any(_rema_word_found(h, rema_tokens) for h in head):
+        return False
+    words = [w for w in rema_title_norm.split()
+             if len(w) >= 3 and w.isalpha() and w not in _REMA_WORD_NOISE]
+    if not words:
+        return False
+    head_tokens = head + [a + b for a, b in zip(head, head[1:])]
+    return not any(_rema_word_found(w, head_tokens) for w in words)
+
+
 # Ord der ikke skiller to varer ad i ordreglen for fase 2/2b, ud over
 # Rema-listen: emballage, salgsord og forbindelsesord.
 _PAIR_WORD_NOISE: frozenset = _REMA_WORD_NOISE | frozenset({
@@ -2262,7 +2303,7 @@ def cross_store_pair_verdict(base_p: dict, target_p: dict, base_norm: str,
 
     base_weight = base_p.get('_weight_g')
     target_weight = target_p.get('_weight_g')
-    if not weights_compatible(base_weight, target_weight):
+    if not same_pack_weight(base_weight, target_weight):
         return False, 0.0, 'vægt'
 
     base_stk = base_p.get('_stk_count')
@@ -2717,8 +2758,8 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
         # allerede anvender eksplicit i fase 2/2b. Ændrer intet i
         # resultatet, kun arbejdsmængden. Se matchmotor-revisionen
         # 2026-08-16, fund M4.
-        # Gate B: Weight
-        if not weights_compatible(rema_weight_g, p.get('_weight_g')):
+        # Gate B: Weight (same_pack_weight: Rema har ingen stregkode)
+        if not same_pack_weight(rema_weight_g, p.get('_weight_g')):
             continue
 
         # Gate B2: Stk-count - skip if both have a known stk count that differs
@@ -2775,6 +2816,13 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
                     f"{p['_norm_name']} {normalize_name(p.get('brand', ''))}",
                     produce=(rema_type == CAT_FRUGT_GROENT
                              and p['_type'] == CAT_FRUGT_GROENT))):
+            continue
+        # Uden vægt på begge sider må Remas ord ikke kun stå i kandidatens
+        # beskrivelse (rema_words_only_in_descriptor).
+        if (rema_title_norm and not near_identical_photo
+                and (not rema_weight_g or not p.get('_weight_g'))
+                and rema_words_only_in_descriptor(
+                    rema_title_norm, rema_text_norm, p['_norm_name'])):
             continue
 
         # Gate D: Dairy variant + first-token checks
@@ -4569,7 +4617,14 @@ def fetch_and_parse_xml():
                         if hit is None:
                             continue
                         hit_w = hit.get('_weight_g')
-                        if hit_w and rema_w and not weights_compatible(rema_w, hit_w):
+                        # Vejer den matchede vare selv, har den allerede
+                        # bestået same_pack_weight. Butikkerne kan være uenige
+                        # om vægten på samme stregkode (Knorr bearnaise: 57 g
+                        # hos Dagrofa, 66 g hos Salling), så her bruges den
+                        # rummelige regel. Mangler den matchede vare vægt, er
+                        # stregkodens vægt det eneste bevis.
+                        weight_ok = weights_compatible if m.get('_weight_g') else same_pack_weight
+                        if hit_w and rema_w and not weight_ok(rema_w, hit_w):
                             bad_eans.add(ean)
                             break
                         if not _percents_match(rema_pcts, hit.get('_pcts', frozenset())):
@@ -4634,12 +4689,17 @@ def fetch_and_parse_xml():
             )
             if found_ean:
                 rema_stk = product.get('/product/stk_count')
+                # Samme regel som i EAN-retro-valideringen ovenfor.
+                fill_weight_ok = (weights_compatible
+                                  if any(m.get('_weight_g') for m in matches.values()
+                                         if m.get('ean') == found_ean)
+                                  else same_pack_weight)
                 for key in DB_STORE_KEYS:
                     if key not in matches:
                         _, _, _, ean_index = store_data[key]
                         hit = ean_index.get(found_ean)
                         if (hit and id(hit) not in matched_ids[key]
-                                and weights_compatible(rema_w, hit.get('_weight_g'))
+                                and fill_weight_ok(rema_w, hit.get('_weight_g'))
                                 and (rema_stk is None or hit.get('_stk_count') is None
                                      or rema_stk == hit.get('_stk_count'))
                                 and _percents_match(rema_pcts, hit.get('_pcts', frozenset()))

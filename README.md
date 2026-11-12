@@ -239,9 +239,15 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
   category with its own department, never with a guess
   (`card_category_after_promotion`)
 - **Weight** - total weight/volume (`_weight_g`); multipacks like `6 x 0.33 liter`
-  are parsed as totals so a single can never matches a 6-pack. The absolute
-  tolerance floor (20 g) scales down to 25% of the weight for small items, so
-  a 20 g pastille tin no longer matches a 40 g tin (spices, gum, chocolate bars)
+  are parsed as totals so a single can never matches a 6-pack. Without a shared
+  EAN (Rema, the flyers and every fuzzy pair) the gate is `same_pack_weight`: at
+  most 8 % apart, with a 2 g floor for rounding. The older `weights_compatible`
+  (8 % with a 20 g floor that scales down to 25 % of the weight) is kept only
+  where an EAN is the evidence, because stores disagree on the stated weight of
+  the same barcode (Knorr bearnaise: 57 g at Dagrofa, 66 g at Salling). Measured
+  12-11-2026: under 250 g the 20 g floor let different pack sizes match (Katjes
+  80 g with 100 g, Pringles 165 g with 185 g, Rema's almonds 90 g with liquorice
+  almonds 110 g), while only 13 of 8.507 same-barcode pairs differ by more than 8 %
 - **Percentages** - fat/alcohol/cocoa percentages stated in the names are real
   product properties: "Tuborg Classic 4,6%" ≠ "Tuborg Classic 0,0%", "Piskefløde
   38%" ≠ "36%". Rejected only when BOTH sides state percentages and none agree -
@@ -342,7 +348,8 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
 1. **Rema annotation** - each Rema product (no EAN) is matched to comparison stores via `_find_generic_match` (acts as stage-3 initiator).
    - **EAN retro-validation**: when a match carries an EAN, that EAN is looked up in
      every store; if any hit's weight OR stated percentage contradicts Rema's, all
-     matches with that EAN are dropped (kills wrong fuzzy matches against weight-less
+     matches with that EAN are dropped (weight with `same_pack_weight` when the
+     matched listing has no weight of its own, otherwise the EAN-level tolerance) (kills wrong fuzzy matches against weight-less
      Dagrofa listings - or ones missing the literal '%' sign, e.g. "Tuborg Classic
      0,0 6-Pk Ds" - using another store's richer data for the same EAN).
    - **Cross-member validation** (`_drop_cross_conflicting_matches`): the per-store gates
