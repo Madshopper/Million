@@ -29,6 +29,8 @@ NON_FOOD_KEYWORDS = {
     'dufte til', 'parfumeset',
     # Pleje-mærker (shampoo/balsam/deo)
     'head & shoulders', 'taft', 'nivea', 'garnier', 'elvive', 'pantene',
+    # ABC Lavpris' avis uge 46 2026 (Derma = hudpleje).
+    'derma',
     'syoss', 'sanex', 'rexona', 'schwarzkopf',
     # Kæledyr
     'hundemad', 'hundefoder', 'kattefoder', 'kattemad', 'hundesnack', 'kattegrus', 'pedigree',
@@ -57,6 +59,9 @@ NON_FOOD_KEYWORDS = {
     # 'rengøring' fanger ikke "rengøringsmiddel" (ordet skal slutte dér)
     'rengøringsmiddel', 'afspændingsmiddel', 'toiletrens', 'wc rens', 'wc-rens',
     'opvask', 'klorin', 'fryseposer', 'samelle',
+    # ABC Lavpris' avis uge 46 2026: "Fresini Flydende Vask", "Frosch", "Spray, Wipes".
+    'frosch', 'fresini', 'flydende vask', 'hurtig vask', 'wipes',
+    'plastikboks', 'plastik boks', 'opbevaringsboks',
     # Tobak & nikotin
     'tobak', 'cigaret', 'cigarillo', 'snus', 'nikotin', 'tændstik',
     'lighter', 'fyrstikker', 'nicotinell', 'nikotinplaster', 'nikotintyggegummi',
@@ -92,6 +97,8 @@ NON_FOOD_KEYWORDS = {
     'betonstage', 'lys i glas', 'havefakkel', 'fakkel',
     'kalenderlys', 'kalender lys', 'adventslys', 'kanallys', 'dekorationslys',
     'rillet lys', 'snoede lys', 'lyskæde',
+    # OCR'en deler "Bloklys" i to ord (ABC Lavpris).
+    'blok lys',
     # Maskiner & elektronik
     'kaffemaskine', 'kaffemaskiner', 'espressomaskine', 'kapselmaskine',
     'toaster', 'brødrister', 'køleboks', 'køletaske', 'terrassevarmer',
@@ -102,7 +109,7 @@ NON_FOOD_KEYWORDS = {
     'køleskab', 'fryseskab', 'køle-fryseskab',
     'oneblade', 'barbermaskine', 'epilator', 'hårtørrer', 'glattejern',
     'headset', 'earbuds', 'høretelefoner',
-    'mikroovn', 'blender', 'energizer', 'duracell',
+    'mikroovn', 'blender', 'energizer', 'duracell', 'linuspro', 'linus pro',
     # Køkkengrej & husholdning
     'stegepande', 'tørrestativ', 'termokande', 'opbevaring', 'kurv',
     'tramontina', 'smartstore', 'husholdningsprodukter',

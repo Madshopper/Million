@@ -60,6 +60,8 @@ _stub_if_missing(
     'selenium.webdriver.support', 'selenium.webdriver.support.ui',
     'selenium.webdriver.support.expected_conditions',
     'openpyxl', 'openpyxl.styles', 'PIL', 'imagehash',
+    # Løvbjergs PDF og ABC Lavpris' billeder (kun læsningen af siderne bruger dem).
+    'pdfplumber', 'pdfminer', 'pdfminer.pdftypes', 'numpy', 'scipy', 'scipy.ndimage',
 )
 
 import app_support  # noqa: E402
@@ -75,6 +77,8 @@ import dagrofa_scraper  # noqa: E402
 import netto_katalog  # noqa: E402
 import salling_mad  # noqa: E402
 import tjek_tilbud_scraper  # noqa: E402
+import webscrape_abc_lavpris  # noqa: E402
+import webscrape_lovbjerg  # noqa: E402
 from keywords import is_non_food, matches_food  # noqa: E402
 
 fails: list[str] = []
@@ -473,6 +477,89 @@ def test_avis_tilbud():
           not signal(offer('Mikroovn', '700 W', 499.0, 'pcs', (1, 1), (1, 1))))
 
 
+def lov(name, info, price, multikob=None, normalpris=None) -> dict | None:
+    return webscrape_lovbjerg.build_row({'name': name, 'info': info, 'price': price,
+                                         'multikob': multikob, 'normalpris': normalpris})
+
+
+def abc(name, info, label, price) -> dict | None:
+    return webscrape_abc_lavpris.build_row({'name': name, 'info': info, 'label': label,
+                                            'price': price, 'multikob': None})
+
+
+def test_loevbjerg_abc():
+    print("\nLøvbjerg og ABC Lavpris (målt mod ugens aviser 12-11-2026)")
+    pw = avis_tekst.package_weight
+    eq("'24x33 cl' er en kasse", pw('Pr. ltr 8,42 pant | 24x33 cl'), '24 x 33 cl')
+    eq("'12-18x33 cl' er 12 eller 18 dåser", pw('Pr. ltr. max 18,93 + pant | 12-18x33 cl'),
+       '12-18 x 33 cl')
+    eq("'8x100 gram' er 8 bøffer", pw('XL pakke | 8x100 gram'), '8 x 100 g')
+    eq("'i alt 124 gram' vinder over '4 stk.'", pw('4 stk. I alt 124 gram'), '124 g')
+    eq("'i alt 804 gram' vinder over 'å 67 gram'", pw('12 donuts å 67 gram | i alt 804 gram'),
+       '804 g')
+    eq("'33 cl/24 ds' er en kasse", pw('33 cl/24 ds'), '24 x 33 cl')
+    eq("'33 cl/18/20/24 ds' er 18-24 dåser", pw('Flere varianter | 33 cl/18/20/24 ds'),
+       '18-24 x 33 cl')
+    eq("kasser i flere størrelser bliver liter i alt",
+       pw('25 cl/24 fl, 33 cl/12 ds / el. 50 cl/8 ds'), '3,96-6 l')
+    eq("lys på '6x18 cm' er ingen pakke", pw('Flere farver | 6x18 cm'), None)
+    eq("én vægt er ingen pakke", pw('500 gram'), None)
+
+    deco = avis_tekst.looks_like_decoration
+    check("nisse med højde i cm er pynt", deco('Pige el. dreng | H: 30 cm'))
+    check("julemand på 7,5-11 cm er pynt", deco('7,5 -11 cm'))
+    check("lagkagebunde med cm og vægt er mad", not deco('3 stk | Ø 22 cm | 300 g'))
+    check("asparges i cm med kilopris er mad", not deco('11 cm | Pr kg 59,95'))
+
+    wu = avis_tekst.weight_from_unit_price
+    eq("19,99 kr med 'Pr kg 39,98' er et halvt kilo", wu(19.99, 39.98), '500 g')
+    eq("samme pris som kiloprisen er et kilo", wu(59.99, 59.99), '1 kg')
+    eq("andre forhold gættes ikke", wu(39.99, 228.51), None)
+
+    mc = avis_tekst.multi_buy_count
+    eq("Ta' 3 kasser", mc("Ta' 3 kasser ”"), 3)
+    eq("Ta” 3 bakker", mc("Ta” 3 bakker '"), 3)
+    eq("Ta' 2 stk.", mc("Ta' 2 stk."), 2)
+    eq("Ta' 3 for", mc("Ta' 3 for"), 3)
+    eq("'Pr. stk.' er intet multikøb", mc("Pr. stk."), None)
+    eq("'ta ” Pr. pose' er intet multikøb", mc("ta ” Pr. pose"), None)
+    eq("over 20 stk. er intet multikøb", mc("Ta' 50 stk"), None)
+
+    r = lov('Pepsi Max el. Faxe Kondi sodavand', ['33 cl/24 ds', 'Pr ltr 8,84 + pant'], 69.99,
+            normalpris=114.99)
+    eq("Løvbjerg: kassen står som 24 dåser (stod som én dåse)", r['netto_vaegt'], '24 x 33 cl')
+    eq("... med literprisen", r['kg_price'], '8.84 kr/l')
+    r = lov('Dansk ribbensteg', ['Med svær', 'Pr kg 39,98'], 19.99)
+    eq("Løvbjerg: kød 'pr. ½ kg' får 500 g (stod uden vægt)", r['netto_vaegt'], '500 g')
+    r = lov('Kohberg rugbrød el. boller', ['490-1000 g', 'Pr kg max 20,39'], 9.99)
+    eq("Løvbjerg: 'Pr kg max' er ikke varens kilopris", r['kg_price'], None)
+    check("Løvbjerg: nissen sorteres fra", lov('Elf nisse', ['Pige el. dreng', 'H: 30 cm'], 49.99) is None)
+    r = lov('Frikadelle- el. kyllingeplatte', ['4 stk'], 79.99)
+    eq("Løvbjerg: '- el.' bliver stående", r['navn'], 'Frikadelle- el. kyllingeplatte')
+
+    r = abc('Slots Classic Øl', ['Pr. ir 8,42 pant', '24x33 cl'], "Ta' 3 kasser ”", 200.0)
+    eq("ABC: 'Ta' 3 kasser 200,-' er 66,67 kr pr. kasse (stod som 200 kr)",
+       (r['pris'], r['multikob']), (66.67, '3 for 200 kr'))
+    eq("... og kassen er 24 dåser", r['netto_vaegt'], '24 x 33 cl')
+    r = abc('Striploin', ['Af Irsk kødkvæg', 'Pr. kg 179,96', '2000-3000 gram'], 'Pr. 1/2 kg', 89.98)
+    eq("ABC: 'Pr. 1/2 kg' er 500 g", r['netto_vaegt'], '500 g')
+    eq("... med kiloprisen", r['kg_price'], '179.96 kr/kg')
+    r = abc('Halehængt Røget Laks', ['En hel side', 'Pr. kg 224,95', 'max', '400-500 gram'],
+            'Pr. stk.', 89.98)
+    eq("ABC: 'max' på linjen under er ikke varens kilopris", r['kg_price'], None)
+    r = abc('Engelske Bøffer', ['XL pakke', 'Pr. kg 248,75', '8x100 gram'], 'Pr. bakke', 199.0)
+    eq("ABC: '8x100 gram' er 8 x 100 g (stod som 100 g)", r['netto_vaegt'], '8 x 100 g')
+    for name, info in (('Spray,', ['Pr. stk. 0,29', '500-1000 ml', '100 wipes']),
+                       ('Comfort eller', ['24-43 stk']),
+                       ('Fresini Flydende Vask', []), ('Frosch', ['500-1000 ml']),
+                       ('LinusPro Electro', ['Flere varianter', 'Pr. stk. 0,74', '20 stk']),
+                       ('Blok Lys', []), ('Derma Family', ['50-250 ml'])):
+        check(f"ABC: {name!r} er ikke mad", abc(name, info, 'Pr. stk.', 20.0) is None)
+    check("ABC: Southern Comfort er stadig med", abc('Southern Comfort', ['70 cl'], 'Pr. flaske', 129.0) is not None)
+    r = abc('Græskarkerner eller', ['180-250 g'], 'Pr. pose', 14.98)
+    eq("ABC: 'eller' til sidst i navnet fjernes", r['navn'], 'Græskarkerner')
+
+
 # ── Kategorier: butikkens egen afdeling i stedet for et gæt ─────────────────
 
 def test_kategorier():
@@ -571,6 +658,7 @@ def main() -> int:
     test_dagrofa_stoerrelse()
     test_avis_tekst()
     test_avis_tilbud()
+    test_loevbjerg_abc()
     test_kategorier()
 
     print()

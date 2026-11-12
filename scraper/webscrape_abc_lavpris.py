@@ -36,6 +36,8 @@ from scipy import ndimage as ndi
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from avis_billeder import cleanup_images, store_images
+from avis_tekst import (looks_like_decoration, multi_buy, multi_buy_count, package_weight,
+                        weight_from_unit_price)
 from keywords import is_non_food
 from supabase_utils import get_client, save_product_dicts
 
@@ -60,10 +62,18 @@ _HEADERS = {
 _PAGE_RE = re.compile(r"src:\s*'(/app/webroot/uploads/annoncer/[^'?]+\.jpg)")
 _WEIGHT_RE = re.compile(r'(\d+(?:[.,]\d+)?(?:\s*[-/]\s*\d+(?:[.,]\d+)?)?)\s*(kg|gram|g|ltr|l|cl|ml|stk)\b\.?', re.I)
 # OCR læser kommaet i små tal som punktum af og til ("Pr. kg 4.99").
-_KG_PRICE_RE = re.compile(r'Pr\.?\s*(kg|ltr|l|stk)\.?\s*(?:max\.?\s*)?(\d+(?:[.,]\d{2}|,-))', re.I)
-# Ikke-mad i ABC's avis, som keywords.py ikke kender (garn, bageforme, tøj).
-_NON_FOOD_EXTRA_RE = re.compile(r'\b(garn|meter|muffinforme|bageforme|handsker|huer|sokker|best friend)\b', re.I)
-_MULTI_RE = re.compile(r'Ta.?\s*(\d+)\s*(?:stk|for)', re.I)
+_KG_PRICE_RE = re.compile(r'Pr\.?\s*(kg|ltr|l|stk)\.?\s*(max\.?\s*)?(\d+(?:[.,]\d{2}|,-))', re.I)
+# Ikke-mad i ABC's avis, som keywords.py ikke kender (garn, bageforme, tøj,
+# skyllemidlet Comfort, men ikke Southern Comfort eller Yogi Tea Throat Comfort).
+_NON_FOOD_EXTRA_RE = re.compile(
+    r'\b(garn|meter|muffinforme|bageforme|handsker|huer|sokker|best friend)\b'
+    r'|(?<!southern )(?<!throat )\bcomfort\b', re.I)
+# Navne der kun er en stump af et ikke-mad-kort ("Blok" fra "Blok Lys",
+# "Spray," fra "Ajax Rengøring, Spray, Wipes").
+_NON_FOOD_NAME_RE = re.compile(r'(?:blok|spray)\W*$', re.I)
+# Prisen gælder et halvt kilo ("Pr. 1/2 kg") eller et kilo ("Pr. kg").
+_HALF_KG_LABEL_RE = re.compile(r'(?:1/2|½)\s*kg\b', re.I)
+_KG_LABEL_RE = re.compile(r'\bPr\.?\s*kg\b', re.I)
 
 
 # ── Billedanalyse ────────────────────────────────────────────────────────────
@@ -351,13 +361,12 @@ def parse_page(img: Image.Image, seen_cards: list | None = None) -> list[dict]:
         spans = [(x0 + 3, y0 + 3, x1 + 3, y1 + 3) for x0, y0, x1, y1 in spans]
         below = [o for o in price_boxes if o[1] >= box[3] and card[0] <= o[0] <= card[2] and o[3] <= card[3]]
         bottom = box[3] if below else card[3]
-        multi = _MULTI_RE.search(label)
         items.append({
             "name": name,
             "info": info,
             "label": label,
             "price": price,
-            "multikob": int(multi.group(1)) if multi else None,
+            "multikob": multi_buy_count(label),
             "image": _product_image(rgb, (card[0], top, card[2], bottom), box, spans),
         })
     return items
@@ -425,7 +434,7 @@ def fix_name(name: str, vocab: Counter) -> str:
     korte ukendte stumper (typisk støj fra varefotoet) fjernes. Ukendte men
     rimelige ord (nye mærker) beholdes."""
     if not vocab:
-        return name
+        return _strip_name_tail(name.split())
     if id(vocab) not in _KNOWN_WORDS:
         _KNOWN_WORDS.clear()
         _KNOWN_WORDS[id(vocab)] = [w for w, c in vocab.items() if c >= 3 and len(w) >= 4]
@@ -436,6 +445,11 @@ def fix_name(name: str, vocab: Counter) -> str:
         low = core.lower()
         if not low or vocab[low] >= 2 or not low.isalpha():
             out.append(token)
+            continue
+        if pos > 0 and core.isupper() and len(low) >= 4 and not vocab[low] and any(c.islower() for c in name):
+            # Avisens bannerord med versaler midt i navnet ("Rose Fersk
+            # DEJUGE Kyllinge Brystfilet", "Madame Butterfly PARTI!"),
+            # som ingen butik bruger i et varenavn.
             continue
         if len(low) <= 3:
             # Første ord er oftest mærket ("EGO", "OTA"), som godt kan være
@@ -453,31 +467,70 @@ def fix_name(name: str, vocab: Counter) -> str:
             out.append(token.replace(core, _match_case(best[0], core)))
         else:
             out.append(token)
-    # Rester af kilo-pris-linjen ("kg max") hører ikke til navnet.
-    while len(out) > 1 and out[-1].lower().strip(".") in ("kg", "max", "pr", "ltr", "stk"):
-        out.pop()
-    return " ".join(out).strip(" ,.")
+    return _strip_name_tail(out)
+
+
+def _strip_name_tail(words: list[str]) -> str:
+    """Rester af kilo-pris-linjen ("kg max") hører ikke til navnet, og et
+    "eller" til sidst er et navn der fortsætter på næste linje."""
+    words = list(words)
+    while len(words) > 1 and words[-1].lower().strip(".,") in ("kg", "max", "pr", "ltr", "stk", "eller", "el", "og"):
+        words.pop()
+    return " ".join(words).strip(" ,.")
+
+
+def _kg_price(lines: list[str]) -> str | None:
+    """Avisens kilo-, liter- eller stykpris som "61.09 kr/kg".
+
+    "max" (her ofte på linjen under: "Pr. kg 61,09 / max") er den højeste
+    kilopris blandt flere varianter (typisk den mindste pakke). Den er ikke
+    varens egen og springes over, ligesom i Coop-aviserne
+    (avis_tekst.exact_unit_price) og Løvbjerg.
+    """
+    for j, line in enumerate(lines):
+        m = _KG_PRICE_RE.search(line)
+        if not m:
+            continue
+        after = line[m.end():]
+        nxt = lines[j + 1].strip() if j + 1 < len(lines) else ""
+        if m.group(2) or re.search(r"\bmax\b", after, re.I) or re.match(r"max\b", nxt, re.I):
+            return None
+        value = m.group(3).replace(",-", ".00").replace(",", ".")
+        unit = "l" if m.group(1).lower() in ("l", "ltr") else m.group(1).lower()
+        return f"{value} kr/{unit}"
+    return None
 
 
 def build_row(item: dict, vocab: Counter | None = None) -> dict | None:
     name = fix_name(_clean_name(item["name"]), vocab or Counter())
     info = " | ".join(item["info"])
     # Infolinjerne afslører ofte varetypen ("Hundesnacks", "290 meter").
-    if not name or is_non_food(f"{name} {info}") or _NON_FOOD_EXTRA_RE.search(f"{name} {info}"):
+    if (not name or is_non_food(f"{name} {info}") or _NON_FOOD_EXTRA_RE.search(f"{name} {info}")
+            or _NON_FOOD_NAME_RE.match(name) or looks_like_decoration(info)):
         return None
     weight_m = _WEIGHT_RE.search(re.sub(r"Pr\.?\s*(kg|ltr|l|stk)\.?[^|]*", "", info, flags=re.I))
-    kg_m = _KG_PRICE_RE.search(info)
-    kg_price = None
-    if kg_m:
-        value = kg_m.group(2).replace(",-", ".00").replace(",", ".")
-        unit = "l" if kg_m.group(1).lower() in ("l", "ltr") else kg_m.group(1).lower()
-        kg_price = f"{value} kr/{unit}"
+    kg_price = _kg_price(item["info"])
     weight = None
     if weight_m:
         unit = weight_m.group(2).lower()
         unit = "g" if unit == "gram" else unit
         amount = re.sub(r"\s+", "", weight_m.group(1))
         weight = f"{amount} {unit}"
+    # En kasse øl ("24x33 cl") eller en pakke ("i alt 804 gram"): den første
+    # vægt er kun én dåse eller ét stykke.
+    weight = package_weight(info) or weight
+    label = item.get("label") or ""
+    if _HALF_KG_LABEL_RE.search(label):
+        weight = "500 g"
+    elif _KG_LABEL_RE.search(label):
+        weight = "1 kg"
+    # "Ta' 3 kasser 200,-": prisen er for alle tre.
+    price, multikob = item["price"], None
+    count = multi_buy_count(label) or item.get("multikob")
+    if count and count > 1:
+        price, multikob = multi_buy(item["price"], count)
+    if weight is None and kg_price and kg_price.endswith("kr/kg"):
+        weight = weight_from_unit_price(price, float(kg_price.split()[0]))
     return {
         "butik":        BUTIK,
         "kategori":     KATEGORI,
@@ -485,13 +538,13 @@ def build_row(item: dict, vocab: Counter | None = None) -> dict | None:
         "producent":    None,
         "netto_vaegt":  weight,
         "kg_price":     kg_price,
-        "pris":         item["price"],
+        "pris":         price,
         "normalpris":   None,
         "varenummer":   None,
         "billede_url":  "",
         "billede_hash": None,
         "tilbud":       "Ja",
-        "multikob":     item["multikob"],
+        "multikob":     multikob,
     }
 
 
