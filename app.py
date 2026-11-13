@@ -2342,9 +2342,10 @@ _PROJECTS = (
             {'done': True, 'name': 'Automatisk opslag',
              'desc': 'some-post.yml tager den ældste video i some/koe/ med nået '
                      'dato (PR #171).'},
-            {'done': False, 'name': 'Nøglen til Meta',
-             'desc': 'GitHub-secret META_PAGE_TOKEN. Vejledning i '
-                     'projektmappen some/claude-chrome-meta-noegle.md.'},
+            {'done': False, 'name': 'Postering via Make.com',
+             'desc': 'Metas nøgle droppet (sms-koden kom aldrig frem). '
+                     'Posteringen går gennem Make, se projektet Videoer på '
+                     'Facebook og Instagram.'},
             {'done': False, 'name': 'TikTok',
              'desc': 'Kræver at TikTok godkender adgang; indtil da kun private '
                      'opslag.'},
