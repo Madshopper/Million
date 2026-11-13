@@ -197,34 +197,32 @@ Lokalt: `apps/mobile/eas.json` + `apps/mobile/README.md` § Store-build.
 
 ### 5b. Cloudflare Worker vars — `APPLE_TEAM_ID` / `ANDROID_CERT_SHA256`
 
-`wrangler.toml` har begge nøgler som **udkommenterede** vars under
-`[env.production.vars]` (linje ~42-43) — de er bevidst ikke aktive endnu, fordi
-`app.py`'s `/.well-known/apple-app-site-association` og `/.well-known/assetlinks.json`
-returnerer tomme (men gyldige) payloads uden dem, så Apple/Google ikke cacher en
-forkert/tom app-tilknytning. Verificeret lokalt 2026-07-26: begge routes svarer
-korrekt både med og uden vars sat (Flask test client).
+**Status 13-11-2026:** `APPLE_TEAM_ID` er sat (Team ID `AM99ASD924`) i
+`scripts/build-pages.sh` (`APP_LINKS_LINE`, kun produktionen).
+`ANDROID_CERT_SHA256` er ikke sat endnu (Android-appen er ikke udgivet).
 
-Disse er **almindelige vars** (ikke secrets — værdierne er offentlige
-identifikatorer, ikke hemmeligheder), så de sættes enten direkte i
-`wrangler.toml` eller via `wrangler`:
+Uden dem svarer `app.py`'s `/.well-known/apple-app-site-association` og
+`/.well-known/assetlinks.json` med tomme (men gyldige) payloads, så Apple/Google
+ikke cacher en forkert app-tilknytning. Et Apple-team-id der ikke er 10 tegn,
+giver også tomme details.
 
-```bash
-# Fjern kommentar-tegnet i wrangler.toml [env.production.vars] og udfyld,
-# ELLER sæt via CLI (kræver Cloudflare-login/API-token du allerede har i rod-.env):
-cd /Users/kallekanin/Desktop/Million/Million-main
+Begge er **almindelige vars** (offentlige identifikatorer, ikke
+hemmeligheder). De skal stå i `scripts/build-pages.sh`, fordi deployet kun
+bruger den `dist/wrangler.toml`, scriptet genererer. Rod-`wrangler.toml`s
+`[env.production.vars]` er død konfiguration ved deploy (se DRIFT-FÆLDE i
+`build-pages.sh`); før 13-11-2026 stod der fejlagtigt her, at de skulle sættes
+dér. Android: tilføj `ANDROID_CERT_SHA256 = "AA:BB:...:ZZ"` (kommaseparér flere)
+som en ekstra linje i `APP_LINKS_LINE` og ret `intentFilters` i
+`apps/mobile/app.config.js` til kun `/` i samme omgang (se `docs/paritet.md` § 10).
 
-# Redigér wrangler.toml til fx:
-#   APPLE_TEAM_ID = "AB12CD34EF"
-#   ANDROID_CERT_SHA256 = "AA:BB:CC:...:ZZ"
-# og deploy derefter (samme flow som .github/workflows/deploy-edge.yml):
-bash scripts/build-pages.sh
-npx wrangler@4.114.0 deploy --config dist/wrangler.toml --env production
-```
+Deploy med `deploy-edge.yml` (eller `bash scripts/build-pages.sh` +
+`npx wrangler@4.114.0 deploy --config dist/wrangler.toml`).
 
 Efter deploy: verificér med
 `curl https://madshopper.dk/.well-known/apple-app-site-association` og
 `curl https://madshopper.dk/.well-known/assetlinks.json` — begge skal nu
-indeholde udfyldt `appID` hhv. `sha256_cert_fingerprints`.
+indeholde udfyldt `appIDs` hhv. `sha256_cert_fingerprints`. Apples fil gælder
+kun delte indkøbslister (`/?liste=`), se `docs/udgivelse.md` § 4.
 
 ### 5a. EAS secrets — nøjagtige kommandoer (kør efter `eas login` + `eas init`)
 

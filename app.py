@@ -4927,11 +4927,20 @@ def security_txt():
 def apple_app_site_association():
     """Universal Links til native app (Fase 9).
 
-    Kræver APPLE_TEAM_ID (10 tegn fra Apple Developer) som env/Worker-secret.
-    Uden team-id returneres tomme details, så Apple ikke cacher et forkert appID.
+    Kræver APPLE_TEAM_ID (10 tegn fra Apple Developer) som Worker-var.
+    Uden et gyldigt team-id returneres tomme details, så Apple ikke cacher et
+    forkert appID.
+
+    Kun delte indkøbslister (https://madshopper.dk/?liste=<token>) åbner
+    appen. Appen har bevidst ingen sti-til-skærm-mapping
+    (RootNavigator.recoveryLinking) og afviser login-links over https
+    (auth/recoveryLink.ts). Med alle stier ('*') ville ethvert link til siden,
+    fx fra Google, Facebook eller hjemmesidens egne nulstillingsmails, åbne
+    appens forside i stedet for siden, og en nulstilling bestilt på
+    hjemmesiden kunne ikke gennemføres på en iPhone med appen.
     """
-    team = (os.environ.get('APPLE_TEAM_ID') or '').strip()
-    if not team:
+    team = (os.environ.get('APPLE_TEAM_ID') or '').strip().upper()
+    if not re.fullmatch(r'[A-Z0-9]{10}', team):
         payload = {'applinks': {'apps': [], 'details': []}}
     else:
         app_id = f'{team}.dk.madshopper.app'
@@ -4939,9 +4948,10 @@ def apple_app_site_association():
             'applinks': {
                 'apps': [],
                 'details': [{
-                    'appID': app_id,
-                    # ?liste= / shared cart + øvrige deep links på forsiden
-                    'paths': ['*', '/'],
+                    'appIDs': [app_id],
+                    'components': [
+                        {'/': '/', '?': {'liste': '?*'}, 'comment': 'Delt indkøbsliste'},
+                    ],
                 }],
             },
             'webcredentials': {'apps': [app_id]},

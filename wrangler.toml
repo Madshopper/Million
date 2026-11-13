@@ -38,8 +38,9 @@ NEXT_PUBLIC_SUPABASE_URL = "https://oxzxingkbsnqzpmjtktr.supabase.co"
 SUPABASE_KEY = "sb_publishable_Jt8N0XezmzfZJSzzSwBBKQ_uGbNoq8f"
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Jt8N0XezmzfZJSzzSwBBKQ_uGbNoq8f"
 TABLE_SUFFIX = ""
-# APPLE_TEAM_ID = ""             # 10 tegn — aktiverer /.well-known/apple-app-site-association
-# ANDROID_CERT_SHA256 = ""       # SHA-256 (evt. kommasepareret) — assetlinks.json
+# APPLE_TEAM_ID og ANDROID_CERT_SHA256 (Apples og Googles app-link-filer) sættes
+# i scripts/build-pages.sh (APP_LINKS_LINE), ikke her: deployet bruger kun den
+# dist/wrangler.toml, scriptet genererer.
 
 [[env.production.kv_namespaces]]
 binding = "CACHE_KV"
