@@ -2052,6 +2052,33 @@ _PROJECTS = (
         ),
     },
     {
+        'key': 'social_post',
+        'name': 'Videoer på Facebook og Instagram',
+        'status': 'waiting',
+        'desc': 'Mandag og torsdag kl. 19.30 poster MadShopper selv næste '
+                'video fra social/koe/ på Facebook og Instagram, altid begge '
+                'steder eller intet. Se social/README.md.',
+        'parts': (
+            {'done': True, 'name': 'Instagram klar',
+             'desc': 'Professionel konto, koblet til Facebook-siden og '
+                     'totrinsbekræftelse slået til (31-10-2026).'},
+            {'done': True, 'name': 'Programmet bygget',
+             'desc': 'scripts/social-post.py og social-post.yml, startet '
+                     'kl. 19.30 af uptime-workeren.'},
+            {'done': False, 'name': 'Make-scenarie',
+             'desc': 'Scenariet "MadShopper video" i Make.com: Facebook-reel '
+                     'først, så Instagram, med Kalles eget login. Metas '
+                     'udviklerkonto bruges ikke (sms-koden kom aldrig frem).'},
+            {'done': False, 'name': 'MAKE_WEBHOOK_URL i GitHub',
+             'desc': 'Webhookens adresse fra Make som GitHub-secret. Den er '
+                     'hemmelig og må kun stå dér.'},
+            {'done': False, 'name': 'Prøvekørsel',
+             'desc': 'Start social-post.yml med Prøvekørsel under Actions.'},
+            {'done': False, 'name': 'Første video i køen',
+             'desc': 'Video + tekst med samme navn i social/koe/.'},
+        ),
+    },
+    {
         'key': 'admin_app_stats',
         'name': 'Appens tal i admin',
         'status': 'doing',
@@ -2221,9 +2248,10 @@ _PROJECTS = (
             {'done': True, 'name': 'Automatisk opslag',
              'desc': 'some-post.yml tager den ældste video i some/koe/ med nået '
                      'dato (PR #171).'},
-            {'done': False, 'name': 'Nøglen til Meta',
-             'desc': 'GitHub-secret META_PAGE_TOKEN. Vejledning i '
-                     'projektmappen some/claude-chrome-meta-noegle.md.'},
+            {'done': False, 'name': 'Postering via Make.com',
+             'desc': 'Metas nøgle droppet (sms-koden kom aldrig frem). '
+                     'Posteringen går gennem Make, se projektet Videoer på '
+                     'Facebook og Instagram.'},
             {'done': False, 'name': 'TikTok',
              'desc': 'Kræver at TikTok godkender adgang; indtil da kun private '
                      'opslag.'},
