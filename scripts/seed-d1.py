@@ -78,7 +78,7 @@ def _home_is_allowed(p: dict) -> bool:
     brand = str(p.get('/product/brand', ''))
     if is_age_restricted(title, brand, product_id=p.get('/product/id', '')):
         return False
-    if is_non_food_name(title) or is_non_food_name(brand):
+    if is_non_food_name(title, brand) or is_non_food_name(brand, title):
         return False
     bilka_brand = str((p.get('/product/store_matches') or {}).get('bilka', {}).get('brand', '')).lower().strip()
     if bilka_brand.startswith('deli'):

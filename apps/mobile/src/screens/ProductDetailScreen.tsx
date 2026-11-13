@@ -37,7 +37,7 @@ import { joinLabel, spokenKr } from '../a11y/speech';
 import type { RootStackParamList } from '../navigation/types';
 import type { Product, StoreInfo } from '../api/types';
 import { StackScreenBody } from '../components/ScreenBody';
-import { krNum } from '../format/kr';
+import { krNum, kgUnitOf, krPerUnit, spokenPerUnit } from '../format/kr';
 import { ingredientParts } from '../format/ingredients';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetail'>;
@@ -61,6 +61,8 @@ type ComparisonEntry = {
   label: string;
   price: number;
   kgPrice: number | null;
+  /** "l" når kgPrice er en literpris. */
+  kgUnit: 'kg' | 'l';
   multiDeal: string;
   isSale: boolean;
 };
@@ -75,11 +77,15 @@ function buildComparisons(
   const entries: ComparisonEntry[] = [];
 
   if (product.rema_price != null && product.rema_price > 0 && selectedLabels.has(remaLabel)) {
+    // Viser kortet en anden butiks vare (billigst dér), er kg_price og
+    // multi_deal den butiks. Rema-linjen skal have Remas egne (som webben).
+    const isRemaCard = product.store === remaLabel;
     entries.push({
       label: remaLabel,
       price: product.rema_price,
-      kgPrice: product.kg_price,
-      multiDeal: product.multi_deal || '',
+      kgPrice: product.rema_kg_price !== undefined ? product.rema_kg_price : isRemaCard ? product.kg_price : null,
+      kgUnit: product.kg_unit ?? kgUnitOf(product.unit_measure),
+      multiDeal: isRemaCard ? product.multi_deal || '' : '',
       isSale: product.rema_is_sale,
     });
   }
@@ -93,6 +99,7 @@ function buildComparisons(
       label,
       price: match.price,
       kgPrice: match.kg_price,
+      kgUnit: match.kg_unit ?? kgUnitOf(match.weight),
       multiDeal: match.multi_deal || '',
       isSale: match.is_sale,
     });
@@ -373,7 +380,9 @@ export function ProductDetailScreen({ route, navigation }: Props) {
       image: product.image,
       category: product.category || 'Andre varer',
       unitMeasure: product.unit_measure,
-      kgPrice: product.kg_price != null ? `${krNum(product.kg_price)} kr/kg` : '',
+      kgPrice: product.kg_price != null
+        ? krPerUnit(product.kg_price, product.kg_unit ?? kgUnitOf(product.unit_measure))
+        : '',
       multiDeal: product.multi_deal || undefined,
       quantity: qty,
     });
@@ -522,7 +531,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
               c.isSale ? 'tilbud' : null,
               spokenKr(c.price),
               i === 0 ? 'billigst' : `${spokenKr(c.price - comparisons[0].price)} dyrere`,
-              c.kgPrice != null ? `${spokenKr(c.kgPrice)} pr. kilo` : null,
+              c.kgPrice != null ? `${spokenKr(c.kgPrice)} ${spokenPerUnit(c.kgUnit)}` : null,
               c.multiDeal,
             ])}
             style={[styles.compare, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -543,7 +552,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
               {i === 0 ? ' · Billigst' : ` · +${krNum(c.price - comparisons[0].price)} kr`}
             </Text>
             {c.kgPrice != null ? (
-              <Text style={{ color: colors.textMuted, fontSize: 12 }}>{krNum(c.kgPrice)} kr/kg</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12 }}>{krPerUnit(c.kgPrice, c.kgUnit)}</Text>
             ) : null}
             {c.multiDeal ? (
               <Text style={{ color: colors.textMuted, marginTop: 2 }}>{c.multiDeal}</Text>

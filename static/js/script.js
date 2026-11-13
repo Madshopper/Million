@@ -1539,7 +1539,7 @@ function updateCartDisplay() {
                 infoArr.push(escapeHtml(descText));
             }
             if (item.unitMeasure) infoArr.push(escapeHtml(item.unitMeasure));
-            if (item.kgPrice) infoArr.push(`${escapeHtml(item.kgPrice)} kr/kg`);
+            if (item.kgPrice) infoArr.push(`${escapeHtml(item.kgPrice)} kr/${kgUnitOf(item.unitMeasure)}`);
             if (infoArr.length > 0) extraInfo = `<div class="cart-item-extra">${infoArr.join(' | ')}</div>`;
 
             const multiDealHtml = item.multiDeal ? `<div class="cart-item-multideal">${escapeHtml(item.multiDeal)}</div>` : '';
@@ -3771,11 +3771,13 @@ function openOverlay(productElementOrId) {
                 if (!isNaN(sp) && sp > 0) sPrice = sp;
             }
 
-            var rKgVal = parseFloat(remaKgPrice);
-            document.getElementById('comp-rema-kg-price').textContent = (!isNaN(rKgVal) && rKgVal > 0) ? 'Pris pr. kg: ' + rKgVal.toFixed(2) + ' kr' : '';
+            // Remas egen kilopris: på et kort, der viser en anden butiks vare, er
+            // data-rema-kg-price den butiks (data-rema-row-kg-price er Remas).
+            var rKgVal = parseFloat(cardStore === 'Rema 1000' ? remaKgPrice : (productElement.dataset.remaRowKgPrice || ''));
+            document.getElementById('comp-rema-kg-price').textContent = kgPriceRowText(rKgVal, productElement.dataset.kgUnit);
 
             var bKgVal = parseFloat(bilkaKgPrice);
-            document.getElementById('comp-bilka-kg-price').textContent = (!isNaN(bKgVal) && bKgVal > 0) ? 'Pris pr. kg: ' + bKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-bilka-kg-price').textContent = kgPriceRowText(bKgVal, productElement.dataset.bilkaKgUnit);
 
             var foetexPrice = 0;
             if (foetexRaw && foetexRaw !== '') {
@@ -3784,19 +3786,19 @@ function openOverlay(productElementOrId) {
             }
             if (cardStore === 'Føtex' && foetexPrice === 0) foetexPrice = mainCardPrice;
             var fKgVal = parseFloat(foetexKgPrice);
-            document.getElementById('comp-foetex-kg-price').textContent = (!isNaN(fKgVal) && fKgVal > 0) ? 'Pris pr. kg: ' + fKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-foetex-kg-price').textContent = kgPriceRowText(fKgVal, productElement.dataset.foetexKgUnit);
 
             var nKgVal = parseFloat(nettoKgPrice);
-            document.getElementById('comp-netto-kg-price').textContent = (!isNaN(nKgVal) && nKgVal > 0) ? 'Pris pr. kg: ' + nKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-netto-kg-price').textContent = kgPriceRowText(nKgVal, productElement.dataset.nettoKgUnit);
 
             var mKgVal = parseFloat(mkKgPrice);
-            document.getElementById('comp-mk-kg-price').textContent = (!isNaN(mKgVal) && mKgVal > 0) ? 'Pris pr. kg: ' + mKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-mk-kg-price').textContent = kgPriceRowText(mKgVal, productElement.dataset.mkKgUnit);
 
             var meKgVal = parseFloat(menyKgPrice);
-            document.getElementById('comp-meny-kg-price').textContent = (!isNaN(meKgVal) && meKgVal > 0) ? 'Pris pr. kg: ' + meKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-meny-kg-price').textContent = kgPriceRowText(meKgVal, productElement.dataset.menyKgUnit);
 
             var sKgVal = parseFloat(sparKgPrice);
-            document.getElementById('comp-spar-kg-price').textContent = (!isNaN(sKgVal) && sKgVal > 0) ? 'Pris pr. kg: ' + sKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-spar-kg-price').textContent = kgPriceRowText(sKgVal, productElement.dataset.sparKgUnit);
 
             // Multi-deal badges (e.g. "Mix 2 for 36.-")
             var multiDeals = {
@@ -3831,7 +3833,7 @@ function openOverlay(productElementOrId) {
             if (cardStore === 'SuperBrugsen' && sbPrice === 0) sbPrice = mainCardPrice;
 
             var sbKgVal = parseFloat(sbKgPrice);
-            document.getElementById('comp-sb-kg-price').textContent = (!isNaN(sbKgVal) && sbKgVal > 0) ? 'Pris pr. kg: ' + sbKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-sb-kg-price').textContent = kgPriceRowText(sbKgVal, productElement.dataset.sbKgUnit);
 
             var brugsenRaw = productElement.dataset.brugsenPrice;
             var brugsenKgPrice = productElement.dataset.brugsenKgPrice || '';
@@ -3844,7 +3846,7 @@ function openOverlay(productElementOrId) {
             if (cardStore === 'Brugsen' && brugsenPrice === 0) brugsenPrice = mainCardPrice;
 
             var brugsenKgVal = parseFloat(brugsenKgPrice);
-            document.getElementById('comp-brugsen-kg-price').textContent = (!isNaN(brugsenKgVal) && brugsenKgVal > 0) ? 'Pris pr. kg: ' + brugsenKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-brugsen-kg-price').textContent = kgPriceRowText(brugsenKgVal, productElement.dataset.brugsenKgUnit);
 
             var kvicklyRaw = productElement.dataset.kvicklyPrice;
             var kvicklyKgPrice = productElement.dataset.kvicklyKgPrice || '';
@@ -3857,7 +3859,7 @@ function openOverlay(productElementOrId) {
             if (cardStore === 'Kvickly' && kvicklyPrice === 0) kvicklyPrice = mainCardPrice;
 
             var kvKgVal = parseFloat(kvicklyKgPrice);
-            document.getElementById('comp-kvickly-kg-price').textContent = (!isNaN(kvKgVal) && kvKgVal > 0) ? 'Pris pr. kg: ' + kvKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-kvickly-kg-price').textContent = kgPriceRowText(kvKgVal, productElement.dataset.kvicklyKgUnit);
 
             var discount365Raw = productElement.dataset.discount365Price;
             var discount365KgPrice = productElement.dataset.discount365KgPrice || '';
@@ -3870,7 +3872,7 @@ function openOverlay(productElementOrId) {
             if (cardStore === '365 Discount' && discount365Price === 0) discount365Price = mainCardPrice;
 
             var d365KgVal = parseFloat(discount365KgPrice);
-            document.getElementById('comp-discount365-kg-price').textContent = (!isNaN(d365KgVal) && d365KgVal > 0) ? 'Pris pr. kg: ' + d365KgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-discount365-kg-price').textContent = kgPriceRowText(d365KgVal, productElement.dataset.discount365KgUnit);
 
             var lidlRaw = productElement.dataset.lidlPrice;
             var lidlKgPrice = productElement.dataset.lidlKgPrice || '';
@@ -3883,7 +3885,7 @@ function openOverlay(productElementOrId) {
             if (cardStore === 'Lidl' && lidlPrice === 0) lidlPrice = mainCardPrice;
 
             var lidlKgVal = parseFloat(lidlKgPrice);
-            document.getElementById('comp-lidl-kg-price').textContent = (!isNaN(lidlKgVal) && lidlKgVal > 0) ? 'Pris pr. kg: ' + lidlKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-lidl-kg-price').textContent = kgPriceRowText(lidlKgVal, productElement.dataset.lidlKgUnit);
 
             var loevbjergRaw = productElement.dataset.loevbjergPrice;
             var loevbjergKgPrice = productElement.dataset.loevbjergKgPrice || '';
@@ -3896,7 +3898,7 @@ function openOverlay(productElementOrId) {
             if (cardStore === 'Løvbjerg' && loevbjergPrice === 0) loevbjergPrice = mainCardPrice;
 
             var loevKgVal = parseFloat(loevbjergKgPrice);
-            document.getElementById('comp-loevbjerg-kg-price').textContent = (!isNaN(loevKgVal) && loevKgVal > 0) ? 'Pris pr. kg: ' + loevKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-loevbjerg-kg-price').textContent = kgPriceRowText(loevKgVal, productElement.dataset.loevbjergKgUnit);
 
             var abclavprisRaw = productElement.dataset.abclavprisPrice;
             var abclavprisKgPrice = productElement.dataset.abclavprisKgPrice || '';
@@ -3909,7 +3911,7 @@ function openOverlay(productElementOrId) {
             if (cardStore === 'ABC Lavpris' && abclavprisPrice === 0) abclavprisPrice = mainCardPrice;
 
             var abcKgVal = parseFloat(abclavprisKgPrice);
-            document.getElementById('comp-abclavpris-kg-price').textContent = (!isNaN(abcKgVal) && abcKgVal > 0) ? 'Pris pr. kg: ' + abcKgVal.toFixed(2) + ' kr' : '';
+            document.getElementById('comp-abclavpris-kg-price').textContent = kgPriceRowText(abcKgVal, productElement.dataset.abclavprisKgUnit);
 
             cards = [
                 { id: 'comp-card-rema',        price: rPrice,         badgeId: 'comp-badge-rema',        priceId: 'comp-rema-price',        name: 'Rema 1000',    isSale: remaIsSale },
@@ -4603,6 +4605,18 @@ function applyAllFilters(isInitialLoad = false, isImmediate = false) {
     } else {
         filterTimeout = setTimeout(run, 300);
     }
+}
+
+// Enheden bag kiloprisen: en vare solgt i rumfang ("1,5 l", "24 x 33 cl") har
+// en literpris. Samme regel som app_support.kg_price_unit.
+function kgUnitOf(weightText) {
+    return /\d\s*(?:ml|cl|dl|l|ltr|liter|litre|lt)\.?$/i.test(String(weightText || '').trim()) ? 'l' : 'kg';
+}
+
+// "Pris pr. kg: 12.50 kr" eller "Pris pr. liter: 12.50 kr" i sammenligningen.
+function kgPriceRowText(val, unit) {
+    if (isNaN(val) || !(val > 0)) return '';
+    return (unit === 'l' ? 'Pris pr. liter: ' : 'Pris pr. kg: ') + val.toFixed(2) + ' kr';
 }
 
 // Laveste kr/kg på tværs af ALLE butikker på kortet (primær + store_matches),

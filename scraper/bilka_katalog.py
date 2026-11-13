@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from supabase_utils import get_client, enrich_billede_hashes, shrink_guard_ok, fetch_existing_products, save_product_dicts, salling_offer_fields
-from keywords import is_non_food
+from salling_mad import is_food_hit, assert_hierarchy_healthy, kategori
 
 # ── Algolia ──────────────────────────────────────────────────────────────────
 ALGOLIA_APP_ID = 'F9VBJLR1BK'
@@ -22,13 +22,15 @@ ALGOLIA_KEY    = 'd4f161f51f749bdd5baf699175d5f956'
 ALGOLIA_INDEX  = 'prod_BILKATOGO_PRODUCTS'
 ALGOLIA_URL    = f'https://{ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/{ALGOLIA_INDEX}/query'
 ALGOLIA_ATTRS  = ['name', 'isInCurrentLeaflet', 'leafletTitle', 'gtin', 'objectID', 'manufacturer', 'brand', 'subBrand',
-                  'categories', 'images', 'netcontent', 'units', 'unitsOfMeasure',
+                  'categories', 'consumerFacingHierarchy', 'images', 'netcontent', 'units', 'unitsOfMeasure',
                   'unitOfMeasurePrice', 'unitOfMeasurePriceUnits',
                   'price', 'sales_price', 'storeData', 'multibuy_offer_description']
 ALGOLIA_HEADERS = {'X-Algolia-Application-Id': ALGOLIA_APP_ID, 'X-Algolia-API-Key': ALGOLIA_KEY}
 
 # Mad-kategorier (lvl0) i Bilkas Algolia-hierarki. Vi henter pr. facet for at holde
 # os under Algolias paginerings-grænse og for at filtrere non-food fra med det samme.
+# "Kiosk" er slik, men også tobak, håndkøbsmedicin, ugeblade og skrabelodder:
+# dem sorterer salling_mad.is_food_hit fra på Sallings fælles kategoritræ.
 FOOD_LVL0 = ['Kolonial', 'Drikke', 'Kiosk', 'Køl', 'Brød og kager',
              'Mejeri', 'Frost', 'Frugt og grønt', 'Kød og fisk']
 
@@ -38,7 +40,6 @@ REF_STORES = ['1651', '1661', '1653', '1658', '1659', '1662', '1663', '1664']
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 BUTIK    = 'Bilka'
-KATEGORI = 'Katalog'
 
 
 def fetch_category(cat: str) -> list[dict]:
@@ -75,15 +76,6 @@ def fetch_all_algolia() -> list[dict]:
         print(f'  {cat:18s} {len(hits):5d} hits ({new} nye)')
     print(f'  Algolia done: {len(all_hits)} unikke produkter hentet')
     return all_hits
-
-
-def _lvl0(hit: dict) -> str:
-    return (hit.get('categories', {}).get('lvl0') or [''])[0]
-
-
-def _is_food(hit: dict) -> bool:
-    """Kategorierne er allerede mad (facet), men frasortér fx tobak via produktnavn."""
-    return not is_non_food(hit.get('name') or '')
 
 
 def _norm_unit(unit: str) -> str:
@@ -159,7 +151,7 @@ def build_rows(hits: list[dict]) -> list[dict]:
 
         rows.append({
             'butik':        BUTIK,
-            'kategori':     KATEGORI,
+            'kategori':     kategori(hit),
             'navn':         navn,
             'producent':    producent,
             'netto_vaegt':  vaegt,
@@ -184,8 +176,9 @@ def main():
     print('Starter Bilka katalog scraper (Algolia)...')
 
     hits = fetch_all_algolia()
-    food = [h for h in hits if _is_food(h)]
-    print(f'  {len(hits)} produkter → {len(hits) - len(food)} ikke-mad (navn) fjernet → {len(food)} fødevarer')
+    assert_hierarchy_healthy(hits, BUTIK)
+    food = [h for h in hits if is_food_hit(h)]
+    print(f'  {len(hits)} produkter → {len(hits) - len(food)} ikke-mad fjernet → {len(food)} fødevarer')
 
     rows = build_rows(food)
     print(f'  {len(rows)} rækker med pris bygget')

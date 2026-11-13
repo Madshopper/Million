@@ -30,6 +30,8 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from keywords import is_non_food
 from avis_billeder import cleanup_images, store_images
+from avis_tekst import (MULTI_BUY_LABEL_RE, crate_weight, join_linebreak_hyphens,
+                        looks_like_decoration, multi_buy, multi_buy_count, weight_from_unit_price)
 from supabase_utils import save_product_dicts
 
 AVIS_URL = "https://www.lovbjerg.dk/avis/denne-uges-avis"
@@ -50,8 +52,7 @@ _HEADERS = {
 _PDF_RE = re.compile(r'https://www\.lovbjerg\.dk/files/pdf/[^"\'\s]+\.pdf')
 _PRICE_WORD_RE = re.compile(r'\d{1,4}[.,]?-?')
 _WEIGHT_RE = re.compile(r'(\d+(?:[.,]\d+)?(?:-\d+(?:[.,]\d+)?)?)\s*(kg|g|ltr|l|cl|ml|stk)\b', re.I)
-_KG_PRICE_RE = re.compile(r'Pr\.?\s*(kg|ltr|l|stk)\s*(?:max\s*)?(\d+(?:\.\d{3})*,(?:\d{2}|-))', re.I)
-_MULTI_RE = re.compile(r'Ta.?\s*(\d+)\s*(?:stk|for)', re.I)
+_KG_PRICE_RE = re.compile(r'Pr\.?\s*(kg|ltr|l|stk)\s*(max\s*)?(\d+(?:\.\d{3})*,(?:\d{2}|-))', re.I)
 _ORE_PRICE_RE = re.compile(r'(\d+),(\d{2})$')
 
 
@@ -295,10 +296,10 @@ def parse_pdf(data: bytes) -> list[dict]:
                 b_used.add(bi)
                 p_used.add(pj)
                 b, p = blocks[bi], prices[pj]
-                multi = _label_near(segs, p, _MULTI_RE)
+                multi = _label_near(segs, p, MULTI_BUY_LABEL_RE)
                 page_items.append({
                     'name': b['name'], 'info': b['info'], 'price': p['price'],
-                    'multikob': int(multi.group(1)) if multi else None,
+                    'multikob': multi_buy_count(multi.group(0)) if multi else None,
                     'normalpris': _after_limit_price(segs, p),
                     'x0': min(b['x0'], p['x0']), 'x1': max(b['x1'], p['x1']),
                     'top': min(b['top'], p['top']), 'bottom': max(b['bottom'], p['bottom']),
@@ -315,34 +316,48 @@ def parse_pdf(data: bytes) -> list[dict]:
 
 
 def build_row(item: dict) -> dict | None:
-    name = re.sub(r'(\w)- (\w)', r'\1\2', item['name']).replace('’', "'")
-    if is_non_food(name):
-        return None
+    name = join_linebreak_hyphens(item['name']).replace('’', "'")
     info = ' | '.join(item['info'])
+    if is_non_food(name) or is_non_food(info) or looks_like_decoration(info):
+        return None
     weight_m = _WEIGHT_RE.search(info)
+    weight = f"{weight_m.group(1)} {weight_m.group(2).lower()}" if weight_m else None
+    # En kasse øl: "33 cl/24 ds" er 24 dåser, ikke én (se avis_tekst).
+    weight = crate_weight(info) or weight
     kg_m = _KG_PRICE_RE.search(info)
     kg_price = None
-    if kg_m:
-        value = kg_m.group(2).replace('.', '').replace(',-', ',00').replace(',', '.')
+    # "Pr kg max 94,-" er den højeste kilopris blandt flere varianter (typisk
+    # den mindste pakke), ikke varens egen (samme regel som Coop-aviserne,
+    # avis_tekst.exact_unit_price).
+    if kg_m and not kg_m.group(2):
+        value = kg_m.group(3).replace('.', '').replace(',-', ',00').replace(',', '.')
         unit = 'l' if kg_m.group(1).lower() in ('l', 'ltr') else kg_m.group(1).lower()
         kg_price = f"{value} kr/{unit}"
-    normalpris = item['normalpris'] if item['normalpris'] and item['normalpris'] > item['price'] else None
-    if item['multikob']:
-        normalpris = None  # "herefter"-prisen er stykpris, prisen er for flere
+    price = item['price']
+    normalpris = item['normalpris'] if item['normalpris'] and item['normalpris'] > price else None
+    multikob = None
+    if item['multikob'] and item['multikob'] > 1:
+        # "Ta' 3 for 100": prisen i boksen er for alle tre. Stykprisen og
+        # teksten "3 for 100 kr" er den form kortet og kurven forstår.
+        price, multikob = multi_buy(item['price'], item['multikob'])
+        normalpris = item['normalpris'] if item['normalpris'] and item['normalpris'] > price else None
+    if weight is None and kg_price and kg_price.endswith('kr/kg'):
+        # Kød "pr. ½ kg": avisen skriver kiloprisen, og prisen er for et halvt.
+        weight = weight_from_unit_price(price, float(kg_price.split()[0]))
     return {
         "butik":        BUTIK,
         "kategori":     KATEGORI,
         "navn":         name,
         "producent":    None,
-        "netto_vaegt":  f"{weight_m.group(1)} {weight_m.group(2).lower()}" if weight_m else None,
+        "netto_vaegt":  weight,
         "kg_price":     kg_price,
-        "pris":         item['price'],
+        "pris":         price,
         "normalpris":   normalpris,
         "varenummer":   None,
         "billede_url":  "",
         "billede_hash": None,
         "tilbud":       "Ja",
-        "multikob":     item['multikob'],
+        "multikob":     multikob,
     }
 
 

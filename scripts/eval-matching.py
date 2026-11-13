@@ -205,7 +205,7 @@ def marginal(segments: dict) -> None:
         'photo_reject': U._PHOTO_REJECT_MAX_DIST,
         'floor': U._CROSS_STORE_NAME_FLOOR,
         'prefilter': U._cross_store_length_prefilter,
-        'types': U.types_compatible,
+        'types': U.type_gate_rejects,
         'weightless': U._WEIGHTLESS_NAME_FLOOR,
     }
     saved_tokens = {id(p): set(p['_cross_match_tokens']) for p in corpus}
@@ -214,7 +214,7 @@ def marginal(segments: dict) -> None:
         U._PHOTO_REJECT_MAX_DIST = saved['photo_reject']
         U._CROSS_STORE_NAME_FLOOR = saved['floor']
         U._cross_store_length_prefilter = saved['prefilter']
-        U.types_compatible = saved['types']
+        U.type_gate_rejects = saved['types']
         U._WEIGHTLESS_NAME_FLOOR = saved['weightless']
         for p in corpus:
             p['_cross_match_tokens'] = set(saved_tokens[id(p)])
@@ -243,7 +243,7 @@ def marginal(segments: dict) -> None:
     measure('uden blokering (laengde + token)')
     restore()
 
-    U.types_compatible = lambda a, b: True
+    U.type_gate_rejects = lambda *a, **k: False
     measure('uden type-gate')
     restore()
 

@@ -709,7 +709,9 @@ export function CartScreen() {
               `${item.quantity} stk`,
               item.store,
               item.unitMeasure,
-              item.kgPrice ? item.kgPrice.replace('kr/kg', 'kr pr. kilo').replace('.', ',') : null,
+              item.kgPrice
+                ? item.kgPrice.replace('kr/kg', 'kr pr. kilo').replace('kr/l', 'kr pr. liter').replace('.', ',')
+                : null,
               !item.kgPrice ? item.multiDeal : null,
               `i alt ${spokenKr(lineTotal)}`,
             ])}

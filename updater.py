@@ -19,15 +19,20 @@ from app_support import (
     build_search_index, logger,
     DEFAULT_HTTP_HEADERS, _STORE_CONFIGS, format_price,
     normalize_name, fuzzy_score, rapid_ratio,
-    parse_weight_to_grams, parse_stk_count, weights_compatible,
+    parse_weight_to_grams, parse_stk_count, weights_compatible, same_pack_weight,
     plausible_kg_price,
     ean_looks_valid, ean_key, eans_conflict,
     _PLACEHOLDER_IMGS,
-    CAT_ANDET, CAT_FROST, CAT_FRUGT_GROENT, unify_category, is_age_restricted,
+    CAT_ANDET, CAT_FROST, CAT_FRUGT_GROENT, CAT_MEJERI, CAT_KOED_FISK,
+    CAT_BROED_KAGER, CAT_KOLONIAL, CAT_DRIKKEVARER, CAT_SLIK,
+    CATEGORY_FROM_STORE, CATEGORY_DEFAULT,
+    unify_category, classify_category, card_category_after_promotion,
+    is_age_restricted,
     compute_image_hash, phash_hex_to_int, hash_candidate_indices,
     _HASH_CANDIDATE_MAX_DIST,
     is_organic, is_lactose_free, is_sugar_free, is_gluten_free, is_alcohol_free,
     is_caffeine_free,
+    is_energy_variant,
     get_meat_types, meats_match as _meats_match,
     _compile_keyword_patterns, _extract_keywords,
     get_product_flavors, get_search_flavor_keywords,
@@ -159,6 +164,40 @@ _STORE_LOGO_IMGS = {v['logo'] for v in _STORE_CONFIGS.values()}
 _store_caches: dict = {}
 _store_cache_lock = threading.Lock()
 
+# ── Skrald i butikkernes egne data ───────────────────────────────────────────
+# Fundet 10-11-2026 ved gennemgang af produktionscachen. Butikkernes feeds har
+# enkelte rækker, der ikke er en vare man kan vise:
+#   * Spar kalder 7 frugt- og grøntvarer "Kl 1." (kvalitetsklassen, navnet
+#     mangler i Spars eget API). Tre af dem har stregkode og blev derfor
+#     grupperet med Meny/Min Købmand - og fordi Spar var billigst, stod
+#     "Kl 1." som overskrift på kortet for økologiske citroner.
+#   * Meny har en drik, hvis navn er en stregkode ("8008863056686").
+#   * Spar har en vare til 0,01 kr ("F. F").
+# Navnet kan reddes, når en anden butik fører samme stregkode
+# (adopt_names_by_ean); ellers vises rækken ikke.
+_MIN_PLAUSIBLE_PRICE = 0.50
+_CLASS_LABEL_NAME_RE = re.compile(r'kl(?:asse)?\.?\s*(?:1|2|i|ii)\.?', re.IGNORECASE)
+_BARCODE_NAME_RE = re.compile(r'\d{8,}')
+_LETTER_RUN_RE = re.compile(r'[^\W\d_]{2,}')
+
+# store_key -> rækker med ubrugeligt navn, men med stregkode. Holdes ude af
+# butikkens lister og indekser, til adopt_names_by_ean har fundet navnet.
+_nameless_rows: dict = {}
+
+
+def is_junk_product_name(name: str) -> bool:
+    """Navnet siger ikke, hvad varen er.
+
+    Bevidst snæver: kun en kvalitetsklasse alene ("Kl 1."), en stregkode som
+    navn, eller løse bogstaver uden et eneste ord ("F. F"). Korte, rigtige
+    navne skal igennem: "Æg", "Øl", "A38 1,5 %", "1664", "Nº 5", "Àn/2"."""
+    n = (name or '').strip()
+    if not n or n.lower() in ('nan', 'none'):
+        return True
+    if _CLASS_LABEL_NAME_RE.fullmatch(n) or _BARCODE_NAME_RE.fullmatch(n):
+        return True
+    return not re.search(r'\d', n) and not _LETTER_RUN_RE.search(n)
+
 
 def load_store_comparison_data(store_key: str) -> tuple:
     """Generic loader: reads from Supabase and builds token + EAN indexes."""
@@ -194,17 +233,26 @@ def load_store_comparison_data(store_key: str) -> tuple:
                                 if not (r.get('kategori') == 'Katalog'
                                         and r.get('varenummer') in offer_skus)]
 
+                nameless = []
+                skipped_junk = 0
                 for row in all_data:
                     raw_price = row.get('pris')
                     if raw_price is None or float(raw_price) <= 0:
                         continue
                     if store_key == 'bilka' and str(row.get('producent') or '').strip().lower().startswith('deli'):
                         continue
-                    
+
                     price = float(raw_price)
+                    if price < _MIN_PLAUSIBLE_PRICE:
+                        skipped_junk += 1
+                        continue
                     weight_str = str(row.get('netto_vaegt') or '')
                     weight_g = parse_weight_to_grams(weight_str)
                     ppk = parse_kg_price(row.get('kg_price') or '')
+                    if _BLENDED_LITRE_RE.search(weight_str):
+                        # Saft til opblanding "6 l.b": prisen er pr. liter
+                        # færdigblandet, ikke pr. liter saft som hos de andre.
+                        ppk = None
                     ppk = sanitize_kg_price(price, ppk, weight_g,
                                             context=f"{cfg['label']}: {row.get('navn')}")
                     
@@ -264,6 +312,12 @@ def load_store_comparison_data(store_key: str) -> tuple:
                     multi_deal = _clean_field(row.get('multikob'))
 
                     name_str = str(row.get('navn') or '')
+                    junk_name = is_junk_product_name(name_str)
+                    if junk_name and not ean:
+                        # Hverken navn eller stregkode: intet at vise og intet
+                        # at redde navnet fra.
+                        skipped_junk += 1
+                        continue
                     # Samme rensning som multikob altid har haft. Uden den kom
                     # strengen "None" (ikke Python-None) fra producent-feltet
                     # hele vejen ud paa produktkortet som maerke - maalt paa
@@ -294,7 +348,15 @@ def load_store_comparison_data(store_key: str) -> tuple:
                         '_hash_int':   p_hash_int,
                         'ean':         ean,
                         'Kategori':    kategori_str,
+                        # Butikkens eget varenummer, også når det ikke er en
+                        # stregkode (Lidls erpNumber, Sallings artikelnummer).
+                        # Bruges kun til at skelne to kort, der ellers ville få
+                        # samme id (_disambiguate_duplicate_ids).
+                        '_sku':        ean_raw if ean_raw not in ('nan', 'None') else '',
                     }
+                    if junk_name:
+                        nameless.append(product)
+                        continue
                     # Precompute af alle matchsignaler ét sted (delt med fase
                     # 2/2b og måle-harnesset, se annotate_match_signals).
                     # Returnerer None for ikke-mad og tobak, som hverken må
@@ -306,9 +368,17 @@ def load_store_comparison_data(store_key: str) -> tuple:
                         continue
                     products.append(product)
 
+                _nameless_rows[store_key] = nameless
+                if skipped_junk or nameless:
+                    logger.info(
+                        "%s: %d række(r) uden brugbart navn eller med pris under "
+                        "%.2f kr er udeladt, %d venter på et navn fra en anden "
+                        "butik med samme stregkode",
+                        cfg['label'], skipped_junk, _MIN_PLAUSIBLE_PRICE, len(nameless))
+
             except Exception as e:
                 logger.warning("Error fetching %s from Supabase: %s", cfg['label'], e)
-                
+
         # Building indexes
         token_idx: dict = {}
         hash_list = []
@@ -432,6 +502,73 @@ def backfill_attributes_by_ean(store_data: dict) -> int:
     return filled
 
 
+def adopt_names_by_ean(store_data: dict, nameless_rows: dict | None = None) -> tuple:
+    """Giv rækker uden brugbart navn det navn, en anden butik bruger om samme
+    stregkode, og sæt dem ind i butikkens lister. Returnerer (reddet, udeladt).
+
+    EAN er en autoritativ produktidentitet, så navnet for EAN X er lige så
+    rigtigt, uanset hvilken butik der oplyser det (samme tanke som
+    backfill_attributes_by_ean). Rækken beholder sin egen butiks pris, tilbud
+    og billede - kun navn og mærke lånes. Uden det forsvandt butikkens pris fra
+    sammenligningen, eller også stod skraldenavnet som kortets overskrift, når
+    butikken var billigst (Spar "Kl 1." på økologiske citroner, 10-11-2026).
+
+    Fører ingen anden butik stregkoden, udelades rækken: en vare uden navn kan
+    hverken vises eller matches.
+
+    Rækkerne tilføjes sidst i butikkens liste, så de indeks-positioner
+    token_idx og hash_list allerede peger på, forbliver gyldige.
+    """
+    if nameless_rows is None:
+        nameless_rows = _nameless_rows
+    if not any(nameless_rows.values()):
+        return 0, 0
+
+    known: dict = {}
+    for key in DB_STORE_KEYS:
+        entry = store_data.get(key)
+        if not entry:
+            continue
+        for p in entry[0]:
+            ek = ean_key(p.get('ean'))
+            if ek and ek not in known:
+                known[ek] = (p.get('name') or '', p.get('brand') or '')
+
+    adopted = dropped = 0
+    for key, rows in nameless_rows.items():
+        entry = store_data.get(key)
+        if not entry or not rows:
+            continue
+        products, token_idx, hash_list, ean_index = entry
+        for product in rows:
+            ean = product.get('ean')
+            donor = known.get(ean_key(ean))
+            # Butikken har allerede en rigtig vare med den stregkode: så er
+            # skralderækken en dublet og må ikke forgifte den gode (se
+            # _poisoned_eans i load_store_comparison_data).
+            if not donor or ean in ean_index:
+                dropped += 1
+                continue
+            product['name'], product['brand'] = donor
+            if annotate_match_signals(
+                    product,
+                    brand_in_name=key in _BRAND_OUTSIDE_NAME_STORES,
+                    store_key=key) is None:
+                dropped += 1
+                continue
+            index = len(products)
+            products.append(product)
+            for token in product['_norm_name'].split():
+                if len(token) >= 3:
+                    token_idx.setdefault(token, set()).add(index)
+            if product.get('_hash_int') is not None:
+                hash_list.append((index, product['_hash_int']))
+            ean_index[ean] = product
+            adopted += 1
+        rows.clear()
+    return adopted, dropped
+
+
 def load_all_comparison_data() -> dict:
     """Returns {store_key: (products, token_idx)} for all DB stores."""
     results = {}
@@ -444,6 +581,11 @@ def load_all_comparison_data() -> dict:
             except Exception as e:
                 logger.error("Error loading %s concurrently: %s", key, e)
                 results[key] = ([], {}, [], {})
+
+    adopted, dropped = adopt_names_by_ean(results)
+    if adopted or dropped:
+        logger.info("Navn fra stregkode: %d række(r) uden brugbart navn fik navnet "
+                    "fra en anden butik med samme EAN, %d blev udeladt", adopted, dropped)
 
     filled = backfill_attributes_by_ean(results)
     if filled:
@@ -478,6 +620,8 @@ def _variant_flags(name: str, desc: str = '', brand: str = '') -> tuple:
         # Nescafé Gold Koffeinfri deler vægt, mærke, navnestamme og ofte foto.
         # Målt på guldsættet: 2 færre falsk-positive, 0 tabte sande match.
         is_caffeine_free(name, desc, brand),
+        # Faxe Kondi Booster (energidrik) mod Faxe Kondi (sodavand).
+        is_energy_variant(name, desc, brand),
     )
 
 
@@ -602,11 +746,53 @@ def is_price_equal(new_p, current_p):
     return abs(new_p - current_p) < 0.01
 
 
-def types_compatible(type_a: str | None, type_b: str | None) -> bool:
-    """Type gate for stage-3 fuzzy matching; unknown type stays permissive."""
-    if not type_a or not type_b:
-        return True
-    return type_a == type_b
+# Zoner: hvor i butikken varen står. Sidens kategorier er finere end det, der
+# skiller to varer ad: bacon står under "Køl" hos Rema og "Kød" hos Meny, kiks
+# under "Kolonial" hos Rema og "Brød & kager" hos Salling, men det er samme
+# køledisk og samme tørvarehylde. Frost og frugt & grønt er derimod deres egne
+# steder: persille fra grøntafdelingen er ikke persille fra frostdisken.
+_TYPE_ZONE = {
+    CAT_MEJERI: 'køl', CAT_KOED_FISK: 'køl',
+    CAT_FROST: 'frost',
+    CAT_FRUGT_GROENT: 'grønt',
+    CAT_DRIKKEVARER: 'drikke',
+    CAT_KOLONIAL: 'tør', CAT_SLIK: 'tør', CAT_BROED_KAGER: 'tør',
+}
+_SEPARATE_ZONES = frozenset({'frost', 'grønt'})
+_TYPE_GATE_NAME_FLOOR = 0.80
+
+
+def type_gate_rejects(type_a, src_a, type_b, src_b, name_score: float,
+                      lenient: bool = False, same_pack=None) -> bool:
+    """Skiller afdelingerne de to varer ad?
+
+    ``src`` er hvor typen kommer fra (app_support.classify_category):
+
+      * standard: butikken siger intet, og navnet gav heller ikke noget.
+        Typen er så sidens standardkategori og ikke et udsagn om varen, og den
+        afgør intet (før blev den regnet som "Kolonial" og holdt avisernes kød
+        og fisk ude fra butikkernes).
+      * samme zone: afdelingerne er forskellige navne for samme sted.
+      * begge sider er butikkens EGEN afdeling, og den ene er frost eller
+        frugt & grønt: to forskellige varer, uanset hvor ens navnene er
+        (frisk "Persille" mod frossen "Persille 70 g", "Wokblanding" fra
+        frostdisken mod den friske). Eneste undtagelse er samme mærkevare i
+        samme størrelse (``same_pack``), hvor to kæder har lagt samme pakke
+        hvert sit sted. Gives som en funktion, så den kun regnes ud for de
+        få par, der når hertil.
+      * ellers som før: et mismatch afviser, når navnet ikke er stærkt nok til
+        at bære matchet (under 0,80), og intet foto taler for (``lenient``).
+    """
+    if (not type_a or not type_b or type_a == type_b
+            or src_a == CATEGORY_DEFAULT or src_b == CATEGORY_DEFAULT):
+        return False
+    zone_a, zone_b = _TYPE_ZONE.get(type_a), _TYPE_ZONE.get(type_b)
+    if zone_a and zone_a == zone_b:
+        return False
+    if (src_a == CATEGORY_FROM_STORE and src_b == CATEGORY_FROM_STORE
+            and (zone_a in _SEPARATE_ZONES or zone_b in _SEPARATE_ZONES)):
+        return not (same_pack is not None and same_pack())
+    return name_score < _TYPE_GATE_NAME_FLOOR and not lenient
 
 
 
@@ -932,7 +1118,8 @@ def _group_compatible(base_weight, base_stk, base_pcts: frozenset, members, base
     return True
 
 
-def _drop_cross_conflicting_matches(matches: dict, rema_w, rema_pcts: frozenset) -> dict:
+def _drop_cross_conflicting_matches(matches: dict, rema_w, rema_pcts: frozenset,
+                                    rema_produce: bool = False) -> dict:
     """Fjern butiks-matches der modsiger HINANDEN på vægt eller procent.
 
     Gates i _find_generic_match sammenligner kun kandidaten mod Rema-varen,
@@ -961,6 +1148,11 @@ def _drop_cross_conflicting_matches(matches: dict, rema_w, rema_pcts: frozenset)
             # Chestfords på identiske generiske navne. Sammenlignes via
             # ean_key, så 0-polstret GTIN-14 og EAN-13 er samme vare.
             own_pair = m1.get('_brand_cls') == 'pl' and m2.get('_brand_cls') == 'pl'
+            # Frugt og grønt uden mærkevarer: hver butik har sin egen
+            # stregkode på sin broccoli (se _arbitrate_ean_clusters), og
+            # mærkefeltet er oprindelsesland.
+            if rema_produce and 'nat' not in (m1.get('_brand_cls'), m2.get('_brand_cls')):
+                own_pair = True
             if eans_conflict(e1, e2) and not own_pair:
                 conflicted.update((k1, k2))
                 continue
@@ -1041,7 +1233,8 @@ def _keep_only_own_brands(matches: dict, store_data: dict) -> dict:
 
 
 def _arbitrate_ean_clusters(matches: dict, rema_title: str, rema_description: str,
-                            rema_brand: str, rema_strong_pl: bool = False) -> dict:
+                            rema_brand: str, rema_strong_pl: bool = False,
+                            rema_produce: bool = False) -> dict:
     """Behold kun den bedste stregkode-gruppe, når matches har flere.
 
     Grupperne vurderes på (antal butikker, summen af navnelighed mod Rema-
@@ -1075,6 +1268,13 @@ def _arbitrate_ean_clusters(matches: dict, rema_title: str, rema_description: st
     if all(_all_own_brand(matches, keys) for keys in clusters.values()):
         return matches
     if len(clusters) < 2:
+        return matches
+    # Frugt og grønt uden mærkevarer: hver butik har sin egen stregkode på
+    # sin broccoli, så flere grupper er normalt og ikke tegn på to varer.
+    # Før gav Sallings "Broccoli øko" og Menys "Øko. Broccoli" uafgjort, og
+    # Remas økologiske broccoli mistede alle sine sammenligninger (12-11-2026).
+    # Vægt- og variant-oprydningen bagefter kører som før.
+    if rema_produce and not any(m.get('_brand_cls') == 'nat' for m in matches.values()):
         return matches
     rema_norms = [n for n in (normalize_name(rema_title), normalize_name(rema_description)) if n]
     rb = normalize_name(rema_brand)
@@ -1112,7 +1312,7 @@ def _arbitrate_ean_clusters(matches: dict, rema_title: str, rema_description: st
     return kept
 
 
-_NO_VARIANT_FLAGS = (False, False, False, False, False, False)
+_NO_VARIANT_FLAGS = (False, False, False, False, False, False, False)
 
 
 def _drop_silent_own_brand_organic(matches: dict, rema_variants: tuple) -> dict:
@@ -1238,9 +1438,94 @@ def _forms_match(base_forms: set, cand_forms: set) -> bool:
 
 
 # Indeks i _variant_flags-tuplen der skal vurderes SYMMETRISK - se
-# _variants_compatible. Alkoholfri (4) og koffeinfri (5): (øko, laktosefri,
-# sukkerfri, glutenfri, alkoholfri, koffeinfri).
-_SYMMETRIC_VARIANT_DIMS = frozenset({4, 5})
+# _variants_compatible. Alkoholfri (4), koffeinfri (5) og Kondis energidrik
+# (6): (øko, laktosefri, sukkerfri, glutenfri, alkoholfri, koffeinfri, energi).
+#
+# Sukkerfri er prøvet symmetrisk 12-11-2026 og forkastet: Rema skriver
+# "sukkerfri"/"u/sukker"/"NUL sukker" på varer, hvor de andre butikker ikke
+# gør (President flødeskum, Odense marcipan, Harboe Cloudy Lemon), så rigtige
+# koblinger forsvandt. Rema-sporet foretrækker i stedet en kandidat med samme
+# flag, når der er flere at vælge imellem (_VARIANT_MISMATCH_PENALTY).
+_SYMMETRIC_VARIANT_DIMS = frozenset({4, 5, 6})
+
+# Fradrag i Rema-sporets score, når Rema-varen har en variant (øko,
+# laktosefri, sukkerfri, glutenfri), som kandidaten ikke nævner. Gaten tillader
+# parret (kandidatens navn kan bare være kortere), men findes den samme vare
+# MED varianten, skal den vinde: Remas "Faxe kondi 0 kcal" stod med almindelig
+# Faxe Kondi hos Bilka, fordi det korte navn scorede højest (12-11-2026).
+# Fradraget tæller også mod tærsklen. Målt begge veje 12-11-2026: kun som
+# rangering kom 8 forkerte par tilbage (Remas økologiske æbler, kartofler og
+# salat med de almindelige, Arla Cultura laktosefri med hytteost) mod 2 rigtige.
+_VARIANT_MISMATCH_PENALTY = 0.25
+
+_variant_index_cache: dict = {}
+
+
+def _store_variant_index(products: list) -> tuple:
+    """Pr. butik: (ord -> varer med variant d, for d = 0-3) og mærker med øko-varer.
+
+    Bygges én gang pr. vareliste og gemmes på listens identitet."""
+    hit = _variant_index_cache.get(id(products))
+    if hit is not None and hit[0] is products:
+        return hit[1]
+    by_dim = tuple({} for _ in range(4))
+    organic_brands: set = set()
+    for i, p in enumerate(products):
+        flags = p.get('_variants') or _NO_VARIANT_FLAGS
+        if not any(flags[:4]):
+            continue
+        tokens = {t for t in (p.get('_norm_name') or '').split() if len(t) >= 3}
+        for d in range(4):
+            if flags[d]:
+                for t in tokens:
+                    by_dim[d].setdefault(t, set()).add(i)
+        if flags[0]:
+            nb = normalize_name(p.get('brand') or '')
+            if nb:
+                organic_brands.add(nb)
+    result = (by_dim, organic_brands)
+    _variant_index_cache[id(products)] = (products, result)
+    return result
+
+
+def _variant_sibling_exists(products: list, i: int, dims) -> bool:
+    """Har butikken en ANDEN vare med alle kandidatens ord, der siger varianten?
+
+    Så skriver butikken selv varianten for den vare, og kandidatens tavshed
+    betyder, at den er den almindelige udgave: Netto har "Faxe Kondi 0
+    kalorier" ved siden af "Faxe Kondi", så Remas "Faxe kondi lemonade 0 kcal"
+    må ikke stå med den almindelige (12-11-2026)."""
+    p = products[i]
+    # Varenavnet alene, uden mærket foran: Bilka skriver øko på "Finvalsede
+    # havregryn øko" (Salling ØKO), så OTAs "Finvalsede havregryn" er den
+    # almindelige, selv om ingen OTA-vare siger øko (Remas Gram Slot øko
+    # havregryn tog OTA-varen fra Remas egen OTA Solgryn, 12-11-2026).
+    tokens = [t for t in (p.get('_norm_name') or '').split() if len(t) >= 3]
+    if not tokens:
+        return False
+    by_dim, _ = _store_variant_index(products)
+    for d in dims:
+        idx = by_dim[d]
+        sets = [idx.get(t) for t in tokens]
+        if any(s is None for s in sets):
+            continue
+        if set.intersection(*sets) - {i}:
+            return True
+    return False
+
+
+def _organic_brand_without_organic(products: list, p: dict, rema_text_norm: str) -> bool:
+    """Mærket står i Rema-teksten, og butikken skriver aldrig øko på det mærke.
+
+    Nogle mærker er altid økologiske uden at butikkerne skriver det (Bakkedal
+    smørbar: Rema "Bakkedal, økologisk", Meny "Bakkedal Smørbar"). Kun for
+    øko: et mærke er aldrig bevis for sukkerfri eller laktosefri."""
+    if p.get('_brand_cls') != 'nat':
+        return False
+    nb = normalize_name(p.get('brand') or '')
+    if len(nb) < 3 or f' {nb} ' not in f' {rema_text_norm} ':
+        return False
+    return nb not in _store_variant_index(products)[1]
 
 
 def _variants_compatible(rema_variants: tuple, cand_variants: tuple) -> bool:
@@ -1318,7 +1603,7 @@ def annotate_match_signals(product: dict, brand_in_name: bool = False,
     weight_str = str(product.get('weight') or '')
     kategori_str = str(product.get('Kategori') or '')
 
-    p_type = unify_category(kategori_str, name_str, brand_str)
+    p_type, p_type_src = classify_category(kategori_str, name_str, brand_str)
     if p_type is None:
         return None
 
@@ -1327,6 +1612,9 @@ def annotate_match_signals(product: dict, brand_in_name: bool = False,
     product['_weight_g'] = parse_weight_to_grams(weight_str)
     product['_stk_count'] = _stk_count_of(weight_str, name_str)
     product['_type'] = p_type
+    # Butikkens egen afdeling, et gæt ud fra navnet eller ingenting (se
+    # type_gate_rejects).
+    product['_type_src'] = p_type_src
     product['_flavors'] = get_product_flavors(text_with_brand)
     # Kødtype læste tidligere KUN navnet, mens smag/form/procent/variant alle
     # læste navn+brand. Den inkonsistens gjorde kød-gaten blind for de feeds,
@@ -1765,6 +2053,9 @@ _REMA_WORD_SYNONYMS: dict = {
     'sovs': ('sauce',), 'sauce': ('sovs',),
     'yogurt': ('yoghurt',), 'yoghurt': ('yogurt',),
     'friskost': ('flødeost',), 'flødeost': ('friskost',),
+    # OTAs havregryn hedder "Solgryn" hos Rema og Dagrofa og "Finvalsede
+    # havregryn" (mærke OTA) hos Salling (12-11-2026).
+    'solgryn': ('havregryn',),
 }
 
 
@@ -1824,6 +2115,44 @@ def rema_title_words_covered(rema_title_norm: str, cand_text_norm: str,
         return False
     found = [w for w in words if w not in missing]
     return any(not get_product_colours(w) for w in found)
+
+
+# Ord der indleder beskrivelsen i et varenavn: "Grøn te m. mandarin og
+# appelsin", "Yoghurt med jordbær", "Sauce til pasta".
+_DESCRIPTOR_WORDS: frozenset = frozenset({'m', 'med', 'i', 'til', 'uden', 'w', 'with'})
+
+
+def rema_words_only_in_descriptor(rema_title_norm: str, rema_text_norm: str,
+                                  cand_norm: str) -> bool:
+    """Står Remas titelord kun i kandidatens beskrivelse, mens ingen af
+    kandidatens hovedord findes hos Rema?
+
+    Remas "APPELSIN" (appelsinnektar, 1,5 l) stod med Sallings "Grøn te m.
+    mandarin og appelsin" (20 breve), fordi "appelsin" findes i navnet
+    (målt 12-11-2026). Men appelsin står efter "m."; varen er grøn te.
+
+    Bruges kun når den ene side mangler vægt. Med vægt på begge sider er
+    Sallings beskrivende navne i orden ("Tyggegummi m. spearmintsmag" er
+    Stimorol Spearmint, "Smøreost m. hvidløg og urter" er Philadelphia), og
+    de andre gates dømmer. Målt på en fuld kørsel: 4 af 4.108 Rema-koblinger.
+    """
+    toks = cand_norm.split()
+    cut = next((i for i, t in enumerate(toks) if i > 0 and t in _DESCRIPTOR_WORDS), None)
+    if cut is None:
+        return False
+    head = [t for t in toks[:cut] if t.isalpha()]
+    if not head or not any(t.isalpha() for t in toks[cut + 1:]):
+        return False
+    rema_tokens = rema_text_norm.split()
+    rema_tokens += [a + b for a, b in zip(rema_tokens, rema_tokens[1:])]
+    if any(_rema_word_found(h, rema_tokens) for h in head):
+        return False
+    words = [w for w in rema_title_norm.split()
+             if len(w) >= 3 and w.isalpha() and w not in _REMA_WORD_NOISE]
+    if not words:
+        return False
+    head_tokens = head + [a + b for a, b in zip(head, head[1:])]
+    return not any(_rema_word_found(w, head_tokens) for w in words)
 
 
 # Ord der ikke skiller to varer ad i ordreglen for fase 2/2b, ud over
@@ -1974,7 +2303,7 @@ def cross_store_pair_verdict(base_p: dict, target_p: dict, base_norm: str,
 
     base_weight = base_p.get('_weight_g')
     target_weight = target_p.get('_weight_g')
-    if not weights_compatible(base_weight, target_weight):
+    if not same_pack_weight(base_weight, target_weight):
         return False, 0.0, 'vægt'
 
     base_stk = base_p.get('_stk_count')
@@ -2050,8 +2379,10 @@ def cross_store_pair_verdict(base_p: dict, target_p: dict, base_norm: str,
     # fordi de par gaten fjernede overvejende var korrekte. Samme-feed uændret.
     base_type = base_p['_type']
     target_type = target_p['_type']
-    if (not types_compatible(base_type, target_type)
-            and name_score < 0.80 and not photo_compatible):
+    if type_gate_rejects(base_type, base_p.get('_type_src'),
+                         target_type, target_p.get('_type_src'),
+                         name_score, lenient=photo_compatible,
+                         same_pack=lambda: _same_brand_same_pack(base_p, target_p)):
         return False, name_score, 'type'
 
     if base_p['_is_pl'] != target_p['_is_pl'] and name_score < 0.70:
@@ -2172,7 +2503,7 @@ def cross_store_pair_verdict(base_p: dict, target_p: dict, base_norm: str,
     return True, name_score, VERDICT_ACCEPT
 
 
-def _find_generic_match(rema_title, rema_description, products, token_idx, hash_list, rema_brand='', rema_weight_g=None, threshold=0.60, rema_image_hash='', rema_price=0.0, rema_ean='', rema_stk_count=None, ean_index=None, rema_category='', claimed_ids=None, rema_price_per_kg=None):
+def _find_generic_match(rema_title, rema_description, products, token_idx, hash_list, rema_brand='', rema_weight_g=None, threshold=0.60, rema_image_hash='', rema_price=0.0, rema_ean='', rema_stk_count=None, ean_index=None, rema_category='', claimed_ids=None, rema_price_per_kg=None, rema_type_src=None):
     """Token-indexed fuzzy match used by all store comparisons.
 
     Product stages (EAN status - see README «Product matching»):
@@ -2263,7 +2594,11 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
         return None
 
     norm_rema_brand = normalize_name(rema_brand)
-    rema_type = unify_category(str(rema_category), str(rema_title), str(rema_brand))
+    rema_type, _derived_src = classify_category(str(rema_category), str(rema_title), str(rema_brand))
+    # Kalderen kender Remas egen afdeling (rema_category er allerede oversat
+    # til sidens kategori, så kilden kan ikke læses af den).
+    if rema_type_src is None:
+        rema_type_src = _derived_src
     base_cls = rema_brand_class(rema_brand, rema_title, rema_type)
     base_is_pl = base_cls == 'pl'
     rema_variants = _variant_flags(rema_title, rema_description, rema_brand)
@@ -2317,6 +2652,7 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
         return None
 
     best, best_score = None, 0.0
+    rema_text_norm = normalize_name(f"{rema_title} {rema_description} {rema_brand}")
 
     for i in candidate_indices:
         p = products[i]
@@ -2422,8 +2758,8 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
         # allerede anvender eksplicit i fase 2/2b. Ændrer intet i
         # resultatet, kun arbejdsmængden. Se matchmotor-revisionen
         # 2026-08-16, fund M4.
-        # Gate B: Weight
-        if not weights_compatible(rema_weight_g, p.get('_weight_g')):
+        # Gate B: Weight (same_pack_weight: Rema har ingen stregkode)
+        if not same_pack_weight(rema_weight_g, p.get('_weight_g')):
             continue
 
         # Gate B2: Stk-count - skip if both have a known stk count that differs
@@ -2449,7 +2785,11 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
         # Gate: Product type - butikkernes kategorier er støjede (samme marmelade
         # ligger under "Kolonial" hos Rema og "Frost" hos Salling), så mismatch
         # afviser kun når navnescoren ikke er høj nok til at bære matchet alene.
-        if not types_compatible(rema_type, p['_type']) and name_score < 0.80:
+        if type_gate_rejects(
+                rema_type, rema_type_src, p['_type'], p.get('_type_src'), name_score,
+                same_pack=lambda: _same_brand_same_pack(
+                    {'_weight_g': rema_weight_g, 'brand': rema_brand,
+                     '_xname': rema_title_norm}, p)):
             continue
 
         # Gate A: Brand-pairing
@@ -2476,6 +2816,13 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
                     f"{p['_norm_name']} {normalize_name(p.get('brand', ''))}",
                     produce=(rema_type == CAT_FRUGT_GROENT
                              and p['_type'] == CAT_FRUGT_GROENT))):
+            continue
+        # Uden vægt på begge sider må Remas ord ikke kun stå i kandidatens
+        # beskrivelse (rema_words_only_in_descriptor).
+        if (rema_title_norm and not near_identical_photo
+                and (not rema_weight_g or not p.get('_weight_g'))
+                and rema_words_only_in_descriptor(
+                    rema_title_norm, rema_text_norm, p['_norm_name'])):
             continue
 
         # Gate D: Dairy variant + first-token checks
@@ -2558,6 +2905,15 @@ def _find_generic_match(rema_title, rema_description, products, token_idx, hash_
                 image_boost = 0.20 * (15 - dist) / 7.0
 
         score = name_score + brand_boost + image_boost
+        # Rema-varen har en variant, kandidaten ikke nævner (se
+        # _VARIANT_MISMATCH_PENALTY). Et næsten ens foto er samme vare.
+        cand_variants = p['_variants']
+        missing = [d for d in range(4) if rema_variants[d] and not cand_variants[d]]
+        if missing and not near_identical_photo and not (
+                missing == [0] and _organic_brand_without_organic(products, p, rema_text_norm)):
+            if _variant_sibling_exists(products, i, missing):
+                continue
+            score -= _VARIANT_MISMATCH_PENALTY
         if score > best_score:
             best_score = score
             best = p
@@ -2608,14 +2964,32 @@ def _apply_cheapest_display(target: dict, store_key: str, match: dict) -> None:
     target['/product/unit_pricing_measure'] = match.get('weight') or target.get('/product/unit_pricing_measure')
     target['/product/price_per_kg'] = match.get('kg_price')
     target['/product/multi_deal'] = match.get('multi_deal', '')
-    new_type = unify_category(match.get('Kategori', ''), match['name'], match.get('brand', ''))
-    if new_type and new_type != CAT_ANDET:
+    new_type = card_category_after_promotion(target.get('/product/product_type'), match)
+    if new_type:
         target['/product/product_type'] = new_type
 
 
+# Enheden bag skraberens enhedspris ("3.02 kr/stk"). Kun kilo og liter kan
+# vises som kilopris og sammenlignes på tværs af butikker.
+_UNIT_PRICE_UNIT_RE = re.compile(r'/\s*([a-zæøå.]+)\s*$', re.IGNORECASE)
+_KG_PRICE_UNITS = frozenset({'kg', 'l', 'ltr', 'liter'})
+# "6 l.b" / "5.1 L.B": liter færdigblandet (Føtex og Netto, saft til opblanding).
+_BLENDED_LITRE_RE = re.compile(r'\d\s*l\.\s*b\b', re.IGNORECASE)
+
+
 def parse_kg_price(kg_price_str):
-    """Extract numeric kr/kg value from a string like '84,62 kr/Kg'."""
+    """Extract numeric kr/kg value from a string like '84,62 kr/Kg'.
+
+    None for en pris pr. styk, meter eller liter færdigblandet ("3.02 kr/stk",
+    "154.90 kr/meter", "7.16 kr/l.bl"). Før blev tallet læst uden enheden, så
+    ca. 1.040 varer (æg, meloner, citroner, kaffefiltre) viste stykprisen som
+    "kr/kg" på kortet, og kg-pris-gaten i matchingen sammenlignede en
+    stykpris med en kilopris (målt 12-11-2026).
+    """
     if not kg_price_str or str(kg_price_str).strip() in ('nan', '', 'None'):
+        return None
+    unit_m = _UNIT_PRICE_UNIT_RE.search(str(kg_price_str).strip())
+    if unit_m and unit_m.group(1).lower().rstrip('.') not in _KG_PRICE_UNITS:
         return None
     try:
         cleaned = str(kg_price_str).replace(',', '.').replace('kr', '').replace('/kg', '').replace('/Kg', '').replace('/KG', '').strip()
@@ -2746,10 +3120,72 @@ def build_store_display_products(products: list, store_key: str) -> list:
                 '/product/own_sale':                  bool(p.get('is_sale')),
                 '/product/own_avis':                  bool(p.get('in_avis')),
                 '/product/own_avis_titel':            p.get('avis_titel') or '',
+                # Kun til _disambiguate_duplicate_ids, som fjerner feltet igen.
+                _ID_HINT_KEY:                         p.get('_sku') or '',
             })
         except Exception:
             continue
     return display
+
+
+_ID_HINT_KEY = '/product/_id_hint'
+
+
+def _disambiguate_duplicate_ids(cards: list) -> list:
+    """Giv hvert kort sit eget id, når flere kort ellers ville dele ét.
+
+    Et kort uden stregkode får sit id af butik + normaliseret navn + vægt
+    (build_store_display_products). To forskellige varer i samme butik med
+    samme navn og vægt får derfor samme id, og seed-d1.py beholder kun det
+    første (id er primærnøgle), så resten aldrig når siden. Målt i
+    produktionscachen 10-11-2026: 9 id'er delt af 21 kort, så 12 kort manglede
+    på madshopper.dk - bl.a. Bilkas avistilbud "Oksemørbrad" (samme navn, vægt
+    og pris som katalogvaren), Ludvigs oksecuvette ved siden af Slagterens, og
+    Lidls smagsvarianter med ens titel ("Mogu Mogu" tre gange). De delte også
+    prishistorik: to "Kalender Lys" til 29,98 og 49,98 kr gav den dyre en
+    "laveste pris" fra den billige.
+
+    Det kort der står først (gruppen med flest butikker, ellers laveste
+    varenummer), beholder id'et uændret - det er også det kort D1 har vist
+    hidtil, så dets prishistorik, prisalarmer og plads i kurve bliver ved med
+    at passe. De øvrige får et id af det delte id + butikkens eget varenummer
+    (billed-adressen, hvis varenummeret mangler), i samme form som alle andre
+    id'er. Et id ændres altså kun for kort, der i dag slet ikke vises.
+    """
+    by_id: dict = {}
+    for card in cards:
+        by_id.setdefault(str(card.get('/product/id') or ''), []).append(card)
+
+    def hint(card: dict) -> str:
+        return (str(card.get(_ID_HINT_KEY) or '').strip()
+                or str(card.get('/product/imageLink') or '').strip())
+
+    taken = set(by_id)
+    renamed = 0
+    for pid, group in by_id.items():
+        if not pid or len(group) < 2:
+            continue
+        group.sort(key=lambda c: (-len(c.get('/product/store_matches') or {}),
+                                  str(c.get('/product/brand') or '').lower(), hint(c)))
+        prefix, _, digest = pid.rpartition('_')
+        if not prefix:
+            continue  # Rema-id (rent tal) - deles aldrig
+        for number, card in enumerate(group[1:], start=2):
+            seed = f"{pid}|{str(card.get('/product/brand') or '').lower()}|{hint(card)}"
+            new_id = f"{prefix}_{hashlib.md5(seed.encode('utf-8')).hexdigest()[:len(digest)]}"
+            while new_id in taken:
+                # To kort uden nogen forskel i mærke, varenummer og billede.
+                seed = f"{seed}|{number}"
+                new_id = f"{prefix}_{hashlib.md5(seed.encode('utf-8')).hexdigest()[:len(digest)]}"
+            taken.add(new_id)
+            card['/product/id'] = new_id
+            renamed += 1
+
+    for card in cards:
+        card.pop(_ID_HINT_KEY, None)
+    if renamed:
+        logger.info("Delte id'er: %d kort fik sit eget id (før blev de udeladt af D1)", renamed)
+    return cards
 
 
 def _display_item_to_match(p: dict) -> dict:
@@ -2930,6 +3366,9 @@ def _merge_duplicate_into_kept(kept: dict, dup: dict) -> None:
     if not kept.get('/product/rema_price') and dup.get('/product/rema_price'):
         kept['/product/rema_price'] = dup.get('/product/rema_price')
         kept['/product/rema_is_sale'] = dup.get('/product/rema_is_sale', False)
+        kept['/product/rema_kg_price'] = (dup.get('/product/price_per_kg')
+                                          if dup.get('/product/store') == 'Rema 1000'
+                                          else dup.get('/product/rema_kg_price'))
 
 
 def _card_eans(card: dict) -> set:
@@ -3086,6 +3525,12 @@ def _fill_missing_rema_hashes(raw_products: list, rema_hashes: dict) -> dict:
     return rema_hashes
 
 
+# Rema-varens id -> hvor dens kategori kommer fra (classify_category): Remas
+# egen afdeling eller et gæt. Kortet bærer kun den oversatte kategori, så
+# kilden huskes her til type-gaten i _find_generic_match.
+_rema_type_src: dict = {}
+
+
 def _fetch_rema_products_only():
     """Hent og parse Rema 1000 XML - uden sammenligning med andre butikker."""
     rema_products = []
@@ -3130,13 +3575,14 @@ def _fetch_rema_products_only():
                 if price <= 0:
                     continue
 
-                mapped_type = unify_category(
+                mapped_type, type_src = classify_category(
                     product.get('product_type', ''),
                     product.get('title', ''),
                     product.get('brand', ''),
                 )
                 if mapped_type is None:
                     continue  # ikke-mad eller tobak - frasorteres centralt i unify_category
+                _rema_type_src[str(product.get('id', ''))] = type_src
                 if is_age_restricted(
                     product.get('title', ''),
                     product.get('brand', ''),
@@ -3207,6 +3653,8 @@ def merge_rema_into_cache(cached, fresh_rema):
             updated['/product/rema_price'] = _rema_effective_price(fresh)
             updated['/product/rema_is_sale'] = fresh.get('/product/sale_price') is not None
             updated['/product/rema_image'] = fresh.get('/product/imageLink', '')
+            if product.get('/product/store') != 'Rema 1000':
+                updated['/product/rema_kg_price'] = fresh.get('/product/price_per_kg')
             if product.get('/product/store') == 'Rema 1000':
                 for key in (
                     '/product/price', '/product/sale_price', '/product/title',
@@ -4118,6 +4566,7 @@ def fetch_and_parse_xml():
                     rema_stk_count=product.get('/product/stk_count'),
                     ean_index=ean_index,
                     rema_category=product.get('/product/product_type', ''),
+                    rema_type_src=_rema_type_src.get(str(product.get('/product/id', ''))),
                     claimed_ids=matched_ids[key],
                     rema_price_per_kg=product.get('/product/price_per_kg'),
                 )
@@ -4168,7 +4617,14 @@ def fetch_and_parse_xml():
                         if hit is None:
                             continue
                         hit_w = hit.get('_weight_g')
-                        if hit_w and rema_w and not weights_compatible(rema_w, hit_w):
+                        # Vejer den matchede vare selv, har den allerede
+                        # bestået same_pack_weight. Butikkerne kan være uenige
+                        # om vægten på samme stregkode (Knorr bearnaise: 57 g
+                        # hos Dagrofa, 66 g hos Salling), så her bruges den
+                        # rummelige regel. Mangler den matchede vare vægt, er
+                        # stregkodens vægt det eneste bevis.
+                        weight_ok = weights_compatible if m.get('_weight_g') else same_pack_weight
+                        if hit_w and rema_w and not weight_ok(rema_w, hit_w):
                             bad_eans.add(ean)
                             break
                         if not _percents_match(rema_pcts, hit.get('_pcts', frozenset())):
@@ -4209,11 +4665,17 @@ def fetch_and_parse_xml():
                                  str(product.get('/product/title') or ''))
                 or normalize_name(str(product.get('/product/brand') or '')).replace(' ', '') == 'rema1000'
                 or rema_desc.replace(' ', '').startswith('rema1000'))
+            rema_produce = unify_category(
+                str(product.get('/product/product_type') or ''),
+                str(product.get('/product/title') or ''),
+                str(product.get('/product/brand') or '')) == CAT_FRUGT_GROENT
             matches = _arbitrate_ean_clusters(
                 matches, str(product['/product/title']),
                 str(product.get('/product/description') or ''),
-                str(product.get('/product/brand') or ''), rema_strong_pl)
-            matches = _drop_cross_conflicting_matches(matches, rema_w, rema_pcts)
+                str(product.get('/product/brand') or ''), rema_strong_pl,
+                rema_produce=rema_produce)
+            matches = _drop_cross_conflicting_matches(matches, rema_w, rema_pcts,
+                                                      rema_produce=rema_produce)
             # ... og på variant-flag: en tavs kandidat droppes, når et andet
             # medlem eksplicit bekræfter et Rema-flag, kandidaten mangler.
             matches = _drop_variant_conflicting_matches(matches, rema_variants)
@@ -4227,12 +4689,17 @@ def fetch_and_parse_xml():
             )
             if found_ean:
                 rema_stk = product.get('/product/stk_count')
+                # Samme regel som i EAN-retro-valideringen ovenfor.
+                fill_weight_ok = (weights_compatible
+                                  if any(m.get('_weight_g') for m in matches.values()
+                                         if m.get('ean') == found_ean)
+                                  else same_pack_weight)
                 for key in DB_STORE_KEYS:
                     if key not in matches:
                         _, _, _, ean_index = store_data[key]
                         hit = ean_index.get(found_ean)
                         if (hit and id(hit) not in matched_ids[key]
-                                and weights_compatible(rema_w, hit.get('_weight_g'))
+                                and fill_weight_ok(rema_w, hit.get('_weight_g'))
                                 and (rema_stk is None or hit.get('_stk_count') is None
                                      or rema_stk == hit.get('_stk_count'))
                                 and _percents_match(rema_pcts, hit.get('_pcts', frozenset()))
@@ -4295,6 +4762,9 @@ def fetch_and_parse_xml():
             product['/product/cheapest_at'] = display_store
 
             if display_store != REMA_KEY:
+                # Kortet viser nu en anden butiks vare og kilopris. Remas egen
+                # gemmes til Rema-linjen i sammenligningen (app_support).
+                product['/product/rema_kg_price'] = product.get('/product/price_per_kg')
                 _apply_cheapest_display(product, display_store, matches[display_store])
             else:
                 product['/product/store'] = _STORE_CONFIGS[REMA_KEY]['label']
@@ -4646,7 +5116,7 @@ def fetch_and_parse_xml():
 
         # Fjern interne precompute-felter fra store_matches, så de ikke fylder
         # i app_cache/D1 (sets kan desuden ikke serialiseres pænt til JSON).
-        _transient_keys = ('_type', '_flavors', '_forms', '_ice', '_variants', '_is_pl', '_pcts', '_meats', '_cross_match_tokens', '_xname', '_multipack', '_brand_cls')
+        _transient_keys = ('_type', '_type_src', '_flavors', '_forms', '_ice', '_variants', '_is_pl', '_pcts', '_meats', '_cross_match_tokens', '_xname', '_multipack', '_brand_cls')
         for _p in final_products:
             for _m in (_p.get('/product/store_matches') or {}).values():
                 if isinstance(_m, dict):
@@ -4686,6 +5156,7 @@ def fetch_and_parse_xml():
         final_products = deduped
 
         final_products = _merge_cards_sharing_ean(final_products)
+        final_products = _disambiguate_duplicate_ids(final_products)
 
         flush_match_trace()
 

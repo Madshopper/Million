@@ -812,6 +812,15 @@ _FLAVOR_MAP = {
     'watermelon': ('watermelon', 'melon'), 'vandmelon': ('watermelon', 'melon'),
     'drue': 'grape',  # dækker også "druer" (ordstart); "vindruer" fanges af 'vindrue'
     'skovbær': 'forestberry',
+    # "Blue Keld Bfree lemon lime" stod med Sallings "Vand m. brus brombær"
+    # (12-11-2026): brombær var ikke en smag.
+    'brombær': 'blackberry', 'blackberry': 'blackberry',
+    # Saucer: Knorrs bearnaise stod med persillesaucen i samme størrelse.
+    'bearnaise': 'bearnaise', 'hollandaise': 'hollandaise', 'persille': 'parsley',
+    # "Faxe Kondi Eksotisk" er en anden smag end Faxe Kondi, og "Ferrero
+    # Rocher Macadamia" en anden end originalen (blindtest 12-11-2026).
+    'eksotisk': 'exotic', 'exotic': 'exotic',
+    'macadamia': 'macadamia',
     # Krydderurter/krydderier som varianter ("Tomatsuppe m. timian" ≠ "Tomatsuppe")
     'timian': 'thyme',
     'basilikum': 'basil',
@@ -819,6 +828,8 @@ _FLAVOR_MAP = {
     'hvidløg': 'garlic',
     'h.løg': 'garlic',  # Dagrofa-forkortelse ("Flødeost H.Løg") - konsumeres før 'løg' (onion)
     'chili': 'chili',
+    'jalapeño': 'jalapeno', 'jalapeños': 'jalapeno', 'jalapeno': 'jalapeno',
+    'jalapenos': 'jalapeno',
     'karry': 'curry',
     # Smagsvarianter
     'naturel': 'natural', 'natural': 'natural', 'naturlig': 'natural',
@@ -1216,6 +1227,23 @@ def parse_stk_count(weight_str) -> int | None:
         return None
 
 
+# Størrelsen slutter med et rumfang: "1,5 l", "24 x 33 cl", "250 ML", "75 cl.".
+_VOLUME_TAIL_RE = re.compile(r'\d\s*(?:ml|cl|dl|l|ltr|liter|litre|lt)\.?$')
+
+
+def kg_price_unit(weight_str) -> str:
+    """'l' når varen sælges i rumfang, ellers 'kg': enheden bag kiloprisen.
+
+    Butikkerne angiver literpris for alt, de sælger i rumfang (målt
+    12-11-2026: 8.486 af 8.491 varer med literpris har et rumfang som
+    størrelse, og ingen vare med vægt i gram har literpris), og Remas egen
+    kilopris regnes ud fra rumfanget. Kortet skrev "kr/kg" på dem alle,
+    også på en liter mælk. Hjemmesiden og appen skriver nu "kr/l".
+    """
+    s = str(weight_str or '').strip().lower().replace(',', '.')
+    return 'l' if _VOLUME_TAIL_RE.search(s) else 'kg'
+
+
 def weights_compatible(w_a: float | None, w_b: float | None, tolerance: float | None = None) -> bool:
     if w_a is None or w_b is None:
         return True
@@ -1224,6 +1252,25 @@ def weights_compatible(w_a: float | None, w_b: float | None, tolerance: float | 
         tolerance = max(min(_WEIGHT_TOLERANCE_G, 0.25 * w_max),
                         _WEIGHT_TOLERANCE_REL * w_max)
     return abs(w_a - w_b) <= tolerance
+
+
+# Uden fælles stregkode (Rema, aviserne og fuzzy-matchingen mellem butikkerne)
+# er vægten det eneste bevis for, at det er samme pakning. Bunden på 20 g i
+# weights_compatible er til afrunding, men under 250 g blev den til 8-25 % af
+# vægten: Katjes 80 g stod med 100 g, Pringles 165 g med 185 g og Remas
+# mandler 90 g med lakridsmandler 110 g (målt 12-11-2026). Blandt sande par
+# (samme stregkode i to butikker) lå kun 13 af 8.507 mere end 8 % fra
+# hinanden. weights_compatible bruges stadig, hvor stregkoden er beviset.
+_SAME_PACK_TOLERANCE_REL = 0.08
+_SAME_PACK_TOLERANCE_G = 2.0   # afrunding af små varer (7,5 g mod 8 g)
+
+
+def same_pack_weight(w_a: float | None, w_b: float | None) -> bool:
+    """Vægt-gaten for to varer uden fælles stregkode: højst 8 % forskel."""
+    if w_a is None or w_b is None:
+        return True
+    w_max = max(w_a, w_b)
+    return abs(w_a - w_b) <= max(_SAME_PACK_TOLERANCE_G, _SAME_PACK_TOLERANCE_REL * w_max)
 
 
 # ---------------------------------------------------------------------------
@@ -1295,7 +1342,14 @@ def eans_conflict(e1, e2) -> bool:
 # er det ikke), og den gamle 'økolog' in text-substring ignorerede negation
 # ("Mælk ikke økologisk" blev også flagget økologisk). Se matchmotor-
 # revisionen 2026-08-16, fund H1.
-_ORGANIC_RE = re.compile(r'\bøkolog\w*|\bøko\b|\borganic\b')
+_ORGANIC_RE = re.compile(
+    r'\bøkolog\w*|\bøko\b|\borganic\b'
+    # Dagrofas forkortelser og sammenskrivninger (målt 12-11-2026, 22 varer):
+    # "Broccoli Økol.", "Hvedemel Øk", tastefejlen "Økoo", "Økorugmel" og
+    # mærket Økolandet. Uden dem stod Spars økologiske broccoli som almindelig.
+    # "Økonomi" (V6 Økonomi) er bevidst ikke med.
+    r'|\bøkol\b|\bøkoo\b|\bøk\b|\bøkolandet\b'
+    r'|\bøko(?=(?:rug|hvede|spelt|havre)?mel\b)')
 _ORGANIC_NEGATED_RE = re.compile(r'\bikke\s+øko')
 
 
@@ -1317,6 +1371,10 @@ def is_lactose_free(name: str, desc: str = '', brand: str = '') -> bool:
     # Arla m.fl. bruger "Lacto" som produktlinje (ikke det samme som dansk "laktose" med k)
     if re.search(r'\blacto\b', text):
         return True
+    # Dagrofas forkortelse ("Arla Letmælk Lkf Øko", 23 varer 12-11-2026). Uden
+    # den stod Remas almindelige økologiske letmælk med den laktosefri.
+    if re.search(r'\blkf\b', text):
+        return True
     return False
 
 
@@ -1324,11 +1382,24 @@ def is_lactose_free(name: str, desc: str = '', brand: str = '') -> bool:
 # "zero" ikke kan fyre midt inde i et andet ord. Se fund H1.
 _SUGAR_FREE_RE = re.compile(
     r'sukkerfri|sugar[- ]free|sukker fri|zero sugar|\bzero\b|no sugar'
-    r'|uden sukker|\bnul suk|0% sugar')
+    r'|uden sukker|\bnul suk|0% sugar'
+    # "Faxe Kondi 0 kalorier" (Salling), "0 Kal." (Dagrofa), "0 kcal" (Rema).
+    # Uden dem stod sukkerfri Faxe Kondi med den almindelige (12-11-2026).
+    r'|\b0\s*(?:kalorier|kalorie|kcal|kal)\b'
+    # Dagrofas "Faxe Kondi Free" og "Faxe Kondi Booster Free" er de sukkerfri
+    # (Salling: "0 kalorier" og "Energidrik sukkerfri"). Kun efter Kondi:
+    # bart "free" står også på alkoholfri vin ("Free Chardonnay").
+    r'|\b(?:kondi|booster)\s+free\b')
 
 
 def is_sugar_free(name: str, desc: str = '', brand: str = '') -> bool:
-    """Return True if the product is explicitly marked as sugar-free."""
+    """Return True if the product is explicitly marked as sugar-free.
+
+    Dagrofas forkortelse "Sf" ("Stimorol Peppermint Sf") er bevidst IKKE med:
+    Salling skriver ikke sukkerfri på varer der altid er det ("Tyggegummi m.
+    peppermintsmag" fra Stimorol, "Crazy Candy Frogs" fra Evers), så flaget
+    skilte samme vare ad (målt 12-11-2026: 6 tabte, 2 vundne i blindtesten).
+    """
     text = f"{name} {desc} {brand}".lower()
     # Harboe/Dagrofa-former: "Nul Sukker", forkortet "Nul Suk." og "0% Sugar"
     return bool(_SUGAR_FREE_RE.search(text))
@@ -1346,8 +1417,15 @@ def is_gluten_free(name: str, desc: str = '', brand: str = '') -> bool:
 
 # "0,0%" står i praksis kun på alkoholfri drikkevarer (tjekket mod hele
 # produkt-cachen) - fedtprocenter skrives 0,1%/0,5% og ikke 0,0%.
+#
+# Dagrofa, Netto og Rema skriver det også uden procenttegn: "Tuborg Classic
+# 0,0 6-Pk Ds", "Cero 0,0", "Royal classic 0,0 6 pk.". Uden det blev den
+# alkoholfri sat sammen med den almindelige (blindtest 12-11-2026). Et "0,0"
+# efterfulgt af "fedt" er en fedtprocent og tæller ikke.
 _ALCOHOL_FREE_RE = re.compile(
-    r'alkoholfri|alkohol fri|alcohol[- ]free|\bnul ?%|\b0[,.]0 ?%')
+    r'alkoholfri|alkohol fri|alcohol[- ]free|\bnul ?%|\b0[,.]0\b(?! ?%? ?fedt)'
+    # Dagrofa: "Skovlyst Ahornbryg Alk.Fri" (12-11-2026).
+    r'|\balk\.?\s?fri\b')
 
 
 def is_alcohol_free(name: str, desc: str = '', brand: str = '') -> bool:
@@ -1357,6 +1435,20 @@ def is_alcohol_free(name: str, desc: str = '', brand: str = '') -> bool:
 
 _CAFFEINE_FREE_RE = re.compile(
     r'koffeinfri|koffein[- ]fri|uden koffein|decaffeinated|\bdecaf\b')
+
+
+# Faxe Kondi findes både som sodavand og som energidrik: "Faxe Kondi Booster"
+# hos Dagrofa, Rema og Lidl, "Energidrik" med producenten Faxe Kondi hos
+# Salling. Samme mærke, navn og størrelse, så energidrikken stod med den
+# almindelige Faxe Kondi (blindtest 12-11-2026). Kun Kondi: andre
+# energidrikke hedder bare deres mærke hos Dagrofa ("Red Bull 25 Cl").
+_KONDI_ENERGY_RE = re.compile(r'\bbooster\b|\benergidrik|\benergy\b|\bboost\b')
+
+
+def is_energy_variant(name: str, desc: str = '', brand: str = '') -> bool:
+    """True for Faxe Kondis energidrik (Booster), False for sodavanden."""
+    text = f"{name} {desc} {brand}".lower()
+    return 'kondi' in text and bool(_KONDI_ENERGY_RE.search(text))
 
 
 def is_caffeine_free(name: str, desc: str = '', brand: str = '') -> bool:
@@ -1534,6 +1626,15 @@ _BLOCKED_NAME_FRAGMENTS = {
     'ibuprofen', 'hostesaft', 'næsespray', 'øjenråber', 'øjendråber',
     'plaster', 'forbinding', 'kompres', 'sårpleje',
     'tabletter mod', 'tabletter børn',
+    # Stod på siden 11-11-2026: Meny, Spar og Min Købmand har håndkøbsmedicin
+    # uden kategori, og Bilka har den i sin kiosk. Hentningen sorterer dem nu
+    # fra (dagrofa_scraper.py, salling_mad.py); navnene her er værn nr. to.
+    'otrivin', 'zymelin', 'strepsils', 'strepsilis', 'zyx', 'benadryl',
+    'benaday', 'alnok', 'magnesia', 'mucomyst', 'mucolysin', 'bromhexin',
+    'brohexin', 'zovir', 'voltaren', 'balancid', 'allergodil', 'benaliv',
+    'gangiden', 'afføringsmiddel', 'allergikapsler', 'sugetabletter',
+    'sugetablet', 'brusetabletter', 'brusetabs', 'hostemiddel',
+    'forkølelsessår',
     # Tobak / nikotin - også tjekket via is_age_restricted (titel+brand)
     'tobak', 'cigaret', 'cigaretter', 'cigarillo', 'cigar', 'snus', 'nikotin',
     'tændstik', 'lighter', 'fyrstikker', 'marlboro', 'winston', 'camel',
@@ -1573,6 +1674,10 @@ _BLOCKED_NAME_FRAGMENTS = {
     'støvsuger', 'støvsugerpose',
     # Lys
     'stearinlys', 'fyrfadslys', 'kronelys', 'bloklys',
+    'kalenderlys', 'adventslys', 'kanallys', 'dekorationslys', 'lyskæde',
+    # Kiosk og julepynt (Bilkas skrabelodder og krydsordsblade, avisernes pynt)
+    'skrabelod', 'krydsord', 'sudoku', 'gavepapir', 'nissehue', 'julepyjamas',
+    'strømpegarn', 'face facts', 'tampax',
     # Kosttilskud
     'vitaminer', 'kosttilskud', 'proteinpulver', 'whey protein',
 }
@@ -1653,9 +1758,42 @@ _NON_FOOD_NAME_RE = re.compile(
 )
 
 
-def is_non_food_name(name: str) -> bool:
-    """True hvis produktnavnet klart er en ikke-mad-vare (ordgrænse-match)."""
-    return bool(name) and _NON_FOOD_NAME_RE.search(str(name).lower()) is not None
+# Madvarer der bærer et ikke-mad-ord. Målt 11-11-2026 skjulte ordlisten 17
+# rigtige madvarer: "Capri Sun Multivitamin" (saft), "Dild I Potte" (friske
+# krydderurter), "Dansk Blomster Honning", "Kinder Æg M/Legetøj", en smoothie
+# med magnesium og kaffen "Gourmet Ble(nd)". Ordet er kun ikke-mad, når navnet
+# ikke samtidig siger, at det er mad.
+_NON_FOOD_UNLESS = {
+    'multivitamin': re.compile(r'capri|juice|saft|nektar|smoothie|drik'),
+    'magnesium':    re.compile(r'smoothie|juice|saft'),
+    'potte':        re.compile(r'dild|persille|purløg|basilikum|timian|rosmarin|mynte|'
+                               r'koriander|oregano|salvie|karse|citronmelisse|krydderurt'),
+    'blomster':     re.compile(r'honning'),
+    'blomst':       re.compile(r'honning'),
+    'legetøj':      re.compile(r'kinder'),
+    'sutteflaske':  re.compile(r'sukker|slik|bolsje'),
+    'ble':          re.compile(r'coffee|kaffe'),
+}
+
+
+def is_non_food_name(name: str, context: str = '') -> bool:
+    """True hvis produktnavnet klart er en ikke-mad-vare (ordgrænse-match).
+
+    `context` er varens øvrige tekst (mærket, når navnet tjekkes, og omvendt):
+    den kan frikende et ord fra _NON_FOOD_UNLESS, men aldrig selv udløse."""
+    if not name:
+        return False
+    text = str(name).lower()
+    whole = None
+    for m in _NON_FOOD_NAME_RE.finditer(text):
+        unless = _NON_FOOD_UNLESS.get(m.group(0))
+        if unless is None:
+            return True
+        if whole is None:
+            whole = f'{text} {str(context or "").lower()}'
+        if not unless.search(whole):
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -1668,7 +1806,16 @@ _REMA_TOBACCO_ID_RANGES = ((521340, 521825), (561828, 561875))
 # Tobak/nikotin i titel ELLER brand (Prince-cigaretter har brand HARDBOX)
 _TOBACCO_RE = re.compile(
     r'(?<![0-9a-zæøå])(?:'
-    r'tobak|cigaretter|cigaret|cigarillo|cigar|snus|nikotin|e-cigaret|e-cig|'
+    # Sammensætninger skal med: 'nikotin' alene fangede ikke
+    # "Nikotinsugetabletter" og "Nikotinmundspray", som stod på siden
+    # 11-11-2026 sammen med nikotinposer (Zyn, Epok, Nordic Spirit),
+    # e-cigaretter (Veev, Vuse), opvarmet tobak (IQOS, Levia), cerutter,
+    # pibetobak og cigaretpapir fra Bilkas kiosk.
+    r'[a-zæøå]*tobak|cigaret[a-zæøå]*|cigarillo[a-zæøå]*|cigar(?:er)?|'
+    r'cerut(?:ter)?|snus|nikotin[a-zæøå]*|e-cigaret|e-cig|'
+    r'nicorette|nicotinell|zyn|veev|vuse|iqos|levia|heets|terea|epok|'
+    r'nordic spirit|special dublin|petterøe|dannemann|bugler|'
+    r'rullemaskine|piberensere|'
     r'marlboro|winston|camel|pall mall|lucky strike|chesterfield|gauloises|'
     r'hardbox|softbox|softpack|blød pakke|'
     r'house of prince|virg blend|virginia blend|original blend no|'
@@ -1958,98 +2105,222 @@ _BILKA_CATEGORY_RULES_COMPILED = [
 _DRY_YEAST_RE = re.compile(r'tør\s*gær|gærpulver|instant\s*gær|tørret\s+gær|gær,?\s+tør\b')
 
 
+# ---------------------------------------------------------------------------
+# Butikkernes egne afdelinger -> sidens kategorier
+# ---------------------------------------------------------------------------
+#
+# Hvor butikken selv siger, hvilken afdeling varen ligger i, bruges det. Kun
+# når butikken intet siger (aviserne, Lidl, varer uden kategori), gættes der
+# ud fra navnet med _BILKA_CATEGORY_RULES.
+#
+# Bilka, Netto og Føtex stod indtil 12-11-2026 alle med kategorien 'Katalog',
+# så hele deres sortiment blev gættet. Målt mod butikkernes eget kategoritræ
+# var gættet rigtigt for 54-58 % af varerne: "Pepsi Max" stod under Kolonial
+# og "Pepsi Max Lime" under Frugt & Grønt, 2.386 drikkevarer og 1.958
+# kølevarer stod under Kolonial, og navnereglerne har slet ingen Kød & Fisk.
+# Nu gemmer hentningen stien i Sallings kategoritræ (salling_mad.kategori),
+# fx "Kolonial > Kaffe, te & kakao", og den slås op her: først hele stien, så
+# ét niveau op ad gangen, så en undtagelse længere nede vinder over det
+# øverste niveau. Målt på 5.138 varer, som Meny/Spar/Min Købmand eller
+# Rema også fører, er de enige med Sallings øverste niveau i 90,9 % af
+# tilfældene; de to undtagelser herunder (kaffe/te og tørret frugt/barer) er
+# dem, hvor de andre kæder samlet er uenige.
+
+# Kendt afdeling, men blandet indhold: kategorien gættes ud fra navnet.
+_BY_NAME = object()
+
+_STORE_CATEGORIES: dict = {
+    # Rema 1000 (feedets product_type)
+    'mejeri': CAT_MEJERI, 'køl': CAT_MEJERI, 'ost': CAT_MEJERI, 'ost m.v.': CAT_MEJERI,
+    'mejeriprodukter & kølvarer': CAT_MEJERI,
+    'kød, fisk & fjerkræ': CAT_KOED_FISK, 'kød fisk fjerkræ': CAT_KOED_FISK,
+    'frugt & grønt': CAT_FRUGT_GROENT,
+    'brød & bavinchi': CAT_BROED_KAGER,
+    'frost': CAT_FROST,
+    'kolonial': CAT_KOLONIAL, 'kolonialvarer': CAT_KOLONIAL,
+    'drikkevarer': CAT_DRIKKEVARER,
+    'slik': CAT_SLIK,
+    'personlig pleje': None, 'pleje': None, 'husholdning': None,
+    'rengøring': None, 'baby og småbørn': None,
+    # Spiritus (og tobak, som is_age_restricted har taget fra forinden).
+    'kiosk': CAT_DRIKKEVARER,
+
+    # Meny, Spar og Min Købmand (dagrofa_scraper._api_category). Spar og Min
+    # Købmand kalder afdelingen "Pålæg og middagsretter", Meny "Pålæg og
+    # kølede middagsretter": kun Menys stod her, så 310 pakker pålæg og
+    # færdigretter hos de to andre blev gættet ud fra navnet.
+    'pålæg og kølede middagsretter': CAT_MEJERI, 'pålæg og middagsretter': CAT_MEJERI,
+    'kød': CAT_KOED_FISK, 'fisk og skaldyr': CAT_KOED_FISK,
+    'frugt og grønt': CAT_FRUGT_GROENT,
+    'brød og kager': CAT_BROED_KAGER,
+    'vin og spiritus': CAT_DRIKKEVARER,
+    'kiosk - slik og snack - chips og snacks': CAT_SLIK,
+    'kiosk - slik og snack - chokolade': CAT_SLIK,
+    'kiosk - slik og snack - slik': CAT_SLIK,
+    'babymad': CAT_KOLONIAL,
+
+    # Bilka, Netto og Føtex (salling_mad.kategori): øverste niveau ...
+    'mejeri & køl': CAT_MEJERI,
+    'kød & fisk': CAT_KOED_FISK,
+    'brød & kager': CAT_BROED_KAGER,
+    'slik & snacks': CAT_SLIK, 'slik og snacks': CAT_SLIK,
+    'mad fra hele verden': CAT_KOLONIAL,
+    # ... og stierne, hvor de andre kæder er uenige med det øverste niveau:
+    # kaffe, te og kakao er Drikkevarer hos Meny/Spar/Min Købmand og Rema
+    # (160 af 161 fælles varer), og rosiner, frugtstænger og müslibarer er
+    # ikke slik hos nogen af dem (71 af 78).
+    'kolonial > kaffe, te & kakao': CAT_DRIKKEVARER,
+    'slik & snacks > tørret frugt, frugtsnacks & bars': CAT_KOLONIAL,
+    # Mad under afdelinger, der ellers ikke er mad (salling_mad._FOOD_PATHS).
+    'baby & børn > baby- & børnemad': CAT_KOLONIAL,
+    # Proteinbarer og -drikke (det eneste hentningen tager med herfra):
+    # barer er slik eller kolonial, drikke er køl, så navnet afgør det.
+    'personlig pleje > helse & kosttilskud': _BY_NAME,
+
+    # Ældre nøgler fra tidligere hentninger (adresse-navne).
+    'frugt-og-groent': CAT_FRUGT_GROENT, 'mejeri-og-koel': CAT_MEJERI,
+    'slik-og-snacks': CAT_SLIK, 'broed-og-kager': CAT_BROED_KAGER,
+    'koed-og-fisk': CAT_KOED_FISK, 'mad-fra-hele-verden': CAT_KOLONIAL,
+    'ispinde-og-sodavandsis': CAT_FROST, 'is-i-baeger': CAT_FROST,
+    'frys-selv-is': CAT_FROST, 'isvafler': CAT_FROST,
+    'desserter-og-islagkager': CAT_FROST, 'groentsager': CAT_FROST,
+    'faerdigretter-paa-frost': CAT_FROST, 'frugt-og-baer': CAT_FROST,
+    'kartofler-og-pommes-frites': CAT_FROST,
+    'avis': CAT_ANDET,
+}
+# Idempotens: funktionen kaldes flere steder med en værdi den SELV har
+# produceret - fx updater.py's Rema-annotering, der sender det allerede
+# mappede '/product/product_type' ind igen. De fleste kanoniske navne stod
+# allerede i tabellen ('køl', 'frost', 'slik' ...), men 'Kød & Fisk' og
+# 'Andre varer' gjorde ikke. De faldt derfor igennem til default'en
+# CAT_KOLONIAL, hvilket slog type-gaten ud for ALLE Rema-kød/fisk-varer:
+# gaten krævede i stedet 0,80 navnescore, og match-raten for Kød & Fisk
+# endte på 30% mod 53-74% i de øvrige kategorier.
+# Bygges af konstanterne, så tabellen ikke kan drifte fra dem igen.
+for _canon in (CAT_MEJERI, CAT_KOED_FISK, CAT_FRUGT_GROENT, CAT_BROED_KAGER,
+               CAT_FROST, CAT_KOLONIAL, CAT_DRIKKEVARER, CAT_SLIK, CAT_ANDET):
+    _STORE_CATEGORIES.setdefault(_canon.lower(), _canon)
+del _canon
+
+# Afdelinger med blandet indhold: de giver en kategori, men den er ikke
+# butikkens ord for, hvor varen står (se category_is_real).
+_MIXED_STORE_CATEGORIES = frozenset({'kiosk', 'avis', CAT_ANDET.lower()})
+
+
+def _store_category(raw: str):
+    """(fundet, kategori) for butikkens egen afdeling i små bogstaver.
+
+    En sti ("kolonial > kaffe, te & kakao > kaffe") slås op fra den dybeste
+    og opefter. Kategorien er None for en afdeling, der ikke er mad, og
+    _BY_NAME for en kendt afdeling, hvor navnet skal afgøre det."""
+    key = raw
+    while True:
+        if key in _STORE_CATEGORIES:
+            return True, _STORE_CATEGORIES[key]
+        cut = key.rfind(' > ')
+        if cut < 0:
+            return False, None
+        key = key[:cut]
+
+
+def category_is_real(raw_cat) -> bool:
+    """Er kategorien butikkens egen afdeling (True) eller et gæt (False)?
+
+    Aviserne ('Tilbudsavis'), Lidl og varer uden kategori ('Katalog') har
+    ingen afdeling, så deres kategori gættes ud fra navnet af unify_category.
+    Et gæt må aldrig overtrumfe en butiks egen afdeling: hverken som kortets
+    kategori (_promote_match_to_product) eller i matchingens type-gate
+    (updater.type_gate_rejects)."""
+    raw = str(raw_cat or '').lower().strip()
+    if raw in _MIXED_STORE_CATEGORIES:
+        return False
+    found, cat = _store_category(raw)
+    return found and isinstance(cat, str)
+
+
+# Hvor en vares kategori kommer fra (classify_category).
+CATEGORY_FROM_STORE = 'butik'      # butikkens egen afdeling
+CATEGORY_FROM_NAME = 'navn'        # gættet ud fra et ord i navnet
+CATEGORY_DEFAULT = 'standard'      # intet at gå efter: sidens standardkategori
+
+
 def unify_category(raw_cat, product_name='', brand=''):
     """Maps any store category or product name to a standard website category.
 
     Returnerer None hvis varen ikke er mad (tobak, bleer, pleje, …) -
     så filtreres den fra på hjemmesiden og i matching. Alkohol er OK.
     """
+    return classify_category(raw_cat, product_name, brand)[0]
+
+
+def classify_category(raw_cat, product_name='', brand='') -> tuple:
+    """(kategori, kilde): sidens kategori og hvor den kommer fra.
+
+    Kilden er CATEGORY_FROM_STORE, CATEGORY_FROM_NAME eller CATEGORY_DEFAULT
+    ('' når varen ikke er mad). Matchingen bruger den til at vægte kategorien:
+    butikkens egen afdeling er et faktum, et ord i navnet er et gæt, og
+    standardkategorien siger ingenting (updater.type_gate_rejects)."""
     raw = str(raw_cat or '').lower().strip()
     name = str(product_name or '').lower().strip()
     brand_s = str(brand or '').strip()
 
     # Tobak/nikotin (titel + brand; Rema-ID via is_age_restricted)
     if is_age_restricted(product_name, brand_s, raw_cat):
-        return None
+        return None, ''
 
     # LU Prince-kiks (ikke tobak) - før non-food-navnefilter, da "prince"
     # ellers kan ramme cigaretnavne i den delte termliste.
     if 'prince' in name and ('kiks' in name or 'lu' in name or 'cookie' in name
                              or 'chokolade' in name or 'creme' in name
                              or _LU_PRINCE_COOKIE_RE.search(name)):
-        return CAT_BROED_KAGER
+        return CAT_BROED_KAGER, CATEGORY_FROM_NAME
 
     # Krav: kun mad - ingen undtagelser. Klart ikke-mad (navn) frasorteres straks.
-    if name and _NON_FOOD_NAME_RE.search(name):
-        return None
+    if name and is_non_food_name(name, brand_s):
+        return None, ''
     # Brand-feltet: fang tobakspakker (HARDBOX) og babypleje (Libero/Huggies) m.m.
-    if brand_s and _NON_FOOD_NAME_RE.search(brand_s.lower()):
+    if brand_s and is_non_food_name(brand_s, name):
         if not _LU_PRINCE_COOKIE_RE.search(f'{name} {brand_s}'.lower()):
-            return None
+            return None, ''
 
-    if 'lolly' in name or 'frys-selv' in name or 'ispind' in name:
-        return CAT_FROST
+    found, store_cat = _store_category(raw)
+
+    # Frys-selv-is og ispinde sælges ufrosne og står under drikkevarer eller
+    # kolonial i butikkerne, men hører til is. Ikke når butikken selv har lagt
+    # varen i slikafdelingen: "Lolly Racer M/Slikkepind" og "Sun Lolly
+    # Vingummi" er slik.
+    if ('lolly' in name or 'frys-selv' in name or 'ispind' in name) and store_cat != CAT_SLIK:
+        return CAT_FROST, CATEGORY_FROM_NAME
 
     # Tørgær er en bagevare, ikke en kølevare. Butikkerne lægger den tit
     # sammen med frisk gær under køl, så butikkens egen kategori må ikke
     # vinde her (GitHub-issue #162). Frisk gær bliver på køl.
     if _DRY_YEAST_RE.search(name):
-        return CAT_BROED_KAGER
+        return CAT_BROED_KAGER, CATEGORY_FROM_NAME
 
-    if 'kiosk' in raw and name:
+    # Remas "Kiosk" er en blandet afdeling (spiritus, tyggegummi, tobak), så
+    # dér gættes der ud fra navnet. KUN dér: reglen sammenlignede før med
+    # 'kiosk' som delstreng og ramte også Meny/Spar/Min Købmands præcise
+    # afdelinger "Kiosk - Slik og snack - Slik", så 41 poser slik og chips stod
+    # under Drikkevarer, fordi navnet rummer 'vin' eller 'cola' ("Toms Pingvin
+    # Lakrids", "Malaco Twists Cola", "Kims Salt & Vinegar"; målt 12-11-2026).
+    if raw == 'kiosk' and name:
         _kiosk_drink = ('cola', 'sodavand', 'juice', 'energidrik', 'energy drink', 'øl', 'vin', 'cider', 'vand', 'saft', 'iste', 'ice tea', 'sportsdrik', 'kombucha', 'drik', 'lemonade', 'shots', 'smoothie', 'frugtdrik', 'breezer', 'kokosvand')
         _kiosk_slik  = ('chips', 'popcorn', 'nachos', 'majschips', 'tortillachips', 'chokolade', 'slik', 'vingummi', 'lakrids', 'skumfiduser', 'bolsjer', 'karameller', 'nødder', 'jordnødder', 'guf', 'tyggegummi', ' gum', 'gum ', 'skum', 'orbit', 'stimorol', 'dirol', 'mentos', 'hubba bubba', 'wrigley')
         _kiosk_mejeri= ('coleslaw', 'waldorf', 'hummussalat', 'pastasalat', 'kartoffelsalat', 'grøn salat', 'salat ')
-        if any(kw in name for kw in _kiosk_drink):  return CAT_DRIKKEVARER
-        if any(kw in name for kw in _kiosk_slik):   return CAT_SLIK
-        if any(kw in name for kw in _kiosk_mejeri): return CAT_MEJERI
+        if any(kw in name for kw in _kiosk_drink):  return CAT_DRIKKEVARER, CATEGORY_FROM_NAME
+        if any(kw in name for kw in _kiosk_slik):   return CAT_SLIK, CATEGORY_FROM_NAME
+        if any(kw in name for kw in _kiosk_mejeri): return CAT_MEJERI, CATEGORY_FROM_NAME
 
-    mapping = {
-        'mejeri': CAT_MEJERI, 'mejeriprodukter & kølvarer': CAT_MEJERI,
-        'pålæg og kølede middagsretter': CAT_MEJERI, 'køl': CAT_MEJERI,
-        'ost': CAT_MEJERI, 'ost m.v.': CAT_MEJERI,
-        'kød': CAT_KOED_FISK, 'fisk og skaldyr': CAT_KOED_FISK,
-        'kød, fisk & fjerkræ': CAT_KOED_FISK, 'kød fisk fjerkræ': CAT_KOED_FISK,
-        'frugt & grønt': CAT_FRUGT_GROENT, 'frugt og grønt': CAT_FRUGT_GROENT,
-        'brød & kager': CAT_BROED_KAGER, 'brød og kager': CAT_BROED_KAGER,
-        'brød & bavinchi': CAT_BROED_KAGER,
-        'frost': CAT_FROST,
-        'kolonial': CAT_KOLONIAL, 'kolonialvarer': CAT_KOLONIAL,
-        'drikkevarer': CAT_DRIKKEVARER, 'vin og spiritus': CAT_DRIKKEVARER,
-        'personlig pleje': None, 'pleje': None, 'husholdning': None,
-        'rengøring': None, 'baby og småbørn': None,
-        'kiosk': CAT_DRIKKEVARER, 'kiosk - slik og snack - chips og snacks': CAT_SLIK,
-        'slik': CAT_SLIK, 'slik & snacks': CAT_SLIK, 'slik og snacks': CAT_SLIK,
-        'kiosk - slik og snack - chokolade': CAT_SLIK, 'kiosk - slik og snack - slik': CAT_SLIK,
-        'frugt-og-groent': CAT_FRUGT_GROENT, 'mejeri-og-koel': CAT_MEJERI,
-        'slik-og-snacks': CAT_SLIK, 'broed-og-kager': CAT_BROED_KAGER,
-        'koed-og-fisk': CAT_KOED_FISK, 'mad-fra-hele-verden': CAT_KOLONIAL,
-        'ispinde-og-sodavandsis': CAT_FROST, 'is-i-baeger': CAT_FROST,
-        'frys-selv-is': CAT_FROST, 'isvafler': CAT_FROST,
-        'desserter-og-islagkager': CAT_FROST, 'groentsager': CAT_FROST,
-        'faerdigretter-paa-frost': CAT_FROST, 'frugt-og-baer': CAT_FROST,
-        'kartofler-og-pommes-frites': CAT_FROST,
-        'avis': CAT_ANDET,
-    }
-    # Idempotens: funktionen kaldes flere steder med en værdi den SELV har
-    # produceret - fx updater.py's Rema-annotering, der sender det allerede
-    # mappede '/product/product_type' ind igen. De fleste kanoniske navne stod
-    # allerede i tabellen ('køl', 'frost', 'slik' ...), men 'Kød & Fisk' og
-    # 'Andre varer' gjorde ikke. De faldt derfor igennem til default'en
-    # CAT_KOLONIAL, hvilket slog type-gaten ud for ALLE Rema-kød/fisk-varer:
-    # gaten krævede i stedet 0,80 navnescore, og match-raten for Kød & Fisk
-    # endte på 30% mod 53-74% i de øvrige kategorier.
-    # Bygges af konstanterne, så tabellen ikke kan drifte fra dem igen.
-    for _canon in (CAT_MEJERI, CAT_KOED_FISK, CAT_FRUGT_GROENT, CAT_BROED_KAGER,
-                   CAT_FROST, CAT_KOLONIAL, CAT_DRIKKEVARER, CAT_SLIK, CAT_ANDET):
-        mapping.setdefault(_canon.lower(), _canon)
-
-    if raw in mapping:
-        return mapping[raw]
+    if found and store_cat is not _BY_NAME:
+        if store_cat is None:
+            return None, ''
+        real = raw not in _MIXED_STORE_CATEGORIES
+        return store_cat, CATEGORY_FROM_STORE if real else CATEGORY_DEFAULT
     for cat_const, pattern in _BILKA_CATEGORY_RULES_COMPILED:
         if pattern.search(name):
-            return cat_const
-    return CAT_KOLONIAL if raw else CAT_ANDET
+            return cat_const, CATEGORY_FROM_NAME
+    return (CAT_KOLONIAL if raw else CAT_ANDET), CATEGORY_DEFAULT
 
 
 # ---------------------------------------------------------------------------
@@ -2170,6 +2441,13 @@ def product_to_display_dict(
         'weight_g': weight_g,
         'stk_count': product.get('/product/stk_count') or parse_stk_count(unit_measure),
         'price_per_kg': plausible_kg_price(product.get('/product/price_per_kg')),
+        'kg_unit': kg_price_unit(unit_measure),
+        # Remas egen kilopris til Rema-linjen i sammenligningen. På et kort,
+        # der viser en anden butiks vare (billigst dér), er price_per_kg den
+        # butiks; før stod den under Rema (ca. 550 kort, 12-11-2026).
+        'rema_kg_price': (plausible_kg_price(product.get('/product/price_per_kg'))
+                          if str(product.get('/product/store', 'Rema 1000')) == 'Rema 1000'
+                          else plausible_kg_price(product.get('/product/rema_kg_price'))),
         'store_matches': product.get('/product/store_matches', {}),
         'cheaper_at': product.get('/product/cheaper_at'),
         'cheapest_at': product.get('/product/cheapest_at'),
@@ -2312,6 +2590,7 @@ def _serialize_store_match(match: dict) -> dict:
         'description': clean_display_text(match.get('description')),
         'weight': clean_display_text(match.get('weight')),
         'kg_price': kg_price,
+        'kg_unit': kg_price_unit(match.get('weight')),
         'multi_deal': str(match.get('multi_deal') or ''),
         'ean': str(match.get('ean') or ''),
         'Kategori': str(match.get('Kategori') or ''),
@@ -2378,6 +2657,9 @@ def product_to_api_dict(display: dict) -> dict:
         'weight_g': display.get('weight_g'),
         'stk_count': display.get('stk_count'),
         'kg_price': kg_price,
+        'kg_unit': display.get('kg_unit') or kg_price_unit(display.get('unit_measure')),
+        'rema_kg_price': (plausible_kg_price(display.get('rema_kg_price')) if 'rema_kg_price' in display
+                          else kg_price if str(display.get('store') or 'Rema 1000') == 'Rema 1000' else None),
         'multi_deal': str(display.get('multi_deal') or ''),
         # Mærketeksten, så appen viser præcis det samme som hjemmesiden.
         'sale_badge': display.get('sale_badge') if 'sale_badge' in display else sale_badge(display),
@@ -2451,8 +2733,29 @@ def offer_group_key(product: dict, store_key: str, label: str) -> str | None:
     return None
 
 
+def card_category_after_promotion(current_type, match: dict):
+    """Kortets kategori, når `match` bliver den viste (billigste) butik.
+
+    Butikkens egen afdeling vinder altid. Har butikken ingen (aviserne og
+    Lidl), er kategorien et gæt ud fra navnet, og et gæt må ikke flytte et
+    kort, der allerede står et sted: "Coca-Cola Zero" stod under Drikkevarer,
+    til en avis havde den billigst, og så under Kolonial, fordi avisens navn
+    ikke rummede et ord fra navnereglerne. Returnerer None, når kortet skal
+    blive hvor det er."""
+    raw = match.get('Kategori', '')
+    new_type = unify_category(raw, match.get('name', ''), match.get('brand', ''))
+    if not new_type or new_type == CAT_ANDET:
+        return None
+    if current_type and current_type != CAT_ANDET and not category_is_real(raw):
+        return None
+    return new_type
+
+
 def _promote_match_to_product(product: dict, store_key: str, match: dict) -> dict:
     out = dict(product)
+    if str(product.get('/product/store') or 'Rema 1000') == 'Rema 1000':
+        # Remas egen kilopris følger med til Rema-linjen (product_to_display_dict).
+        out['/product/rema_kg_price'] = product.get('/product/price_per_kg')
     out['/product/title'] = match['name']
     out['/product/store'] = _STORE_CONFIGS[store_key]['label']
     if match.get('is_sale'):
@@ -2469,8 +2772,8 @@ def _promote_match_to_product(product: dict, store_key: str, match: dict) -> dic
     out['/product/price_per_kg'] = match.get('kg_price')
     out['/product/multi_deal'] = match.get('multi_deal', '')
     out['/product/cheapest_at'] = store_key
-    new_type = unify_category(match.get('Kategori', ''), match['name'], match.get('brand', ''))
-    if new_type and new_type != CAT_ANDET:
+    new_type = card_category_after_promotion(out.get('/product/product_type'), match)
+    if new_type:
         out['/product/product_type'] = new_type
     return out
 
@@ -2483,6 +2786,9 @@ def _promote_rema_to_product(product: dict, rema_price: float) -> dict:
     out['/product/price'] = rema_price
     out['/product/sale_price'] = None
     out['/product/multi_deal'] = ''
+    if '/product/rema_kg_price' in product:
+        # Remas egen kilopris i stedet for den butiks, kortet viste før.
+        out['/product/price_per_kg'] = product.get('/product/rema_kg_price')
     rema_img = str(product.get('/product/rema_image') or '').strip()
     if rema_img and rema_img.lower() != 'nan':
         out['/product/imageLink'] = rema_img

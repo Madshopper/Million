@@ -1325,7 +1325,14 @@ class Default(WSGI[Env]):
                         ("public" in cdn_cc and "no-store" not in cdn_cc)
                         or ("public" in cc and "no-store" not in cc)
                     )
-                    if eligible:
+                    # Kun et GET-svar må gemmes. Et HEAD-svar har ingen body
+                    # (werkzeug fjerner den), men nøglen er den samme som for
+                    # GET, så et HEAD på en kold nøgle ville lægge et TOMT svar
+                    # i cachen til alle efterfølgende GET. Siderne er dækket af
+                    # app.py (CDN-Cache-Control sættes kun på GET), men
+                    # /.well-known/apple-app-site-association og assetlinks.json
+                    # sætter selv "public" uanset metode.
+                    if eligible and request.method == "GET":
                         # Await put FØR single-flight slippes løs, så ventende
                         # requests rammer cachen i stedet for at rendere om.
                         try:

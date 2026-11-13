@@ -11,18 +11,11 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 from app_support import attach_billede_hashes
 
+from avis_tekst import exact_unit_price, multi_buy, norm_unit, weight_text
 from keywords import is_non_food as _is_non_food
 
 TJEK_BASE = "https://squid-api.tjek.com"
 KATEGORI = "Tilbudsavis"
-
-_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
-    ),
-    "Accept-Language": "da,da-DK;q=0.9",
-}
 
 _NON_FOOD_CATALOG = [
     'sommersk', 'skønhed', 'beauty', 'non-food', 'helse og pleje',
@@ -60,8 +53,22 @@ _WEIGHT_RANGE_RE = re.compile(
     r"\d+[.,]?\d*\s*-\s*\d+[.,]?\d*\s*(kg|g|l|ml|cl|dl)\b", re.IGNORECASE)
 
 
+# "Pr. 1/2 kg" / "Pr. ½ kg": prisen gælder et halvt kilo. Enkeltvægt-regexet
+# fandt "2 kg" i "1/2 kg", så en and til 59 kr pr. halve kilo stod som 2 kg
+# til 59 kr (målt i Kvicklys avis 10-11-2026: fire varer).
+_HALF_KG_RE = re.compile(r"(?:\b1\s*/\s*2|½)\s*kg\b", re.IGNORECASE)
+
+
 def parse_description(description: str):
+    """(tekst før vægten, vægt, kilopris) ud af avisens fritekst.
+
+    Bruges kun når tilbuddet mangler Tjeks egne mængdefelter (quantity); se
+    offer_fields. Teksten før vægten er IKKE et mærke og må ikke gemmes som
+    producent (se _rows_from_offers)."""
     product_type = weight = kg_price = ""
+    half = _HALF_KG_RE.search(description)
+    if half:
+        return description[:half.start()].strip().strip(",| -").strip(), "500 g", ""
     mm = _MULTIPACK_DESC_RE.search(description)
     rm = _WEIGHT_RANGE_RE.search(description)
     wm = re.search(r"(\d+[.,]?\d*)\s*(kg|g|l|ml|cl|dl|stk)", description, re.IGNORECASE)
@@ -140,6 +147,131 @@ def fetch_all_offers(catalog_id: str) -> list[dict]:
     return offers
 
 
+# ── Mængde, pris og multikøb ud af Tjeks egne felter ─────────────────────────
+#
+# Hvert tilbud har et struktureret mængdefelt ved siden af friteksten:
+#   quantity.unit.symbol  g / kg / ml / cl / l / pcs
+#   quantity.size         {from, to}   størrelsen pr. stk. (eller i alt)
+#   quantity.pieces       {from, to}   antal stk. prisen dækker
+# Det er langt sikrere end at lede efter et tal i teksten. Målt 11-11-2026 mod
+# de fire Coop-avisers 930 tilbud havde alle feltet, og friteksten tog fejl på:
+#   "Kg-pris 218,00. Pr. 1/2 kg"        -> "2 kg"       (feltet siger 0,5 kg)
+#   "15-pak / 18-pak / 15-18 x 33 cl"   -> "18 x 33 cl" (feltet siger 15-18 stk.)
+#   "Sælges i hele forpakninger / 15-pak / 18-pak ... 33 cl" -> "33 cl"
+# Friteksten bruges stadig til det feltet ikke siger: om "N x" er et antal
+# pakker eller indholdet af én pakke, og avisens egen kilopris.
+
+_WEIGHT_UNITS = frozenset({'g', 'kg', 'ml', 'cl', 'dl', 'l'})
+
+# Enhedspris i teksten: "Kg-pris", "Literpris", "Ltr-pris", "Stk.-pris",
+# "Bdt-pris", "Mtr-pris", "Pris pr. vask".
+_UNIT_PRICE_RE = re.compile(
+    r"(?<![a-zæøå])(?:kg|liter|ltr|l|stk|bdt|mtr|m)\.?\s*-?\s*pris|\bpris\s+pr\.", re.IGNORECASE)
+
+# "4 x 105-375 g", "15-18 x 33 cl": antallet ganges på størrelsen. Uden "x" er
+# antallet indholdet af én pakke ("1000 g. / 4-6 stk." = 4-6 bøffer i et kilo).
+_TIMES_RE = re.compile(r"(?<![\d,.])\d{1,3}(?:\s*-\s*\d{1,3})?\s*[x×]\s*\d", re.IGNORECASE)
+
+# En ramme sodavand eller en kasse øl er ÉN vare, ikke et multikøb.
+_PACK_SIGNAL_RE = re.compile(r"hele forpakninger|\bkasse\b|\bramme\b", re.IGNORECASE)
+_COUNT_WORDS = "stk|flasker|dåser|pakker|poser|bakker|glas|æsker|bægre|plader|bøtter|ruller|bundter|net"
+
+
+def _quantity(o: dict) -> tuple[str | None, float | None, float | None, int, int]:
+    """(enhed, størrelse fra, størrelse til, antal fra, antal til)."""
+    q = o.get("quantity") or {}
+    unit = norm_unit((q.get("unit") or {}).get("symbol"))
+    size = q.get("size") or {}
+    pieces = q.get("pieces") or {}
+
+    def _int(value) -> int | None:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    p_lo = _int(pieces.get("from")) or _int(pieces.get("to")) or 1
+    p_hi = _int(pieces.get("to")) or p_lo
+    return unit, size.get("from"), size.get("to"), min(p_lo, p_hi), max(p_lo, p_hi)
+
+
+def has_grocery_signal(o: dict) -> bool:
+    """Har tilbuddet en vægt, et rumfang eller en enhedspris?
+
+    Dagligvarer i avisen har altid mindst én af delene (enhedsprisen skal
+    oplyses). Et tilbud uden er noget andet: køkkenmaskiner, tøj, julepynt,
+    skrabelodder og mad ud af huset ("Nytårsmenu pr. kuvert"). Målt 11-11-2026
+    mod Kvickly, SuperBrugsen, Brugsen og 365discount fjernede reglen kun
+    rækker, som navnelisten i keywords.py havde lukket ind (mikroovn,
+    saunatæppe, julepyjamas, lametta, Quick-skrabekalender og menuer til
+    levering), og ingen vare med vægt eller enhedspris.
+    """
+    return _quantity(o)[0] in _WEIGHT_UNITS or bool(
+        _UNIT_PRICE_RE.search(o.get("description") or ""))
+
+
+def _multi_buy_count(heading: str, desc: str, p_lo: int, p_hi: int) -> int | None:
+    """Antal i et ægte multikøb ("6 flasker 399,-"), ellers None.
+
+    Tjek angiver både "24 x 33 cl" (én ramme) og "6 flasker for 399" som
+    pieces > 1. Kun når avisen selv tæller i stk. (antallet efterfulgt af
+    "flasker", "pakker", "stk." ... eller "ved køb af N"), og det ikke er en
+    hel forpakning, er prisen for N enkeltvarer.
+    """
+    if p_lo != p_hi or p_lo < 2:
+        return None
+    n = p_lo
+    text = f"{heading} {desc}"
+    if _PACK_SIGNAL_RE.search(text) or re.search(rf"(?<!\d){n}\s*-?\s*pak\b", text, re.IGNORECASE):
+        return None
+    if re.search(rf"ved køb af {n}\b", desc, re.IGNORECASE):
+        return n
+    if re.search(rf"(?<![\d,.\-])(?<![x×]\s){n}\s+(?:{_COUNT_WORDS})\b", desc, re.IGNORECASE):
+        return n
+    return None
+
+
+def offer_fields(o: dict) -> dict:
+    """Vægt, kilopris, pris, førpris og multikøb for ét Tjek-tilbud."""
+    heading = o.get("heading") or ""
+    desc = o.get("description") or ""
+    pricing = o.get("pricing") or {}
+    pris = pricing.get("price")
+    pre_price = pricing.get("pre_price")
+    pris = float(pris) if pris is not None else None
+    pre_price = float(pre_price) if pre_price is not None else None
+
+    unit, s_lo, s_hi, p_lo, p_hi = _quantity(o)
+    n_multi = _multi_buy_count(heading, desc, p_lo, p_hi) if pris else None
+
+    weight = None
+    if unit in _WEIGHT_UNITS and (s_lo or s_hi):
+        times = p_lo > 1 and not n_multi and bool(_TIMES_RE.search(desc))
+        weight = weight_text(s_lo, s_hi, unit, p_lo if times else 1, p_hi if times else 1)
+    elif unit == "stk":
+        if max(s_lo or 0, s_hi or 0) > 1:
+            weight = weight_text(s_lo, s_hi, "stk")       # "10 stk", "16-20 stk"
+        elif p_lo == p_hi and p_lo > 1 and not n_multi:
+            weight = f"{p_lo} stk"
+    if weight is None and unit not in _WEIGHT_UNITS:
+        # Mængdefeltet siger ingenting (1 stk.): brug teksten som før.
+        weight = parse_description(desc)[1] or None
+
+    # Kiloprisen kun når vægten er ét tal; ved et interval er avisens tal en
+    # yderværdi ("maks.") og ikke varens kilopris.
+    kg_price = None if weight and "-" in weight else exact_unit_price(desc)
+
+    multikob = None
+    if n_multi:
+        total = pris
+        pris, multikob = multi_buy(total, n_multi)
+        if pre_price is not None:
+            pre_price = round(pre_price / n_multi, 2)
+
+    return {"netto_vaegt": weight, "kg_price": kg_price, "pris": pris,
+            "normalpris": pre_price, "multikob": multikob}
+
+
 def _rows_from_offers(
     offers: list[dict],
     cat_id: str,
@@ -148,40 +280,23 @@ def _rows_from_offers(
     seen: set[str],
     *,
     dedupe_by_heading: bool = False,
+    require_signal: bool = True,
 ) -> list[dict]:
     rows: list[dict] = []
     for o in offers:
-        heading = o.get("heading", "")
+        # Stjernen er avisens fodnote ("*Føres ikke i alle butikker"), ikke
+        # en del af navnet.
+        heading = (o.get("heading") or "").strip().rstrip("*").strip()
         if not heading:
             continue
         if not is_food(heading, label):
+            continue
+        if require_signal and not has_grocery_signal(o):
             continue
         key = heading if dedupe_by_heading else f"{cat_id}|{heading}"
         if key in seen:
             continue
         seen.add(key)
-
-        desc = o.get("description", "")
-        p_type, weight, kg_price = parse_description(desc)
-
-        pricing = o.get("pricing", {})
-        pris = pricing.get("price")
-        pre_price = pricing.get("pre_price")
-
-        # Multikøb: Tjek angiver "2 for 25,-" som pricing.price=25 PLUS et
-        # antal i quantity.pieces. Vi læste kun prisen og satte multikob=None,
-        # så totalprisen blev gemt som STYKpris - og updater.py, der kun
-        # kender multikob-kolonnen som multi-deal-signal, sammenlignede
-        # 25 kr/stk mod andre butikkers rigtige stykpriser. Det gjaldt alle
-        # de Tjek-baserede aviser (Netto, Føtex, Lidl, 365, ABC, Løvbjerg).
-        multikob = None
-        try:
-            pieces = (o.get("quantity", {}).get("pieces") or {})
-            antal = pieces.get("from") or pieces.get("to")
-            if antal and int(antal) > 1:
-                multikob = int(antal)
-        except (AttributeError, TypeError, ValueError):
-            multikob = None
 
         img = o.get("images", {})
         billede_url = img.get("view") or img.get("thumb") or ""
@@ -190,117 +305,65 @@ def _rows_from_offers(
             "butik":        butik,
             "kategori":     KATEGORI,
             "navn":         heading,
-            "producent":    p_type or None,
-            "netto_vaegt":  weight or None,
-            "kg_price":     kg_price or None,
-            "pris":         float(pris) if pris is not None else None,
-            # float, ikke str - søskende-katalogerne gemmer float, og
-            # updateren skulle parse to forskellige typer for samme felt.
-            "normalpris":   float(pre_price) if pre_price is not None else None,
+            # Teksten før vægten i avisens fritekst blev tidligere gemt her
+            # og vist som varens mærke: "Flere varianter", "Dybfrost",
+            # "Danmark, kl. I.", "Stk.-pris 45,00.". Avisen har intet
+            # mærkefelt; mærket står i navnet, og dér finder matchingen det.
+            "producent":    None,
+            **offer_fields(o),
             "varenummer":   None,
             "billede_url":  billede_url,
             "billede_hash": None,
             "tilbud":       "Ja",
-            "multikob":     multikob,
         })
     attach_billede_hashes(rows)
     return rows
 
 
-def fetch_tjek_tilbud_from_catalog_id(catalog_id: str, butik: str) -> list[dict]:
-    """Hent tilbud fra ét specifikt Tjek-katalog (fx fundet på butikkens avis-side)."""
-    r = requests.get(f"{TJEK_BASE}/v2/catalogs/{catalog_id}", timeout=15)
-    r.raise_for_status()
-    cat = r.json()
-    label = cat.get("label", catalog_id)
-    run_till = cat.get("run_till", "")[:10]
-    offers = fetch_all_offers(catalog_id)
-    print(f"    {label} ({run_till}): {len(offers)} tilbud [katalog {catalog_id}]")
-    seen: set[str] = set()
-    rows = _rows_from_offers(offers, catalog_id, label, butik, seen)
-    print(f"  OK: {len(rows)} {butik}-tilbud hentet fra katalog {catalog_id}")
-    return rows
+# Under denne andel tilbud med vægt eller enhedspris er det avisens format,
+# der er ændret, ikke varerne: så slås reglen fra i den kørsel i stedet for at
+# smide en hel butiks madvarer væk. Målt 11-11-2026: Kvickly 61 %, SuperBrugsen
+# 89 %, Brugsen 100 %, 365discount 88 %.
+_MIN_SIGNAL_SHARE = 0.30
 
 
-def extract_tjek_catalog_ids(html: str, business_id: str | None = None) -> list[str]:
-    """Find Tjek-katalog-ID'er i HTML (data-id på .tjek-widget)."""
-    ids: list[str] = []
-    seen: set[str] = set()
-    patterns = [
-        r'class="tjek-widget"[^>]*data-id="([^"]+)"',
-        r'data-id="([^"]+)"[^>]*class="tjek-widget"',
-    ]
-    if business_id:
-        patterns.extend([
-            rf'data-business-id="{re.escape(business_id)}"[^>]*data-id="([^"]+)"',
-            rf'data-id="([^"]+)"[^>]*data-business-id="{re.escape(business_id)}"',
-        ])
-    for pat in patterns:
-        for match in re.finditer(pat, html):
-            cid = match.group(1)
-            if cid not in seen:
-                seen.add(cid)
-                ids.append(cid)
-    for match in re.finditer(r'ID:([A-Za-z0-9_-]+)', html):
-        cid = match.group(1)
-        if cid not in seen:
-            seen.add(cid)
-            ids.append(cid)
-    return ids
+def _signal_healthy(butik: str, catalogs: list[tuple[dict, list[dict]]]) -> bool:
+    food = [o for cat, offers in catalogs for o in offers
+            if o.get("heading") and is_food(o["heading"], cat.get("label"))]
+    if not food:
+        return True
+    share = sum(1 for o in food if has_grocery_signal(o)) / len(food)
+    if share < _MIN_SIGNAL_SHARE:
+        print(f"  ⚠ {butik}: kun {share:.0%} af tilbuddene har vægt eller enhedspris - "
+              f"avisens format ser ændret ud, så ikke-mad-reglen er slået fra i denne kørsel")
+        return False
+    return True
 
 
-def fetch_tjek_tilbud_from_catalog_ids(
-    catalog_ids: list[str],
+def rows_from_catalogs(
     butik: str,
+    catalogs: list[tuple[dict, list[dict]]],
     *,
     dedupe_by_heading: bool = False,
 ) -> list[dict]:
-    """Hent og deduplicer tilbud fra flere Tjek-katalog-ID'er."""
+    """Rækkerne for én butiks aviser: liste af (katalog, tilbud)."""
+    require_signal = _signal_healthy(butik, catalogs)
     rows: list[dict] = []
     seen: set[str] = set()
-    for catalog_id in catalog_ids:
-        r = requests.get(f"{TJEK_BASE}/v2/catalogs/{catalog_id}", timeout=15)
-        if r.status_code == 404:
-            print(f"    Katalog {catalog_id} findes ikke - springer over")
-            continue
-        r.raise_for_status()
-        cat = r.json()
-        label = cat.get("label", catalog_id)
-        run_till = cat.get("run_till", "")[:10]
-        offers = fetch_all_offers(catalog_id)
-        print(f"    {label} ({run_till}): {len(offers)} tilbud [katalog {catalog_id}]")
+    for cat, offers in catalogs:
         rows.extend(_rows_from_offers(
-            offers, catalog_id, label, butik, seen, dedupe_by_heading=dedupe_by_heading,
+            offers, cat["id"], cat.get("label", cat["id"]), butik, seen,
+            dedupe_by_heading=dedupe_by_heading, require_signal=require_signal,
         ))
-    print(f"  OK: {len(rows)} {butik}-tilbud hentet fra {len(catalog_ids)} katalog(er)")
     return rows
-
-
-def scrape_catalog_ids_from_pages(urls: list[str], business_id: str | None = None) -> list[str]:
-    """Hent Tjek-katalog-ID'er fra en liste af butikssider."""
-    found: list[str] = []
-    seen: set[str] = set()
-    for url in urls:
-        try:
-            r = requests.get(url, headers=_HEADERS, timeout=20)
-            r.raise_for_status()
-        except requests.RequestException as exc:
-            print(f"    Kunne ikke hente {url}: {exc}")
-            continue
-        for cid in extract_tjek_catalog_ids(r.text, business_id):
-            if cid not in seen:
-                seen.add(cid)
-                found.append(cid)
-    return found
 
 
 def assert_catalogs_healthy(butik: str, n_catalogs: int, tomme: list[str]) -> None:
     """Sundhedskontrol for en tilbudsavis-scraping. Raiser ved ægte fejl.
 
-    Ligger her, men kaldes også af de scrapere der har deres EGEN kopi af
-    catalog-løkken (webscrape_365discount), så reglen kun
-    findes ét sted. Se fetch_tjek_tilbud for hvorfor totalantallet ikke duer
-    som sundhedsmål.
+    Se fetch_tjek_tilbud for hvorfor totalantallet ikke duer som sundhedsmål.
+    (365discount havde før sin egen kopi af catalog-løkken og kaldte denne
+    funktion udefra; nu bruger den fetch_tjek_tilbud som de andre.)
     """
     if not n_catalogs:
         raise RuntimeError(
@@ -321,7 +384,6 @@ def fetch_tjek_tilbud(
     butik: str,
     *,
     dedupe_by_heading: bool = False,
-    raise_if_no_catalogs: bool = True,
 ) -> list[dict]:
     """Hent alle aktive tilbudsaviser for én butik.
 
@@ -350,22 +412,12 @@ def fetch_tjek_tilbud(
     catalogs = running_now(fetch_active_catalogs(dealer_id))
     print(f"  Fandt {len(catalogs)} aktive {butik}-kataloger")
 
-    # Nogle butikker (Løvbjerg, ABC Lavpris) har intet dealer-API og falder i
-    # stedet tilbage til at scanne butikkens webside for et katalog-ID. Raiser
-    # vi her på 0 kataloger, får fallback'en aldrig chancen for at køre -
-    # præcis det der brød Løvbjerg hver nat siden beafc98.
-    if not catalogs and not raise_if_no_catalogs:
-        return []
-
-    rows: list[dict] = []
-    seen: set[str] = set()
+    fetched: list[tuple[dict, list[dict]]] = []
     tomme: list[str] = []
-
     for cat in catalogs:
-        cat_id = cat["id"]
-        label = cat.get("label", cat_id)
+        label = cat.get("label", cat["id"])
         run_till = cat.get("run_till", "")[:10]
-        offers = fetch_all_offers(cat_id)
+        offers = fetch_all_offers(cat["id"])
         print(f"    {label} ({run_till}): {len(offers)} tilbud")
         # Nogle kataloger er permanente kampagne-brochurer uden strukturerede
         # tilbud - Tjek selv oplyser offer_count=0 for dem i katalog-metadata.
@@ -373,12 +425,11 @@ def fetch_tjek_tilbud(
         # nogen ved hentning, er den aegte fejlsignatur.
         if not offers and cat.get("offer_count", 0) > 0:
             tomme.append(f"{label} ({run_till})")
-        rows.extend(_rows_from_offers(
-            offers, cat_id, label, butik, seen, dedupe_by_heading=dedupe_by_heading,
-        ))
+        fetched.append((cat, offers))
 
     assert_catalogs_healthy(butik, len(catalogs), tomme)
 
+    rows = rows_from_catalogs(butik, fetched, dedupe_by_heading=dedupe_by_heading)
     print(f"  OK: {len(rows)} {butik}-tilbud hentet fra Tjek API "
           f"({len(catalogs)} kataloger, alle med indhold)")
     return rows

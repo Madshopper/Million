@@ -5,6 +5,7 @@
 import { apiPost } from '../api/client';
 import type { ScoStoreResult } from './sco';
 import type { CartItem } from './types';
+import { kgUnitOf } from '../format/kr';
 
 export type AlternativeItem = {
   cart_id: string;
@@ -58,7 +59,7 @@ export function alternativeAsCartItem(alt: AlternativeItem, original?: CartItem)
     image: alt.alt_image,
     category: alt.alt_category,
     unitMeasure: alt.alt_unitMeasure,
-    kgPrice: alt.alt_kgPrice ? `${alt.alt_kgPrice} kr/kg` : '',
+    kgPrice: alt.alt_kgPrice ? `${alt.alt_kgPrice} kr/${kgUnitOf(alt.alt_unitMeasure)}` : '',
     quantity: original?.quantity ?? 1,
   };
 }

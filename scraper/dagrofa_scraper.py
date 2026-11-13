@@ -190,7 +190,11 @@ CATEGORIES_TO_SCRAPE = {
     "brød og kager": None,
     "drikkevarer": None,
     "vin og spiritus": None,
-    "kiosk - slik og snack": ["chips og snacks", "chokolade", "slik"]
+    "kiosk - slik og snack": ["chips og snacks", "chokolade", "slik"],
+    # Se _api_category: "Diverse" er færdigretter, plantedrikke og nødder, og
+    # babymaden har sin egen underkategori.
+    "diverse": None,
+    "baby og børn": ["babymad og modermælkserstatning"],
 }
 
 # Butikkernes hjemmeside blev ændret (set 07-10-2026): kategorinavnet står nu
@@ -383,12 +387,33 @@ def parse_netto_vaegt(summary_text):
     # calculate_kg_price() nedenfor fungerer fint når den får et tal+enhed ind.
     # Negativt lookbehind på "/" undgår at brøk-mærkede varer ("1/4 ML" for en
     # kvart liter mælk) fejlfortolkes som "4 ml" - femogtres gange for lav vægt.
+    #
+    # Brøken er en del af en liter, uanset om enheden står som ML, L eller LT:
+    # "1/4 ML" er en kvart liter mælk, "1/1 L" en hel liter koldskål.
+    frac = re.match(r'^\s*(\d+)\s*/\s*(\d+)\s*(?:ml|lt|l)\b', summary_text, re.IGNORECASE)
+    if frac and int(frac.group(2)) > 0:
+        litres = int(frac.group(1)) / int(frac.group(2))
+        if 0 < litres <= 5:
+            return f"{litres:g} l"
+
+    # "LT" er butikkernes forkortelse for liter. Den stod ikke i mønsteret, så
+    # alle varer solgt i hele liter (mælk, juice, olie, plantedrikke: 288 hos
+    # de tre butikker, målt 11-11-2026) stod uden størrelse. Skrives som "l",
+    # som resten af koden kender.
     match = re.search(
-        r'(?<!/)(\d+(?:[.,]\d+)?\s*[x×]\s*)?(?<!/)(\d+(?:[.,]\d+)?)\s*(kg|gr|g|l|dl|cl|ml)\b',
+        r'(?<!/)(\d+(?:[.,]\d+)?\s*[x×]\s*)?(?<!/)(\d+(?:[.,]\d+)?)\s*(kg|gr|g|lt|l|dl|cl|ml)\b',
         summary_text, re.IGNORECASE)
     if match:
         prefix = match.group(1) or ''
-        return f"{prefix}{match.group(2)} {match.group(3)}".strip()
+        unit = 'l' if match.group(3).lower() == 'lt' else match.group(3)
+        return f"{prefix}{match.group(2)} {unit}".strip()
+
+    # "300 GL" (glas), "250 BK" (bakke), "270 FL" (flaske): tallet er indholdet
+    # i gram eller milliliter, og enheden er emballagen. Små tal ("1 BK" om en
+    # bakke pærer) er antal og siger intet om indholdet.
+    pack = re.match(r'^\s*(\d+(?:[.,]\d+)?)\s*(gl|bk|fl)\s*$', summary_text, re.IGNORECASE)
+    if pack and float(pack.group(1).replace(',', '.')) >= 50:
+        return f"{pack.group(1)} {'ml' if pack.group(2).lower() == 'fl' else 'g'}"
 
     return ""
 
@@ -684,12 +709,75 @@ def collect_products_in_category(driver, kategori_navn):
 # 4.035 af 4.476, Meny var hel. Med 10.000 kom alle tre butikker hele i én
 # side på ~2,5 s. Sideløkken bliver stående, hvis en butik en dag har flere.
 _API_PAGE_SIZE = 10000
-# Samme sortiment som Selenium-vejen: ingen pleje/husholdning/baby/dyr/diverse,
-# og kun tre underkategorier af kiosk (tobak m.m. udelades).
-_API_EXCLUDED_TOP = {"personlig pleje", "baby og børn", "husholdning",
-                     "dyrenes verden", "diverse"}
+# Hvad der er mad, afgøres på butikkens eget kategoritræ. Målt 11-11-2026 på
+# hele sortimentet hos de tre butikker:
+#   - "Diverse" er 100 % mad (Meny 147, Spar 89, Min Købmand 68): færdigretter,
+#     havre- og mandeldrik, proteindrik, iskaffe, nødder og tørret frugt.
+#     Afdelingen blev sprunget over som ikke-mad, så varerne manglede helt.
+#   - "Baby og børn" har én underkategori med mad (12 + 26 + 34 varer); resten
+#     er bleer, sutter og pleje.
+#   - Proteinbarer og måltidserstatninger står under "Personlig pleje > Øvrig
+#     personlig pleje" sammen med vitaminpiller, kreatin og elektrolyt-tabs
+#     (Spar 20, Min Købmand 19, Meny 3 barer og drikke).
+#   - Varer uden kategori er håndkøbsmedicin (se _api_category).
+# Kun tre underkategorier af kiosk er mad (tobak, blade m.m. udelades).
+_API_EXCLUDED_TOP = {"husholdning", "dyrenes verden"}
 _API_KIOSK_TOP = "kiosk - slik og snack"
 _API_KIOSK_SUBS = {"chips og snacks", "chokolade", "slik"}
+_API_BABY_TOP = "baby og børn"
+_API_BABY_FOOD_SUB = "babymad og modermælkserstatning"
+_API_CARE_TOP = "personlig pleje"
+_API_SPORTS_PATHS = {("øvrig personlig pleje",),
+                     ("øvrig personlig pleje", "vitaminer & kosttilskud")}
+# Barer, shakes og måltidserstatninger. Kosttilskud i samme kategori har
+# også vægt i gram (kreatin 350 g, elektrolyt-tabs 80 g), så enheden kan
+# ikke skille dem ad; det kan navnet. "Protein" alene tæller kun, når varen
+# ikke er pulver, kapsler eller kreatin ("State Protein+" er en bar,
+# "State Kreatin" er ikke mad).
+_SPORTS_FOOD_RE = re.compile(
+    r'\b(?:barebells|\w*bars?|wafer|\w*shake|\w*meal|topp\w*|vingummi)\b', re.IGNORECASE)
+_PROTEIN_RE = re.compile(r'\bprotein', re.IGNORECASE)
+_SUPPLEMENT_RE = re.compile(r'kreatin|pulver|tabs|tablet|kaps', re.IGNORECASE)
+# Kategorien de to grupper gemmes under. updaterens unify_category skjuler
+# alt med kategorien "Personlig pleje", så butikkens eget navn kan ikke bruges.
+_API_BABY_KATEGORI = "Babymad"
+_API_SPORTS_KATEGORI = "Sportsernæring"
+
+
+def _api_category(path, name):
+    """(kategori, None) for en madvare, (None, grund) for alt andet.
+
+    `path` er varens sti i butikkens kategoritræ, fx
+    ("Kiosk - slik og snack", "Chokolade"); tom for et kategori-id der ikke
+    findes i træet."""
+    if not path or not path[0]:
+        # De blev før taget med ("updateren sorterer ikke-mad fra"), men målt
+        # 11-11-2026 er alle 81 (Meny 23, Spar 25, Min Købmand 33)
+        # håndkøbsmedicin: Panodil, Otrivin, Strepsils, Zymelin, Voltaren.
+        # Updaterens ordliste kendte kun nogle af navnene, så resten stod på
+        # siden.
+        return None, "uden kategori"
+    top = path[0]
+    tl = top.lower()
+    sub = path[1] if len(path) > 1 else ""
+    if tl in _API_EXCLUDED_TOP:
+        return None, tl
+    if tl == _API_KIOSK_TOP:
+        if sub.lower() not in _API_KIOSK_SUBS:
+            return None, "kiosk (andet)"
+        return f"{top.title()} - {sub.title()}", None
+    if tl == _API_BABY_TOP:
+        if sub.lower() != _API_BABY_FOOD_SUB:
+            return None, tl
+        return _API_BABY_KATEGORI, None
+    if tl == _API_CARE_TOP:
+        rest = tuple(s.lower() for s in path[1:])
+        if rest in _API_SPORTS_PATHS and (
+                _SPORTS_FOOD_RE.search(name)
+                or (_PROTEIN_RE.search(name) and not _SUPPLEMENT_RE.search(name))):
+            return _API_SPORTS_KATEGORI, None
+        return None, tl
+    return top.title(), None
 
 
 def _api_get(path, params):
@@ -807,16 +895,15 @@ def scrape_via_api():
     'bilka'-formatet (11 kolonner + multikøb + avistitel). Fejler hvis vi ikke når
     API'ets egen `total`, så et ufuldstændigt sæt aldrig gemmes."""
     cats = _api_get("/Category", {"merchantId": MERCHANT_ID})
-    top_of, sub_of = {}, {}
+    path_of = {}
 
-    def walk(c, top, sub):
-        top_of[c["id"]] = top
-        sub_of[c["id"]] = sub
+    def walk(c, path):
+        path_of[c["id"]] = path
         for s in c.get("subCategories") or []:
-            walk(s, top, sub or s["name"])
+            walk(s, path + ((s.get("name") or "").strip(),))
 
     for c in cats:
-        walk(c, c["name"], None)
+        walk(c, ((c.get("name") or "").strip(),))
 
     products, total = [], None
     for page in range(200):
@@ -841,22 +928,12 @@ def scrape_via_api():
         if p.get("isTobacco"):
             skipped["tobak"] = skipped.get("tobak", 0) + 1
             continue
-        top = (top_of.get(p.get("categoryId")) or "").strip()
-        sub = (sub_of.get(p.get("categoryId")) or "").strip()
-        tl = top.lower()
-        if tl in _API_EXCLUDED_TOP:
-            skipped[tl] = skipped.get(tl, 0) + 1
-            continue
-        if tl == _API_KIOSK_TOP and sub.lower() not in _API_KIOSK_SUBS:
-            skipped["kiosk (andet)"] = skipped.get("kiosk (andet)", 0) + 1
-            continue
-        # Varer i et kategori-id der ikke findes i træet (~20-30 pr. butik)
-        # tages med - updaterens klassifikation frasorterer ikke-mad.
-        kategori = top.title() if top else "Andet"
-        if tl == _API_KIOSK_TOP:
-            kategori = f"{top.title()} - {sub.title()}"
-
         name = (p.get("productDisplayName") or "").strip()
+        kategori, reason = _api_category(path_of.get(p.get("categoryId")) or (), name)
+        if kategori is None:
+            skipped[reason] = skipped.get(reason, 0) + 1
+            continue
+
         summary = (p.get("summary") or "").strip()
         netto_vaegt = parse_netto_vaegt(summary)
         normal = float(p.get("price") or 0)

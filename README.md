@@ -25,7 +25,7 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: dev.madshopper.dk 
 - **Native app** - Expo/React Native app in `apps/mobile/` with full feature parity (not a WebView wrapper). See `docs/native-app.md` and `docs/udgivelse.md`
 - **Accessibility** - screen-reader labels and descriptions on every app screen (VoiceOver/TalkBack), see `apps/mobile/src/a11y/`
 - **Product statistics** (Feature `stats`) - anonymous daily counts of product views, cart adds and searches per product/search term (`stats_daily`, `scripts/supabase-stats.sql`), from both website and app. Only numbers, never a user id
-- **User feedback** - stored in Supabase (`public.feedback`) via the validated, throttled `submit_feedback` RPC (`scripts/supabase-admin.sql`)
+- **User feedback** - stored in Supabase (`public.feedback`) via the validated, throttled `submit_feedback` RPC (`scripts/supabase-admin.sql`). The Turnstile token is verified server-side only (`app.py::_verify_turnstile_token`, via `_edge_fetch` on the edge); the page and the app just pass the single-use token along (`scripts/test-feedback-botcheck.py` gates this at deploy)
 - **Admin panel** at `/admin`, invisible to everyone except admins (it answers the normal 404 page otherwise). Tabs: overview, scraping, traffic (Cloudflare Web Analytics), App (downloads, ratings and crashes from App Store Connect via `nightly-health-check.yml`), product statistics, feedback, job runs, recipe moderation and **Feature**
 - **Feature panel** - the overview of everything in progress. Each feature sits in `app._FEATURES` with all its parts (pages, nightly jobs, app parts) and stays hidden on madshopper.dk until it is published from the panel; jobs check the same switch via `scripts/feature_flags.py`. Projects without a switch (e.g. the app in the stores) sit in `app._PROJECTS` with steps marked done. On staging everything is always switched on
 
@@ -66,7 +66,7 @@ Live site: [madshopper.dk](https://madshopper.dk) · Staging: dev.madshopper.dk 
 | Løvbjerg | `scraper/webscrape_lovbjerg.py` (ugens avis-PDF fra lovbjerg.dk, læst med pdfplumber; varebilleder klippet ud af PDF'en via `scraper/avis_billeder.py`) |
 | ABC Lavpris | `scraper/webscrape_abc_lavpris.py` (avisen på abc-lavpris.dk læst med OCR/tesseract, varebilleder via `scraper/avis_billeder.py`) |
 
-Meny, Spar og Min Købmand kører på samme Dagrofa-webshopplatform, så al scraping-logik ligger samlet i `scraper/dagrofa_scraper.py` - hver butik gemmes dog stadig helt separat i Supabase. 365 Discount henter tilbudsavis via Tjek/ShopGun-API'et (samme mønster som `scraper/tjek_tilbud_scraper.py`, men med egen inline-kopi). Netto, Føtex og Lidl henter ugens tilbud fra butikkernes egne sider (Tjek bad os 09-10-2026 stoppe brugen af deres API).
+Meny, Spar og Min Købmand kører på samme Dagrofa-webshopplatform, så al scraping-logik ligger samlet i `scraper/dagrofa_scraper.py` - hver butik gemmes dog stadig helt separat i Supabase. 365 Discount henter tilbudsavis via Tjek/ShopGun-API'et med samme kode som Coop-butikkerne (`scraper/tjek_tilbud_scraper.py`). Bilka, Netto og Føtex deler Sallings kategoritræ, så reglen for hvad der er mad ligger ét sted (`scraper/salling_mad.py`); avisernes læsning af størrelse, pakker og multikøb ligger i `scraper/avis_tekst.py`. Netto, Føtex og Lidl henter ugens tilbud fra butikkernes egne sider (Tjek bad os 09-10-2026 stoppe brugen af deres API).
 
 ## Getting Started
 
@@ -217,13 +217,37 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
   kyl→kylling, kart→kartoffel, champ→champignon, sdj→sønderjysk, ...) so
   Rema's terse feed ("HK. OKSEKØD 4-7%") can meet full store names
   ("Hakket oksekød 4-7% fedt")
-- **Type** - food category (`unify_category`); store categories are noisy (the same
-  jam sits under "Kolonial" at Rema and "Frost" at Salling), so a mismatch only
-  rejects when the name score is below 0.80
+- **Type** - food category (`classify_category`, which also says where the
+  category came from: the store's own department, a guess from the name, or a
+  default). Since 12-11-2026 Bilka, Netto and Føtex save Salling's own
+  department ("Drikkevarer > Sodavand", `salling_mad.kategori`) instead of
+  `'Katalog'`; the old name guess was wrong for almost every second product
+  (Pepsi Max under Kolonial). The gate (`type_gate_rejects`) works in zones:
+  chilled (Køl + Kød & Fisk), frozen, produce, drinks and dry goods (Kolonial +
+  Slik + Brød & Kager). A default never decides anything, and the same zone
+  always passes (Dagrofa keeps sausages under "Kød", Salling under "Mejeri &
+  køl"). When both sides are store departments and one of them is frozen or
+  produce, the pair is rejected unless brand and pack size are the same (fresh
+  vs frozen wok mix, fresh vs dried herbs). Otherwise a mismatch only rejects
+  when the name score is below 0.80 and the photos are not compatible. Measured
+  with the blind test (Meny/Spar/Min Købmand with hidden EAN must find the
+  Salling product): 166 more correct matches. The guessed categories had hidden
+  some false matches by accident, so the gates that should catch them were
+  fixed at the same time: alcohol-free written "0,0" without a percent sign,
+  Faxe Kondi "0 kalorier"/"0 Kal" as sugar-free, and the flavors jalapeño,
+  eksotisk and macadamia. A promoted cheaper store only changes the card's
+  category with its own department, never with a guess
+  (`card_category_after_promotion`)
 - **Weight** - total weight/volume (`_weight_g`); multipacks like `6 x 0.33 liter`
-  are parsed as totals so a single can never matches a 6-pack. The absolute
-  tolerance floor (20 g) scales down to 25% of the weight for small items, so
-  a 20 g pastille tin no longer matches a 40 g tin (spices, gum, chocolate bars)
+  are parsed as totals so a single can never matches a 6-pack. Without a shared
+  EAN (Rema, the flyers and every fuzzy pair) the gate is `same_pack_weight`: at
+  most 8 % apart, with a 2 g floor for rounding. The older `weights_compatible`
+  (8 % with a 20 g floor that scales down to 25 % of the weight) is kept only
+  where an EAN is the evidence, because stores disagree on the stated weight of
+  the same barcode (Knorr bearnaise: 57 g at Dagrofa, 66 g at Salling). Measured
+  12-11-2026: under 250 g the 20 g floor let different pack sizes match (Katjes
+  80 g with 100 g, Pringles 165 g with 185 g, Rema's almonds 90 g with liquorice
+  almonds 110 g), while only 13 of 8.507 same-barcode pairs differ by more than 8 %
 - **Percentages** - fat/alcohol/cocoa percentages stated in the names are real
   product properties: "Tuborg Classic 4,6%" ≠ "Tuborg Classic 0,0%", "Piskefløde
   38%" ≠ "36%". Rejected only when BOTH sides state percentages and none agree -
@@ -257,7 +281,15 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
   product form (drik/budding/...) or variant
   (øko/laktosefri/...) that the base product's own text doesn't mention. In the
   cross-store phases (2/2b) the flavor gate is symmetric since both sides are
-  terse store names. Flavor keywords require a word boundary on at least one
+  terse store names. The reverse case (Rema says øko/laktosefri/sukkerfri/
+  glutenfri, the candidate is silent) costs 0.25 of the Rema score, so the
+  variant listing wins when the store has it, and it is rejected outright when
+  the store itself writes the variant on another listing with all the
+  candidate's words (Netto's "Faxe Kondi 0 kalorier" next to "Faxe Kondi").
+  Exception for øko only: a national brand named in the Rema text that the
+  store never marks øko (Bakkedal). Since 12-11-2026. Unbranded produce skips
+  the barcode-group arbitration, because every store has its own barcode on
+  its broccoli. Flavor keywords require a word boundary on at least one
   side of the hit ('cola' no longer fires inside "chocolat"), compound suffixes
   (-smag/-fyld/-overtræk/-stang) are stripped first so "saltkaramelsmag" still
   yields caramel, and longer keywords consume their text so "hvidløg" (garlic)
@@ -316,7 +348,8 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
 1. **Rema annotation** - each Rema product (no EAN) is matched to comparison stores via `_find_generic_match` (acts as stage-3 initiator).
    - **EAN retro-validation**: when a match carries an EAN, that EAN is looked up in
      every store; if any hit's weight OR stated percentage contradicts Rema's, all
-     matches with that EAN are dropped (kills wrong fuzzy matches against weight-less
+     matches with that EAN are dropped (weight with `same_pack_weight` when the
+     matched listing has no weight of its own, otherwise the EAN-level tolerance) (kills wrong fuzzy matches against weight-less
      Dagrofa listings - or ones missing the literal '%' sign, e.g. "Tuborg Classic
      0,0 6-Pk Ds" - using another store's richer data for the same EAN).
    - **Cross-member validation** (`_drop_cross_conflicting_matches`): the per-store gates
@@ -364,6 +397,11 @@ Products are classified into three **stages** by EAN status. Only stage 3 initia
 ```bash
 # Regression test for the gates - runs in seconds, no network
 python scripts/test-matching.py
+
+# Regression test for what the scrapers decide BEFORE matching: what is food,
+# which department a product is in, and how big it is (no network). Both run
+# on every PR that touches updater.py, app_support.py or scraper/ (pr-tests.yml).
+python scripts/test-butiksdata.py
 
 # Segmented precision/recall against an EAN-verified gold set built from the
 # production cache. ALWAYS read the two segments separately: a combined number
@@ -432,7 +470,9 @@ Million/
 │   ├── scraper_utils.py     # Shared Selenium scraper utilities
 │   ├── supabase_utils.py    # Supabase sync helpers
 │   ├── dagrofa_scraper.py   # Shared scraper for Spar/Meny/Min Købmand
-│   ├── tjek_tilbud_scraper.py # Shared Tjek/ShopGun tilbudsavis-scraper
+│   ├── salling_mad.py       # Shared food rule for Bilka/Netto/Føtex (Salling's category tree)
+│   ├── avis_tekst.py        # Shared flyer rules: size, packs, multi-buy, unit price
+│   ├── tjek_tilbud_scraper.py # Shared Tjek/ShopGun tilbudsavis-scraper (Coop + 365discount)
 │   ├── *_katalog.py         # Full-catalog scrapers (Bilka, Netto, Føtex, Lidl)
 │   └── webscrape_*.py       # Per-store tilbudsavis/katalog scrapers
 ├── scripts/
@@ -451,6 +491,7 @@ Million/
 │   ├── relay-security-events.py   # D1 security events → Supabase + alarms (security-monitor.yml)
 │   ├── cf-analytics.py      # Aggregated Workers/zone metrics (error rate, CPU, 5xx) via GraphQL
 │   ├── test-matching.py / eval-matching.py  # Match-engine regression test + segmented precision/recall
+│   ├── test-butiksdata.py   # Scraper rules regression test: food/non-food, department, size
 │   ├── test-*.py / test-theme-parity.mjs    # Deploy gates and contract tests (see above)
 │   └── supabase-*.sql       # Supabase schema/grants/swap/lockdown scripts
 ├── data/

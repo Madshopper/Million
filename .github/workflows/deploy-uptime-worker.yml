@@ -24,6 +24,7 @@ on:
     branches: [main]
     paths:
       - 'uptime-worker/**'
+      - 'scripts/test-uptime-worker.mjs'
       - '.github/workflows/deploy-uptime-worker.yml'
 
 concurrency:
@@ -50,6 +51,12 @@ jobs:
             echo "::error::Mangler GitHub Actions-secret RESEND_API_KEY"
             exit 1
           fi
+
+      # Uden netværk: morgenens start af hentningen, mailen når starten
+      # fejler, og NEDE/OK-alarmerne. Workeren er eneste vej til nattens
+      # hentning og eneste alarm ved nedbrud, så en fejl må ikke nå ud.
+      - name: Test uptime-workeren
+        run: node scripts/test-uptime-worker.mjs
 
       - name: Deploy madshopper-uptime
         uses: cloudflare/wrangler-action@v3

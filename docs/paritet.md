@@ -31,7 +31,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Underkategori-chips | ✅ | ✅ | ✅ | ✅ | Complete |
 | Paginering | ✅ | ✅ | ✅ | ✅ | Complete |
 | Produktkort: mærke/navn/pris/tilbudsbadge (én fælles tekst fra `app_support.sale_badge`, `sale_badge` i API'et: "Spar xx%" når førprisen kendes, "Spar 14% ved 5 stk" ved multikøb, "Tilbud" uden førpris, og butikken med når kun en anden butik har tilbuddet: "Spar 20% i Bilka" / "Tilbud i Bilka") | ✅ | ✅ | ✅ | ✅ `test-listing-api.py` | Complete *(21-10-2026)* |
-| Produktkort: vægt, "X stk", **kg-pris** | ✅ | ✅ | ✅ | ✅ | Complete *(app fik dem 19-08-2026)* |
+| Produktkort: vægt, "X stk", **kg-pris** (drikkevarer med "kr/l": `kg_unit` i API'et fra `app_support.kg_price_unit`, samme regel i `script.js::kgUnitOf` og appens `format/kr.ts::kgUnitOf`; en stykpris er ingen kilopris) | ✅ | ✅ | ✅ | ✅ | Complete *(app fik dem 19-08-2026; kr/l og stykpris 12-11-2026)* |
 | "Kun hos <butik>"-badge | ✅ | ✅ | ✅ | ✅ | Complete |
 | Farver: tre grønne (#059669 / #047857 / #D6F5E3) + gul til alt tilbud (én gul #DFA300: flade på SPAR-mærket, tekst på tilbudsprisen), intet rødt tilbud, grønt butiksmærke i kurven | ✅ | ✅ | – | ❌ | Complete *(03-10-2026; se `theme/colors.ts`)* |
 | Tom-tilstand ("ingen varer matcher") | ✅ | ✅ | – | ✅ | Complete |
@@ -57,7 +57,7 @@ Symboler: ✅ implementeret · ⚠️ delvist · ❌ mangler · – ikke relevan
 | Feature | Web | App | Backend | Tests | Status |
 |---|---|---|---|---|---|
 | Prissammenligning på tværs af butikker (maks. 5) | ✅ | ✅ | ✅ | ⚠️ | Complete |
-| Kg-pris pr. butik | ✅ | ✅ | ✅ | ⚠️ | Complete |
+| Kg-pris pr. butik (kr/l for drikkevarer; Rema-linjen viser Remas egen kilopris, også når kortet viser en billigere butik: `rema_kg_price`) | ✅ | ✅ | ✅ | ✅ `test-listing-api.py` | Complete *(12-11-2026)* |
 | Multikøbs-tilbud | ✅ | ✅ | ✅ | ✅ | Complete |
 | Prishistorik-graf (30 dage, pr. butik) | ✅ | ✅ | ✅ `/api/price-history` | ❌ | Complete |
 | Prisindsigt ("billigere end normalt") | ✅ | ✅ | – | ❌ | Complete |
@@ -289,3 +289,15 @@ målt igen med en 19-scenariers kurv-suite på desktop og mobil.
 
 Opskrifternes "Kommer snart"-teaser på forsiden (sidste punkt i #163) er
 bevidst beholdt: Kalle valgte den 02-10-2026 (PR #26) og låste den 18-10-2026.
+
+## 9. Rettet 12-11-2026 (gennemgang af endpoints og matching)
+
+| Fund | Platform | Rettelse |
+|---|---|---|
+| Stykpris vist som kilopris: æg "3,02 kr/kg", meloner, citroner og kaffefiltre, ca. 1.040 varer. Saft "pr. liter færdigblandet" stod som pris pr. liter saft | **Begge** (nattens opbygning) | `updater.parse_kg_price` læser kun kr/kg og kr/l; "kr/stk", "kr/meter" og "kr/l.bl" giver ingen kilopris, og saft med vægten "6 l.b" heller ikke. Kg-pris-gaten i matchingen sammenligner derfor ikke længere en stykpris med en kilopris |
+| Drikkevarer viste "kr/kg" | **Begge** | `kg_unit` ("kg" eller "l") på kortet og pr. butik i sammenligningen (`kg_unit` på hver butik i `store_matches`), også i kurven og VoiceOver ("pr. liter") |
+| Rema-linjen i sammenligningen viste den billigste butiks kilopris (og i appen dens multikøb), når kortet viste en anden butik end Rema (ca. 550 kort) | **Begge** | Kortet gemmer Remas egen kilopris i `/product/rema_kg_price` (API: `rema_kg_price`); web `data-rema-row-kg-price`, appen `ProductDetailScreen` |
+
+Appens del når butiksappen med næste version i App Store. MadShopper Test
+får den over nettet efter merge. Ældre app-versioner ignorerer de nye felter
+og viser som før.

@@ -442,11 +442,47 @@ async function dispatch(env, url, inputs) {
   }
 }
 
+// Kan workeren ikke starte morgenens hentning, prøver næste tick igen (til
+// kl. 12). Fejler det MORNING_FAIL_RUNS tick i træk samme morgen, går der én
+// mail. Før stod fejlen kun i workerens log, som ingen læser: GitHub-nøglen
+// "MadShopper nat" (oprettet 10-10-2026) kan udløbe, og så er det eneste
+// sikkerhedsnet GitHubs egen cron, der kom 7-9 timer for sent 08-11 til
+// 10-11-2026. Siden ville stå med gårsdagens priser til middag, uden at
+// nogen fik besked.
+const MORNING_FAIL_KEY = "nat_fejl_v1";
+const MORNING_FAIL_RUNS = 3;
+
+export async function morningFailed(env, scheduledTime, err) {
+  console.error("morgen: kunne ikke starte nightly-dispatcher:", String(err));
+  try {
+    const date = danishParts(scheduledTime).date;
+    const tick = Math.floor(scheduledTime / TICK_MS);
+    const prev = (await env.STATE.get(MORNING_FAIL_KEY, "json")) || {};
+    const same = prev.date === date;
+    // Mailen er sendt i dag, eller dette er dubletten af samme tick (se DUPLICATE).
+    if (same && (prev.mailed || prev.tick === tick)) return null;
+    const n = same ? (prev.n || 0) + 1 : 1;
+    let mailed = false;
+    if (n >= MORNING_FAIL_RUNS) {
+      mailed = await sendMail(env, "MadShopper: nattens hentning af butikkerne kunne ikke startes", [
+        `Fejlet ${n} gange i træk i dag. Seneste fejl: ${String(err).slice(0, 300)}`,
+        "Workeren prøver igen hvert 5. minut til kl. 12. Derefter er det GitHubs egen cron, der henter, og den kommer flere timer for sent.",
+        "Svarer GitHub 401 eller 403, er nøglen \"MadShopper nat\" udløbet: lav en ny under github.com/settings/personal-access-tokens (kun Actions: skriv på Million), læg den i GitHub-secret NIGHTLY_DISPATCH_TOKEN og kør Deploy uptime-worker.",
+      ]);
+    }
+    await env.STATE.put(MORNING_FAIL_KEY, JSON.stringify({ date, tick, n, mailed }));
+    return { n, mailed };
+  } catch (stateErr) {
+    console.error("morgen: kunne ikke gemme fejlen:", String(stateErr));
+    return null;
+  }
+}
+
 export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(startMorning(env, event.scheduledTime).then(
       (r) => r && console.log("morgen:", r),
-      (err) => console.error("morgen: kunne ikke starte nightly-dispatcher:", String(err)),
+      (err) => morningFailed(env, event.scheduledTime, err),
     ));
     ctx.waitUntil(check(env, event.scheduledTime).then((r) => {
       const failing = Object.keys(r.down);

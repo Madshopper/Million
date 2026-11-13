@@ -53,7 +53,10 @@ LEAFLET_API = "https://endpoints.leaflets.schwarz/v4/flyer"
 LEAFLET_SUBCATEGORY = "Lidl avisen"
 
 _LEAFLET_ID_RE = re.compile(r'/l/da/tilbudsavis/([a-z0-9-]+)/')
-_CAMPAIGN_LINK_RE = re.compile(r'href="(?:https://www\.lidl\.dk)?(/c/[^"/?#]+/a\d+)"')
+# Kampagnesiderne hed /c/<navn>/a<id>; siden 05-11-2026 hedder de
+# /c/store/<navn>/a<id>. Regex'et krævede præcis ét led og fandt derfor 0
+# sider, så Lidl stod med en uge gamle tilbud. Nu må der være flere led.
+_CAMPAIGN_LINK_RE = re.compile(r'href="(?:https://www\.lidl\.dk)?(/c/(?:[^"/?#]+/)+a\d+)"')
 _GRID_DATA_RE = re.compile(r'data-grid-data="([^"]+)"')
 
 
