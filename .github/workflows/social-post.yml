@@ -1,18 +1,19 @@
 name: Post video (Facebook + Instagram)
 
 # Poster næste video fra social/koe/ på Facebook-siden MadShopper og
-# Instagram @madshopper.dk, altid begge eller ingen (scripts/social-post.py).
+# Instagram @madshopper.dk via Make.com (scripts/social-post.py). Facebook
+# først, Instagram kun bagefter.
 #
 # Ingen egen cron: GitHub-cron kommer 1-4 timer for sent. uptime-worker/
 # (Cloudflare, hvert 5. minut) starter den mandag og torsdag kl. 19.30 dansk
 # tid (startSocial i uptime-worker/worker.js). Manuel start kører altid.
-# Kræver GitHub-secret META_PAGE_TOKEN; uden den stopper kørslen grønt.
+# Kræver GitHub-secret MAKE_WEBHOOK_URL; uden den stopper kørslen grønt.
 
 on:
   workflow_dispatch:
     inputs:
       proevekoersel:
-        description: 'Prøvekørsel: tjek video, tekst og nøgle, men post intet'
+        description: 'Prøvekørsel: tjek video, tekst og videolink, men post intet'
         type: boolean
         default: false
 
@@ -29,7 +30,7 @@ env:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -45,7 +46,7 @@ jobs:
       - name: Post næste video
         id: post
         env:
-          META_PAGE_TOKEN: ${{ secrets.META_PAGE_TOKEN }}
+          MAKE_WEBHOOK_URL: ${{ secrets.MAKE_WEBHOOK_URL }}
         run: |
           if [ "${{ inputs.proevekoersel }}" = "true" ]; then
             python3 scripts/social-post.py --dry-run
