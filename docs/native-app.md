@@ -890,8 +890,9 @@ Events: `add_to_cart`, `compare_prices`, `category_click`, `search`.
 - [ ] Apple Developer (~99 USD/år) + Google Play (~25 USD engangs)
 - [ ] `eas login` + `eas init` + EAS secrets (Supabase publishable, Google client) — se §9.1 + `docs/env-setup.md` §5a
 - [ ] Screenshots, privacy nutrition labels, ATT
-- [ ] Sæt `APPLE_TEAM_ID` + `ANDROID_CERT_SHA256` i Worker-vars → deploy
-- [ ] Universal/App Links for `?liste=` (verificér efter Team ID)
+- [x] Sæt `APPLE_TEAM_ID` i Worker-vars → deploy (13-11-2026: `AM99ASD924` i `scripts/build-pages.sh`, `APP_LINKS_LINE`; rod-`wrangler.toml` bruges ikke ved deploy)
+- [ ] Sæt `ANDROID_CERT_SHA256` (samme sted) når Android udgives
+- [ ] Universal/App Links for `?liste=` (verificér efter Team ID; kun `/?liste=` åbner appen, se `app.py::apple_app_site_association`)
 - [ ] TestFlight / internal testing
 - [ ] Production review / Submit for Review
 

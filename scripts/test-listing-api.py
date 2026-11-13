@@ -297,11 +297,53 @@ def test_routes() -> None:
             ok(f'filtre OK: {path.split("?")[0]} → {r.status_code}')
 
 
+def test_app_links() -> None:
+    """Apples link-fil: kun delte indkøbslister (/?liste=) må åbne appen, og et
+    forkert team-id giver tomme details i stedet for et forkert appID."""
+    import json as _json
+    client = flask_app.test_client()
+    path = '/.well-known/apple-app-site-association'
+    old = os.environ.get('APPLE_TEAM_ID')
+    try:
+        for value, want_app in (('', False), ('abc', False), ('AB12CD34EF', True), (' ab12cd34ef ', True)):
+            os.environ['APPLE_TEAM_ID'] = value
+            r = client.get(path)
+            if r.status_code != 200 or r.mimetype != 'application/json':
+                fail(f'{path} med team-id {value!r} → {r.status_code} {r.mimetype}')
+                continue
+            data = _json.loads(r.data)
+            details = data.get('applinks', {}).get('details', [])
+            if not want_app:
+                if details:
+                    fail(f'{path}: team-id {value!r} skal give tomme details, fik {details}')
+                else:
+                    ok(f'{path}: team-id {value!r} giver tomme details')
+                continue
+            if len(details) != 1 or details[0].get('appIDs') != ['AB12CD34EF.dk.madshopper.app']:
+                fail(f'{path}: forkert appIDs for {value!r}: {details}')
+                continue
+            comps = details[0].get('components', [])
+            if comps != [{'/': '/', '?': {'liste': '?*'}, 'comment': 'Delt indkøbsliste'}]:
+                fail(f'{path}: kun /?liste= må åbne appen, fik {comps}')
+            elif 'paths' in details[0]:
+                fail(f'{path}: gamle "paths" (fx "*") må ikke stå i filen')
+            elif data.get('webcredentials', {}).get('apps') != ['AB12CD34EF.dk.madshopper.app']:
+                fail(f'{path}: webcredentials mangler appID')
+            else:
+                ok(f'{path}: team-id {value!r} giver kun delte indkøbslister')
+    finally:
+        if old is None:
+            os.environ.pop('APPLE_TEAM_ID', None)
+        else:
+            os.environ['APPLE_TEAM_ID'] = old
+
+
 def main() -> int:
     print('Listing-API kontrakt-test (native-app Fase 0)')
     test_serializer()
     test_sale_badge()
     test_routes()
+    test_app_links()
     print()
     if _failures:
         print(f'{_failures} fejl')

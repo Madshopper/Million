@@ -301,3 +301,13 @@ bevidst beholdt: Kalle valgte den 02-10-2026 (PR #26) og låste den 18-10-2026.
 Appens del når butiksappen med næste version i App Store. MadShopper Test
 får den over nettet efter merge. Ældre app-versioner ignorerer de nye felter
 og viser som før.
+
+## 10. Rettet 13-11-2026 (links til madshopper.dk på iPhone)
+
+| Fund | Platform | Rettelse |
+|---|---|---|
+| Apples link-fil (`/.well-known/apple-app-site-association`) gjaldt alle stier (`*`). Appen kan kun åbne delte indkøbslister og afviser login-links over https, så da team-id'et blev sat, ville ethvert link til siden (fra Google, Facebook eller hjemmesidens egne nulstillingsmails) have åbnet appens forside på en iPhone med appen | **App** (link-filen ligger på web) | Kun `https://madshopper.dk/?liste=<token>` åbner appen (`components` med `?liste`); alt andet åbner hjemmesiden som før. Et team-id der ikke er 10 tegn giver tomme details. Kontrol i `scripts/test-listing-api.py` |
+
+Android (`intentFilters` i `apps/mobile/app.config.js`) gælder stadig alle stier
+(`pathPrefix: '/'`), men er først aktiv, når Android-appen er udgivet og
+`ANDROID_CERT_SHA256` er sat. Ret den til kun `/` i samme omgang.

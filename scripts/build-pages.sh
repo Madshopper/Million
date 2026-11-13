@@ -85,6 +85,10 @@ if [ "$DEPLOY_ENV" = "staging" ]; then
   HALLOWEEN_LOGO_LINE=""
   # Jule-logoet (app.py::_FEATURES 'jul_tema') er altid til på dev.
   JUL_TEMA_LINE='JUL_TEMA_ENABLED = "1"'
+  # Testappen (dk.madshopper.app.test) gør ikke krav på dev.madshopper.dk
+  # (associatedDomains er tom i apps/mobile/app.config.js), så staging har
+  # ingen app-links.
+  APP_LINKS_LINE=""
   # Custom domain så staging er nemmere at finde end workers.dev-URL'en
   # (samme adgangsspærring gælder stadig, se STAGING_ACCESS_SECRET nedenfor).
   ROUTES_BLOCK='
@@ -129,6 +133,11 @@ else
   KURV_BESKED_LINE=""
   HALLOWEEN_LOGO_LINE=""
   JUL_TEMA_LINE=""
+  # Apple Team ID til /.well-known/apple-app-site-association (Universal
+  # Links: kun delte indkøbslister /?liste= åbner appen, se app.py). Ikke en
+  # hemmelighed: det står i link-filen og i appens signatur. Rod-wrangler.toml
+  # bruges IKKE ved deploy (se DRIFT-FÆLDE nederst), så det skal stå her.
+  APP_LINKS_LINE='APPLE_TEAM_ID = "AM99ASD924"'
   # Produktion: ALDRIG overstyrbar. En glemt miljoevariabel i en terminal maa
   # ikke kunne saette beskyttelsen ud af kraft paa det rigtige site.
   RATE_LIMIT_PER_MIN=150
@@ -356,6 +365,7 @@ BUILD_ID = "${BUILD_ID_VALUE}"
 # Skrive-tabeller (cart_popularity, price_alerts): "" = produktion, "_dev" =
 # dev-kopier (scripts/supabase-dev-tables.sql), så test ikke rører prod-data.
 TABLE_SUFFIX = "${TABLE_SUFFIX_VALUE}"
+${APP_LINKS_LINE}
 ${RECIPES_LINE}
 ${PUSH_LINE}
 ${STATS_LINE}

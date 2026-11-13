@@ -187,26 +187,30 @@ Opdateret 04-10-2026. Koden er klar; dette er dine trin, i rækkefølge.
 
 Uden det her åbner `madshopper.dk`-links i browseren i stedet for i appen.
 
-Redigér `wrangler.toml` under `[env.production.vars]` (linje ~42-43), fjern
-kommentar-tegnene og udfyld:
-
-```toml
-APPLE_TEAM_ID = "AB12CD34EF"
-ANDROID_CERT_SHA256 = "AA:BB:...:ZZ"      # kommaseparér flere fingerprints
-```
-
-Deploy og verificér:
+Værdierne står i `scripts/build-pages.sh` (`APP_LINKS_LINE`, kun produktionen),
+ikke i rod-`wrangler.toml`, som deployet ikke bruger. `APPLE_TEAM_ID` er sat
+13-11-2026; `ANDROID_CERT_SHA256` tilføjes som en ekstra linje, når
+Android-appen udgives (se `docs/env-setup.md` § 5b).
 
 ```bash
-bash scripts/build-pages.sh
-npx wrangler@4.114.0 deploy --config dist/wrangler.toml --env production
+APP_LINKS_LINE='APPLE_TEAM_ID = "AM99ASD924"'
+```
 
+Deploy med `deploy-edge.yml` og verificér:
+
+```bash
 curl https://madshopper.dk/.well-known/apple-app-site-association
 curl https://madshopper.dk/.well-known/assetlinks.json
 ```
 
-Begge skal nu indeholde udfyldt `appID` hhv. `sha256_cert_fingerprints` — indtil
+Begge skal nu indeholde udfyldt `appIDs` hhv. `sha256_cert_fingerprints` — indtil
 vars er sat, svarer de bevidst med tomme, men gyldige, payloads.
+
+Apples fil gælder kun delte indkøbslister (`/?liste=<token>`, se `components` i
+`app.py::apple_app_site_association`). Appen har ingen sti-til-skærm-mapping og
+afviser login-links over https, så alle andre links skal blive på hjemmesiden.
+iPhones henter filen via Apples CDN, når appen installeres eller opdateres, så
+det kan tage op til et døgn, før et link åbner appen.
 
 ---
 
