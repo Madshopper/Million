@@ -25,6 +25,9 @@ type Extra = {
 
 const extra = (Constants.expoConfig?.extra || {}) as Extra;
 
+// MadShopper Test (APP_VARIANT=test) har sit eget scheme, se app.config.js.
+const schemes = ([] as unknown[]).concat(Constants.expoConfig?.scheme ?? []);
+
 export const env = {
   flavor: (extra.flavor || 'production') as 'production' | 'staging' | 'local',
   /** Vises nederst på Profil, så en fejlmelding kan knyttes til en konkret udgave. */
@@ -40,6 +43,8 @@ export const env = {
   googleAndroidClientId: extra.googleAndroidClientId || '',
   /** Kun MadShopper Test mod dev.madshopper.dk (se app.config.js). */
   stagingAppKey: extra.stagingAppKey || '',
+  /** Sand i MadShopper Test (dk.madshopper.app.test), falsk i butiksappen. */
+  isTestApp: schemes.includes('madshopper-test'),
 };
 
 /**

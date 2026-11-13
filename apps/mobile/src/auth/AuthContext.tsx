@@ -10,7 +10,6 @@ import React, {
 import type { Session, User } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { makeRedirectUri } from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -21,7 +20,7 @@ import {
 } from '@react-native-google-signin/google-signin';
 import { env, rpcName } from '../config/env';
 import { getSupabase } from './supabase';
-import { parseRecoveryLink, parseSignupLink } from './recoveryLink';
+import { appAuthRedirect, parseRecoveryLink, parseSignupLink } from './recoveryLink';
 import { getTurnstileToken } from './turnstile';
 import { disablePush, resyncPush, usePushFeature } from '../push/push';
 import { useCart } from '../cart/CartContext';
@@ -71,6 +70,58 @@ async function readPendingEmail(key: string, ttlMs: number): Promise<string | nu
     /* ingen brugbar kvittering */
   }
   return null;
+}
+
+type VerifiedLink =
+  | { ok: true; accessToken: string; refreshToken: string; email: string }
+  | { ok: false; reason: 'expired' | 'network' };
+
+/**
+ * Veksler en token_hash fra en login-mail (`…/app/konto#token_hash=…`) hos
+ * Supabase med et rått POST /auth/v1/verify, UDEN at sætte sessionen i
+ * klienten. sb.auth.verifyOtp logger ind med det samme (kurv-synk og beskeder
+ * kører for kontoen), så kontoen skal tjekkes mod kvitteringen FØR sessionen
+ * sættes, ligesom getUser-tjekket for de gamle links (sikkerhedstjek runde 3).
+ * For en bekræftelse er det dette kald, der bekræfter e-mailen.
+ */
+async function verifyTokenHash(tokenHash: string, type: string): Promise<VerifiedLink> {
+  if (!env.supabaseUrl || !env.supabaseAnonKey) return { ok: false, reason: 'network' };
+  try {
+    const res = await fetch(`${env.supabaseUrl}/auth/v1/verify`, {
+      method: 'POST',
+      headers: { apikey: env.supabaseAnonKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, token_hash: tokenHash }),
+    });
+    const body = (await res.json().catch(() => null)) as {
+      access_token?: string;
+      refresh_token?: string;
+      user?: { email?: string };
+    } | null;
+    if (res.ok && body?.access_token && body.refresh_token) {
+      return {
+        ok: true,
+        accessToken: body.access_token,
+        refreshToken: body.refresh_token,
+        email: (body.user?.email || '').trim().toLowerCase(),
+      };
+    }
+    return { ok: false, reason: 'expired' };
+  } catch {
+    return { ok: false, reason: 'network' };
+  }
+}
+
+/** Lukker en session fra et link vi ikke bruger (fremmed konto). Bedste forsøg. */
+async function revokeSession(accessToken: string): Promise<void> {
+  if (!env.supabaseUrl || !env.supabaseAnonKey) return;
+  try {
+    await fetch(`${env.supabaseUrl}/auth/v1/logout?scope=local`, {
+      method: 'POST',
+      headers: { apikey: env.supabaseAnonKey, Authorization: `Bearer ${accessToken}` },
+    });
+  } catch {
+    /* sessionen udløber af sig selv */
+  }
 }
 
 type AuthContextValue = {
@@ -548,8 +599,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Tjek kontoen FØR sessionen sættes: setSession logger ind med det
       // samme (kurv-synk og push kører for den konto), så et fremmed links
       // tokens skal afvises uden at blive brugt (sikkerhedstjek runde 3).
-      // getUser(token) spørger Supabase uden at gemme nogen session.
-      if (link.kind === 'tokens') {
+      // getUser(token) spørger Supabase uden at gemme nogen session; et
+      // token_hash-link (nye mails) veksles uden at logge ind, og dets konto
+      // tjekkes på samme måde.
+      let tokens: { accessToken: string; refreshToken: string } | null = null;
+      if (link.kind === 'token_hash') {
+        const verified = await verifyTokenHash(link.tokenHash, link.otpType);
+        if (cancelled) return;
+        if (!verified.ok) {
+          setRecoveryError(
+            verified.reason === 'network'
+              ? 'Ingen forbindelse. Tryk på linket i mailen igen.'
+              : 'Linket er udløbet eller allerede brugt. Bed om et nyt.',
+          );
+          return;
+        }
+        if (verified.email !== pendingEmail) {
+          void revokeSession(verified.accessToken);
+          setRecoveryError('Linket matcher ikke en nulstilling, du selv har bedt om. Bed om et nyt link.');
+          return;
+        }
+        tokens = { accessToken: verified.accessToken, refreshToken: verified.refreshToken };
+      } else if (link.kind === 'tokens') {
         const pre = await sb.auth.getUser(link.accessToken);
         if (cancelled) return;
         const preEmail = pre.data.user?.email?.trim().toLowerCase();
@@ -557,19 +628,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setRecoveryError('Linket matcher ikke en nulstilling, du selv har bedt om. Bed om et nyt link.');
           return;
         }
+        tokens = { accessToken: link.accessToken, refreshToken: link.refreshToken };
       }
 
       setRecoveryError(null);
       // Sæt flaget FØR sessionen: onAuthStateChange fyrer synkront bagefter,
       // og AuthScreen skal vise "vælg ny adgangskode", ikke "du er logget ind".
       setRecoveryActive(true);
-      const result =
-        link.kind === 'tokens'
-          ? await sb.auth.setSession({
-              access_token: link.accessToken,
-              refresh_token: link.refreshToken,
-            })
-          : await sb.auth.exchangeCodeForSession(link.code);
+      let result;
+      if (tokens) {
+        result = await sb.auth.setSession({
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+        });
+      } else if (link.kind === 'code') {
+        result = await sb.auth.exchangeCodeForSession(link.code);
+      } else {
+        setRecoveryActive(false);
+        return;
+      }
       if (cancelled) return;
       if (result.error) {
         setRecoveryActive(false);
@@ -627,28 +704,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!sb) return;
 
       const pendingEmail = await readPendingEmail(PENDING_SIGNUP_KEY, PENDING_SIGNUP_TTL_MS);
-      if (!pendingEmail) {
-        // Oprettet på en anden enhed (eller et fremmed link): mailen er
-        // bekræftet, men vi logger ikke ind på en konto vi ikke kender.
-        setSignupLinkNotice('Din e-mail er bekræftet. Log ind for at fortsætte.');
-        return;
-      }
-      if (link.kind === 'tokens') {
-        const pre = await sb.auth.getUser(link.accessToken);
+      let tokens: { accessToken: string; refreshToken: string } | null = null;
+      if (link.kind === 'token_hash') {
+        // Nye mails: e-mailen bekræftes først af kaldet her (ikke hos
+        // Supabase, før appen åbner), så nøglen veksles også uden kvittering.
+        // Vi logger bare kun ind, når kontoen er den, DENNE enhed oprettede.
+        const verified = await verifyTokenHash(link.tokenHash, link.otpType);
         if (cancelled) return;
-        const preEmail = pre.data.user?.email?.trim().toLowerCase();
-        if (pre.error || preEmail !== pendingEmail) {
-          setSignupLinkNotice('Linket matcher ikke en konto, du har oprettet her. Log ind for at fortsætte.');
+        if (!verified.ok) {
+          setSignupLinkNotice(
+            verified.reason === 'network'
+              ? 'Ingen forbindelse. Tryk på linket i mailen igen.'
+              : 'Linket er udløbet eller allerede brugt. Prøv at logge ind.',
+          );
           return;
         }
+        if (!pendingEmail || verified.email !== pendingEmail) {
+          void revokeSession(verified.accessToken);
+          setSignupLinkNotice(
+            pendingEmail
+              ? 'Linket matcher ikke en konto, du har oprettet her. Log ind for at fortsætte.'
+              : 'Din e-mail er bekræftet. Log ind for at fortsætte.',
+          );
+          return;
+        }
+        tokens = { accessToken: verified.accessToken, refreshToken: verified.refreshToken };
+      } else {
+        if (!pendingEmail) {
+          // Oprettet på en anden enhed (eller et fremmed link): mailen er
+          // bekræftet, men vi logger ikke ind på en konto vi ikke kender.
+          setSignupLinkNotice('Din e-mail er bekræftet. Log ind for at fortsætte.');
+          return;
+        }
+        if (link.kind === 'tokens') {
+          const pre = await sb.auth.getUser(link.accessToken);
+          if (cancelled) return;
+          const preEmail = pre.data.user?.email?.trim().toLowerCase();
+          if (pre.error || preEmail !== pendingEmail) {
+            setSignupLinkNotice('Linket matcher ikke en konto, du har oprettet her. Log ind for at fortsætte.');
+            return;
+          }
+          tokens = { accessToken: link.accessToken, refreshToken: link.refreshToken };
+        }
       }
-      const result =
-        link.kind === 'tokens'
-          ? await sb.auth.setSession({
-              access_token: link.accessToken,
-              refresh_token: link.refreshToken,
-            })
-          : await sb.auth.exchangeCodeForSession(link.code);
+      let result;
+      if (tokens) {
+        result = await sb.auth.setSession({
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+        });
+      } else if (link.kind === 'code') {
+        result = await sb.auth.exchangeCodeForSession(link.code);
+      } else {
+        return;
+      }
       if (cancelled) return;
       if (result.error) {
         setSignupLinkNotice('Din e-mail er bekræftet. Log ind for at fortsætte.');
@@ -715,7 +824,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
           // Bekræftelseslinket skal åbne APPEN, ikke hjemmesiden (før
           // env.apiBaseUrl = madshopper.dk, så man blev logget ind på webben).
-          emailRedirectTo: makeRedirectUri({ scheme: 'madshopper' }),
+          // https://madshopper.dk/app/konto står i Apples link-fil, så iPhone
+          // åbner appen direkte; se recoveryLink.ts og supabase/templates/.
+          emailRedirectTo: appAuthRedirect(env.isTestApp),
         },
       });
       if (error) return { error: oversaetFejl(error), needsConfirmation: false };
@@ -817,7 +928,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const sb = getSupabase();
     if (!sb) return 'Supabase er ikke konfigureret';
     const { error } = await sb.auth.resetPasswordForEmail(email, {
-      redirectTo: makeRedirectUri({ scheme: 'madshopper' }),
+      // Samme side som bekræftelsen: åbner appen direkte (recoveryLink.ts).
+      redirectTo: appAuthRedirect(env.isTestApp),
     });
     if (!error) {
       // Kvittering til recovery-link-effekten: et link accepteres kun hvis

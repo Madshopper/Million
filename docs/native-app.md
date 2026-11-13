@@ -892,7 +892,7 @@ Events: `add_to_cart`, `compare_prices`, `category_click`, `search`.
 - [ ] Screenshots, privacy nutrition labels, ATT
 - [x] Sæt `APPLE_TEAM_ID` i Worker-vars → deploy (13-11-2026: `AM99ASD924` i `scripts/build-pages.sh`, `APP_LINKS_LINE`; rod-`wrangler.toml` bruges ikke ved deploy)
 - [ ] Sæt `ANDROID_CERT_SHA256` (samme sted) når Android udgives
-- [ ] Universal/App Links for `?liste=` (verificér efter Team ID; kun `/?liste=` åbner appen, se `app.py::apple_app_site_association`)
+- [ ] Universal/App Links for `?liste=` og `/app/konto` (verificér efter Team ID; kun de to åbner appen, se `app.py::apple_app_site_association` og `docs/email-bekraeftelse.md`)
 - [ ] TestFlight / internal testing
 - [ ] Production review / Submit for Review
 

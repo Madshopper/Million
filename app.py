@@ -2163,6 +2163,11 @@ _PROJECTS = (
         'parts': (
             {'done': True, 'name': '1.0.6 bygget og på TestFlight',
              'desc': 'Bygget 28-10-2026. Har ikke jule-temaet.'},
+            {'done': False, 'name': 'Mails fra appen åbner appen direkte',
+             'desc': 'Ny adgangskode og bekræftelse bestilt i appen åbner '
+                     'appen uden om Safari. Kræver de danske mail-skabeloner '
+                     'i Supabase (docs/email-bekraeftelse.md) og kommer med '
+                     'næste build.'},
             {'done': False, 'name': 'Nyt build med jule-temaet',
              'desc': 'Bygges med store-ios-build.yml fra main, så nissen, '
                      'girlanden og sneen er med.'},
@@ -4931,12 +4936,16 @@ def apple_app_site_association():
     Uden et gyldigt team-id returneres tomme details, så Apple ikke cacher et
     forkert appID.
 
-    Kun delte indkøbslister (https://madshopper.dk/?liste=<token>) åbner
-    appen. Appen har bevidst ingen sti-til-skærm-mapping
-    (RootNavigator.recoveryLinking) og afviser login-links over https
-    (auth/recoveryLink.ts). Med alle stier ('*') ville ethvert link til siden,
-    fx fra Google, Facebook eller hjemmesidens egne nulstillingsmails, åbne
-    appens forside i stedet for siden, og en nulstilling bestilt på
+    Kun to slags links åbner appen:
+    - delte indkøbslister (https://madshopper.dk/?liste=<token>)
+    - login-mails bestilt i appen (https://madshopper.dk/app/konto#token_hash=…,
+      se app_auth_link og supabase/templates/). Testappens udgave
+      (?app=test) er udelukket, så den ikke åbner butiksappen.
+    Appen har bevidst ingen sti-til-skærm-mapping
+    (RootNavigator.recoveryLinking) og afviser alle andre login-links over
+    https (auth/recoveryLink.ts). Med alle stier ('*') ville ethvert link til
+    siden, fx fra Google, Facebook eller hjemmesidens egne nulstillingsmails,
+    åbne appens forside i stedet for siden, og en nulstilling bestilt på
     hjemmesiden kunne ikke gennemføres på en iPhone med appen.
     """
     team = (os.environ.get('APPLE_TEAM_ID') or '').strip().upper()
@@ -4951,6 +4960,10 @@ def apple_app_site_association():
                     'appIDs': [app_id],
                     'components': [
                         {'/': '/', '?': {'liste': '?*'}, 'comment': 'Delt indkøbsliste'},
+                        # Rækkefølgen tæller: første match vinder.
+                        {'/': '/app/konto', '?': {'app': 'test'}, 'exclude': True,
+                         'comment': 'Login-mail fra MadShopper Test'},
+                        {'/': '/app/konto', 'comment': 'Login-mail bestilt i appen'},
                     ],
                 }],
             },
@@ -4962,6 +4975,26 @@ def apple_app_site_association():
     )
     resp.headers['Cache-Control'] = 'public, max-age=3600'
     return resp
+
+
+@app.route('/app/konto')
+def app_auth_link():
+    """Login-mails bestilt i appen: ny adgangskode og bekræft e-mail.
+
+    Linket i mailen er https://madshopper.dk/app/konto#token_hash=…&type=…
+    (supabase/templates/, valgt når redirectTo er præcis denne side). På en
+    iPhone med appen åbner Apple det direkte i appen
+    (apple_app_site_association), og siden her vises aldrig. Ellers (en
+    computer, testappen, en ældre app, et mailprogram med egen browser)
+    sender siden linket videre til appens scheme med en knap, og en
+    bekræftelse kan klares her uden at logge ind. Nøglen står i fragmentet og
+    når aldrig serveren. Selvstændig side uden base.html: auth.js må ikke se
+    et login-fragment her og logge browseren ind.
+    """
+    response = Response(render_template('app_konto.html'))
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['X-Robots-Tag'] = 'noindex'
+    return response
 
 
 @app.route('/.well-known/assetlinks.json')

@@ -83,7 +83,10 @@ const Tabs = createBottomTabNavigator<TabParamList>();
  * Linking-lytter og har ingen navigationsvirkning.
  */
 const recoveryLinking: LinkingOptions<RootStackParamList> = {
-  prefixes: [Linking.createURL('/'), 'madshopper://'],
+  // https: mails bestilt i appen peger på madshopper.dk/app/konto, som iPhone
+  // åbner direkte i appen (Apples link-fil). filter lukker kun login-links
+  // ind; delte lister (?liste=) håndteres af SharedCartContext.
+  prefixes: [Linking.createURL('/'), 'madshopper://', 'https://madshopper.dk'],
   filter: (url) => isRecoveryUrl(url) || parseSignupLink(url) !== null,
   getStateFromPath: () => ({
     routes: [{ name: 'Tabs' as const }, { name: 'Auth' as const }],

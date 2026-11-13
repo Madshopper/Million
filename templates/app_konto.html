@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Åbn MadShopper-appen</title>
+<!-- Selvstændig side (udvider ikke base.html): login-mails bestilt i appen
+     peger her (app.py::app_auth_link). auth.js må ikke se linkets fragment og
+     logge browseren ind, så sitets fulde side med login er bevidst ikke med. -->
+<style>
+  * { box-sizing: border-box; }
+  :root { --bg: #F9FAFB; --card: #FFFFFF; --text: #111827; --muted: #4B5563; --green: #059669; --green-dark: #047857; --line: #E5E7EB; --err: #B91C1C; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1f16; --card: #13291d; --text: #eef2ee; --muted: #9fb0a6; --line: #1f3a2b; --err: #fca5a5; }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .card { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 28px 22px; text-align: center; }
+  .logo { font-weight: 800; font-size: 20px; color: var(--green); margin: 0 0 18px; letter-spacing: -0.01em; }
+  h1 { font-size: 20px; margin: 0 0 10px; }
+  p { color: var(--muted); font-size: 15px; line-height: 1.5; margin: 0 0 18px; }
+  .btn { display: block; width: 100%; padding: 14px 16px; border-radius: 12px; border: 0; font-size: 16px; font-weight: 700; text-decoration: none; cursor: pointer; font-family: inherit; }
+  .btn-primary { background: var(--green); color: #fff; }
+  .btn-primary:hover { background: var(--green-dark); }
+  .btn-secondary { background: transparent; color: var(--green); border: 1px solid var(--line); margin-top: 10px; }
+  .small { font-size: 13px; margin: 16px 0 0; }
+  .msg { font-size: 14px; margin: 14px 0 0; min-height: 0; }
+  .msg.err { color: var(--err); }
+  .hidden { display: none; }
+  a.home { color: var(--green); }
+</style>
+</head>
+<body>
+  <main class="card">
+    <p class="logo">MadShopper</p>
+    <h1 id="ak-title">Åbn linket i appen</h1>
+    <p id="ak-text">Tryk på knappen for at fortsætte i MadShopper-appen.</p>
+    <a id="ak-open" class="btn btn-primary hidden" href="#">Åbn MadShopper</a>
+    <button id="ak-confirm" type="button" class="btn btn-secondary hidden">Bekræft min e-mail her</button>
+    <p id="ak-msg" class="msg" role="status" aria-live="polite"></p>
+    <p id="ak-help" class="small">Virker knappen ikke? Åbn mailen på den telefon, hvor du har MadShopper-appen, og tryk på linket dér.</p>
+    <p class="small"><a class="home" href="/">Gå til madshopper.dk</a></p>
+  </main>
+  <script>
+  (function () {
+    var SB_URL = {{ supabase_url|tojson }};
+    var SB_KEY = {{ supabase_anon_key|tojson }};
+    // Kun de felter appen bruger, sendes videre (recoveryLink.ts).
+    var KEYS = ['token_hash', 'type', 'access_token', 'refresh_token', 'expires_in',
+                'expires_at', 'token_type', 'code', 'error', 'error_code', 'error_description'];
+    var params, query;
+    try {
+      params = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+      query = new URLSearchParams(window.location.search || '');
+    } catch (e) { return; }
+    var type = params.get('type') || '';
+    var tokenHash = params.get('token_hash') || '';
+    var hasLogin = !!(tokenHash || params.get('access_token') || params.get('code'));
+    var hasError = !!(params.get('error') || params.get('error_description'));
+    var isSignup = type === 'signup' || type === 'email';
+    var isRecovery = type === 'recovery';
+    var isTest = query.get('app') === 'test';
+    var ua = navigator.userAgent || '';
+    var isPhone = /iPhone|iPad|iPod|Android/i.test(ua) ||
+      (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+
+    function el(id) { return document.getElementById(id); }
+    function show(id, on) { el(id).classList.toggle('hidden', !on); }
+    function text(id, value) { el(id).textContent = value; }
+
+    if (hasError) {
+      text('ak-title', 'Linket er udløbet');
+      text('ak-text', 'Linket er for gammelt eller allerede brugt. Bed om et nyt i appen.');
+      show('ak-help', false);
+      return;
+    }
+    if (!hasLogin || !(isSignup || isRecovery)) {
+      text('ak-title', 'Linket mangler noget');
+      text('ak-text', 'Tryk på linket i mailen igen. Kopierer du det, så tag hele linket med.');
+      show('ak-help', false);
+      return;
+    }
+
+    var out = new URLSearchParams();
+    KEYS.forEach(function (k) { if (params.get(k)) out.set(k, params.get(k)); });
+    // Linket ligger nu i knappen; fjern det fra adresselinjen og historikken.
+    try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) { /* ignorér */ }
+    var open = el('ak-open');
+    open.href = (isTest ? 'madshopper-test' : 'madshopper') + '://app/konto#' + out.toString();
+    text('ak-open', isTest ? 'Åbn MadShopper Test' : 'Åbn MadShopper');
+
+    if (isRecovery) {
+      text('ak-title', 'Vælg ny adgangskode i appen');
+      text('ak-text', isPhone
+        ? 'Du bad om en ny adgangskode i MadShopper-appen. Tryk på knappen for at vælge den.'
+        : 'Du bad om en ny adgangskode i MadShopper-appen. Åbn mailen på din telefon, og tryk på linket dér.');
+    } else if (!tokenHash) {
+      // Ældre mail: Supabase har allerede bekræftet e-mailen, før siden åbnede.
+      text('ak-title', 'Din e-mail er bekræftet');
+      text('ak-text', isPhone
+        ? 'Tryk på knappen for at logge ind i MadShopper-appen.'
+        : 'Log ind i MadShopper-appen med din e-mail og adgangskode.');
+    } else {
+      text('ak-title', 'Bekræft din e-mail');
+      text('ak-text', isPhone
+        ? 'Du oprettede din konto i MadShopper-appen. Tryk på knappen for at bekræfte din e-mail og logge ind.'
+        : 'Du oprettede din konto i MadShopper-appen. Tryk på knappen for at bekræfte din e-mail. Bagefter logger du ind i appen.');
+    }
+    show('ak-open', isPhone);
+    show('ak-help', isPhone);
+
+    // Bekræftelse kan også klares her (fx på en computer). Nøglen veksles hos
+    // Supabase, og sessionen lukkes igen med det samme: siden logger aldrig
+    // ind, den bekræfter kun e-mailen. Ny adgangskode kræver appen, fordi
+    // kun den ved, at den selv har bedt om linket.
+    if (isSignup && tokenHash && SB_URL && SB_KEY) {
+      var btn = el('ak-confirm');
+      show('ak-confirm', true);
+      if (!isPhone) btn.className = 'btn btn-primary';
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        text('ak-msg', 'Bekræfter …');
+        el('ak-msg').className = 'msg';
+        fetch(SB_URL + '/auth/v1/verify', {
+          method: 'POST',
+          headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: type, token_hash: tokenHash })
+        }).then(function (res) {
+          return res.json().catch(function () { return null; }).then(function (body) {
+            if (res.ok && body && body.access_token) {
+              fetch(SB_URL + '/auth/v1/logout?scope=local', {
+                method: 'POST',
+                headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + body.access_token }
+              }).catch(function () {});
+              text('ak-title', 'Din e-mail er bekræftet');
+              text('ak-text', 'Log ind i MadShopper-appen med din e-mail og adgangskode.');
+              text('ak-msg', '');
+              show('ak-open', false);
+              show('ak-confirm', false);
+              show('ak-help', false);
+              return;
+            }
+            btn.disabled = false;
+            el('ak-msg').className = 'msg err';
+            text('ak-msg', 'Linket er udløbet eller allerede brugt. Prøv at logge ind i appen.');
+          });
+        }).catch(function () {
+          btn.disabled = false;
+          el('ak-msg').className = 'msg err';
+          text('ak-msg', 'Ingen forbindelse. Prøv igen.');
+        });
+      });
+    }
+  })();
+  </script>
+</body>
+</html>
