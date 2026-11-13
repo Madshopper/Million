@@ -311,3 +311,16 @@ og viser som før.
 Android (`intentFilters` i `apps/mobile/app.config.js`) gælder stadig alle stier
 (`pathPrefix: '/'`), men er først aktiv, når Android-appen er udgivet og
 `ANDROID_CERT_SHA256` er sat. Ret den til kun `/` i samme omgang.
+
+## 11. Ny 13-11-2026 (mails om adgangskode og bekræftelse åbner appen)
+
+| Fund | Platform | Rettelse |
+|---|---|---|
+| Mails om ny adgangskode og bekræftelse, bestilt i appen, åbnede først Safari (link via supabase.co, derefter `madshopper://`). Mailene var Supabases engelske standard | **App** (siden og link-filen ligger på web) | Appen beder om links til `https://madshopper.dk/app/konto`, som står i Apples link-fil, og de danske skabeloner i `supabase/templates/` lægger `#token_hash=…` i linket, så iPhone åbner appen direkte. Appen veksler nøglen uden at logge ind og tjekker kvitteringen, før sessionen sættes (`AuthContext.tsx`, `recoveryLink.ts`). Åbnes linket i en browser, sender `/app/konto` det videre til appen med en knap, og en bekræftelse kan klares dér uden login |
+| Mails bestilt på hjemmesiden | **Web** | Uændret: de åbner hjemmesiden. Kun den enhed der bad om en ny adgangskode, kan gøre den færdig (kvitteringen), så appen kan ikke overtage en nulstilling startet på hjemmesiden |
+
+Kræver at skabelonerne er sat ind i Supabase (docs/email-bekraeftelse.md).
+Butiksappen får det med næste version i App Store; indtil da går mails fra
+appen via Safari som før. MadShopper Test følger med over nettet, men står
+ikke i link-filen (`?app=test` er udelukket) og åbner derfor via knappen på
+siden.

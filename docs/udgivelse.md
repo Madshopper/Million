@@ -206,9 +206,11 @@ curl https://madshopper.dk/.well-known/assetlinks.json
 Begge skal nu indeholde udfyldt `appIDs` hhv. `sha256_cert_fingerprints` — indtil
 vars er sat, svarer de bevidst med tomme, men gyldige, payloads.
 
-Apples fil gælder kun delte indkøbslister (`/?liste=<token>`, se `components` i
-`app.py::apple_app_site_association`). Appen har ingen sti-til-skærm-mapping og
-afviser login-links over https, så alle andre links skal blive på hjemmesiden.
+Apples fil gælder kun delte indkøbslister (`/?liste=<token>`) og login-mails
+bestilt i appen (`/app/konto`, ikke testappens `?app=test`), se `components` i
+`app.py::apple_app_site_association` og `docs/email-bekraeftelse.md`. Appen har
+ingen sti-til-skærm-mapping og afviser alle andre login-links over https, så
+alle andre links skal blive på hjemmesiden.
 iPhones henter filen via Apples CDN, når appen installeres eller opdateres, så
 det kan tage op til et døgn, før et link åbner appen.
 

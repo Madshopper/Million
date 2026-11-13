@@ -13,6 +13,7 @@ Data-afhængige asserts (produkter > 0) skips blødt hvis lokal cache mangler.
 from __future__ import annotations
 
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -298,8 +299,10 @@ def test_routes() -> None:
 
 
 def test_app_links() -> None:
-    """Apples link-fil: kun delte indkøbslister (/?liste=) må åbne appen, og et
-    forkert team-id giver tomme details i stedet for et forkert appID."""
+    """Apples link-fil: kun delte indkøbslister (/?liste=) og login-mails
+    bestilt i appen (/app/konto, ikke testappens ?app=test) må åbne appen, og
+    et forkert team-id giver tomme details i stedet for et forkert appID.
+    Siden /app/konto skal findes, være selvstændig og aldrig caches."""
     import json as _json
     client = flask_app.test_client()
     path = '/.well-known/apple-app-site-association'
@@ -322,20 +325,39 @@ def test_app_links() -> None:
             if len(details) != 1 or details[0].get('appIDs') != ['AB12CD34EF.dk.madshopper.app']:
                 fail(f'{path}: forkert appIDs for {value!r}: {details}')
                 continue
-            comps = details[0].get('components', [])
-            if comps != [{'/': '/', '?': {'liste': '?*'}, 'comment': 'Delt indkøbsliste'}]:
-                fail(f'{path}: kun /?liste= må åbne appen, fik {comps}')
+            comps = [{k: v for k, v in c.items() if k != 'comment'}
+                     for c in details[0].get('components', [])]
+            want = [
+                {'/': '/', '?': {'liste': '?*'}},
+                {'/': '/app/konto', '?': {'app': 'test'}, 'exclude': True},
+                {'/': '/app/konto'},
+            ]
+            if comps != want:
+                fail(f'{path}: kun /?liste= og /app/konto må åbne appen, fik {comps}')
             elif 'paths' in details[0]:
                 fail(f'{path}: gamle "paths" (fx "*") må ikke stå i filen')
             elif data.get('webcredentials', {}).get('apps') != ['AB12CD34EF.dk.madshopper.app']:
                 fail(f'{path}: webcredentials mangler appID')
             else:
-                ok(f'{path}: team-id {value!r} giver kun delte indkøbslister')
+                ok(f'{path}: team-id {value!r} giver kun delte lister og login-mails')
     finally:
         if old is None:
             os.environ.pop('APPLE_TEAM_ID', None)
         else:
             os.environ['APPLE_TEAM_ID'] = old
+
+    r = client.get('/app/konto')
+    body = r.get_data(as_text=True)
+    if r.status_code != 200:
+        fail(f'/app/konto → {r.status_code}')
+    elif r.headers.get('Cache-Control') != 'no-store':
+        fail(f'/app/konto må ikke caches, fik {r.headers.get("Cache-Control")!r}')
+    elif re.search(r'<script[^>]+src=[^>]*(auth|supabase)', body):
+        fail('/app/konto må ikke indlæse auth.js (den ville logge browseren ind)')
+    elif "madshopper-test" not in body or "'madshopper'" not in body:
+        fail('/app/konto skal kunne sende videre til både appen og testappen')
+    else:
+        ok('/app/konto: selvstændig side, caches ikke, sender videre til appen')
 
 
 def main() -> int:

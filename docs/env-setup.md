@@ -222,7 +222,8 @@ Efter deploy: verificér med
 `curl https://madshopper.dk/.well-known/apple-app-site-association` og
 `curl https://madshopper.dk/.well-known/assetlinks.json` — begge skal nu
 indeholde udfyldt `appIDs` hhv. `sha256_cert_fingerprints`. Apples fil gælder
-kun delte indkøbslister (`/?liste=`), se `docs/udgivelse.md` § 4.
+kun delte indkøbslister (`/?liste=`) og login-mails bestilt i appen
+(`/app/konto`), se `docs/udgivelse.md` § 4.
 
 ### 5a. EAS secrets — nøjagtige kommandoer (kør efter `eas login` + `eas init`)
 
