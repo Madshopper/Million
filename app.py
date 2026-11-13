@@ -2060,10 +2060,13 @@ _PROJECTS = (
             {'done': True, 'name': 'Programmet bygget',
              'desc': 'scripts/social-post.py og social-post.yml, startet '
                      'kl. 19.30 af uptime-workeren.'},
-            {'done': False, 'name': 'Nøglen META_PAGE_TOKEN i GitHub',
-             'desc': 'Kalle laver den selv (kun han styrer Facebook-siden). '
-                     'Kræver en Meta-udviklerkonto, hvor sms-koden indtil '
-                     'videre ikke er kommet frem.'},
+            {'done': False, 'name': 'Make-scenarie',
+             'desc': 'Scenariet "MadShopper video" i Make.com: Facebook-reel '
+                     'først, så Instagram, med Kalles eget login. Metas '
+                     'udviklerkonto bruges ikke (sms-koden kom aldrig frem).'},
+            {'done': False, 'name': 'MAKE_WEBHOOK_URL i GitHub',
+             'desc': 'Webhookens adresse fra Make som GitHub-secret. Den er '
+                     'hemmelig og må kun stå dér.'},
             {'done': False, 'name': 'Prøvekørsel',
              'desc': 'Start social-post.yml med Prøvekørsel under Actions.'},
             {'done': False, 'name': 'Første video i køen',

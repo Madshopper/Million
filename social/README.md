@@ -25,24 +25,40 @@ dansk tid. GitHubs egen cron bruges ikke, fordi den kommer 1 til 4 timer for
 sent. Workflowet kan også startes i hånden under Actions, med "Prøvekørsel"
 der tjekker video, tekst og nøgle uden at poste.
 
-## Nøglen META_PAGE_TOKEN
+## Postering via Make.com
 
-GitHub-secret med en **sidenøgle** for Facebook-siden MadShopper, der står til
-"Expires: Never" og har tilladelserne `pages_show_list`,
-`pages_read_engagement`, `pages_manage_posts`, `business_management`,
-`instagram_basic` og `instagram_content_publish`. Den laves af en, der er
-administrator på siden og har en Meta-udviklerkonto (Kalle; kun han styrer siden):
+Selve posteringen sker i Make.com, fordi Metas egen vej kræver en
+udviklerkonto, og Meta kan ikke sende sms-koden til Kalles nummer. Make har
+sin egen godkendte Meta-app. `scripts/social-post.py` sender kun et link til
+videoen (raw.githubusercontent.com, derfor skal repoet være offentligt) og
+teksten til Make. Meta henter selv videoen fra linket, så den aldrig går
+gennem Make (gratisplanen har kun 100 MB dataoverførsel om måneden).
 
-1. developers.facebook.com: opret appen "MadShopper Poster" (type Business),
-   tilføj "Facebook Login for Business" og "Instagram". Appen bliver i
-   udviklingstilstand.
-2. Graph API Explorer: vælg appen, "Hent brugeradgangstoken" med de seks
-   tilladelser, og godkend for siden og Instagram-kontoen.
-3. Access Token Debugger: "Extend Access Token" og brug den lange nøgle.
-4. Graph API Explorer med den lange nøgle: `GET me/accounts`, tag sidens
-   `access_token`. Tjek i debuggeren at den står til "Expires: Never".
-5. github.com/Madshopper/Million/settings/secrets/actions: ny secret
-   `META_PAGE_TOKEN` med sidenøglen.
+Scenariet hedder "MadShopper video" (Make, gratisplan, EU-region, Kalles
+konto) og kører "Immediately as data arrives":
 
-Uden nøglen stopper kørslen grønt uden at poste. Prøv bagefter en
-prøvekørsel under Actions.
+1. **Webhooks > Custom webhook** "MadShopper video" modtager
+   `{"video_url", "caption", "file"}`.
+2. **Facebook-reel** på siden MadShopper med videoen fra `video_url` og
+   `caption` som beskrivelse. Fejler den, svarer en error handler
+   `{"status": "fb_failed", "error": ...}` og stopper: intet er udgivet.
+3. **Instagram for Business > Create a Reel Post** på @madshopper.dk, kun
+   EFTER Facebook. Fejler den, svarer en error handler
+   `{"status": "ig_failed", "facebook_id": ..., "error": ...}`.
+4. **Webhooks > Webhook response** 200 med
+   `{"status": "ok", "facebook_id": ..., "instagram_id": ...}`.
+
+Facebook- og Instagram-forbindelserne i Make er lavet med Kalles eget
+Facebook-login og har kun adgang til siden MadShopper og @madshopper.dk.
+Kun Kalle styrer siden.
+
+## Hemmeligheden MAKE_WEBHOOK_URL
+
+Webhookens adresse i Make ligger som GitHub-secret `MAKE_WEBHOOK_URL` på
+github.com/Madshopper/Million/settings/secrets/actions. Den er hemmelig:
+alle med adressen kan poste på siden. Den må kun stå i secret'en, aldrig i
+kode, commits, chat eller noter. Får du brug for en ny, så lav en ny webhook i
+scenariet og erstat secret'en.
+
+Uden secret'en stopper kørslen grønt uden at poste. En prøvekørsel under
+Actions tjekker video, tekst og videolink uden at kalde Make.
